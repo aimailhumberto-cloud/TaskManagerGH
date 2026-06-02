@@ -259,6 +259,7 @@ export default function DashboardClient({
   const upcomingRepetitiveTasks = useMemo(() => {
     return tasks.filter(t => 
       t.type === 'Repetitive' && 
+      t.status !== 'Completed' && 
       t.dueDate && t.dueDate.substring(0, 10) > todayStr
     ).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
   }, [tasks, todayStr]);

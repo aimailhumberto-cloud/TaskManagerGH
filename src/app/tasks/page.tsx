@@ -260,6 +260,13 @@ export default function TasksPage() {
   });
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
+    // Rule 1: Completed tasks always go to the bottom
+    const aComp = a.status === 'Completed' ? 1 : 0;
+    const bComp = b.status === 'Completed' ? 1 : 0;
+    if (aComp !== bComp) {
+      return aComp - bComp;
+    }
+
     if (sortBy === 'title') {
       return a.title.localeCompare(b.title);
     }
