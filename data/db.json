@@ -1,0 +1,337 @@
+{
+  "companies": [
+    {
+      "id": "comp-2",
+      "name": "Golden Hour"
+    },
+    {
+      "id": "comp-3",
+      "name": "Mahana Tours"
+    },
+    {
+      "id": "comp-4",
+      "name": "ANS Tienda"
+    },
+    {
+      "id": "comp-5",
+      "name": "Surf Shack"
+    },
+    {
+      "id": "comp-6",
+      "name": "Casa Mahana"
+    },
+    {
+      "id": "comp-7",
+      "name": "Soluciones Express"
+    }
+  ],
+  "people": [
+    {
+      "id": "usr-1",
+      "name": "Test",
+      "role": "Test",
+      "avatar": "/avatars/user.png"
+    },
+    {
+      "id": "usr-carlos",
+      "name": "Carlos",
+      "role": "Administrativo",
+      "companyId": "c1",
+      "avatar": "/avatars/carlos.png"
+    },
+    {
+      "id": "usr-4",
+      "name": "HB",
+      "role": "Owner",
+      "avatar": "/avatars/user.png"
+    },
+    {
+      "id": "usr-5",
+      "name": "Magin Campoverde",
+      "role": "Gerente",
+      "avatar": "/avatars/user.png"
+    },
+    {
+      "id": "usr-6",
+      "name": "Kiria Bravo",
+      "role": "Gerente",
+      "avatar": "/avatars/user.png"
+    },
+    {
+      "id": "usr-7",
+      "name": "Onyx",
+      "role": "AIAgent",
+      "avatar": "/avatars/user.png"
+    },
+    {
+      "id": "usr-10",
+      "name": "Yessenia Saenz",
+      "role": "Coordinadora Operativa",
+      "avatar": "/avatars/user.png"
+    },
+    {
+      "id": "usr-11",
+      "name": "Adela",
+      "role": "Encargada Tienda",
+      "avatar": "/avatars/user.png"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "title": "Coordinación Operativa de Tienda",
+      "description": "# Tienda Radisson\nCoordinar entrega de inventario de temporada alta con Adela.",
+      "type": "One-shot",
+      "steps": [],
+      "companyId": "comp-4",
+      "assigneeId": "usr-10",
+      "assigneeIds": [
+        "usr-10"
+      ],
+      "status": "Pending",
+      "priority": "High",
+      "origin": "Golden Hour",
+      "dueDate": "2026-06-05",
+      "attachments": [],
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:24:52.872Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "id": "t2",
+      "title": "Revisión de CXP y Caja Chica",
+      "description": "# Finanzas\nRevisar flujo de caja chica mensual y conciliaciones de Surf Shack.",
+      "type": "Repetitive",
+      "repeatPattern": "Monthly",
+      "steps": [],
+      "companyId": "comp-5",
+      "assigneeId": "usr-carlos",
+      "assigneeIds": [
+        "usr-carlos"
+      ],
+      "status": "In Progress",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-06-10",
+      "attachments": [],
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:24:52.872Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "id": "t3",
+      "title": "Daily standup operativo",
+      "description": "# Standup\nRevisión de reservas de tours del día y asignación de lanchas.",
+      "type": "Repetitive",
+      "repeatPattern": "Daily",
+      "steps": [],
+      "companyId": "comp-3",
+      "assigneeId": "usr-7",
+      "assigneeIds": [
+        "usr-7"
+      ],
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-06-02",
+      "attachments": [],
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:24:52.872Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "id": "t4",
+      "title": "Auditoría de Reservas - Golden Hour",
+      "description": "# Auditoría\nRevisar facturación de reservas cruzadas con Mahana Tours.",
+      "type": "Project",
+      "steps": [
+        {
+          "id": "s1",
+          "text": "Verificar listado de huéspedes",
+          "completed": true,
+          "status": "Completed"
+        },
+        {
+          "id": "s2",
+          "text": "Confirmar pagos en pasarela",
+          "completed": false,
+          "status": "Pending"
+        }
+      ],
+      "companyId": "comp-2",
+      "assigneeId": "usr-5",
+      "assigneeIds": [
+        "usr-5"
+      ],
+      "status": "In Progress",
+      "priority": "High",
+      "origin": "Golden Hour",
+      "dueDate": "2026-06-06",
+      "attachments": [],
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:24:52.872Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "id": "t5",
+      "title": "Apertura de Tienda y Check-in",
+      "description": "# Tienda\nRecepción de insumos y entrenamiento de personal de ANS Tienda.",
+      "type": "Repetitive",
+      "repeatPattern": "Daily",
+      "steps": [],
+      "companyId": "comp-4",
+      "assigneeId": "usr-11",
+      "assigneeIds": [
+        "usr-11"
+      ],
+      "status": "Completed",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-06-01",
+      "attachments": [],
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:24:52.872Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "id": "t6",
+      "title": "Plan de Marketing - Temporada Alta",
+      "description": "# Marketing\nEstrategia de pauta digital para Mahana Tours y Surf Shack.",
+      "type": "Project",
+      "steps": [
+        {
+          "id": "s1",
+          "text": "Diseñar banners gráficos",
+          "completed": false,
+          "status": "Pending"
+        },
+        {
+          "id": "s2",
+          "text": "Redactar copy de anuncios",
+          "completed": false,
+          "status": "Pending"
+        }
+      ],
+      "companyId": "comp-3",
+      "assigneeId": "usr-6",
+      "assigneeIds": [
+        "usr-6"
+      ],
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-06-15",
+      "attachments": [],
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:24:52.872Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "id": "t7",
+      "title": "Comité de Estrategia de Holding (Compartida)",
+      "description": "# Reunión General\nRevisión trimestral de metas de Casa Mahana y Soluciones Express.",
+      "type": "One-shot",
+      "steps": [],
+      "companyId": "comp-6",
+      "assigneeId": "usr-4",
+      "assigneeIds": [
+        "usr-4",
+        "usr-5",
+        "usr-6"
+      ],
+      "status": "Pending",
+      "priority": "High",
+      "origin": "Golden Hour",
+      "dueDate": "2026-06-08",
+      "attachments": [],
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:24:52.872Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "id": "t8",
+      "title": "Inspección de Mantenimiento de Villas",
+      "description": "# Casa Mahana\nRevisar aire acondicionado y plomería en Villa A.",
+      "type": "One-shot",
+      "steps": [],
+      "companyId": "comp-6",
+      "assigneeId": "usr-5",
+      "assigneeIds": [
+        "usr-5"
+      ],
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-05-15",
+      "attachments": [],
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:24:52.872Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    }
+  ],
+  "templates": [
+    {
+      "id": "tpl1",
+      "name": "Notificación de Asignación",
+      "subject": "Nueva tarea asignada: {{task_title}}",
+      "body": "Hola {{assignee_name}},\n\nSe te ha asignado la tarea '{{task_title}}' con fecha límite {{due_date}}.\n\nSaludos,\nEquipo Golden Hour"
+    }
+  ],
+  "smtpConfig": {
+    "host": "smtp.mailtrap.io",
+    "port": 587,
+    "secure": false,
+    "user": "user_id",
+    "pass": "password_id"
+  },
+  "agentQueue": [
+    {
+      "taskId": "t4",
+      "command": "Ping Hermes",
+      "payload": {},
+      "id": "q1",
+      "status": "Pending",
+      "timestamp": "2026-06-01T19:20:53.961Z"
+    }
+  ]
+}

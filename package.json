@@ -1,0 +1,38 @@
+{
+  "name": "hermes-task-dashboard",
+  "version": "1.0.0",
+  "description": "E2E testing suite and Next.js App for Hermes Task Hub",
+  "main": "run-e2e.js",
+  "scripts": {
+    "dev": "next dev -p 3010",
+    "build": "next build",
+    "start": "next start -p 3010",
+    "lint": "next lint",
+    "test:db": "npx tsx scripts/testDbService.ts",
+    "test:persons": "npx tsx scripts/testPersonsRoute.ts",
+    "test:e2e": "node run-e2e.js",
+    "test:playwright": "playwright test"
+  },
+  "dependencies": {
+    "next": "^14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "nodemailer": "^6.9.9",
+    "marked": "^11.1.1",
+    "typescript": "^5.3.3",
+    "@types/node": "^20.11.16",
+    "@types/react": "^18.2.52",
+    "@types/react-dom": "^18.2.18",
+    "@types/nodemailer": "^6.4.14"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "tailwindcss": "^3.4.1",
+    "postcss": "^8.4.35",
+    "autoprefixer": "^10.4.17",
+    "tsx": "^4.7.1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

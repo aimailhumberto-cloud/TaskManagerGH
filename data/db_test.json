@@ -1,0 +1,236 @@
+{
+  "companies": [
+    {
+      "id": "comp-1",
+      "name": "Mahana Casa"
+    },
+    {
+      "id": "comp-2",
+      "name": "Golden Hour"
+    },
+    {
+      "id": "c1",
+      "name": "ACME Corp"
+    },
+    {
+      "id": "c2",
+      "name": "Stark Industries"
+    }
+  ],
+  "people": [
+    {
+      "id": "usr-1",
+      "name": "Tú",
+      "role": "Admin",
+      "avatar": "/avatars/user.png"
+    },
+    {
+      "id": "p3",
+      "name": "Hermes AI",
+      "role": "AIAgent",
+      "avatar": "/avatars/hermes.png"
+    },
+    {
+      "id": "p1",
+      "name": "Alice Smith",
+      "role": "Admin",
+      "avatar": "/avatars/alice.png"
+    },
+    {
+      "id": "p2",
+      "name": "Bob Jones",
+      "role": "Member",
+      "avatar": "/avatars/bob.png"
+    },
+    {
+      "id": "usr-daniel",
+      "name": "Daniel",
+      "role": "CEO",
+      "avatar": "/avatars/daniel.png"
+    },
+    {
+      "id": "usr-elena",
+      "name": "Elena",
+      "role": "Gerente",
+      "companyId": "c1",
+      "avatar": "/avatars/elena.png"
+    },
+    {
+      "id": "usr-carlos",
+      "name": "Carlos",
+      "role": "Tercero / Externo",
+      "companyId": "c1",
+      "avatar": "/avatars/carlos.png"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "t1",
+      "title": "Verificar cadena de suministro",
+      "description": "# Verificar cadena de suministro\nTesting title validation",
+      "type": "One-shot",
+      "steps": [],
+      "companyId": "c1",
+      "assigneeId": "p2",
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Golden Hour",
+      "dueDate": "2026-06-05",
+      "attachments": [],
+      "activityLog": []
+    },
+    {
+      "title": "Corruption Test Task",
+      "description": "Clean test task description",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "c1",
+      "assigneeId": "p2",
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-06-01T18:38:48.473Z",
+      "attachments": [],
+      "id": "t2",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-01T18:38:48.474Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "Adversarial Recurrence Task",
+      "description": "Testing recurrence mapping",
+      "type": "Repetitive",
+      "repeatPattern": "Daily",
+      "steps": [],
+      "companyId": "c1",
+      "assigneeId": "p2",
+      "status": "Pending",
+      "priority": "Low",
+      "origin": "Manual",
+      "dueDate": "2026-06-01T18:38:48.501Z",
+      "attachments": [],
+      "id": "t3",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-01T18:38:48.502Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "AI Activity Log Task",
+      "description": "Clean test task description",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "c1",
+      "assigneeId": "p2",
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-06-01T18:38:48.522Z",
+      "attachments": [],
+      "id": "t4",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-01T18:38:48.523Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        },
+        {
+          "timestamp": "2026-06-01T18:38:48.540Z",
+          "user": "System",
+          "action": "Notificación enviada al Agente (Comando: Ping Hermes)",
+          "type": "AI"
+        }
+      ]
+    },
+    {
+      "title": "Concurrency Task",
+      "description": "Concurrent update description E",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "c1",
+      "assigneeId": "p2",
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-06-01T18:38:48.582Z",
+      "attachments": [],
+      "id": "t5",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-01T18:38:48.582Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        },
+        {
+          "timestamp": "2026-06-01T18:38:48.596Z",
+          "user": "System",
+          "action": "Tarea actualizada",
+          "type": "User"
+        },
+        {
+          "timestamp": "2026-06-01T18:38:48.599Z",
+          "user": "System",
+          "action": "Tarea actualizada",
+          "type": "User"
+        },
+        {
+          "timestamp": "2026-06-01T18:38:48.600Z",
+          "user": "System",
+          "action": "Tarea actualizada",
+          "type": "User"
+        },
+        {
+          "timestamp": "2026-06-01T18:38:48.602Z",
+          "user": "System",
+          "action": "Tarea actualizada",
+          "type": "User"
+        },
+        {
+          "timestamp": "2026-06-01T18:38:48.603Z",
+          "user": "System",
+          "action": "Tarea actualizada",
+          "type": "User"
+        }
+      ]
+    }
+  ],
+  "templates": [
+    {
+      "id": "tpl1",
+      "name": "Notificación de Asignación",
+      "subject": "Nueva tarea asignada: {{task_title}}",
+      "body": "Hola {{assignee_name}},\n\nSe te ha asignado la tarea '{{task_title}}' con fecha límite {{due_date}}.\n\nSaludos,\nEquipo Golden Hour"
+    }
+  ],
+  "smtpConfig": {
+    "host": "smtp.mailtrap.io",
+    "port": 587,
+    "secure": false,
+    "user": "user_id",
+    "pass": "password_id"
+  },
+  "agentQueue": [
+    {
+      "taskId": "t4",
+      "command": "Ping Hermes",
+      "payload": {},
+      "id": "q1",
+      "status": "Pending",
+      "timestamp": "2026-06-01T18:38:48.538Z"
+    }
+  ]
+}
