@@ -5,10 +5,78 @@ import HslAvatar from '@/components/HslAvatar';
 import TaskDrawer, { Task, Person, Company } from '@/components/TaskDrawer';
 
 export default function UserDashboard() {
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Raw API lists before filtering
+  const [rawTasks, setRawTasks] = useState<Task[]>([]);
+  const [rawCompanies, setRawCompanies] = useState<Company[]>([]);
+  const [rawPeople, setRawPeople] = useState<Person[]>([]);
+  const [session, setSession] = useState<any>(null);
+
+  // Fetch session on mount
+  useEffect(() => {
+    async function fetchSession() {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated) {
+            setSession(data.user);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching session in user dashboard:', err);
+      }
+    }
+    fetchSession();
+  }, []);
+
+  // Filter lists according to role/company
+  useEffect(() => {
+    let filteredTasks = rawTasks;
+    let filteredPeople = rawPeople;
+    let filteredCompanies = rawCompanies;
+
+    if (session) {
+      const GLOBAL_ROLES = ['CEO', 'Coordinador Operativo', 'Admin', 'Developer', 'Agente de IA', 'AIAgent'];
+      if (!GLOBAL_ROLES.includes(session.role)) {
+        if (session.role === 'Tercero / Externo') {
+          filteredTasks = filteredTasks.filter(t => t.assigneeId === session.personId || (t.assigneeIds && t.assigneeIds.includes(session.personId)));
+          filteredPeople = filteredPeople.filter(p => p.id === session.personId);
+          filteredCompanies = filteredCompanies.filter(c => c.id === session.companyId);
+        } else {
+          filteredTasks = filteredTasks.filter(t => 
+            t.companyId === session.companyId || 
+            t.companyId === 'comp-2' || 
+            t.companyId === '' || 
+            !t.companyId || 
+            t.assigneeId === session.personId || 
+            (t.assigneeIds && t.assigneeIds.includes(session.personId))
+          );
+          filteredPeople = filteredPeople.filter(p => 
+            p.companyId === session.companyId || 
+            !p.companyId || 
+            GLOBAL_ROLES.includes(p.role)
+          );
+          filteredCompanies = filteredCompanies.filter(c => c.id === session.companyId || c.id === 'comp-2');
+        }
+      }
+    }
+
+    setTasks(filteredTasks);
+    setPeople(filteredPeople);
+    setCompanies(filteredCompanies);
+  }, [rawTasks, rawPeople, rawCompanies, session]);
+
+  // Set default selected user to current person when session loads
+  useEffect(() => {
+    if (session && session.personId) {
+      setSelectedUserId(session.personId);
+    }
+  }, [session]);
 
   // Selected User State (defaults to first user in list on load)
   const [selectedUserId, setSelectedUserId] = useState<string>('');
@@ -79,14 +147,11 @@ export default function UserDashboard() {
         };
       }) : [];
 
-      setTasks(normalized);
-      setCompanies(Array.isArray(companiesData) ? companiesData : []);
+      setRawTasks(normalized);
+      setRawCompanies(Array.isArray(companiesData) ? companiesData : []);
       
       const loadedPeople = Array.isArray(peopleData) ? peopleData : [];
-      setPeople(loadedPeople);
-      if (loadedPeople.length > 0 && !selectedUserId) {
-        setSelectedUserId(loadedPeople[0].id);
-      }
+      setRawPeople(loadedPeople);
     } catch (err) {
       console.error("Error loading user dashboard data:", err);
     } finally {

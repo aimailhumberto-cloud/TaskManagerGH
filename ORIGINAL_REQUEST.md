@@ -106,3 +106,41 @@ Integrity mode: `development`
 - [ ] Los miembros de tipo "Tercero / Externo" están totalmente aislados de la información global de otras empresas.
 - [ ] Las modificaciones de nombres, roles o avatares de los miembros se guardan y editan persistentemente en `data/db.json`.
 - [ ] Los 130 tests automáticos de Playwright se ejecutan exitosamente y están 100% en verde.
+
+## Follow-up — 2026-06-03T07:40:09-05:00
+
+Realizar una auditoría técnica completa del sistema "Hermes Task Hub" tras la implementación de la optimización móvil y el Task Drawer responsivo, verificando la consistencia del diseño y garantizando la total integridad de la base de datos local.
+
+Working directory: `C:\Users\Usuario\.gemini\antigravity\scratch\hermes-task-dashboard`
+Integrity mode: `development`
+
+## Requirements
+
+### R1. Auditoría del Diseño Responsivo (Mobile & Desktop)
+- Verificar que el app shell oculte el sidebar en móviles e implemente la barra de navegación inferior (`Bottom Navigation Bar`) fija de 16px.
+- Verificar que en el Dashboard de Usuario (`user-dashboard`) se utilicen botones de segmentos para ver una columna a la vez en móviles en lugar de tres.
+- Verificar que la tabla de Tareas y la de Proyectos oculten columnas secundarias (como Company y Due Date) en móviles mediante clases `hidden sm:table-cell` o similar.
+- Verificar que la cuadrícula del Calendario se apile correctamente en vertical en móvil.
+
+### R2. Auditoría del Task Drawer (Bottom Sheet en Móviles)
+- Verificar que en móvil, el drawer de edición de tareas ocupe el 100% de ancho, altura máxima limitada (`h-[92vh]`) y esquinas superiores redondeadas (`rounded-t-2xl`).
+- Verificar que los botones de acción inferior (*Save*, *Delete*) y el cabecero queden fijos, haciendo scroll únicamente en el cuerpo del formulario (`overflow-y-auto` en el body).
+
+### R3. Validación de Compilación de TypeScript
+- Verificar que el proyecto compile al 100% sin ningún error de tipos ejecutando `npx tsc --noEmit`.
+
+### R4. Integridad de la Base de Datos
+- Ejecutar la suite de pruebas unitarias de persistencia (`npm run test:db` y `npm run test:persons`).
+- Verificar que el archivo de base de datos local `data/db.json` mantiene su estructura válida (JSON parseable), sin duplicados erróneos ni pérdidas de tareas o relaciones existentes.
+
+## Acceptance Criteria
+
+### Estilos y Layout Responsivo
+- [x] La navegación inferior móvil no se solapa con el contenido de las páginas.
+- [x] El Task Drawer no presenta scroll general doble en móvil, y los botones de guardado no se desplazan fuera de pantalla.
+- [x] Las columnas de Company y Due Date se ocultan en móvil en las tablas de tareas y de proyectos.
+
+### Calidad de Código y Persistencia
+- [x] El comando `npx tsc --noEmit` completa con 0 errores de compilación.
+- [x] Los tests `test:db` y `test:persons` pasan exitosamente.
+- [x] La base de datos `data/db.json` es parseable y conserva todos los datos operacionales de tareas intactos.

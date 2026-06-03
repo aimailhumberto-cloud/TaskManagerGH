@@ -10,6 +10,78 @@ export default function CompanyDashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Raw API lists before filtering
+  const [rawTasks, setRawTasks] = useState<Task[]>([]);
+  const [rawCompanies, setRawCompanies] = useState<Company[]>([]);
+  const [rawPeople, setRawPeople] = useState<Person[]>([]);
+  const [session, setSession] = useState<any>(null);
+
+  // Fetch session on mount
+  useEffect(() => {
+    async function fetchSession() {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated) {
+            setSession(data.user);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching session in company dashboard:', err);
+      }
+    }
+    fetchSession();
+  }, []);
+
+  // Filter lists according to role/company
+  useEffect(() => {
+    let filteredTasks = rawTasks;
+    let filteredPeople = rawPeople;
+    let filteredCompanies = rawCompanies;
+
+    if (session) {
+      const GLOBAL_ROLES = ['CEO', 'Coordinador Operativo', 'Admin', 'Developer', 'Agente de IA', 'AIAgent'];
+      if (!GLOBAL_ROLES.includes(session.role)) {
+        if (session.role === 'Tercero / Externo') {
+          filteredTasks = filteredTasks.filter(t => t.assigneeId === session.personId || (t.assigneeIds && t.assigneeIds.includes(session.personId)));
+          filteredPeople = filteredPeople.filter(p => p.id === session.personId);
+          filteredCompanies = filteredCompanies.filter(c => c.id === session.companyId);
+        } else {
+          filteredTasks = filteredTasks.filter(t => 
+            t.companyId === session.companyId || 
+            t.companyId === 'comp-2' || 
+            t.companyId === '' || 
+            !t.companyId || 
+            t.assigneeId === session.personId || 
+            (t.assigneeIds && t.assigneeIds.includes(session.personId))
+          );
+          filteredPeople = filteredPeople.filter(p => 
+            p.companyId === session.companyId || 
+            !p.companyId || 
+            GLOBAL_ROLES.includes(p.role)
+          );
+          filteredCompanies = filteredCompanies.filter(c => c.id === session.companyId || c.id === 'comp-2');
+        }
+      }
+    }
+
+    setTasks(filteredTasks);
+    setPeople(filteredPeople);
+    setCompanies(filteredCompanies);
+  }, [rawTasks, rawPeople, rawCompanies, session]);
+
+  // Set default selected company for restricted roles
+  useEffect(() => {
+    if (session && session.companyId) {
+      const GLOBAL_ROLES = ['CEO', 'Coordinador Operativo', 'Admin', 'Developer', 'Agente de IA', 'AIAgent'];
+      if (!GLOBAL_ROLES.includes(session.role)) {
+        setSelectedCompanyId(session.companyId);
+        setIncludeSubcompanies(false);
+      }
+    }
+  }, [session]);
+
   // States for filtering & search within the active company
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('comp-2'); // Default: Golden Hour (Mother)
   const [includeSubcompanies, setIncludeSubcompanies] = useState<boolean>(true); // Default: true for mother consolidation
@@ -108,9 +180,9 @@ export default function CompanyDashboardPage() {
         const compData = await compRes.json();
         const persData = await persRes.json();
         const taskData = await taskRes.json();
-        if (Array.isArray(compData)) setCompanies(compData);
-        if (Array.isArray(persData)) setPeople(persData);
-        if (Array.isArray(taskData)) setTasks(taskData.map(normalizeTask));
+        if (Array.isArray(compData)) setRawCompanies(compData);
+        if (Array.isArray(persData)) setRawPeople(persData);
+        if (Array.isArray(taskData)) setRawTasks(taskData.map(normalizeTask));
       }
     } catch (err) {
       console.error('Failed to load dashboard data from API', err);

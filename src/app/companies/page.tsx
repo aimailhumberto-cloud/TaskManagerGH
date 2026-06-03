@@ -13,6 +13,7 @@ interface Person {
   name: string;
   role: string;
   avatar: string;
+  companyId?: string;
 }
 
 const FALLBACK_COMPANIES: Company[] = [
@@ -38,6 +39,7 @@ export default function CompaniesPage() {
   const [newPersonName, setNewPersonName] = useState('');
   const [newPersonRole, setNewPersonRole] = useState('CEO');
   const [newPersonAvatar, setNewPersonAvatar] = useState('/avatars/user.png');
+  const [newPersonCompanyId, setNewPersonCompanyId] = useState('');
 
   // Form states for editing entities
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -45,6 +47,7 @@ export default function CompaniesPage() {
   const [editPersonName, setEditPersonName] = useState('');
   const [editPersonRole, setEditPersonRole] = useState('CEO');
   const [editPersonAvatar, setEditPersonAvatar] = useState('/avatars/user.png');
+  const [editPersonCompanyId, setEditPersonCompanyId] = useState('');
 
   // User Credentials management states
   const [users, setUsers] = useState<{ id: string; personId: string; email: string; isActive: boolean }[]>([]);
@@ -142,7 +145,8 @@ export default function CompaniesPage() {
         body: JSON.stringify({
           name: newPersonName.trim(),
           role: newPersonRole,
-          avatar: newPersonAvatar
+          avatar: newPersonAvatar,
+          companyId: newPersonCompanyId || undefined
         })
       });
       if (res.ok) {
@@ -218,6 +222,7 @@ export default function CompaniesPage() {
     setEditPersonName(person.name);
     setEditPersonRole(person.role || 'CEO');
     setEditPersonAvatar(person.avatar || '/avatars/user.png');
+    setEditPersonCompanyId(person.companyId || '');
     setIsEditModalOpen(true);
   };
 
@@ -237,7 +242,8 @@ export default function CompaniesPage() {
         body: JSON.stringify({
           name: editPersonName.trim(),
           role: editPersonRole,
-          avatar: editPersonAvatar
+          avatar: editPersonAvatar,
+          companyId: editPersonCompanyId || null
         })
       });
 
@@ -460,108 +466,143 @@ export default function CompaniesPage() {
               Team Members
             </h3>
             <div data-testid="person-list" className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
-              {people.map((person, index) => (
-                <div
-                  key={person.id}
-                  className="flex items-center justify-between border border-primary-100 hover:border-gold-300 rounded-xl p-4 transition-all hover:bg-gold-50/10"
-                >
-                  <div className="flex items-center gap-4">
-                    <HslAvatar
-                      name={person.name}
-                      avatarUrl={person.avatar}
-                      size={12}
-                      data-testid={`person-avatar-${index + 1}`}
-                    />
-                    <div>
-                      <h4
-                        data-testid={`person-name-${index + 1}`}
-                        className="text-base font-bold text-primary-900"
+              {people.map((person, index) => {
+                const comp = companies.find(c => c.id === person.companyId);
+                return (
+                  <div
+                    key={person.id}
+                    className="flex items-center justify-between border border-primary-100 hover:border-gold-300 rounded-xl p-4 transition-all hover:bg-gold-50/10"
+                  >
+                    <div className="flex items-center gap-4">
+                      <HslAvatar
+                        name={person.name}
+                        avatarUrl={person.avatar}
+                        size={12}
+                        data-testid={`person-avatar-${index + 1}`}
+                      />
+                      <div>
+                        <h4
+                          data-testid={`person-name-${index + 1}`}
+                          className="text-base font-bold text-primary-900"
+                        >
+                          {person.name}
+                        </h4>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                          <span className="text-[10px] text-primary-500 uppercase tracking-widest font-semibold">
+                            {person.role}
+                          </span>
+                          <span className="hidden sm:inline text-primary-300">•</span>
+                          <span className="text-[10px] text-gold-650 font-bold">
+                            {comp ? comp.name : 'Global / Multi-company'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleOpenEditModal(person)}
+                        className="p-1.5 text-gold-650 hover:text-gold-800 hover:bg-gold-50 rounded-lg transition font-bold text-sm"
+                        title="Edit Member"
+                        data-testid={`edit-person-${person.id}`}
                       >
-                        {person.name}
-                      </h4>
-                      <p className="text-xs text-primary-400 uppercase tracking-widest mt-0.5">
-                        {person.role}
-                      </p>
+                        ✏️
+                      </button>
+                      <button
+                        onClick={() => handleDeletePerson(person.id)}
+                        className="p-1.5 text-red-650 hover:text-red-800 hover:bg-red-50 rounded-lg transition font-bold text-sm"
+                        title="Delete Member"
+                        data-testid={`delete-person-${person.id}`}
+                      >
+                        🗑️
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      data-testid={`edit-person-btn-${person.id}`}
-                      onClick={() => handleOpenEditModal(person)}
-                      className="p-1 text-gold-600 hover:text-gold-700 hover:bg-gold-50 rounded-lg transition font-bold"
-                      title="Edit Member"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      data-testid={`delete-person-${person.id}`}
-                      onClick={() => handleDeletePerson(person.id)}
-                      className="p-1 text-red-650 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
-                      title="Delete Member"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {people.length === 0 && (
                 <p className="text-sm text-primary-450 italic text-center py-8">No team members registered.</p>
               )}
             </div>
           </div>
 
-          {/* Create Person Form */}
           <form onSubmit={handleCreatePerson} className="mt-8 border-t border-primary-100 pt-6 space-y-4">
             <h4 className="text-sm font-bold text-primary-750 uppercase tracking-wider">Register New Member</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <input
-                type="text"
-                id="new-person-name-input"
-                data-testid="new-person-name-input"
-                placeholder="Full Name (e.g. Kiria)"
-                value={newPersonName}
-                onChange={(e) => setNewPersonName(e.target.value)}
-                className="bg-[#faf9f6] border border-gold-200/80 rounded-xl px-4 py-2.5 text-sm text-primary-900 focus:outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400 transition-all"
-                required
-              />
-              <select
-                id="new-person-role-select"
-                data-testid="new-person-role-select"
-                value={newPersonRole}
-                onChange={(e) => setNewPersonRole(e.target.value)}
-                className="bg-[#faf9f6] border border-gold-200/80 rounded-xl px-4 py-2.5 text-sm text-primary-900 focus:outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400 transition-all"
-              >
-                <option value="CEO">CEO</option>
-                <option value="Gerente">Gerente</option>
-                <option value="Administrativo">Administrativo</option>
-                <option value="Contable">Contable</option>
-                <option value="Operaciones">Operaciones</option>
-                <option value="Agente de IA">Agente de IA</option>
-                <option value="Tercero / Externo">Tercero / Externo</option>
-              </select>
+              <div>
+                <label htmlFor="new-person-name-input" className="block text-[9px] font-extrabold uppercase tracking-wider text-primary-400 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  id="new-person-name-input"
+                  data-testid="new-person-name-input"
+                  placeholder="e.g. Elena"
+                  value={newPersonName}
+                  onChange={(e) => setNewPersonName(e.target.value)}
+                  className="w-full bg-[#faf9f6] border border-gold-200/80 rounded-xl px-3 py-2 text-xs text-primary-900 focus:outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="new-person-role-select" className="block text-[9px] font-extrabold uppercase tracking-wider text-primary-400 mb-1">Organizational Role</label>
+                <select
+                  id="new-person-role-select"
+                  data-testid="new-person-role-select"
+                  value={newPersonRole}
+                  onChange={(e) => setNewPersonRole(e.target.value)}
+                  className="w-full bg-[#faf9f6] border border-gold-200/80 rounded-xl px-3 py-2 text-xs text-primary-900 focus:outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400"
+                >
+                  <option value="CEO">CEO</option>
+                  <option value="Gerente">Gerente</option>
+                  <option value="Coordinador Operativo">Coordinador Operativo</option>
+                  <option value="Administrativo">Administrativo</option>
+                  <option value="Contable">Contable</option>
+                  <option value="Operaciones">Operaciones</option>
+                  <option value="Agente de IA">Agente de IA</option>
+                  <option value="Tercero / Externo">Tercero / Externo</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="new-person-company-select" className="block text-[9px] font-extrabold uppercase tracking-wider text-primary-400 mb-1">Assigned Company</label>
+                <select
+                  id="new-person-company-select"
+                  data-testid="new-person-company-select"
+                  value={newPersonCompanyId}
+                  onChange={(e) => setNewPersonCompanyId(e.target.value)}
+                  className="w-full bg-[#faf9f6] border border-gold-200/80 rounded-xl px-3 py-2 text-xs text-primary-900 focus:outline-none focus:border-gold-400"
+                >
+                  <option value="">Global / No Company (Coordinador / CEO)</option>
+                  {companies.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="new-person-avatar-select" className="block text-[9px] font-extrabold uppercase tracking-wider text-primary-400 mb-1">Avatar Profile</label>
+                <select
+                  id="new-person-avatar-select"
+                  data-testid="new-person-avatar-select"
+                  value={newPersonAvatar}
+                  onChange={(e) => setNewPersonAvatar(e.target.value)}
+                  className="w-full bg-[#faf9f6] border border-gold-200/80 rounded-xl px-3 py-2 text-xs text-primary-900 focus:outline-none focus:border-gold-400"
+                >
+                  <option value="/avatars/user.png">Default User Profile</option>
+                  <option value="/avatars/daniel.png">Daniel Avatar</option>
+                  <option value="/avatars/magin.png">Magin Avatar</option>
+                  <option value="/avatars/kiria.png">Kiria Avatar</option>
+                  <option value="/avatars/hb.png">HB Avatar</option>
+                  <option value="/avatars/hermes.png">Hermes Avatar</option>
+                </select>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <select
-                id="new-person-avatar-select"
-                data-testid="new-person-avatar-select"
-                value={newPersonAvatar}
-                onChange={(e) => setNewPersonAvatar(e.target.value)}
-                className="flex-1 bg-[#faf9f6] border border-gold-200/80 rounded-xl px-4 py-2.5 text-sm text-primary-900 focus:outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400 transition-all"
-              >
-                <option value="/avatars/user.png">Default User Profile</option>
-                <option value="/avatars/daniel.png">Daniel Avatar</option>
-                <option value="/avatars/magin.png">Magin Avatar</option>
-                <option value="/avatars/kiria.png">Kiria Avatar</option>
-                <option value="/avatars/hb.png">HB Avatar</option>
-                <option value="/avatars/hermes.png">Hermes Avatar</option>
-              </select>
+            <div className="flex justify-end pt-2">
               <button
                 type="submit"
                 id="create-person-submit-btn"
                 data-testid="create-person-submit-btn"
-                className="px-5 py-2.5 bg-gold-600 hover:bg-gold-700 text-white rounded-xl font-semibold text-sm shadow-md transition-all active:translate-y-0.5"
+                className="px-6 py-2 bg-gold-600 hover:bg-gold-700 text-white rounded-xl font-bold text-xs shadow-md transition-all active:translate-y-0.5"
               >
-                Register
+                Register Member
               </button>
             </div>
           </form>
@@ -845,11 +886,32 @@ export default function CompaniesPage() {
                 >
                   <option value="CEO">CEO</option>
                   <option value="Gerente">Gerente</option>
+                  <option value="Coordinador Operativo">Coordinador Operativo</option>
                   <option value="Administrativo">Administrativo</option>
                   <option value="Contable">Contable</option>
                   <option value="Operaciones">Operaciones</option>
                   <option value="Agente de IA">Agente de IA</option>
                   <option value="Tercero / Externo">Tercero / Externo</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-primary-700 uppercase tracking-wider mb-1">
+                  Company
+                </label>
+                <select
+                  id="edit-person-company-select"
+                  data-testid="edit-person-company-select"
+                  value={editPersonCompanyId}
+                  onChange={(e) => setEditPersonCompanyId(e.target.value)}
+                  className="w-full bg-[#faf9f6] border border-gold-200/80 rounded-xl px-4 py-2.5 text-sm text-primary-900 focus:outline-none focus:border-gold-400 transition-all"
+                >
+                  <option value="">Global / No Company (Coordinador / CEO)</option>
+                  {companies.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 

@@ -14,6 +14,7 @@ interface Person {
   name: string;
   role: string;
   avatar: string;
+  companyId?: string;
 }
 
 interface Step {
@@ -62,6 +63,67 @@ export default function TasksPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Raw API lists before filtering
+  const [rawTasks, setRawTasks] = useState<Task[]>([]);
+  const [rawCompanies, setRawCompanies] = useState<Company[]>([]);
+  const [rawPeople, setRawPeople] = useState<Person[]>([]);
+  const [session, setSession] = useState<any>(null);
+
+  // Fetch session on mount
+  useEffect(() => {
+    async function fetchSession() {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated) {
+            setSession(data.user);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching session in tasks:', err);
+      }
+    }
+    fetchSession();
+  }, []);
+
+  // Filter lists according to role/company
+  useEffect(() => {
+    let filteredTasks = rawTasks;
+    let filteredPeople = rawPeople;
+    let filteredCompanies = rawCompanies;
+
+    if (session) {
+      const GLOBAL_ROLES = ['CEO', 'Coordinador Operativo', 'Admin', 'Developer', 'Agente de IA', 'AIAgent'];
+      if (!GLOBAL_ROLES.includes(session.role)) {
+        if (session.role === 'Tercero / Externo') {
+          filteredTasks = filteredTasks.filter(t => t.assigneeId === session.personId || (t.assigneeIds && t.assigneeIds.includes(session.personId)));
+          filteredPeople = filteredPeople.filter(p => p.id === session.personId);
+          filteredCompanies = filteredCompanies.filter(c => c.id === session.companyId);
+        } else {
+          filteredTasks = filteredTasks.filter(t => 
+            t.companyId === session.companyId || 
+            t.companyId === 'comp-2' || 
+            t.companyId === '' || 
+            !t.companyId || 
+            t.assigneeId === session.personId || 
+            (t.assigneeIds && t.assigneeIds.includes(session.personId))
+          );
+          filteredPeople = filteredPeople.filter(p => 
+            p.companyId === session.companyId || 
+            !p.companyId || 
+            GLOBAL_ROLES.includes(p.role)
+          );
+          filteredCompanies = filteredCompanies.filter(c => c.id === session.companyId || c.id === 'comp-2');
+        }
+      }
+    }
+
+    setTasks(filteredTasks);
+    setPeople(filteredPeople);
+    setCompanies(filteredCompanies);
+  }, [rawTasks, rawPeople, rawCompanies, session]);
 
   // Filters & sorting
   const [searchQuery, setSearchQuery] = useState('');
@@ -185,9 +247,9 @@ export default function TasksPage() {
       const peopleRes = await fetch('/api/persons', { headers });
       const peopleData = await peopleRes.json();
 
-      setTasks(Array.isArray(tasksData) ? tasksData.map(normalizeTask) : []);
-      setCompanies(Array.isArray(companiesData) ? companiesData : []);
-      setPeople(Array.isArray(peopleData) ? peopleData : []);
+      setRawTasks(Array.isArray(tasksData) ? tasksData.map(normalizeTask) : []);
+      setRawCompanies(Array.isArray(companiesData) ? companiesData : []);
+      setRawPeople(Array.isArray(peopleData) ? peopleData : []);
     } catch (err) {
       console.error("Error loading tasks page data:", err);
     } finally {

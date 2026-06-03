@@ -31,7 +31,8 @@ export async function POST(request: NextRequest) {
     const newPerson = await dbService.createPerson({
       name: body.name.trim(),
       role: body.role || 'Member',
-      avatar: body.avatar || '/avatars/user.png'
+      avatar: body.avatar || '/avatars/user.png',
+      companyId: body.companyId || undefined
     });
 
     return NextResponse.json(newPerson, { status: 201 });

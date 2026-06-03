@@ -13,6 +13,7 @@ export interface Person {
   name: string;
   role: string;
   avatar: string;
+  companyId?: string;
 }
 
 export interface Step {
@@ -63,6 +64,7 @@ interface TaskDrawerProps {
   onSuccess: () => void;
   companies: Company[];
   people: Person[];
+  dataTestId?: string;
 }
 
 export default function TaskDrawer({
@@ -72,6 +74,7 @@ export default function TaskDrawer({
   onSuccess,
   companies,
   people,
+  dataTestId,
 }: TaskDrawerProps) {
   // Form states
   const [title, setTitle] = useState('');
@@ -473,7 +476,7 @@ export default function TaskDrawer({
   return (
     <div
       id="task-details-drawer"
-      data-testid="task-details-drawer"
+      data-testid={dataTestId || "task-details-drawer"}
       className="fixed inset-0 z-50 overflow-hidden flex flex-col justify-end md:flex-row md:justify-end bg-primary-950/40 backdrop-blur-xs animate-fade-in"
       onClick={onClose}
     >

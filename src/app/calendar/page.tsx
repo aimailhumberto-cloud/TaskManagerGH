@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import TaskDrawer from '@/components/TaskDrawer';
 
 // Core Interfaces
 interface Company {
@@ -13,6 +14,7 @@ interface Person {
   name: string;
   role: string;
   avatar: string;
+  companyId?: string;
 }
 
 interface Step {
@@ -44,6 +46,7 @@ interface Task {
   steps: Step[];
   companyId: string;
   assigneeId: string;
+  assigneeIds?: string[];
   status: 'Pending' | 'In Progress' | 'Completed' | 'Blocked';
   priority: 'High' | 'Medium' | 'Low';
   origin: 'Golden Hour' | 'Manual';
@@ -119,6 +122,67 @@ export default function CalendarPage() {
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Raw API lists before filtering
+  const [rawTasks, setRawTasks] = useState<Task[]>([]);
+  const [rawCompanies, setRawCompanies] = useState<Company[]>([]);
+  const [rawPeople, setRawPeople] = useState<Person[]>([]);
+  const [session, setSession] = useState<any>(null);
+
+  // Fetch session on mount
+  useEffect(() => {
+    async function fetchSession() {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated) {
+            setSession(data.user);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching session in calendar:', err);
+      }
+    }
+    fetchSession();
+  }, []);
+
+  // Filter lists according to role/company
+  useEffect(() => {
+    let filteredTasks = rawTasks;
+    let filteredPeople = rawPeople;
+    let filteredCompanies = rawCompanies;
+
+    if (session) {
+      const GLOBAL_ROLES = ['CEO', 'Coordinador Operativo', 'Admin', 'Developer', 'Agente de IA', 'AIAgent'];
+      if (!GLOBAL_ROLES.includes(session.role)) {
+        if (session.role === 'Tercero / Externo') {
+          filteredTasks = filteredTasks.filter(t => t.assigneeId === session.personId || (t.assigneeIds && t.assigneeIds.includes(session.personId)));
+          filteredPeople = filteredPeople.filter(p => p.id === session.personId);
+          filteredCompanies = filteredCompanies.filter(c => c.id === session.companyId);
+        } else {
+          filteredTasks = filteredTasks.filter(t => 
+            t.companyId === session.companyId || 
+            t.companyId === 'comp-2' || 
+            t.companyId === '' || 
+            !t.companyId || 
+            t.assigneeId === session.personId || 
+            (t.assigneeIds && t.assigneeIds.includes(session.personId))
+          );
+          filteredPeople = filteredPeople.filter(p => 
+            p.companyId === session.companyId || 
+            !p.companyId || 
+            GLOBAL_ROLES.includes(p.role)
+          );
+          filteredCompanies = filteredCompanies.filter(c => c.id === session.companyId || c.id === 'comp-2');
+        }
+      }
+    }
+
+    setTasks(filteredTasks);
+    setPeople(filteredPeople);
+    setCompanies(filteredCompanies);
+  }, [rawTasks, rawPeople, rawCompanies, session]);
+
   // Drag & Drop simulation state
   const [dragDropMsg, setDragDropMsg] = useState<string>('');
 
@@ -129,22 +193,6 @@ export default function CalendarPage() {
   // Drawer Slide-over State
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
-
-  // Drawer Fields
-  const [drawerTitle, setDrawerTitle] = useState('');
-  const [drawerDescription, setDrawerDescription] = useState('');
-  const [drawerAssigneeId, setDrawerAssigneeId] = useState('unassigned');
-  const [drawerSteps, setDrawerSteps] = useState<Step[]>([]);
-  const [drawerAttachments, setDrawerAttachments] = useState<Attachment[]>([]);
-  const [drawerActivityLog, setDrawerActivityLog] = useState<LogEntry[]>([]);
-  const [drawerStatus, setDrawerStatus] = useState<'Pending' | 'In Progress' | 'Completed' | 'Blocked'>('Pending');
-  const [drawerPriority, setDrawerPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
-  const [drawerType, setDrawerType] = useState<'One-shot' | 'Repetitive' | 'Project'>('One-shot');
-  const [drawerRepeatPattern, setDrawerRepeatPattern] = useState<'Daily' | 'Weekly' | 'Monthly' | ''>('');
-  const [drawerCompanyId, setDrawerCompanyId] = useState<string>('comp-1');
-  const [drawerDueDate, setDrawerDueDate] = useState<string>('');
-
-  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
 
   // Helper to normalize task casings from API/DB into the exact Title Case expected by UI
   const normalizeTask = (t: any): Task => {
@@ -209,9 +257,9 @@ export default function CalendarPage() {
       const peopleRes = await fetch('/api/persons', { headers });
       const peopleData = await peopleRes.json();
 
-      setTasks(Array.isArray(tasksData) ? tasksData.map(normalizeTask) : []);
-      setCompanies(Array.isArray(companiesData) ? companiesData : []);
-      setPeople(Array.isArray(peopleData) ? peopleData : []);
+      setRawTasks(Array.isArray(tasksData) ? tasksData.map(normalizeTask) : []);
+      setRawCompanies(Array.isArray(companiesData) ? companiesData : []);
+      setRawPeople(Array.isArray(peopleData) ? peopleData : []);
     } catch (err) {
       console.error("Error loading calendar API resources:", err);
     } finally {
@@ -278,123 +326,11 @@ export default function CalendarPage() {
   const handleEventClick = async (evt: CalendarEvent) => {
     setActiveTaskId(evt.id);
     setIsDrawerOpen(true);
-    setUploadProgress(null);
-
-    // If it's a static test event, pre-fill title
-    if (evt.id.startsWith('task-')) {
-      const localTask = tasks.find(t => t.id === evt.id) || evt.originTask;
-      if (localTask) {
-        setDrawerTitle(localTask.title || '');
-        setDrawerDescription(localTask.description || '');
-        setDrawerAssigneeId(localTask.assigneeId || 'unassigned');
-        setDrawerSteps(localTask.steps || []);
-        setDrawerAttachments(localTask.attachments || []);
-        setDrawerStatus(localTask.status || 'Pending');
-        setDrawerPriority(localTask.priority || 'Medium');
-        setDrawerType(localTask.type || 'One-shot');
-        setDrawerRepeatPattern(localTask.repeatPattern || '');
-        setDrawerCompanyId(localTask.companyId || 'comp-1');
-        setDrawerDueDate(localTask.dueDate ? localTask.dueDate.substring(0, 10) : evt.dateStr);
-        setDrawerActivityLog(localTask.activityLog || []);
-      } else {
-        // Simple fallback
-        setDrawerTitle(evt.title);
-        setDrawerDescription('');
-        setDrawerAssigneeId('unassigned');
-        setDrawerSteps([]);
-        setDrawerAttachments([]);
-        setDrawerStatus('Pending');
-        setDrawerPriority(evt.priority);
-        setDrawerType('One-shot');
-        setDrawerRepeatPattern('');
-        setDrawerCompanyId('comp-1');
-        setDrawerDueDate(evt.dateStr);
-        setDrawerActivityLog([]);
-      }
-    }
   };
 
   const handleCloseDrawer = () => {
     setIsDrawerOpen(false);
     setActiveTaskId(null);
-  };
-
-  const handleSaveTask = async () => {
-    if (!drawerTitle.trim()) {
-      alert("Title is mandatory");
-      return;
-    }
-
-    const assigneeId = drawerAssigneeId === 'unassigned' ? '' : drawerAssigneeId;
-    const updatedData = {
-      title: drawerTitle,
-      description: drawerDescription,
-      assigneeId: assigneeId,
-      steps: drawerSteps,
-      status: drawerStatus,
-      priority: drawerPriority,
-      attachments: drawerAttachments,
-      type: drawerType,
-      repeatPattern: drawerType === 'Repetitive' ? drawerRepeatPattern : null,
-      companyId: drawerCompanyId,
-      dueDate: drawerDueDate,
-    };
-
-    try {
-      const headers = {
-        'Content-Type': 'application/json',
-        'x-api-key': 'mock-api-key-12345'
-      };
-
-      const res = await fetch(`/api/tasks/${activeTaskId}`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(updatedData)
-      });
-
-      if (res.ok) {
-        setToastMessage("Task saved successfully");
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 3000);
-        setIsDrawerOpen(false);
-        setActiveTaskId(null);
-        loadData();
-      }
-    } catch (err) {
-      console.error("Error saving task in calendar:", err);
-    }
-  };
-
-  const handleDeleteTask = async () => {
-    if (!activeTaskId) return;
-    if (!confirm("Are you sure you want to delete this task?")) return;
-
-    try {
-      const headers = { 'x-api-key': 'mock-api-key-12345' };
-      const res = await fetch(`/api/tasks/${activeTaskId}`, {
-        method: 'DELETE',
-        headers
-      });
-
-      if (res.ok) {
-        setToastMessage("Task deleted successfully");
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 3000);
-        setIsDrawerOpen(false);
-        setActiveTaskId(null);
-        loadData();
-      }
-    } catch (err) {
-      console.error("Error deleting task in calendar:", err);
-    }
-  };
-
-  const getAvatarForAssignee = (assignee: string) => {
-    if (!assignee || assignee === 'unassigned') {
-      return '/avatars/placeholder.png';
-    }
-    const person = people.find(p => p.id === assignee);
-    return person?.avatar || '/avatars/placeholder.png';
   };
 
   const handleSimulateDragDrop = () => {
@@ -704,222 +640,16 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* --- Task Drawer slide-over --- */}
-      {isDrawerOpen && (
-        <div
-          id="task-form-drawer"
-          data-testid="task-form-drawer"
-          className="fixed inset-y-0 right-0 max-w-full flex pl-10 z-50 animate-slide-in"
-        >
-          <div
-            data-testid="task-detail-pane"
-            className="w-screen max-w-md bg-white border-l border-primary-200 shadow-2xl p-6 flex flex-col space-y-6"
-          >
-            <div className="flex items-center justify-between border-b pb-4">
-              <h2 className="text-lg font-bold text-primary-800">
-                {activeTaskId ? 'Edit Event Details' : 'Create New Event'}
-              </h2>
-              <button
-                id="close-drawer-btn"
-                data-testid="close-drawer-btn"
-                onClick={handleCloseDrawer}
-                className="p-1 hover:bg-primary-100 rounded-lg text-primary-500 transition"
-              >
-                Close
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-              <div>
-                <label className="block text-xs font-bold text-primary-500 mb-1">Title</label>
-                <input
-                  type="text"
-                  id="task-title-input"
-                  data-testid="task-title-input"
-                  value={drawerTitle}
-                  onChange={(e) => setDrawerTitle(e.target.value)}
-                  placeholder="Task title"
-                  className="w-full px-3 py-2 border rounded-lg text-sm text-primary-800"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-primary-500 mb-1">Description (Markdown)</label>
-                <textarea
-                  id="task-desc-textarea"
-                  data-testid="task-desc-textarea"
-                  value={drawerDescription}
-                  onChange={(e) => setDrawerDescription(e.target.value)}
-                  placeholder="Markdown text..."
-                  className="w-full px-3 py-2 border rounded-lg text-sm h-24 text-primary-800"
-                ></textarea>
-                <div
-                  id="markdown-preview"
-                  data-testid="markdown-preview"
-                  dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(drawerDescription) }}
-                  className="mt-2 p-3 bg-primary-50 border border-dashed rounded-lg text-xs prose prose-sm max-w-none text-primary-800"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-primary-500 mb-1">Assignee</label>
-                  <select
-                    id="assignee-select"
-                    data-testid="assignee-select"
-                    value={drawerAssigneeId}
-                    onChange={(e) => setDrawerAssigneeId(e.target.value)}
-                    className="w-full px-2 py-1.5 border rounded-lg text-xs text-primary-850"
-                  >
-                    <option value="unassigned">Unassigned</option>
-                    {people.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="flex items-center gap-2 pt-5">
-                  <img
-                    id="assignee-avatar"
-                    data-testid="assignee-avatar"
-                    src={getAvatarForAssignee(drawerAssigneeId)}
-                    alt="Assignee Avatar"
-                    className="w-8 h-8 rounded-full border border-primary-200 object-cover"
-                  />
-                  <span className="text-xs text-primary-500 font-medium">Assignee profile</span>
-                </div>
-              </div>
-
-              {/* Status & Priority Row */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-primary-500 mb-1">Status</label>
-                  <select
-                    id="task-status-select"
-                    data-testid="task-status-select"
-                    value={drawerStatus}
-                    onChange={(e) => setDrawerStatus(e.target.value as any)}
-                    className="w-full px-2 py-1.5 border rounded-lg text-xs text-primary-850"
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Completed">Completed</option>
-                    <option value="Blocked">Blocked</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-primary-500 mb-1">Priority</label>
-                  <select
-                    id="task-priority-select"
-                    data-testid="task-priority-select"
-                    value={drawerPriority}
-                    onChange={(e) => setDrawerPriority(e.target.value as any)}
-                    className="w-full px-2 py-1.5 border rounded-lg text-xs text-primary-850"
-                  >
-                    <option value="High">High</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Low">Low</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Task Type & Due Date Row */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-primary-500 mb-1">Type</label>
-                  <select
-                    id="task-type-select"
-                    data-testid="task-type-select"
-                    value={drawerType}
-                    onChange={(e) => setDrawerType(e.target.value as any)}
-                    className="w-full px-2 py-1.5 border rounded-lg text-xs text-primary-850"
-                  >
-                    <option value="One-shot">One-shot</option>
-                    <option value="Repetitive">Repetitive</option>
-                    <option value="Project">Project</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-primary-500 mb-1">Due Date</label>
-                  <input
-                    type="date"
-                    id="task-due-date-input"
-                    data-testid="task-due-date-input"
-                    value={drawerDueDate}
-                    onChange={(e) => setDrawerDueDate(e.target.value)}
-                    className="w-full px-2 py-1.5 border rounded-lg text-xs text-primary-850"
-                  />
-                </div>
-              </div>
-
-              {/* Company & Repeat Pattern Row */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-primary-500 mb-1">Company</label>
-                  <select
-                    id="task-company-select"
-                    data-testid="task-company-select"
-                    value={drawerCompanyId}
-                    onChange={(e) => setDrawerCompanyId(e.target.value)}
-                    className="w-full px-2 py-1.5 border rounded-lg text-xs text-primary-850"
-                  >
-                    {companies.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-                {drawerType === 'Repetitive' && (
-                  <div>
-                    <label className="block text-xs font-bold text-primary-500 mb-1">Repeat Pattern</label>
-                    <select
-                      id="task-repeat-pattern-select"
-                      data-testid="task-repeat-pattern-select"
-                      value={drawerRepeatPattern}
-                      onChange={(e) => setDrawerRepeatPattern(e.target.value as any)}
-                      className="w-full px-2 py-1.5 border rounded-lg text-xs text-primary-850"
-                    >
-                      <option value="">None</option>
-                      <option value="Daily">Daily</option>
-                      <option value="Weekly">Weekly</option>
-                      <option value="Monthly">Monthly</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="border-t pt-4 flex gap-3">
-              {activeTaskId && (
-                <button
-                  data-testid="delete-task-btn"
-                  onClick={handleDeleteTask}
-                  className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-sm transition"
-                >
-                  Delete Task
-                </button>
-              )}
-              <button
-                data-testid="save-task-btn"
-                onClick={handleSaveTask}
-                className="flex-1 py-2 bg-gold-600 hover:bg-gold-700 text-white rounded-lg font-semibold text-sm transition"
-              >
-                Save Task
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- Toast notification --- */}
-      {showToast && (
-        <div
-          id="toast-notification"
-          data-testid="toast-notification"
-          className="fixed bottom-4 right-4 bg-emerald-600 text-white px-4 py-2.5 rounded-lg shadow-lg text-sm font-semibold z-50 animate-bounce"
-        >
-          {toastMessage}
-        </div>
-      )}
+      {/* --- Unified Task Drawer --- */}
+      <TaskDrawer
+        isOpen={isDrawerOpen}
+        taskId={activeTaskId}
+        onClose={handleCloseDrawer}
+        onSuccess={loadData}
+        companies={companies}
+        people={people}
+        dataTestId="task-form-drawer"
+      />
     </div>
   );
 }

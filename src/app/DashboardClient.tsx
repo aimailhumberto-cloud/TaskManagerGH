@@ -76,11 +76,58 @@ export default function DashboardClient({
   const [tasks, setTasks] = useState<Task[]>([]);
   const [people, setPeople] = useState<Person[]>(initialPeople);
   const [activeFilter, setActiveFilter] = useState<FilterType>('none');
+  const [session, setSession] = useState<any>(null);
 
-  // Initialize and normalize local tasks on mount
+  // Fetch session on mount
   useEffect(() => {
-    setTasks(initialTasks.map(normalizeTask));
-  }, [initialTasks]);
+    async function fetchSession() {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated) {
+            setSession(data.user);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching session in dashboard:', err);
+      }
+    }
+    fetchSession();
+  }, []);
+
+  // Filter tasks and people based on session and roles
+  useEffect(() => {
+    let rawTasks = initialTasks.map(normalizeTask);
+    let rawPeople = initialPeople;
+
+    if (session) {
+      const GLOBAL_ROLES = ['CEO', 'Coordinador Operativo', 'Admin', 'Developer', 'Agente de IA', 'AIAgent'];
+      if (!GLOBAL_ROLES.includes(session.role)) {
+        if (session.role === 'Tercero / Externo') {
+          rawTasks = rawTasks.filter(t => t.assigneeId === session.personId || (t.assigneeIds && t.assigneeIds.includes(session.personId)));
+          rawPeople = rawPeople.filter(p => p.id === session.personId);
+        } else {
+          rawTasks = rawTasks.filter(t => 
+            t.companyId === session.companyId || 
+            t.companyId === 'comp-2' || 
+            t.companyId === '' || 
+            !t.companyId || 
+            t.assigneeId === session.personId || 
+            (t.assigneeIds && t.assigneeIds.includes(session.personId))
+          );
+          rawPeople = rawPeople.filter(p => 
+            p.companyId === session.companyId || 
+            !p.companyId || 
+            GLOBAL_ROLES.includes(p.role)
+          );
+        }
+      }
+    }
+
+    setTasks(rawTasks);
+    setPeople(rawPeople);
+  }, [initialTasks, initialPeople, session]);
 
   // --- Premium Task Details Drawer states ---
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);

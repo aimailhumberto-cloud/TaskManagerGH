@@ -50,7 +50,8 @@ export async function GET(request: NextRequest) {
         name: person.name,
         role: person.role,
         avatar: person.avatar,
-        companyId: person.companyId
+        companyId: person.companyId,
+        personId: person.id
       }
     });
 
