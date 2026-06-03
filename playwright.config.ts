@@ -1,3 +1,5 @@
+process.env.DATABASE_PATH = process.env.DATABASE_PATH || 'data/db_test.json';
+
 import { defineConfig, devices } from '@playwright/test';
 
 /**

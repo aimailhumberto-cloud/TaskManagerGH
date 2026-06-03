@@ -7,7 +7,7 @@ import * as path from 'path';
 test.describe.configure({ mode: 'serial' });
 
 test.beforeAll(async () => {
-  const dbPath = path.resolve(process.cwd(), process.env.DATABASE_PATH || 'data/db.json');
+  const dbPath = path.resolve(process.cwd(), process.env.DATABASE_PATH || 'data/db_test.json');
   if (fs.existsSync(dbPath)) {
     try {
       fs.unlinkSync(dbPath);
