@@ -46,6 +46,20 @@ export default function CompaniesPage() {
   const [editPersonRole, setEditPersonRole] = useState('CEO');
   const [editPersonAvatar, setEditPersonAvatar] = useState('/avatars/user.png');
 
+  // User Credentials management states
+  const [users, setUsers] = useState<{ id: string; personId: string; email: string; isActive: boolean }[]>([]);
+  const [newUserPersonId, setNewUserPersonId] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserIsActive, setNewUserIsActive] = useState(true);
+
+  // Edit user credentials states
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<any>(null);
+  const [editUserEmail, setEditUserEmail] = useState('');
+  const [editUserPassword, setEditUserPassword] = useState('');
+  const [editUserIsActive, setEditUserIsActive] = useState(true);
+
   useEffect(() => {
     async function loadData() {
       try {
@@ -53,13 +67,15 @@ export default function CompaniesPage() {
           'Content-Type': 'application/json',
           'x-api-key': 'mock-api-key-12345'
         };
-        const [compRes, persRes] = await Promise.all([
+        const [compRes, persRes, usersRes] = await Promise.all([
           fetch('/api/companies', { headers }),
-          fetch('/api/persons', { headers })
+          fetch('/api/persons', { headers }),
+          fetch('/api/users', { headers })
         ]);
-        if (compRes.ok && persRes.ok) {
+        if (compRes.ok && persRes.ok && usersRes.ok) {
           const compData = await compRes.json();
           const persData = await persRes.json();
+          const usersData = await usersRes.json();
           if (Array.isArray(compData)) {
             setCompanies(compData);
             if (compData.length > 0) {
@@ -68,6 +84,9 @@ export default function CompaniesPage() {
           }
           if (Array.isArray(persData)) {
             setPeople(persData);
+          }
+          if (Array.isArray(usersData)) {
+            setUsers(usersData);
           }
         }
       } catch (err) {
@@ -236,6 +255,121 @@ export default function CompaniesPage() {
     } catch (err) {
       console.error(err);
       alert('Network error updating team member');
+    }
+  };
+
+  // User Credentials management handlers
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUserPersonId || !newUserEmail.trim() || !newUserPassword) {
+      alert("Please select a profile, enter an email, and provide a password.");
+      return;
+    }
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': 'mock-api-key-12345'
+      };
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          personId: newUserPersonId,
+          email: newUserEmail.trim(),
+          passwordPlain: newUserPassword,
+          isActive: newUserIsActive
+        })
+      });
+
+      if (res.ok) {
+        const created = await res.json();
+        setUsers(prev => [...prev, created]);
+        setNewUserPersonId('');
+        setNewUserEmail('');
+        setNewUserPassword('');
+        setNewUserIsActive(true);
+        setAssociationMessage(`Access credentials registered successfully for ${created.email}`);
+        setTimeout(() => setAssociationMessage(''), 3000);
+      } else {
+        const errData = await res.json();
+        alert(`Error: ${errData.error || 'Failed to create user credentials'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error registering credentials');
+    }
+  };
+
+  const handleOpenEditUserModal = (user: any) => {
+    setEditingUser(user);
+    setEditUserEmail(user.email);
+    setEditUserPassword(''); // blank by default for resets
+    setEditUserIsActive(user.isActive);
+    setIsEditUserModalOpen(true);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    if (!editUserEmail.trim()) return;
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': 'mock-api-key-12345'
+      };
+      const res = await fetch(`/api/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          personId: editingUser.personId,
+          email: editUserEmail.trim(),
+          passwordPlain: editUserPassword || undefined,
+          isActive: editUserIsActive
+        })
+      });
+
+      if (res.ok) {
+        const updated = await res.json();
+        setUsers(prev => prev.map(u => u.id === updated.id ? updated : u));
+        setIsEditUserModalOpen(false);
+        setEditingUser(null);
+        setEditUserPassword('');
+        setAssociationMessage(`Access credentials updated for ${updated.email}`);
+        setTimeout(() => setAssociationMessage(''), 3000);
+      } else {
+        const errData = await res.json();
+        alert(`Error: ${errData.error || 'Failed to update credentials'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error updating credentials');
+    }
+  };
+
+  const handleDeleteUser = async (id: string, email: string) => {
+    if (!confirm(`Are you sure you want to delete access credentials for ${email}? This blocks system access but preserves their work profile.`)) return;
+
+    try {
+      const headers = {
+        'x-api-key': 'mock-api-key-12345'
+      };
+      const res = await fetch(`/api/users/${id}`, {
+        method: 'DELETE',
+        headers
+      });
+
+      if (res.ok) {
+        setUsers(prev => prev.filter(u => u.id !== id));
+        setAssociationMessage(`Access credentials deleted successfully for ${email}`);
+        setTimeout(() => setAssociationMessage(''), 3000);
+      } else {
+        const errData = await res.json();
+        alert(`Error: ${errData.error || 'Failed to delete credentials'}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error deleting credentials');
     }
   };
 
@@ -434,6 +568,159 @@ export default function CompaniesPage() {
         </section>
       </div>
 
+      {/* User Login Credentials Console */}
+      <section className="bg-white border border-gold-200/50 rounded-2xl p-6 md:p-8 shadow-sm mb-10">
+        <h3 className="text-xl font-bold text-primary-900 mb-6 border-b border-primary-100 pb-3 flex items-center gap-2">
+          <span>🔐</span> User Access Credentials (Login Accounts)
+        </h3>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* List existing credentials (col-span-2) */}
+          <div className="lg:col-span-2 space-y-4">
+            <h4 className="text-sm font-bold text-primary-750 uppercase tracking-wider">Active Credentials Registry</h4>
+            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+              {users.map((u, idx) => {
+                const linkedPerson = people.find(p => p.id === u.personId);
+                return (
+                  <div
+                    key={u.id}
+                    className="flex items-center justify-between border border-primary-100 hover:border-gold-300 rounded-xl p-4 transition-all hover:bg-[#faf9f6]/40"
+                  >
+                    <div className="min-w-0 flex-1 pr-3">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-extrabold text-primary-850 truncate" title={u.email}>
+                          {u.email}
+                        </span>
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase ${
+                          u.isActive
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-150'
+                            : 'bg-red-50 text-red-700 border border-red-150'
+                        }`}>
+                          {u.isActive ? 'Active' : 'Blocked'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-primary-400 mt-1 flex items-center gap-1.5">
+                        <span>👤 Profile:</span>
+                        <span className="font-bold text-primary-700">{linkedPerson ? `${linkedPerson.name} (${linkedPerson.role})` : 'Unlinked / Unknown'}</span>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleOpenEditUserModal(u)}
+                        className="p-1.5 text-gold-650 hover:text-gold-800 hover:bg-gold-50 rounded-lg transition font-bold text-sm"
+                        title="Edit Login Credentials"
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteUser(u.id, u.email)}
+                        className="p-1.5 text-red-650 hover:text-red-800 hover:bg-red-50 rounded-lg transition font-bold text-sm"
+                        title="Revoke Credentials"
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+              {users.length === 0 && (
+                <p className="text-sm text-primary-450 italic py-8 text-center bg-primary-50/20 border border-dashed border-primary-200 rounded-xl">
+                  No login credentials created yet. Setup one on the right form!
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Form to create credentials */}
+          <div className="bg-[#faf9f6]/60 border border-primary-200/60 rounded-2xl p-5 md:p-6 flex flex-col justify-between">
+            <form onSubmit={handleCreateUser} className="space-y-4">
+              <h4 className="text-sm font-bold text-primary-750 uppercase tracking-wider">Create Access Account</h4>
+              
+              <div>
+                <label htmlFor="newUserPerson" className="block text-[10px] font-extrabold uppercase tracking-wide text-primary-400 mb-1">
+                  Link Member Profile
+                </label>
+                <select
+                  id="newUserPerson"
+                  value={newUserPersonId}
+                  onChange={(e) => {
+                    setNewUserPersonId(e.target.value);
+                    // Autofill email suggestion if profile is selected and has name
+                    const linked = people.find(p => p.id === e.target.value);
+                    if (linked) {
+                      const emailBase = linked.name.toLowerCase().replace(/\s+/g, '.');
+                      setNewUserEmail(`${emailBase}@holding.com`);
+                    }
+                  }}
+                  className="w-full bg-white border border-primary-200 rounded-xl px-3 py-2 text-xs text-primary-850 focus:outline-none focus:ring-1 focus:ring-gold-500"
+                  required
+                >
+                  <option value="">Select profile...</option>
+                  {people
+                    .filter(p => !users.some(u => u.personId === p.id) && p.role !== 'AIAgent' && p.role !== 'Agente de IA')
+                    .map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.role})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="newUserEmail" className="block text-[10px] font-extrabold uppercase tracking-wide text-primary-400 mb-1">
+                  Login Email
+                </label>
+                <input
+                  id="newUserEmail"
+                  type="email"
+                  placeholder="name@holding.com"
+                  value={newUserEmail}
+                  onChange={(e) => setNewUserEmail(e.target.value)}
+                  className="w-full bg-white border border-primary-200 rounded-xl px-3 py-2 text-xs text-primary-850 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="newUserPassword" className="block text-[10px] font-extrabold uppercase tracking-wide text-primary-400 mb-1">
+                  Access Password
+                </label>
+                <input
+                  id="newUserPassword"
+                  type="password"
+                  placeholder="Password password"
+                  value={newUserPassword}
+                  onChange={(e) => setNewUserPassword(e.target.value)}
+                  className="w-full bg-white border border-primary-200 rounded-xl px-3 py-2 text-xs text-primary-850 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  id="newUserIsActive"
+                  type="checkbox"
+                  checked={newUserIsActive}
+                  onChange={(e) => setNewUserIsActive(e.target.checked)}
+                  className="w-4 h-4 rounded text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer"
+                />
+                <label htmlFor="newUserIsActive" className="text-xs font-bold text-primary-700 cursor-pointer">
+                  Account Active immediately
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-2 bg-gold-600 hover:bg-gold-700 text-white rounded-xl font-bold text-xs shadow-md transition-all active:translate-y-0.5 mt-2"
+              >
+                Create Credentials
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+
       {/* Interactive Verification Section */}
       <section className="bg-white border border-gold-200/50 rounded-2xl p-6 md:p-8 shadow-sm">
         <h3 className="text-xl font-bold text-primary-900 mb-6 border-b border-primary-100 pb-3">
@@ -619,6 +906,93 @@ export default function CompaniesPage() {
                   className="flex-1 py-2.5 bg-gold-600 hover:bg-gold-700 text-white rounded-xl font-semibold text-sm shadow-md transition-all active:translate-y-0.5"
                 >
                   Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Credentials Modal */}
+      {isEditUserModalOpen && editingUser && (
+        <div
+          data-testid="edit-user-modal"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+        >
+          <div className="bg-white rounded-2xl p-6 md:p-8 max-w-md w-full border border-gold-200/50 shadow-2xl relative mx-4">
+            <button
+              onClick={() => {
+                setIsEditUserModalOpen(false);
+                setEditingUser(null);
+                setEditUserPassword('');
+              }}
+              className="absolute top-4 right-4 text-primary-400 hover:text-primary-650 transition text-lg font-bold"
+              title="Close Modal"
+            >
+              ✕
+            </button>
+            <h3 className="text-xl font-bold text-primary-900 mb-6 border-b border-primary-100 pb-3 flex items-center gap-2">
+              ✏️ Edit Login Credentials
+            </h3>
+            
+            <form onSubmit={handleUpdateUser} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-primary-700 uppercase tracking-wider mb-1">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={editUserEmail}
+                  onChange={(e) => setEditUserEmail(e.target.value)}
+                  className="w-full bg-[#faf9f6] border border-gold-200/80 rounded-xl px-4 py-2.5 text-sm text-primary-900 focus:outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400 transition-all"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-primary-700 uppercase tracking-wider mb-1">
+                  Reset Password
+                </label>
+                <input
+                  type="password"
+                  value={editUserPassword}
+                  onChange={(e) => setEditUserPassword(e.target.value)}
+                  placeholder="Leave blank to keep current password"
+                  className="w-full bg-[#faf9f6] border border-gold-200/80 rounded-xl px-4 py-2.5 text-sm text-primary-900 focus:outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400 transition-all"
+                />
+                <p className="text-[10px] text-primary-400 mt-1 italic">Type a new password only if you wish to reset/change it.</p>
+              </div>
+
+              <div className="flex items-center gap-2 py-2">
+                <input
+                  id="editUserIsActive"
+                  type="checkbox"
+                  checked={editUserIsActive}
+                  onChange={(e) => setEditUserIsActive(e.target.checked)}
+                  className="w-4 h-4 rounded text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer"
+                />
+                <label htmlFor="editUserIsActive" className="text-xs font-bold text-primary-750 cursor-pointer">
+                  Account Active and Enabled
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditUserModalOpen(false);
+                    setEditingUser(null);
+                    setEditUserPassword('');
+                  }}
+                  className="flex-1 py-2.5 bg-primary-100 hover:bg-primary-200 text-primary-800 rounded-xl font-semibold text-sm transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-gold-600 hover:bg-gold-700 text-white rounded-xl font-semibold text-sm shadow-md transition-all active:translate-y-0.5"
+                >
+                  Save Access
                 </button>
               </div>
             </form>

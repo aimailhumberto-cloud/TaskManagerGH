@@ -1,16 +1,44 @@
 import './globals.css';
 import React from 'react';
+import { cookies } from 'next/headers';
+import { decryptSession } from '@/lib/session';
+import FooterProfile from '@/components/FooterProfile';
+import dbService from '@/services/dbService';
 
 export const metadata = {
   title: 'Hermes Hub - Dashboard',
   description: 'Enterprise task dashboard',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = cookies();
+  const sessionCookie = cookieStore.get('hermes_session');
+  let sessionData = null;
+  
+  if (sessionCookie && sessionCookie.value) {
+    const parsed = decryptSession(sessionCookie.value);
+    if (parsed) {
+      try {
+        const people = await dbService.getPeople();
+        const person = people.find(p => p.id === parsed.personId);
+        if (person) {
+          sessionData = {
+            ...parsed,
+            name: person.name,
+            role: person.role
+          };
+        } else {
+          sessionData = parsed;
+        }
+      } catch (e) {
+        sessionData = parsed;
+      }
+    }
+  }
   return (
     <html lang="es" className="h-full bg-primary-50">
       <body className="h-full bg-primary-50 text-primary-900 antialiased font-sans">
@@ -177,20 +205,7 @@ export default function RootLayout({
             </nav>
 
             {/* Footer Profile Container */}
-            <div className="shrink-0 border-t border-primary-800/80 bg-primary-950/20 p-4">
-              <div className="flex items-center gap-3 rounded-lg p-2 hover:bg-primary-800/40 transition-colors">
-                {/* Premium gold-bordered avatar outline */}
-                <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-gold-500 to-gold-400 p-[1.5px] shadow-sm">
-                  <div className="h-full w-full rounded-full bg-primary-880 flex items-center justify-center overflow-hidden">
-                    <span className="text-xs font-bold text-gold-400">AS</span>
-                  </div>
-                </div>
-                <div className="flex flex-col min-w-0">
-                  <span className="text-xs font-semibold text-white truncate">Alice Smith</span>
-                  <span className="text-[10px] text-gold-500 font-medium tracking-wide uppercase -mt-0.5">Admin Role</span>
-                </div>
-              </div>
-            </div>
+            <FooterProfile session={sessionData} />
           </aside>
 
           {/* Interactive drawer overlay backdrop for Mobile */}

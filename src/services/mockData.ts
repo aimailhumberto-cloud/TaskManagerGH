@@ -76,6 +76,15 @@ export interface QueueItem {
   timestamp: string;
 }
 
+export interface User {
+  id: string;
+  personId: string;
+  email: string;
+  passwordHash: string;
+  salt: string;
+  isActive: boolean;
+}
+
 export interface DatabaseSchema {
   companies: Company[];
   people: Person[];
@@ -83,6 +92,7 @@ export interface DatabaseSchema {
   templates: EmailTemplate[];
   smtpConfig: SMTPConfig;
   agentQueue: QueueItem[];
+  users: User[];
 }
 
 export const initialData: DatabaseSchema = {
@@ -133,5 +143,15 @@ export const initialData: DatabaseSchema = {
     "user": "user_id",
     "pass": "password_id"
   },
-  agentQueue: []
+  agentQueue: [],
+  users: [
+    {
+      "id": "auth-admin",
+      "personId": "usr-daniel",
+      "email": "admin@hermes.com",
+      "passwordHash": "77049f4b461e4cdc50cabdc6b4d3855f0f0e75ce8d68906c22204865ff0b8c9e7980c429b3d2e24d4369397265e84251216e3a94c694cc62fa55990dfeac59ac",
+      "salt": "13397276ec2950ce2da61a7937d13dc8",
+      "isActive": true
+    }
+  ]
 };

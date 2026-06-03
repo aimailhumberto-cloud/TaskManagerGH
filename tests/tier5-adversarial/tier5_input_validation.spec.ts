@@ -19,9 +19,13 @@ test.beforeAll(async () => {
 });
 
 test.describe('Tier 5: Adversarial Input Validation & Security Audits (Mocked UI / Client Validation)', () => {
-  // test.beforeEach(async ({ page }) => {
-  //   setupMockRouter(page);
-  // });
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/login');
+    await page.fill('#email-address', 'admin@hermes.com');
+    await page.fill('#password', 'admin123');
+    await page.click('button[type="submit"]');
+    await page.waitForURL('**/');
+  });
 
   test('T5-E1: UI validation prevents submission of blank titles in lateral task drawer', async ({ page }) => {
     await page.goto('/tasks');

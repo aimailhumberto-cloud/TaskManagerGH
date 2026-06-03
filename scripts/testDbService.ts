@@ -282,6 +282,77 @@ async function runTests() {
 
   console.log('✓ Configs and templates updates verified successfully.');
 
+  // 6.5 User Credentials Verification
+  console.log('Testing User Credentials CRUD operations...');
+
+  // A. Create User credentials
+  const newUserCredentials = {
+    personId: 'p1', // Alice Smith (already seeded in initialData)
+    email: 'alice@holding.com',
+    passwordPlain: 'alicePass123',
+    isActive: true
+  };
+
+  const createdUser = await db.createUser(newUserCredentials);
+  assert.ok(createdUser.id, 'Created user should be assigned an auto-generated id.');
+  assert.strictEqual(createdUser.email, newUserCredentials.email);
+  assert.strictEqual(createdUser.personId, newUserCredentials.personId);
+  assert.strictEqual(createdUser.isActive, true);
+  assert.ok(createdUser.passwordHash, 'Created user should have a passwordHash.');
+  assert.ok(createdUser.salt, 'Created user should have a salt.');
+
+  // B. Verify email uniqueness validation
+  await assert.rejects(
+    async () => {
+      await db.createUser({
+        personId: 'p2',
+        email: 'alice@holding.com', // Duplicate
+        passwordPlain: 'somepassword',
+        isActive: true
+      });
+    },
+    /Email "alice@holding.com" is already registered\./
+  );
+
+  // C. Verify personId existence validation
+  await assert.rejects(
+    async () => {
+      await db.createUser({
+        personId: 'non-existent-person-id', // Invalid
+        email: 'someother@holding.com',
+        passwordPlain: 'password123',
+        isActive: true
+      });
+    },
+    /Foreign key constraint failed: Person with id "non-existent-person-id" does not exist\./
+  );
+
+  // D. Read User by Email
+  const fetchedUser = await db.getUserByEmail('alice@holding.com');
+  assert.ok(fetchedUser, 'Should fetch user credentials by email.');
+  assert.strictEqual(fetchedUser.id, createdUser.id);
+
+  // E. Update User Credentials (change password and email)
+  const userUpdates = {
+    email: 'alice.smith@holding.com',
+    passwordPlain: 'newAlicePass789',
+    isActive: false
+  };
+
+  const updatedUser = await db.updateUser(createdUser.id, userUpdates);
+  assert.strictEqual(updatedUser.email, userUpdates.email);
+  assert.strictEqual(updatedUser.isActive, false);
+  assert.notStrictEqual(updatedUser.passwordHash, createdUser.passwordHash, 'Password hash should be re-generated when password is changed.');
+
+  // F. Delete User Credentials
+  const deleteUserResult = await db.deleteUser(createdUser.id);
+  assert.strictEqual(deleteUserResult, true, 'Deleting existing user credentials should return true.');
+
+  const fetchedUserAfterDelete = await db.getUserById(createdUser.id);
+  assert.strictEqual(fetchedUserAfterDelete, null, 'Deleted user credentials should no longer exist.');
+
+  console.log('✓ User Credentials CRUD operations verified successfully.');
+
   // 7. Teardown / Clean-up
   if (fs.existsSync(TEST_DB_PATH)) {
     fs.unlinkSync(TEST_DB_PATH);
