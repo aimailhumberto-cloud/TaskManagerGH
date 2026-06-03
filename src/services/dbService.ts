@@ -167,6 +167,7 @@ export class DBService implements IDBService {
       const content = await fs.promises.readFile(this.dbPath, 'utf-8');
       const data = JSON.parse(content) as DatabaseSchema;
       
+      let changed = false;
       // Self-healing / Backwards compatibility for users node
       if (!data.users) {
         data.users = [
@@ -179,7 +180,22 @@ export class DBService implements IDBService {
             "isActive": true
           }
         ];
-        
+        changed = true;
+      }
+
+      // Ensure that for the auth-admin user, the person profile usr-daniel exists
+      const hasDaniel = data.people.some(p => p.id === 'usr-daniel');
+      if (!hasDaniel) {
+        data.people.push({
+          id: 'usr-daniel',
+          name: 'Daniel',
+          role: 'CEO',
+          avatar: '/avatars/daniel.png'
+        });
+        changed = true;
+      }
+
+      if (changed) {
         // Write the normalized data back to disk atomically
         const uniqueId = Math.random().toString(36).substring(2, 15) + '_' + Date.now();
         const tempPath = `${this.dbPath}.${uniqueId}.tmp`;
