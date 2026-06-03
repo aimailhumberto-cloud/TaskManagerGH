@@ -12,7 +12,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: [['html', { open: 'never' }], ['list']],
   use: {
-    baseURL: 'http://localhost:47913',
+    baseURL: 'http://localhost:47914',
     trace: 'on-first-retry',
   },
   projects: [
@@ -22,8 +22,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npx next start -p 47913',
-    url: 'http://localhost:47913',
+    command: 'npx next start -p 47914',
+    url: 'http://localhost:47914',
     reuseExistingServer: false,
     timeout: 120000,
   },

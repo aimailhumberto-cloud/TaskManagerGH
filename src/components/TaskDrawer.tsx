@@ -478,6 +478,7 @@ export default function TaskDrawer({
       onClick={onClose}
     >
       <div
+        data-testid="task-detail-pane"
         className="w-full md:max-w-lg bg-white h-[92vh] md:h-full rounded-t-2xl md:rounded-t-none shadow-2xl flex flex-col justify-between p-6 md:p-8 transform transition-all duration-300 translate-y-0 md:translate-y-0 cursor-default overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
