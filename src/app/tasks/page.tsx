@@ -63,6 +63,7 @@ export default function TasksPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
 
   // Raw API lists before filtering
   const [rawTasks, setRawTasks] = useState<Task[]>([]);
@@ -83,6 +84,8 @@ export default function TasksPage() {
         }
       } catch (err) {
         console.error('Error fetching session in tasks:', err);
+      } finally {
+        setSessionLoaded(true);
       }
     }
     fetchSession();
@@ -398,6 +401,15 @@ export default function TasksPage() {
     'Medium': 'bg-amber-50 text-amber-700 border-amber-200',
     'Low': 'bg-primary-50 text-primary-600 border-primary-200',
   };
+
+  if (!sessionLoaded || loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gold-600"></div>
+        <p className="text-sm text-primary-400 font-medium mt-4">Loading workspace...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-fade-in">

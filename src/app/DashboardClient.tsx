@@ -77,6 +77,7 @@ export default function DashboardClient({
   const [people, setPeople] = useState<Person[]>(initialPeople);
   const [activeFilter, setActiveFilter] = useState<FilterType>('none');
   const [session, setSession] = useState<any>(null);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
 
   // Fetch session on mount
   useEffect(() => {
@@ -91,6 +92,8 @@ export default function DashboardClient({
         }
       } catch (err) {
         console.error('Error fetching session in dashboard:', err);
+      } finally {
+        setSessionLoaded(true);
       }
     }
     fetchSession();
@@ -417,6 +420,14 @@ export default function DashboardClient({
       .map(line => `<p>${line}</p>`)
       .join('');
   };
+
+  if (!sessionLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#faf9f6]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gold-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div data-testid="app-shell" className="min-h-screen bg-[#faf9f6] text-primary-900 font-sans antialiased">

@@ -47,6 +47,7 @@ export default function ProjectsPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
 
   // Raw API lists before filtering
   const [rawTasks, setRawTasks] = useState<Task[]>([]);
@@ -67,6 +68,8 @@ export default function ProjectsPage() {
         }
       } catch (err) {
         console.error('Error fetching session in projects:', err);
+      } finally {
+        setSessionLoaded(true);
       }
     }
     fetchSession();
@@ -385,6 +388,15 @@ export default function ProjectsPage() {
     setGanttOffset(diffDays - 2);
     triggerToast("Timeline shifted to subtask schedule");
   };
+
+  if (!sessionLoaded || loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col items-center justify-center min-h-[50vh]">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gold-600"></div>
+        <p className="text-sm text-primary-400 font-medium mt-4">Loading workspace...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

@@ -9,6 +9,7 @@ export default function UserDashboard() {
   const [people, setPeople] = useState<Person[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
 
   // Raw API lists before filtering
   const [rawTasks, setRawTasks] = useState<Task[]>([]);
@@ -29,6 +30,8 @@ export default function UserDashboard() {
         }
       } catch (err) {
         console.error('Error fetching session in user dashboard:', err);
+      } finally {
+        setSessionLoaded(true);
       }
     }
     fetchSession();
@@ -254,7 +257,7 @@ export default function UserDashboard() {
     return { todayOneShots, repetitiveTasks, projects };
   }, [userTasks]);
 
-  if (loading) {
+  if (!sessionLoaded || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#faf9f6]">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gold-600"></div>
