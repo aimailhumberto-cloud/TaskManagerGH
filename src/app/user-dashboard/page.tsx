@@ -13,6 +13,17 @@ export default function UserDashboard() {
   // Selected User State (defaults to first user in list on load)
   const [selectedUserId, setSelectedUserId] = useState<string>('');
 
+  // Mobile navigation hook & tab status (Hoy vs Rutinas vs Proyectos)
+  const [activeTab, setActiveTab] = useState<'hoy' | 'rutinas' | 'proyectos'>('hoy');
+  const [isMobileScreen, setIsMobileScreen] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobileScreen(window.innerWidth < 1024);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Drawer states
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -274,73 +285,118 @@ export default function UserDashboard() {
         </div>
       </div>
 
+      {/* Mobile Tab Selectors (only visible when isMobileScreen is true) */}
+      {isMobileScreen && (
+        <div className="flex bg-primary-100 p-1 rounded-xl border border-primary-200" data-testid="mobile-tabs-container">
+          <button
+            type="button"
+            onClick={() => setActiveTab('hoy')}
+            className={`flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all ${
+              activeTab === 'hoy'
+                ? 'bg-white text-primary-900 shadow-xs border border-primary-200/50'
+                : 'text-primary-500 hover:text-primary-800'
+            }`}
+          >
+            Hoy ({todayOneShots.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('rutinas')}
+            className={`flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all ${
+              activeTab === 'rutinas'
+                ? 'bg-white text-primary-900 shadow-xs border border-primary-200/50'
+                : 'text-primary-500 hover:text-primary-800'
+            }`}
+          >
+            Rutinas ({repetitiveTasks.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('proyectos')}
+            className={`flex-1 text-center py-2 text-xs font-bold rounded-lg transition-all ${
+              activeTab === 'proyectos'
+                ? 'bg-white text-primary-900 shadow-xs border border-primary-200/50'
+                : 'text-primary-500 hover:text-primary-800'
+            }`}
+          >
+            Proyectos ({projects.length})
+          </button>
+        </div>
+      )}
+
       {/* Main Multi-Column Board */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Column 1: Hoy / Atrasadas */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 border-b border-primary-200 pb-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-xs"></span>
-            <h3 className="text-sm font-black uppercase tracking-wider text-primary-800">Tareas de Hoy</h3>
-            <span className="bg-primary-100 text-primary-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-              {todayOneShots.length}
-            </span>
-          </div>
+        {(!isMobileScreen || activeTab === 'hoy') && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 border-b border-primary-200 pb-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shadow-xs"></span>
+              <h3 className="text-sm font-black uppercase tracking-wider text-primary-800">Tareas de Hoy</h3>
+              <span className="bg-primary-100 text-primary-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                {todayOneShots.length}
+              </span>
+            </div>
 
-          <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
-            {todayOneShots.map(task => (
-              <UserTaskCard key={task.id} task={task} currentUserId={selectedUserId} people={people} onSelect={handleOpenDrawer} />
-            ))}
-            {todayOneShots.length === 0 && (
-              <p className="text-xs text-primary-400 italic py-8 text-center bg-white border border-dashed rounded-xl">
-                No hay tareas programadas para hoy.
-              </p>
-            )}
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
+              {todayOneShots.map(task => (
+                <UserTaskCard key={task.id} task={task} currentUserId={selectedUserId} people={people} onSelect={handleOpenDrawer} />
+              ))}
+              {todayOneShots.length === 0 && (
+                <p className="text-xs text-primary-400 italic py-8 text-center bg-white border border-dashed rounded-xl">
+                  No hay tareas programadas para hoy.
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Column 2: Repetitivas / Rutina */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 border-b border-primary-200 pb-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-xs"></span>
-            <h3 className="text-sm font-black uppercase tracking-wider text-primary-800">Rutinas & Frecuencias</h3>
-            <span className="bg-primary-100 text-primary-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-              {repetitiveTasks.length}
-            </span>
-          </div>
+        {(!isMobileScreen || activeTab === 'rutinas') && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 border-b border-primary-200 pb-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-xs"></span>
+              <h3 className="text-sm font-black uppercase tracking-wider text-primary-800">Rutinas & Frecuencias</h3>
+              <span className="bg-primary-100 text-primary-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                {repetitiveTasks.length}
+              </span>
+            </div>
 
-          <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
-            {repetitiveTasks.map(task => (
-              <UserTaskCard key={task.id} task={task} currentUserId={selectedUserId} people={people} onSelect={handleOpenDrawer} />
-            ))}
-            {repetitiveTasks.length === 0 && (
-              <p className="text-xs text-primary-400 italic py-8 text-center bg-white border border-dashed rounded-xl">
-                Sin rutinas de frecuencia activas.
-              </p>
-            )}
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
+              {repetitiveTasks.map(task => (
+                <UserTaskCard key={task.id} task={task} currentUserId={selectedUserId} people={people} onSelect={handleOpenDrawer} />
+              ))}
+              {repetitiveTasks.length === 0 && (
+                <p className="text-xs text-primary-400 italic py-8 text-center bg-white border border-dashed rounded-xl">
+                  Sin rutinas de frecuencia activas.
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Column 3: Proyectos & Sub-tareas */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 border-b border-primary-200 pb-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-xs"></span>
-            <h3 className="text-sm font-black uppercase tracking-wider text-primary-800">Proyectos Activos</h3>
-            <span className="bg-primary-100 text-primary-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-              {projects.length}
-            </span>
-          </div>
+        {(!isMobileScreen || activeTab === 'proyectos') && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 border-b border-primary-200 pb-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-xs"></span>
+              <h3 className="text-sm font-black uppercase tracking-wider text-primary-800">Proyectos Activos</h3>
+              <span className="bg-primary-100 text-primary-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
+                {projects.length}
+              </span>
+            </div>
 
-          <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
-            {projects.map(task => (
-              <UserTaskCard key={task.id} task={task} currentUserId={selectedUserId} people={people} onSelect={handleOpenDrawer} />
-            ))}
-            {projects.length === 0 && (
-              <p className="text-xs text-primary-400 italic py-8 text-center bg-white border border-dashed rounded-xl">
-                No hay proyectos pendientes.
-              </p>
-            )}
+            <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
+              {projects.map(task => (
+                <UserTaskCard key={task.id} task={task} currentUserId={selectedUserId} people={people} onSelect={handleOpenDrawer} />
+              ))}
+              {projects.length === 0 && (
+                <p className="text-xs text-primary-400 italic py-8 text-center bg-white border border-dashed rounded-xl">
+                  No hay proyectos pendientes.
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Global Unified Task Drawer details modal */}

@@ -579,7 +579,7 @@ export default function CalendarPage() {
             return (
               <div
                 key={dayName}
-                className="bg-white border border-gold-200/40 rounded-2xl p-5 min-h-[350px] flex flex-col shadow-sm"
+                className="bg-white border border-gold-200/40 rounded-2xl p-5 min-h-[250px] md:min-h-[350px] flex flex-col shadow-sm"
               >
                 <h3 className="text-sm font-extrabold text-primary-900 border-b border-primary-100 pb-2.5 mb-4 flex justify-between">
                   <span>{dayName}</span>
@@ -659,7 +659,7 @@ export default function CalendarPage() {
           </div>
 
           {/* Agenda view */}
-          <div className="bg-white border border-gold-200/40 rounded-2xl p-6 shadow-sm col-span-3 min-h-[350px]">
+          <div className="bg-white border border-gold-200/40 rounded-2xl p-6 shadow-sm md:col-span-3 min-h-[350px]">
             <div className="flex items-center justify-between border-b pb-4 mb-6">
               <h3 className="text-base font-bold text-primary-900 flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-gold-500"></span>

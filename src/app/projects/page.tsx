@@ -376,7 +376,7 @@ export default function ProjectsPage() {
         </div>
       ) : viewMode === 'grid' ? (
         /* GRID VIEW */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {tasks.map(project => {
             const assignee = getPersonById(project.assigneeId);
             const company = getCompanyById(project.companyId);
@@ -599,13 +599,13 @@ export default function ProjectsPage() {
                   <th className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider sticky left-0 bg-[#faf9f6] z-40 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                     Project Title
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider hidden sm:table-cell">
                     Company
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider">
                     Overall Progress
                   </th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider hidden sm:table-cell">
                     Due Date
                   </th>
                   <th className="px-6 py-4 text-right text-xs font-bold text-primary-500 uppercase tracking-wider sticky right-0 bg-[#faf9f6] z-40 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">
@@ -639,7 +639,7 @@ export default function ProjectsPage() {
                         >
                           {project.title}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs font-medium text-primary-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-xs font-medium text-primary-500 hidden sm:table-cell">
                           {company?.name || 'Unassigned'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-xs font-semibold">
@@ -653,7 +653,7 @@ export default function ProjectsPage() {
                             <span className="text-[10px] font-bold text-gold-600">{percentage}%</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-primary-600">
+                        <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-primary-600 hidden sm:table-cell">
                           {new Date(project.dueDate).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-xs font-medium space-x-2 sticky right-0 bg-white group-hover:bg-[#fcfbf9] z-10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)] transition-colors">

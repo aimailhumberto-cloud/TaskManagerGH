@@ -373,67 +373,8 @@ export default function DashboardClient({
 
   return (
     <div data-testid="app-shell" className="min-h-screen bg-[#faf9f6] text-primary-900 font-sans antialiased">
-      {/* Premium Luxury Navigation Header */}
-      <header className="sticky top-0 z-50 backdrop-blur-md bg-[#faf9f6]/80 border-b border-gold-200/50 shadow-sm transition-all duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Elegant Luxury Gold Logo Emblem */}
-            <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-gold-400 to-gold-600 shadow-md">
-              <span className="font-serif text-white font-bold text-lg select-none">H</span>
-              <div className="absolute inset-0.5 rounded-[10px] border border-white/20"></div>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-primary-900 via-gold-800 to-gold-600 bg-clip-text text-transparent">
-                HERMES
-              </h1>
-              <p className="text-[10px] uppercase tracking-widest text-gold-600 font-semibold leading-none mt-0.5">
-                Premium Control Board
-              </p>
-            </div>
-          </div>
-
-          <nav className="flex items-center gap-1 sm:gap-4">
-            <a
-              href="/tasks"
-              data-testid="nav-tasks"
-              className="px-3 py-2 text-sm font-medium text-primary-600 hover:text-gold-600 rounded-lg hover:bg-gold-50 transition-all duration-200"
-            >
-              Tasks
-            </a>
-            <a
-              href="/companies"
-              data-testid="nav-companies"
-              className="px-3 py-2 text-sm font-medium text-primary-600 hover:text-gold-600 rounded-lg hover:bg-gold-50 transition-all duration-200"
-            >
-              Companies
-            </a>
-            <a
-              href="/categories"
-              data-testid="nav-categories"
-              className="px-3 py-2 text-sm font-medium text-primary-600 hover:text-gold-600 rounded-lg hover:bg-gold-50 transition-all duration-200"
-            >
-              Categories
-            </a>
-            <a
-              href="/calendar"
-              data-testid="nav-calendar"
-              className="px-3 py-2 text-sm font-medium text-primary-600 hover:text-gold-600 rounded-lg hover:bg-gold-50 transition-all duration-200"
-            >
-              Calendar
-            </a>
-            <a
-              href="/settings"
-              data-testid="nav-settings"
-              className="px-3 py-2 text-sm font-medium text-primary-600 hover:text-gold-600 rounded-lg hover:bg-gold-50 transition-all duration-200"
-            >
-              Settings
-            </a>
-          </nav>
-        </div>
-      </header>
-
       {/* Main Dashboard Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
         {/* Welcome Section */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>

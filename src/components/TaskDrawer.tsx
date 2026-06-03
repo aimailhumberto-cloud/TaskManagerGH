@@ -474,11 +474,11 @@ export default function TaskDrawer({
     <div
       id="task-details-drawer"
       data-testid="task-details-drawer"
-      className="fixed inset-0 z-50 overflow-hidden flex justify-end bg-primary-950/40 backdrop-blur-xs animate-fade-in"
+      className="fixed inset-0 z-50 overflow-hidden flex flex-col justify-end md:flex-row md:justify-end bg-primary-950/40 backdrop-blur-xs animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg bg-white h-full shadow-2xl flex flex-col justify-between overflow-y-auto p-6 md:p-8 transform transition-transform duration-300 translate-x-0 cursor-default"
+        className="w-full md:max-w-lg bg-white h-[92vh] md:h-full rounded-t-2xl md:rounded-t-none shadow-2xl flex flex-col justify-between p-6 md:p-8 transform transition-all duration-300 translate-y-0 md:translate-y-0 cursor-default overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drawer Header */}
@@ -503,7 +503,7 @@ export default function TaskDrawer({
         </div>
 
         {/* Drawer Form Body */}
-        <div className="flex-1 space-y-6">
+        <div className="flex-1 space-y-6 overflow-y-auto pr-1 md:pr-2 pb-4">
           {/* Title */}
           <div>
             <label className="block text-xs font-bold text-primary-500 mb-1">Task Title</label>

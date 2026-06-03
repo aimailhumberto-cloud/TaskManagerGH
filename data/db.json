@@ -74,54 +74,35 @@
       "name": "Adela",
       "role": "Encargada Tienda",
       "avatar": "/avatars/user.png"
+    },
+    {
+      "id": "usr-12",
+      "name": "Daniel",
+      "role": "Manager",
+      "avatar": "/avatars/user.png"
     }
   ],
   "tasks": [
     {
-      "id": "t1",
-      "title": "Coordinación Operativa de Tienda",
-      "description": "# Tienda Radisson\nCoordinar entrega de inventario de temporada alta con Adela.",
+      "title": "RESERVA R001 - Cotizar Ventanas del Mar para Madeleine (15-18 personas, 21 Mar)",
+      "description": "Solicitó: Apartamentos 2hab/3hab, rancho de playa. 15-18 personas, 1 noche. Enviar cotización. ⚠️ Incluir rancho de playa adicional.",
       "type": "One-shot",
+      "repeatPattern": null,
       "steps": [],
-      "companyId": "comp-4",
-      "assigneeId": "usr-10",
+      "companyId": "comp-3",
+      "assigneeId": "usr-12",
       "assigneeIds": [
-        "usr-10"
+        "usr-12"
       ],
       "status": "Pending",
       "priority": "High",
-      "origin": "Golden Hour",
-      "dueDate": "2026-06-05",
-      "attachments": [],
-      "activityLog": [
-        {
-          "timestamp": "2026-06-02T08:24:52.872Z",
-          "user": "System",
-          "action": "Tarea creada",
-          "type": "User"
-        }
-      ]
-    },
-    {
-      "id": "t2",
-      "title": "Revisión de CXP y Caja Chica",
-      "description": "# Finanzas\nRevisar flujo de caja chica mensual y conciliaciones de Surf Shack.",
-      "type": "Repetitive",
-      "repeatPattern": "Monthly",
-      "steps": [],
-      "companyId": "comp-5",
-      "assigneeId": "usr-carlos",
-      "assigneeIds": [
-        "usr-carlos"
-      ],
-      "status": "In Progress",
-      "priority": "Medium",
       "origin": "Manual",
-      "dueDate": "2026-06-10",
+      "dueDate": "2026-03-15",
       "attachments": [],
+      "id": "t2",
       "activityLog": [
         {
-          "timestamp": "2026-06-02T08:24:52.872Z",
+          "timestamp": "2026-06-02T08:47:03.517Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"
@@ -129,25 +110,156 @@
       ]
     },
     {
-      "id": "t3",
-      "title": "Daily standup operativo",
-      "description": "# Standup\nRevisión de reservas de tours del día y asignación de lanchas.",
-      "type": "Repetitive",
-      "repeatPattern": "Daily",
+      "title": "RESERVA R002 - Confirmar disponibilidad Radisson para Mariangel + Paul (20-21 Mar)",
+      "description": "Habitación Radisson Playa Caracol, 2 noches (vie-sáb). ⚠️ NO enviar precios a huéspedes. Huésped1: Mariangel (Colombiana, pasaporte AX007027). Huésped2: Paul (Panameño, cédula 8-789-601).",
+      "type": "One-shot",
+      "repeatPattern": null,
       "steps": [],
       "companyId": "comp-3",
+      "assigneeId": "usr-12",
+      "assigneeIds": [
+        "usr-12"
+      ],
+      "status": "Pending",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-03-14",
+      "attachments": [],
+      "id": "t3",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.536Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "TIENDA RADISSON - Abrir tienda y recibir/entrenar nueva empleada",
+      "description": "🚨 URGENTE: Diana y Thiffany despedidas. Daniel debe abrir tienda mañana 13-Mar y recibir nueva muchacha para entrenamiento.",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-4",
+      "assigneeId": "usr-12",
+      "assigneeIds": [
+        "usr-12"
+      ],
+      "status": "Pending",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-03-13",
+      "attachments": [],
+      "id": "t4",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.553Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "TIENDA RADISSON - Entregar carta de despido a Diana y Thiffany",
+      "description": "🚨 URGENTE: Carta de despido formal para Diana y Thiffany. Despido inmediato por tienda cerrada sin hacer nada.",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-7",
+      "assigneeId": "usr-6",
+      "assigneeIds": [
+        "usr-6"
+      ],
+      "status": "Pending",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-03-13",
+      "attachments": [],
+      "id": "t5",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.569Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "TIENDA RADISSON - Buscar otra persona para tienda",
+      "description": "Buscar una persona adicional para la tienda Radisson. Nueva empleada llega mañana para entrenamiento.\n\n✅ HOJA DE VIDA RECIBIDA (15-Mar): Adela - trabaja eventualmente en Casa Mahana. PDF guardado en content/received/documents/HV_ADELA.pdf\n\nPendiente revisar HV y coordinar entrevista.\n\n👥 Responsables: Kiria + HB",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-4",
+      "assigneeId": "usr-6",
+      "assigneeIds": [
+        "usr-6",
+        "usr-4"
+      ],
+      "status": "In Progress",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-03-20",
+      "attachments": [],
+      "id": "t6",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.585Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "TIENDA RADISSON - Enviar correo a Caracol sobre cambio de personal",
+      "description": "🚨 URGENTE: Informar a Playa Caracol sobre salida de Diana y Thiffany, y entrada de nueva empleada. Incluir belidis y equipo.",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-4",
+      "assigneeId": "usr-12",
+      "assigneeIds": [
+        "usr-12"
+      ],
+      "status": "Pending",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-03-13",
+      "attachments": [],
+      "id": "t7",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.601Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "TIENDA RADISSON - Crear manual de instrucciones para empleados",
+      "description": "Manual completo para nuevos empleados: procedimientos de venta, atención al cliente, manejo de caja, precios, productos, protocolos. Complementa el checklist existente. ⏳ Para la próxima semana.",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-4",
       "assigneeId": "usr-7",
       "assigneeIds": [
         "usr-7"
       ],
       "status": "Pending",
-      "priority": "Medium",
+      "priority": "Low",
       "origin": "Manual",
-      "dueDate": "2026-06-02",
+      "dueDate": "2026-03-21",
       "attachments": [],
+      "id": "t8",
       "activityLog": [
         {
-          "timestamp": "2026-06-02T08:24:52.872Z",
+          "timestamp": "2026-06-02T08:47:03.616Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"
@@ -155,37 +267,103 @@
       ]
     },
     {
-      "id": "t4",
-      "title": "Auditoría de Reservas - Golden Hour",
-      "description": "# Auditoría\nRevisar facturación de reservas cruzadas con Mahana Tours.",
-      "type": "Project",
-      "steps": [
-        {
-          "id": "s1",
-          "text": "Verificar listado de huéspedes",
-          "completed": true,
-          "status": "Completed"
-        },
-        {
-          "id": "s2",
-          "text": "Confirmar pagos en pasarela",
-          "completed": false,
-          "status": "Pending"
-        }
+      "title": "TIENDA RADISSON - Activar Yappy y evaluar POS inalámbrico",
+      "description": "Activar pagos con Yappy en la tienda. Evaluar opción de POS inalámbrico para pagos con tarjeta.",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-4",
+      "assigneeId": "usr-12",
+      "assigneeIds": [
+        "usr-12"
       ],
-      "companyId": "comp-2",
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-03-22",
+      "attachments": [],
+      "id": "t9",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.632Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "TIENDA RADISSON - Contactar y entrevistar a Adela",
+      "description": "1. Contactar a Adela (tel: 6521-4832 / 6521-9832 / 6712-6123)\n2. Realizar entrevista para puesto en tienda Radisson\n3. Responder correo de Kiria con resultado de entrevista\n\nHV guardada en: content/received/documents/HV_ADELA.pdf\n\n✅ 15-Mar: Daniel contactó a Adela - Viene mañana (16-Mar) a entrevista",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-4",
+      "assigneeId": "usr-12",
+      "assigneeIds": [
+        "usr-12"
+      ],
+      "status": "In Progress",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-03-18",
+      "attachments": [],
+      "id": "t10",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.648Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "TIENDA RADISSON - Revisar HV Juan Urriola y responder correo",
+      "description": "1. Revisar hoja de vida de Juan Urriola\n2. Responder correo de Kiria con decisión\n\n📧 Email: 19cf28cba07441df - Asunto: 'Hoja de Vida'\n📄 PDF: content/received/documents/HV_JUAN_URRIOLA.pdf\n\nCandidato potencial para tienda Radisson (mismo proceso que Adela)",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-4",
+      "assigneeId": "usr-12",
+      "assigneeIds": [
+        "usr-12"
+      ],
+      "status": "Pending",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-03-17",
+      "attachments": [],
+      "id": "t11",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.663Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "SURF SHACK - Tomar foto para landing page",
+      "description": "Foto de Surf Shack para usar en landing page del proyecto 360.",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-5",
       "assigneeId": "usr-5",
       "assigneeIds": [
         "usr-5"
       ],
-      "status": "In Progress",
-      "priority": "High",
-      "origin": "Golden Hour",
-      "dueDate": "2026-06-06",
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-04-03",
       "attachments": [],
+      "id": "t13",
       "activityLog": [
         {
-          "timestamp": "2026-06-02T08:24:52.872Z",
+          "timestamp": "2026-06-02T08:47:03.694Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"
@@ -193,25 +371,443 @@
       ]
     },
     {
-      "id": "t5",
-      "title": "Apertura de Tienda y Check-in",
-      "description": "# Tienda\nRecepción de insumos y entrenamiento de personal de ANS Tienda.",
-      "type": "Repetitive",
-      "repeatPattern": "Daily",
+      "title": "Enviar tabla de surf de Steven a reparar (por mensajero, coordinar envío)",
+      "description": "Tabla de surf de Steven - la que está en Bambi. Coordinar envío con mensajero hacia taller de reparación.",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-4",
+      "assigneeId": "usr-12",
+      "assigneeIds": [
+        "usr-12"
+      ],
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-06-02T08:47:03.724Z",
+      "attachments": [],
+      "id": "t15",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.724Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "Coordinar con Orlando para reinstalar cámara de olas en Radisson",
+      "description": "Coordinar con Orlando para volver a poner la cámara de olas en Radisson. Relacionado con T120 (cámara de olas/surf cam).",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-3",
+      "assigneeId": "usr-12",
+      "assigneeIds": [
+        "usr-12"
+      ],
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-06-02T08:47:03.740Z",
+      "attachments": [],
+      "id": "t16",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.740Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "Coordinar entrenamiento portal de reserva - sábado en la mañana",
+      "description": "Daniel coordina el entrenamiento del portal de reserva para sábado en la mañana. HB debe tener el portal listo antes del entrenamiento.",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-3",
+      "assigneeId": "usr-12",
+      "assigneeIds": [
+        "usr-12"
+      ],
+      "status": "Pending",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-05-17",
+      "attachments": [],
+      "id": "t17",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.756Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "SURF SHACK - HB llama a Playa Caracol para negociar plan de luz ($7,383)",
+      "description": "Luz es 24% del CxP total. No cortarán el servicio inmediatamente, pero es importante atender con prioridad para negociar plan de pago favorable. Opciones: A) Plan de pago $1,500-2,000/mes | B) Acuerdo global con descuento | C) HB cubre temporalmente.",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-5",
+      "assigneeId": "usr-4",
+      "assigneeIds": [
+        "usr-4"
+      ],
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-05-16",
+      "attachments": [],
+      "id": "t19",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.788Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "SURF SHACK - Magin contacta CSS para plan de pago seguro social",
+      "description": "CSS $3,600 + Abdiel Gonzalez $630 = $4,230 en seguro social.\nCSS acepta fraccionamiento. Incluir a Abdiel en el mismo plan.",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-5",
+      "assigneeId": "usr-5",
+      "assigneeIds": [
+        "usr-5"
+      ],
+      "status": "Pending",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-05-16",
+      "attachments": [],
+      "id": "t20",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.803Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "SURF SHACK - Pagar urgentes pequeños: Pineapple + Eco Septic + Coco + Hielo",
+      "description": "Pineapple Tech (POS) $285 - Sin POS no cobras\nEco Septic (basura) $150 - Esencial, barato\nCoco Caribe $20 - Mínimo, pagar ya\nHielo Ameglio $230 - Esencial para operación\nTotal: $685. Pagar esta semana con margen.",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-5",
+      "assigneeId": "usr-5",
+      "assigneeIds": [
+        "usr-5"
+      ],
+      "status": "Pending",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-05-17",
+      "attachments": [],
+      "id": "t21",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.819Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "SURF SHACK - HB renegocia PUMPTRACK y piso deck (plazos largos)",
+      "description": "PUMPTRACK $3,780 - Inversión, no operación. Renegociar a $500-600/mes o revenue share.\nJuan Diego Reyna $3,000 - Piso deck. Pedir 6 meses de gracia o $500/mes.\nPréstamo HB $4,000 - Renegociar a $500/mes sin intereses.",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-5",
+      "assigneeId": "usr-4",
+      "assigneeIds": [
+        "usr-4"
+      ],
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-05-30",
+      "attachments": [],
+      "id": "t22",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.834Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "SURF SHACK - Diseñar e imprimir material POP Paradise Pass + Domingos Temáticos",
+      "description": "Material POP necesario esta semana:\n1. Cartel/póster Paradise Pass en entrada\n2. Flyers domingo temático en caja y pool area\n3. Post IG/TikTok lanzamiento Paradise Pass\n4. Cartel reglas concurso castillo de arena\n5. Cartel con horarios voleibol\n6. Cartel Surf Camp permanente\nPresupuesto: $150-200 total",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-5",
+      "assigneeId": "usr-5",
+      "assigneeIds": [
+        "usr-5"
+      ],
+      "status": "Pending",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-05-17",
+      "attachments": [],
+      "id": "t23",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.850Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "SURF SHACK - Organizar Domingo Familiar lanzamiento (18 Mayo)",
+      "description": "DOMINGO 18 MAYO — Lanzamiento Paradise Pass + Castillo de Arena piloto\n- Primer concurso castillo de arena (familiar)\n- Lanzamiento oficial Paradise Pass (3 tiers)\n- Promo: inscripciones Paradise Pass con descuento lanzamiento\n- Soft promotion en redes desde jueves\nPresupuesto premios: $50-70",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-5",
+      "assigneeId": "usr-5",
+      "assigneeIds": [
+        "usr-5"
+      ],
+      "status": "Pending",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-05-16",
+      "attachments": [],
+      "id": "t24",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.866Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "SURF SHACK - Contactar academias de surf e instructores para camps",
+      "description": "Academias e instructores a contactar:\n- Academias de surf locales\n- Escuelas de natación\n- CrossFit/funcional para camps de playa\n- Universidades (educación física)\n- Hoteles: Casa Mahana, Radisson (paquetes conjuntos)\nCosto instructor: $80-120/camp\nMargen estimado: 55-65%\nMeta: 2-3 camps/semana en 1 mes",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-5",
+      "assigneeId": "usr-5",
+      "assigneeIds": [
+        "usr-5"
+      ],
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-05-21",
+      "attachments": [],
+      "id": "t25",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.881Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "SURF SHACK - Instalar red de voleibol permanente + kit castillo de arena",
+      "description": "Infraestructura para activación:\n- Red de voleibol permanente ($80-120)\n- Kit castillo de arena: palas, cubetas, marcadores ($30-50)\n- Tabla de posiciones voleibol visible en barra\n- Cartel de reglas en área de playa\nInversión total: $110-170 una vez\n\n👥 Responsables: Magin + HB",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-5",
+      "assigneeId": "usr-5",
+      "assigneeIds": [
+        "usr-5",
+        "usr-4"
+      ],
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-05-23",
+      "attachments": [],
+      "id": "t26",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.897Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "SEGUIMIENTO - Evaluar tour de paramotor (SiyAdventure) para adicionar al catálogo de Mahana Tours",
+      "description": "🔵 Promo 2x1 paramotor por $100 (2 personas). Incluye: fotos y videos, vuelo ~15 min, hidratación, equipo completo, piloto certificado. Ubicación: Punta Chame. Vuelos según disponibilidad y clima. Fuente: SiyAdventure (WhatsApp 05.05.2026). Objetivo: evaluar si adicionamos este tour al catálogo.",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-3",
+      "assigneeId": "usr-12",
+      "assigneeIds": [
+        "usr-12"
+      ],
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-05-21",
+      "attachments": [],
+      "id": "t27",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.912Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "MAILING B2B - Enviar flyer informativo a compañías (ventas corporativas)",
+      "description": "Mailing B2B a compañías con flyer informativo adjunto. Objetivo: ventas corporativas / membresías Paradise Pass para empresas. ⚠️ Flyer pendiente de recibir (Magin indicó que lo adjuntaría).",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-5",
+      "assigneeId": "usr-5",
+      "assigneeIds": [
+        "usr-5"
+      ],
+      "status": "Pending",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-06-02T08:47:03.928Z",
+      "attachments": [],
+      "id": "t28",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.928Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "Actualizar proveedor Hero: registrar pagos pendientes de tablas de surf vendidas",
+      "description": "El tema de playa con Hero ya se resolvió. La tabla pendiente de pago es la tabla Plai (Playa). Se vendió y se registró, pero al parecer nunca se le pagó al proveedor. Actualizar con Hero para saldar esa deuda pendiente.",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-3",
+      "assigneeId": "usr-5",
+      "assigneeIds": [
+        "usr-5"
+      ],
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-06-02T08:47:03.944Z",
+      "attachments": [],
+      "id": "t29",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:47:03.944Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "Coordinar con Playa Caracol y Madelien - Ruta de mulatas",
+      "description": "Reunión presencial para definir ruta de mulatas con Playa Caracol y Madelien.\n\n👥 Responsables: HB + Yessenia",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-3",
+      "assigneeId": "usr-4",
+      "assigneeIds": [
+        "usr-4",
+        "usr-10"
+      ],
+      "status": "In Progress",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-06-01",
+      "attachments": [],
+      "id": "t30",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:48:31.985Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "ANS Tienda - Implementar medidas operativas para entrada de productos nuevos",
+      "description": "[Asignado por: HB]\n\nSeguimiento a la operación de ANS Tienda.\n\nAcción: Implementar proceso de aprobación para productos nuevos:\n1. Todo producto nuevo debe ser aprobado por HB antes de entrar a la tienda\n2. Proveedor debe enviar: hoja de producto con margen, cantidad de productos, checklist de requisitos (formularios firmados, hoja de precios)\n3. Si el proveedor tiene cuenta de IG o muestra de producto, incluir para aprobación\n4. Yessenia Saenz (Coordinadora Operativa Golden Hour) copiada en todas las comunicaciones\n5. Enviar correo operativo a ventas@toursmahana, HB, Kiria y Yessenia",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-4",
+      "assigneeId": "usr-4",
+      "assigneeIds": [
+        "usr-4"
+      ],
+      "status": "In Progress",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-06-03",
+      "attachments": [],
+      "id": "t31",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:48:32.001Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "ANS Tienda - Adela firma y acata proceso de aprobación de productos nuevos",
+      "description": "[Asignado por: HB]\n\nSeguimiento: Adela (encargada actual de la tienda) debe firmar el proceso operativo de entrada de productos nuevos.\n\nRequisitos que Adela debe acatar y firmar:\n1. Todo producto nuevo requiere aprobación de HB antes de ingresar\n2. Proveedor debe enviar: hoja de producto con margen, cantidad, checklist (formularios firmados, hoja de precios)\n3. Si tiene cuenta de IG o muestra de producto, incluir para aprobación\n4. Yessenia Sáenz (Coordinadora Operativa Golden Hour) copiada en todas las comunicaciones\n\nAcción: Confirmar con Adela que firma y acata el proceso.",
+      "type": "One-shot",
+      "repeatPattern": null,
       "steps": [],
       "companyId": "comp-4",
       "assigneeId": "usr-11",
       "assigneeIds": [
         "usr-11"
       ],
-      "status": "Completed",
+      "status": "In Progress",
       "priority": "High",
       "origin": "Manual",
-      "dueDate": "2026-06-01",
+      "dueDate": "2026-06-03",
       "attachments": [],
+      "id": "t32",
       "activityLog": [
         {
-          "timestamp": "2026-06-02T08:24:52.872Z",
+          "timestamp": "2026-06-02T08:48:32.017Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"
@@ -219,25 +815,123 @@
       ]
     },
     {
-      "id": "t6",
-      "title": "Plan de Marketing - Temporada Alta",
-      "description": "# Marketing\nEstrategia de pauta digital para Mahana Tours y Surf Shack.",
+      "title": "Reunión rápida con Wagner Luciano",
+      "description": "Conexión de Instagram y TikTok para Mahana Tours, Casa Mahana, ANS y Surf Shack.\n\n👥 Participantes: HB + Yessenia\n\nJueves 4 junio, 11:00-11:30 (hora Bogotá)",
+      "type": "One-shot",
+      "repeatPattern": null,
+      "steps": [],
+      "companyId": "comp-3",
+      "assigneeId": "usr-4",
+      "assigneeIds": [
+        "usr-4",
+        "usr-10"
+      ],
+      "status": "In Progress",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-06-04",
+      "attachments": [],
+      "id": "t33",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:48:32.033Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "Surf & Circuito Chame - Revisar plan completo",
+      "description": "Proyecto: Plan completo Surf & Circuito Chame. Incluye websites, portal de reserva, y coordinación general.",
       "type": "Project",
+      "repeatPattern": null,
       "steps": [
         {
-          "id": "s1",
-          "text": "Diseñar banners gráficos",
-          "completed": false,
-          "status": "Pending"
+          "text": "Terminar los websites",
+          "status": "In Progress",
+          "assigneeId": "usr-4",
+          "dueDate": "2026-06-05",
+          "completed": false
         },
         {
-          "id": "s2",
-          "text": "Redactar copy de anuncios",
-          "completed": false,
-          "status": "Pending"
+          "text": "Conectar Portal de Reserva",
+          "status": "In Progress",
+          "assigneeId": "usr-12",
+          "dueDate": "2026-06-05",
+          "completed": false
         }
       ],
       "companyId": "comp-3",
+      "assigneeId": "usr-4",
+      "assigneeIds": [
+        "usr-4",
+        "usr-5",
+        "usr-12"
+      ],
+      "status": "In Progress",
+      "priority": "High",
+      "origin": "Manual",
+      "dueDate": "2026-06-02T08:48:32.048Z",
+      "attachments": [],
+      "id": "t34",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:48:32.049Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "ANS AI - Instalar cámara de olas / surf cam",
+      "description": "Proyecto: Instalación de cámara de olas en ubicación ANS.\n\n⚠️ 12-May: HB indica coordinar con Orlando para reinstalar cámara en Radisson.",
+      "type": "Project",
+      "repeatPattern": null,
+      "steps": [
+        {
+          "text": "Rescatar cámara de Caracol",
+          "status": "Pending",
+          "assigneeId": "usr-10",
+          "dueDate": "2026-06-13",
+          "completed": false
+        },
+        {
+          "text": "Coordinar instalación con Orlando",
+          "status": "Pending",
+          "dueDate": "2026-06-12",
+          "completed": false
+        }
+      ],
+      "companyId": "comp-4",
+      "assigneeId": "usr-4",
+      "assigneeIds": [
+        "usr-4",
+        "usr-12"
+      ],
+      "status": "Pending",
+      "priority": "Medium",
+      "origin": "Manual",
+      "dueDate": "2026-06-02T08:48:32.064Z",
+      "attachments": [],
+      "id": "t35",
+      "activityLog": [
+        {
+          "timestamp": "2026-06-02T08:48:32.064Z",
+          "user": "System",
+          "action": "Tarea creada",
+          "type": "User"
+        }
+      ]
+    },
+    {
+      "title": "CASA MAHANA - Promover ofertas activas de pasadía y estadía",
+      "description": "Ofertas activas equivalentes a Surf Shack:\n\n🏨 PASADÍA 4 PERSONAS:\n- $25 (Lun-Jue) / $35 (Vie-Dom)\n- Incluye: Pasadía + 2 pizzas + 4 bebidas\n\n💕 ESCAPADA ROMÁNTICA:\n- $55 (Dom-Jue) / $65 (Vie-Sáb)\n- Incluye: Habitación + Cena + Vino\n- Extra: 10% descuento en consumo adicional\n\n📋 Tarea: Promover en Instagram, WhatsApp, Oferta Simple",
+      "type": "Repetitive",
+      "repeatPattern": "Weekly",
+      "steps": [],
+      "companyId": "comp-6",
       "assigneeId": "usr-6",
       "assigneeIds": [
         "usr-6"
@@ -245,11 +939,12 @@
       "status": "Pending",
       "priority": "Medium",
       "origin": "Manual",
-      "dueDate": "2026-06-15",
+      "dueDate": "2026-06-09",
       "attachments": [],
+      "id": "t36",
       "activityLog": [
         {
-          "timestamp": "2026-06-02T08:24:52.872Z",
+          "timestamp": "2026-06-02T08:48:32.080Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"
@@ -257,26 +952,26 @@
       ]
     },
     {
-      "id": "t7",
-      "title": "Comité de Estrategia de Holding (Compartida)",
-      "description": "# Reunión General\nRevisión trimestral de metas de Casa Mahana y Soluciones Express.",
-      "type": "One-shot",
+      "title": "SURF SHACK - Lanzar Paradise Pass con material POP",
+      "description": "FOCO PROMOCIONAL DE ESTE MES. Solo Paradise Pass, nada más.\nMaterial POP necesario:\n1. Cartel/póster Paradise Pass en entrada\n2. Volantes/flyers con beneficios para entregar en caja\n3. Post IG/TikTok anunciando lanzamiento\n4. Stories IG con beneficios de cada tier\n5. WhatsApp broadcast a clientes frecuentes\n6. Signage en pool area con QR de inscripción\n7. Email a base de datos (5,789 comensales YTD)\n\nTiers: Bronze $35/mes | Silver $65/mes | Gold $120/mes\nMeta: 50 membresías primera semana | MRR $2,000+ al final del mes\nMRR potencial total: $4,575/mes (cubre 68% de cuota CxP)",
+      "type": "Repetitive",
+      "repeatPattern": "Weekly",
       "steps": [],
-      "companyId": "comp-6",
-      "assigneeId": "usr-4",
+      "companyId": "comp-5",
+      "assigneeId": "usr-5",
       "assigneeIds": [
-        "usr-4",
         "usr-5",
-        "usr-6"
+        "usr-4"
       ],
       "status": "Pending",
       "priority": "High",
-      "origin": "Golden Hour",
-      "dueDate": "2026-06-08",
+      "origin": "Manual",
+      "dueDate": "2026-06-09",
       "attachments": [],
+      "id": "t37",
       "activityLog": [
         {
-          "timestamp": "2026-06-02T08:24:52.872Z",
+          "timestamp": "2026-06-02T08:48:32.096Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"
@@ -284,24 +979,28 @@
       ]
     },
     {
-      "id": "t8",
-      "title": "Inspección de Mantenimiento de Villas",
-      "description": "# Casa Mahana\nRevisar aire acondicionado y plomería en Villa A.",
-      "type": "One-shot",
+      "title": "Todas las Compañías - Estatus CxP",
+      "description": "Revisión semanal del estatus de cuentas por pagar de todas las compañías del holding.\n\n👥 Responsables: Magín, Kiria, Daniel, Adela",
+      "type": "Repetitive",
+      "repeatPattern": "Weekly",
       "steps": [],
-      "companyId": "comp-6",
+      "companyId": "comp-2",
       "assigneeId": "usr-5",
       "assigneeIds": [
-        "usr-5"
+        "usr-5",
+        "usr-6",
+        "usr-12",
+        "usr-11"
       ],
       "status": "Pending",
       "priority": "Medium",
       "origin": "Manual",
-      "dueDate": "2026-05-15",
+      "dueDate": "2026-06-09",
       "attachments": [],
+      "id": "t38",
       "activityLog": [
         {
-          "timestamp": "2026-06-02T08:24:52.872Z",
+          "timestamp": "2026-06-02T08:48:32.112Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"

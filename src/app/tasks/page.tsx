@@ -574,29 +574,29 @@ export default function TasksPage() {
                       </th>
                     )}
                     {visibleColumns.priority && (
-                      <th className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider hidden sm:table-cell">
                         Priority
                       </th>
                     )}
                     {visibleColumns.type && (
-                      <th className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider hidden md:table-cell">
                         Type
                       </th>
                     )}
                     {visibleColumns.assignee && (
-                      <th className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider hidden sm:table-cell">
                         Assignee
                       </th>
                     )}
                     {visibleColumns.company && (
-                      <th className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider hidden md:table-cell">
                         Company
                       </th>
                     )}
                     {visibleColumns.dueDate && (
                       <th
                         onClick={() => setSortBy(sortBy === 'due-date' ? 'none' : 'due-date')}
-                        className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider cursor-pointer hover:bg-gold-50/50 hover:text-gold-700 transition"
+                        className="px-6 py-4 text-left text-xs font-bold text-primary-500 uppercase tracking-wider cursor-pointer hover:bg-gold-50/50 hover:text-gold-700 transition hidden sm:table-cell"
                       >
                         <div className="flex items-center gap-1">
                           Due Date
@@ -658,7 +658,7 @@ export default function TasksPage() {
                           </td>
                         )}
                         {visibleColumns.priority && (
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap hidden sm:table-cell">
                             <select
                               value={task.priority}
                               onChange={(e) => handleUpdateTaskProperty(task.id, 'priority', e.target.value)}
@@ -673,7 +673,7 @@ export default function TasksPage() {
                           </td>
                         )}
                         {visibleColumns.type && (
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
                             <select
                               value={task.type}
                               onChange={(e) => handleUpdateTaskProperty(task.id, 'type', e.target.value)}
@@ -686,7 +686,7 @@ export default function TasksPage() {
                           </td>
                         )}
                         {visibleColumns.assignee && (
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 whitespace-nowrap hidden sm:table-cell">
                             <div className="flex items-center gap-2">
                               <HslAvatar
                                 name={assignee?.name || 'Unassigned'}
@@ -707,12 +707,12 @@ export default function TasksPage() {
                           </td>
                         )}
                         {visibleColumns.company && (
-                          <td className="px-6 py-4 whitespace-nowrap text-xs font-medium text-primary-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-xs font-medium text-primary-500 hidden md:table-cell">
                             {company?.name || 'Unassigned'}
                           </td>
                         )}
                         {visibleColumns.dueDate && (
-                          <td className="px-6 py-4 whitespace-nowrap text-xs font-medium text-primary-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-xs font-medium text-primary-500 hidden sm:table-cell">
                             {new Date(task.dueDate).toLocaleDateString()}
                           </td>
                         )}

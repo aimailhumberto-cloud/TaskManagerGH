@@ -225,9 +225,43 @@ export default function RootLayout({
             </header>
 
             {/* Scrollable Main Area containing page components */}
-            <main className="flex-1 overflow-y-auto bg-primary-50 focus:outline-none">
+            <main className="flex-1 overflow-y-auto bg-primary-50 focus:outline-none pb-20 lg:pb-0">
               {children}
             </main>
+
+            {/* Mobile Bottom Navigation Bar */}
+            <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-primary-900 border-t border-primary-850 flex justify-around items-center h-16 px-2 shadow-lg">
+              <a href="/" className="flex flex-col items-center justify-center text-primary-300 hover:text-gold-450 py-1 flex-1">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6z" />
+                </svg>
+                <span className="text-[9px] font-semibold mt-1">Dashboard</span>
+              </a>
+              <a href="/tasks" className="flex flex-col items-center justify-center text-primary-300 hover:text-gold-455 py-1 flex-1">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+                </svg>
+                <span className="text-[9px] font-semibold mt-1">Tasks</span>
+              </a>
+              <a href="/projects" className="flex flex-col items-center justify-center text-primary-300 hover:text-gold-455 py-1 flex-1">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13" />
+                </svg>
+                <span className="text-[9px] font-semibold mt-1">Projects</span>
+              </a>
+              <a href="/user-dashboard" className="flex flex-col items-center justify-center text-primary-300 hover:text-gold-455 py-1 flex-1">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14" />
+                </svg>
+                <span className="text-[9px] font-semibold mt-1">User DB</span>
+              </a>
+              <a href="/calendar" className="flex flex-col items-center justify-center text-primary-300 hover:text-gold-455 py-1 flex-1">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14" />
+                </svg>
+                <span className="text-[9px] font-semibold mt-1">Calendar</span>
+              </a>
+            </nav>
           </div>
         </div>
       </body>
