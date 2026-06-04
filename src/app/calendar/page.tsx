@@ -71,6 +71,8 @@ export default function CalendarPage() {
   const [week, setWeek] = useState<number>(23);
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('week');
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0); // 0 = Monday (default for Day View)
+  const [currentYear, setCurrentYear] = useState<number>(2026);
+  const [currentMonth, setCurrentMonth] = useState<number>(5); // 5 = June (0-indexed)
 
   // API Data states
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -245,12 +247,18 @@ export default function CalendarPage() {
   const calendarEvents = useMemo(() => {
     const events: CalendarEvent[] = [];
 
-    // 2. Add API tasks falling inside current week
-    const weekDatesStr = weekRange.map(w => w.dateStr);
     tasks.forEach(task => {
       const dateStr = task.dueDate ? task.dueDate.substring(0, 10) : '';
-      if (weekDatesStr.includes(dateStr)) {
-        const matchingDay = weekRange.find(w => w.dateStr === dateStr);
+      if (dateStr) {
+        const parts = dateStr.split('-');
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const dNum = parseInt(parts[2], 10);
+        const d = new Date(y, m, dNum);
+        
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const dayName = dayNames[d.getDay()];
+        
         const priorityColors = {
           'High': 'rgb(255, 0, 0)',
           'Medium': 'rgb(245, 158, 11)',
@@ -261,7 +269,7 @@ export default function CalendarPage() {
           id: task.id,
           title: task.title,
           time: '09:00 - 17:00',
-          day: matchingDay ? matchingDay.dayName : 'Monday',
+          day: dayName,
           dateStr,
           priority: task.priority,
           color: priorityColors[task.priority] || 'rgb(245, 158, 11)',
@@ -271,7 +279,7 @@ export default function CalendarPage() {
     });
 
     return events;
-  }, [tasks, week, weekRange]);
+  }, [tasks]);
 
   // Drawer slider actions
   const handleEventClick = async (evt: CalendarEvent) => {
@@ -298,19 +306,45 @@ export default function CalendarPage() {
   const handlePrevWeek = () => setWeek((w) => w - 1);
   const handleNextWeek = () => setWeek((w) => w + 1);
 
-  // Month Days Calculator (June 2026 - 30 days)
+  // Month Days Calculator (Dynamic)
   const monthDays = useMemo(() => {
-    const totalDays = 30; // June has 30 days
+    const totalDays = new Date(currentYear, currentMonth + 1, 0).getDate();
     return Array.from({ length: totalDays }, (_, i) => {
       const dayNum = i + 1;
-      const dateStr = `2026-06-${String(dayNum).padStart(2, '0')}`;
+      const dateStr = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+      const d = new Date(currentYear, currentMonth, dayNum);
       return {
         dayNum,
         dateStr,
-        dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][new Date(dateStr).getDay()]
+        dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()]
       };
     });
-  }, []);
+  }, [currentYear, currentMonth]);
+
+  const paddingBoxes = useMemo(() => {
+    const firstDay = new Date(currentYear, currentMonth, 1);
+    return Array.from({ length: firstDay.getDay() });
+  }, [currentYear, currentMonth]);
+
+  const monthName = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][currentMonth];
+
+  const handlePrevMonth = () => {
+    if (currentMonth === 0) {
+      setCurrentMonth(11);
+      setCurrentYear((y) => y - 1);
+    } else {
+      setCurrentMonth((m) => m - 1);
+    }
+  };
+
+  const handleNextMonth = () => {
+    if (currentMonth === 11) {
+      setCurrentMonth(0);
+      setCurrentYear((y) => y + 1);
+    } else {
+      setCurrentMonth((m) => m + 1);
+    }
+  };
 
   const currentDayRange = weekRange[selectedDayIndex] || weekRange[0];
 
@@ -366,8 +400,8 @@ export default function CalendarPage() {
             </button>
           </div>
 
-          {/* Weekly Navigator */}
-          {viewMode === 'week' && (
+          {/* Weekly/Daily Navigator */}
+          {(viewMode === 'week' || viewMode === 'day') && (
             <div className="flex items-center gap-3 bg-white border border-gold-200/50 p-2 rounded-xl shadow-sm">
               <button
                 data-testid="calendar-prev-week"
@@ -391,6 +425,29 @@ export default function CalendarPage() {
               </button>
             </div>
           )}
+
+          {/* Month Navigator */}
+          {viewMode === 'month' && (
+            <div className="flex items-center gap-3 bg-white border border-gold-200/50 p-2 rounded-xl shadow-sm">
+              <button
+                onClick={handlePrevMonth}
+                className="px-3 py-1.5 text-primary-600 hover:text-gold-600 rounded-lg hover:bg-gold-50 transition-all font-bold text-xs"
+              >
+                ← Previous
+              </button>
+              <span
+                className="text-sm font-extrabold text-primary-900 px-3.5 py-1 bg-gold-50 border border-gold-100 rounded-lg"
+              >
+                {monthName} {currentYear}
+              </span>
+              <button
+                onClick={handleNextMonth}
+                className="px-3 py-1.5 text-primary-600 hover:text-gold-600 rounded-lg hover:bg-gold-50 transition-all font-bold text-xs"
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -400,8 +457,8 @@ export default function CalendarPage() {
       {viewMode === 'month' && (
         <div className="bg-white border border-gold-200/40 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-primary-900 font-serif">June 2026</h3>
-            <span className="text-xs text-primary-400 font-medium">30 days scheduled</span>
+            <h3 className="text-lg font-bold text-primary-900 font-serif">{monthName} {currentYear}</h3>
+            <span className="text-xs text-primary-400 font-medium">{monthDays.length} days scheduled</span>
           </div>
           
           <div className="grid grid-cols-7 gap-2">
@@ -411,8 +468,10 @@ export default function CalendarPage() {
               </div>
             ))}
             
-            {/* Pad the start of June 2026 (June 1 is Monday, so Sunday is empty box) */}
-            <div className="bg-primary-50/10 rounded-xl min-h-[100px] border border-dashed border-primary-100"></div>
+            {/* Dynamic padding for the start of the month */}
+            {paddingBoxes.map((_, idx) => (
+              <div key={`pad-${idx}`} className="bg-primary-50/10 rounded-xl min-h-[100px] border border-dashed border-primary-100"></div>
+            ))}
 
             {monthDays.map(day => {
               // Find events due on this day
