@@ -83,7 +83,8 @@ export default function ProjectsPage() {
 
     if (session) {
       const GLOBAL_ROLES = ['CEO', 'Coordinador Operativo', 'Admin', 'Developer', 'Agente de IA', 'AIAgent'];
-      if (!GLOBAL_ROLES.includes(session.role)) {
+      const isGlobalUser = !session.companyId || GLOBAL_ROLES.includes(session.role);
+      if (!isGlobalUser) {
         if (session.role === 'Tercero / Externo') {
           filteredTasks = filteredTasks.filter(t => t.assigneeId === session.personId || (t.assigneeIds && t.assigneeIds.includes(session.personId)));
           filteredPeople = filteredPeople.filter(p => p.id === session.personId);
