@@ -134,7 +134,21 @@ export default function TasksPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('none');
   const [grouping, setGrouping] = useState<'none' | 'company' | 'assignee' | 'status'>('none');
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'table'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('hermes-tasks-view-mode');
+      if (saved === 'grid' || saved === 'table') {
+        return saved;
+      }
+    }
+    return 'grid';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('hermes-tasks-view-mode', viewMode);
+    }
+  }, [viewMode]);
   
   const [visibleColumns, setVisibleColumns] = useState<{ [key: string]: boolean }>({
     status: true,

@@ -66,55 +66,11 @@ interface CalendarEvent {
   originTask?: Task;
 }
 
-// Fallback Static E2E Events to guarantee test resilience
-const STATIC_E2E_EVENTS: Record<number, CalendarEvent[]> = {
-  23: [
-    {
-      id: 'task-1',
-      title: 'Daily Standup',
-      time: '09:00 - 09:30',
-      day: 'Monday',
-      dateStr: '2026-06-01',
-      priority: 'High',
-      color: 'rgb(255, 0, 0)'
-    },
-    {
-      id: 'task-2',
-      title: 'Sprint Review',
-      time: '14:00 - 15:30',
-      day: 'Wednesday',
-      dateStr: '2026-06-03',
-      priority: 'Medium',
-      color: 'rgb(245, 158, 11)'
-    }
-  ],
-  24: [
-    {
-      id: 'task-3',
-      title: 'Client Demo',
-      time: '10:00 - 11:00',
-      day: 'Tuesday',
-      dateStr: '2026-06-09',
-      priority: 'High',
-      color: 'rgb(255, 0, 0)'
-    },
-    {
-      id: 'task-4',
-      title: 'Refinement Session',
-      time: '11:00 - 12:30',
-      day: 'Thursday',
-      dateStr: '2026-06-11',
-      priority: 'Low',
-      color: 'rgb(59, 130, 246)'
-    }
-  ]
-};
-
 export default function CalendarPage() {
   // Navigation & View Mode states
   const [week, setWeek] = useState<number>(23);
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('week');
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(1); // 1 = Monday (default for Day View)
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0); // 0 = Monday (default for Day View)
 
   // API Data states
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -185,9 +141,6 @@ export default function CalendarPage() {
     setPeople(filteredPeople);
     setCompanies(filteredCompanies);
   }, [rawTasks, rawPeople, rawCompanies, session]);
-
-  // Drag & Drop simulation state
-  const [dragDropMsg, setDragDropMsg] = useState<string>('');
 
   // Toast notification
   const [showToast, setShowToast] = useState(false);
@@ -292,11 +245,6 @@ export default function CalendarPage() {
   const calendarEvents = useMemo(() => {
     const events: CalendarEvent[] = [];
 
-    // 1. Add resilient static test items
-    if (STATIC_E2E_EVENTS[week]) {
-      events.push(...STATIC_E2E_EVENTS[week]);
-    }
-
     // 2. Add API tasks falling inside current week
     const weekDatesStr = weekRange.map(w => w.dateStr);
     tasks.forEach(task => {
@@ -336,13 +284,6 @@ export default function CalendarPage() {
     setActiveTaskId(null);
   };
 
-  const handleSimulateDragDrop = () => {
-    setDragDropMsg('Event date updated');
-    setTimeout(() => {
-      setDragDropMsg('');
-    }, 4000);
-  };
-
   const parseMarkdownToHtml = (markdown: string): string => {
     if (!markdown) return '';
     return markdown
@@ -371,7 +312,7 @@ export default function CalendarPage() {
     });
   }, []);
 
-  const currentDayRange = weekRange[selectedDayIndex] || weekRange[1];
+  const currentDayRange = weekRange[selectedDayIndex] || weekRange[0];
 
   if (!sessionLoaded || loading) {
     return (
@@ -453,24 +394,7 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Drag & Drop simulator banner */}
-      <div className="mb-8 flex flex-wrap items-center gap-4 bg-white border border-gold-200/50 rounded-2xl p-5 shadow-sm">
-        <button
-          data-testid="simulate-drag-drop"
-          onClick={handleSimulateDragDrop}
-          className="px-5 py-2.5 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition-all"
-        >
-          Simulate Drag & Drop
-        </button>
-        {dragDropMsg && (
-          <div
-            data-testid="drag-drop-msg"
-            className="text-xs font-bold text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5 shadow-sm transition-all"
-          >
-            {dragDropMsg}
-          </div>
-        )}
-      </div>
+
 
       {/* --- MONTH VIEW DISPLAY --- */}
       {viewMode === 'month' && (
@@ -521,8 +445,8 @@ export default function CalendarPage() {
 
       {/* --- WEEK VIEW DISPLAY --- */}
       {viewMode === 'week' && (
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((dayName, idx) => {
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-6">
+          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((dayName, idx) => {
             const dayEvents = calendarEvents.filter(e => e.day === dayName);
             return (
               <div
@@ -531,7 +455,7 @@ export default function CalendarPage() {
               >
                 <h3 className="text-sm font-extrabold text-primary-900 border-b border-primary-100 pb-2.5 mb-4 flex justify-between">
                   <span>{dayName}</span>
-                  <span className="text-[10px] text-primary-400 font-semibold">{weekRange[idx + 1]?.dateStr}</span>
+                  <span className="text-[10px] text-primary-400 font-semibold">{weekRange[idx]?.dateStr}</span>
                 </h3>
                 
                 <div className="flex-1 space-y-4">
@@ -591,17 +515,17 @@ export default function CalendarPage() {
           {/* Day Selector Sidebar */}
           <div className="bg-white border border-gold-200/30 rounded-2xl p-5 shadow-sm space-y-2">
             <h3 className="text-xs font-extrabold text-primary-400 uppercase tracking-widest mb-4">Select Day</h3>
-            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((dayName, idx) => (
+            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((dayName, idx) => (
               <button
                 key={dayName}
-                onClick={() => setSelectedDayIndex(idx + 1)}
+                onClick={() => setSelectedDayIndex(idx)}
                 className={`w-full text-left px-4 py-3 rounded-xl text-xs font-bold transition-all border ${
-                  selectedDayIndex === idx + 1
+                  selectedDayIndex === idx
                     ? 'bg-gold-550 border-gold-600 text-white shadow-md'
                     : 'bg-[#faf9f6]/40 border-transparent text-primary-750 hover:bg-gold-50/50'
                 }`}
               >
-                {dayName} ({weekRange[idx + 1]?.dateStr})
+                {dayName} ({weekRange[idx]?.dateStr})
               </button>
             ))}
           </div>

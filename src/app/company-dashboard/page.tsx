@@ -86,7 +86,19 @@ export default function CompanyDashboardPage() {
   }, [session]);
 
   // States for filtering & search within the active company
-  const [selectedCompanyId, setSelectedCompanyId] = useState<string>('comp-2'); // Default: Golden Hour (Mother)
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('hermes-company-dashboard-active-id');
+      if (saved) return saved;
+    }
+    return 'comp-2'; // Default: Golden Hour (Mother)
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && selectedCompanyId) {
+      localStorage.setItem('hermes-company-dashboard-active-id', selectedCompanyId);
+    }
+  }, [selectedCompanyId]);
   const [includeSubcompanies, setIncludeSubcompanies] = useState<boolean>(true); // Default: true for mother consolidation
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [filterType, setFilterType] = useState<string>('all'); // 'all' | 'one-shot' | 'repetitive' | 'project'

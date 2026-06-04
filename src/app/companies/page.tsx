@@ -30,8 +30,6 @@ export default function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   
-  const [selectedRole, setSelectedRole] = useState<string>('Developer');
-  const [selectedCompany, setSelectedCompany] = useState<string>('');
   const [associationMessage, setAssociationMessage] = useState<string>('');
 
   // Form states for creating new entities
@@ -81,9 +79,6 @@ export default function CompaniesPage() {
           const usersData = await usersRes.json();
           if (Array.isArray(compData)) {
             setCompanies(compData);
-            if (compData.length > 0) {
-              setSelectedCompany(compData[0].name);
-            }
           }
           if (Array.isArray(persData)) {
             setPeople(persData);
@@ -96,7 +91,6 @@ export default function CompaniesPage() {
         console.warn('Failed to load companies or persons from API. Using high-fidelity fallbacks.', err);
         setCompanies(FALLBACK_COMPANIES);
         setPeople(FALLBACK_PEOPLE);
-        setSelectedCompany(FALLBACK_COMPANIES[0].name);
       }
     }
     loadData();
@@ -163,10 +157,6 @@ export default function CompaniesPage() {
       console.error(err);
       alert('Network error registering team member');
     }
-  };
-
-  const handleAssociate = () => {
-    setAssociationMessage(`Associated with ${selectedCompany} successfully`);
   };
 
   const handleDeleteCompany = async (id: string) => {
@@ -389,6 +379,15 @@ export default function CompaniesPage() {
           Manage corporate associations, project teams, roles and credentials.
         </p>
       </div>
+
+      {associationMessage && (
+        <div
+          data-testid="association-message"
+          className="mb-6 text-xs font-bold text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3 shadow-sm transition-all"
+        >
+          {associationMessage}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
         {/* Companies Column */}
@@ -759,80 +758,7 @@ export default function CompaniesPage() {
               </button>
             </form>
           </div>
-        </div>
-      </section>
-
-      {/* Interactive Verification Section */}
-      <section className="bg-white border border-gold-200/50 rounded-2xl p-6 md:p-8 shadow-sm">
-        <h3 className="text-xl font-bold text-primary-900 mb-6 border-b border-primary-100 pb-3">
-          Interactive Role & Association Panel
-        </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Role Validation */}
-          <div className="space-y-4">
-            <label className="block text-sm font-bold text-primary-700">
-              Validate Team Member Role
-            </label>
-            <select
-              data-testid="role-select"
-              value={selectedRole}
-              onChange={(e) => setSelectedRole(e.target.value)}
-              className="w-full bg-[#faf9f6] border border-gold-200/80 rounded-xl px-4 py-3 text-sm text-primary-900 focus:outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400 transition-all"
-            >
-              <option value="Developer">Developer</option>
-              <option value="Admin">Admin</option>
-              <option value="InvalidRole">InvalidRole</option>
-            </select>
-
-            {selectedRole === 'InvalidRole' && (
-              <span
-                data-testid="role-error-message"
-                className="block text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-3 shadow-sm"
-              >
-                Error: InvalidRole is not a valid team role
-              </span>
-            )}
-          </div>
-
-          {/* Company Association */}
-          <div className="space-y-4">
-            <label className="block text-sm font-bold text-primary-700">
-              Associate Member with Company
-            </label>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <select
-                data-testid="company-select"
-                value={selectedCompany}
-                onChange={(e) => setSelectedCompany(e.target.value)}
-                className="flex-1 bg-[#faf9f6] border border-gold-200/80 rounded-xl px-4 py-3 text-sm text-primary-900 focus:outline-none focus:border-gold-400 focus:ring-1 focus:ring-gold-400 transition-all"
-              >
-                {companies.map((c) => (
-                  <option key={c.id} value={c.name}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                data-testid="associate-btn"
-                onClick={handleAssociate}
-                className="px-6 py-3 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white rounded-xl font-medium shadow-md transition-all hover:shadow-lg"
-              >
-                Associate
-              </button>
-            </div>
-
-            {associationMessage && (
-              <div
-                data-testid="association-message"
-                className="text-xs font-bold text-green-700 bg-green-50 border border-green-200 rounded-xl px-4 py-3 shadow-sm transition-all"
-              >
-                {associationMessage}
-              </div>
-            )}
-          </div>
-        </div>
+         </div>
       </section>
 
       {/* Edit Member Modal */}
