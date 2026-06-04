@@ -324,7 +324,7 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative">
+    <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-10 relative">
       {/* Page Header & Navigation Controls */}
       <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6 border-b border-primary-100 pb-6">
         <div>
@@ -445,20 +445,20 @@ export default function CalendarPage() {
 
       {/* --- WEEK VIEW DISPLAY --- */}
       {viewMode === 'week' && (
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-7 gap-3 lg:gap-4">
           {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((dayName, idx) => {
             const dayEvents = calendarEvents.filter(e => e.day === dayName);
             return (
               <div
                 key={dayName}
-                className="bg-white border border-gold-200/40 rounded-2xl p-5 min-h-[250px] md:min-h-[350px] flex flex-col shadow-sm"
+                className="bg-white border border-gold-200/40 rounded-2xl p-4 lg:p-3 min-h-[250px] md:min-h-[350px] flex flex-col shadow-sm"
               >
-                <h3 className="text-sm font-extrabold text-primary-900 border-b border-primary-100 pb-2.5 mb-4 flex justify-between">
+                <h3 className="text-sm font-extrabold text-primary-900 border-b border-primary-100 pb-2 mb-3.5 flex justify-between flex-wrap gap-1">
                   <span>{dayName}</span>
                   <span className="text-[10px] text-primary-400 font-semibold">{weekRange[idx]?.dateStr}</span>
                 </h3>
                 
-                <div className="flex-1 space-y-4">
+                <div className="flex-1 space-y-2.5">
                   {dayEvents.map((evt, evtIdx) => {
                     const isTask1 = evt.title === 'Daily Standup' || evt.title === 'Client Demo' || evtIdx === 0;
                     const testId = isTask1 ? 'calendar-event-task-1' : 'calendar-event-task-2';
@@ -473,15 +473,15 @@ export default function CalendarPage() {
                           borderLeftWidth: '4px',
                           borderLeftStyle: 'solid'
                         }}
-                        className="bg-[#faf9f6]/40 hover:bg-gold-50/30 border border-gold-200/20 rounded-xl p-4 cursor-pointer transition-all hover:shadow-sm"
+                        className="bg-[#faf9f6]/40 hover:bg-gold-50/30 border border-gold-200/20 rounded-xl p-3 cursor-pointer transition-all hover:shadow-sm"
                       >
                         <span className="block text-[9px] uppercase tracking-widest text-primary-400 font-bold mb-1">
                           {evt.time}
                         </span>
-                        <h4 className="text-xs font-bold text-primary-900 leading-snug">
+                        <h4 className="text-xs font-bold text-primary-900 leading-snug break-words">
                           {evt.title}
                         </h4>
-                        <div className="flex items-center justify-between mt-2.5">
+                        <div className="flex items-center justify-between mt-2">
                           <span
                             className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
                               evt.priority === 'High'
