@@ -4,6 +4,8 @@ import { validateApiKey } from '@/lib/auth';
 import { mapApiToDb, mapDbToApi } from '@/lib/mappings';
 import { resolveOrCreateCompany, resolveOrCreateAssignee } from '@/lib/resolveEntities';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   const auth = validateApiKey(request);
   if (!auth.valid) {

@@ -86,7 +86,10 @@ export async function POST(request: NextRequest) {
       meetingConfirmations: task.meetingConfirmations || [],
     });
 
-    const origin = request.nextUrl.origin;
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000';
+    const proto = request.headers.get('x-forwarded-proto') || 'http';
+    const origin = `${proto}://${host}`;
+
     const smtpConfig = await dbService.getSMTPConfig();
 
     // Build standard attachments
@@ -109,6 +112,10 @@ export async function POST(request: NextRequest) {
     const isSmtpConfigured = !!(smtpConfig && smtpConfig.host && smtpConfig.port);
     const simulatedEmails: any[] = [];
 
+    const stepsText = task.steps && task.steps.length > 0
+      ? '\n✅ Pasos / Subtareas:\n' + task.steps.map((s: any) => `- [${s.completed ? 'x' : ' '}] ${s.text}`).join('\n')
+      : '';
+
     if (isSmtpConfigured) {
       const transporter = nodemailer.createTransport({
         host: smtpConfig.host,
@@ -122,9 +129,32 @@ export async function POST(request: NextRequest) {
 
       for (const attendee of attendees) {
         const confirmUrl = `${origin}/api/meetings/confirm?taskId=${taskId}&email=${encodeURIComponent(attendee)}`;
+        
+        const emailBody = `Hola,
+
+Se te ha invitado a una reunión de coordinación para la tarea: "${task.title}".
+
+📅 Fecha: ${dueDate}
+🕒 Hora: ${meetingTime}
+🚩 Prioridad: ${task.priority || 'Medium'}
+📊 Estado: ${task.status || 'Pending'}
+
+📝 Descripción de la Tarea:
+${task.description || 'Sin descripción'}
+${stepsText}
+
+--------------------------------------------------
+👉 Para confirmar tu asistencia, haz clic en el siguiente enlace:
+${confirmUrl}
+
+Se adjunta el archivo de calendario .ics para agendar esta reunión en tu aplicación de calendario (Outlook, Google Calendar, Apple Calendar, etc.).
+
+Atentamente,
+Hermes Task Hub`;
+
         const icsContent = generateIcs(
           task.title,
-          task.description,
+          emailBody,
           dueDate,
           meetingTime,
           attendee,
@@ -136,7 +166,7 @@ export async function POST(request: NextRequest) {
           from: smtpConfig.user || 'no-reply@hermes.hub',
           to: attendee,
           subject: `Invitación de Reunión: ${task.title}`,
-          text: `Se te ha invitado a una reunión para la tarea: ${task.title}\nHora: ${meetingTime}\nFecha: ${dueDate}\n\nPara confirmar tu asistencia, haz clic en el siguiente enlace:\n${confirmUrl}\n\nSe adjunta el archivo de calendario .ics para agendar en tu aplicación.`,
+          text: emailBody,
           attachments: [
             {
               filename: 'invite.ics',
@@ -151,9 +181,32 @@ export async function POST(request: NextRequest) {
       // Simulate sending emails and return the contents for UI preview
       for (const attendee of attendees) {
         const confirmUrl = `${origin}/api/meetings/confirm?taskId=${taskId}&email=${encodeURIComponent(attendee)}`;
+        
+        const emailBody = `Hola,
+
+Se te ha invitado a una reunión de coordinación para la tarea: "${task.title}".
+
+📅 Fecha: ${dueDate}
+🕒 Hora: ${meetingTime}
+🚩 Prioridad: ${task.priority || 'Medium'}
+📊 Estado: ${task.status || 'Pending'}
+
+📝 Descripción de la Tarea:
+${task.description || 'Sin descripción'}
+${stepsText}
+
+--------------------------------------------------
+👉 Para confirmar tu asistencia, haz clic en el siguiente enlace:
+${confirmUrl}
+
+Se adjunta el archivo de calendario .ics para agendar esta reunión en tu aplicación de calendario (Outlook, Google Calendar, Apple Calendar, etc.).
+
+Atentamente,
+Hermes Task Hub`;
+
         const icsContent = generateIcs(
           task.title,
-          task.description,
+          emailBody,
           dueDate,
           meetingTime,
           attendee,
@@ -164,7 +217,7 @@ export async function POST(request: NextRequest) {
         simulatedEmails.push({
           to: attendee,
           subject: `Invitación de Reunión: ${task.title}`,
-          body: `Se te ha invitado a una reunión para la tarea: ${task.title}\nHora: ${meetingTime}\nFecha: ${dueDate}\n\nPara confirmar tu asistencia, haz clic en el siguiente enlace:\n${confirmUrl}\n\nSe adjunta el archivo de calendario .ics para agendar en tu aplicación.`,
+          body: emailBody,
           icsPreview: icsContent,
           attachments: attachmentsList.map((a) => a.filename),
         });

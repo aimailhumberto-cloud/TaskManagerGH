@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbService } from '@/services/dbService';
 import { validateApiKey } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   const auth = validateApiKey(request);
   if (!auth.valid) {

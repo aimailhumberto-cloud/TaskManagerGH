@@ -167,7 +167,11 @@ export class DBService implements IDBService {
               origin: t.origin,
               due_date: t.dueDate,
               attachments: t.attachments || [],
-              activity_log: t.activityLog || []
+              activity_log: t.activityLog || [],
+              is_meeting: t.isMeeting || false,
+              meeting_time: t.meetingTime || null,
+              meeting_attendees: t.meetingAttendees || [],
+              meeting_confirmations: t.meetingConfirmations || []
             }));
             const { error: err } = await supabase.from('tasks').insert(records);
             if (err) console.error("Error seeding tasks:", err);
@@ -535,7 +539,11 @@ export class DBService implements IDBService {
         origin: t.origin as any,
         dueDate: t.due_date,
         attachments: t.attachments || [],
-        activityLog: t.activity_log || []
+        activityLog: t.activity_log || [],
+        isMeeting: t.is_meeting || false,
+        meetingTime: t.meeting_time || '',
+        meetingAttendees: t.meeting_attendees || [],
+        meetingConfirmations: t.meeting_confirmations || []
       }));
     }
 
@@ -564,7 +572,11 @@ export class DBService implements IDBService {
         origin: data.origin as any,
         dueDate: data.due_date,
         attachments: data.attachments || [],
-        activityLog: data.activity_log || []
+        activityLog: data.activity_log || [],
+        isMeeting: data.is_meeting || false,
+        meetingTime: data.meeting_time || '',
+        meetingAttendees: data.meeting_attendees || [],
+        meetingConfirmations: data.meeting_confirmations || []
       };
     }
 
@@ -597,7 +609,11 @@ export class DBService implements IDBService {
         origin: task.origin,
         due_date: task.dueDate,
         attachments: task.attachments || [],
-        activity_log: activityLog
+        activity_log: activityLog,
+        is_meeting: task.isMeeting || false,
+        meeting_time: task.meetingTime || null,
+        meeting_attendees: task.meetingAttendees || [],
+        meeting_confirmations: task.meetingConfirmations || []
       };
       const { error } = await supabase.from('tasks').insert(record);
       if (error) throw error;
@@ -723,6 +739,10 @@ export class DBService implements IDBService {
       if (taskUpdates.origin !== undefined) record.origin = taskUpdates.origin;
       if (taskUpdates.dueDate !== undefined) record.due_date = taskUpdates.dueDate;
       if (taskUpdates.attachments !== undefined) record.attachments = taskUpdates.attachments;
+      if (taskUpdates.isMeeting !== undefined) record.is_meeting = taskUpdates.isMeeting;
+      if (taskUpdates.meetingTime !== undefined) record.meeting_time = taskUpdates.meetingTime;
+      if (taskUpdates.meetingAttendees !== undefined) record.meeting_attendees = taskUpdates.meetingAttendees;
+      if (taskUpdates.meetingConfirmations !== undefined) record.meeting_confirmations = taskUpdates.meetingConfirmations;
 
       const { error } = await supabase.from('tasks').update(record).eq('id', id);
       if (error) throw error;
