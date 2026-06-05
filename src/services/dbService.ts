@@ -43,6 +43,39 @@ export function generateSalt(): string {
   return crypto.randomBytes(16).toString('hex');
 }
 
+export interface MeetingMetadata {
+  isMeeting?: boolean;
+  meetingTime?: string;
+  meetingAttendees?: string[];
+  meetingConfirmations?: string[];
+}
+
+export function extractMeetingMetadata(description: string): { cleanDescription: string; metadata: MeetingMetadata } {
+  if (!description) {
+    return { cleanDescription: '', metadata: {} };
+  }
+  const match = description.match(/<!-- HERMES_MEETING_METADATA: (.*?) -->/);
+  if (match) {
+    try {
+      const metadata = JSON.parse(match[1]);
+      const cleanDescription = description.replace(match[0], '').trim();
+      return { cleanDescription, metadata };
+    } catch (e) {
+      console.error('Error parsing meeting metadata from description:', e);
+    }
+  }
+  return { cleanDescription: description, metadata: {} };
+}
+
+export function injectMeetingMetadata(description: string, metadata: MeetingMetadata): string {
+  const { cleanDescription } = extractMeetingMetadata(description);
+  if (metadata.isMeeting || metadata.meetingTime || (metadata.meetingAttendees && metadata.meetingAttendees.length > 0)) {
+    const jsonStr = JSON.stringify(metadata);
+    return `${cleanDescription}\n\n<!-- HERMES_MEETING_METADATA: ${jsonStr} -->`;
+  }
+  return cleanDescription;
+}
+
 export interface IDBService {
   readData(): Promise<DatabaseSchema>;
   writeData(data: DatabaseSchema): Promise<void>;
@@ -152,27 +185,31 @@ export class DBService implements IDBService {
 
           // 3. Seed tasks
           if (localData.tasks && localData.tasks.length > 0) {
-            const records = localData.tasks.map(t => ({
-              id: t.id,
-              title: t.title,
-              description: t.description,
-              type: t.type,
-              repeat_pattern: t.repeatPattern || null,
-              steps: t.steps || [],
-              company_id: t.companyId || null,
-              assignee_id: t.assigneeId || null,
-              assignee_ids: t.assigneeIds || [],
-              status: t.status,
-              priority: t.priority,
-              origin: t.origin,
-              due_date: t.dueDate,
-              attachments: t.attachments || [],
-              activity_log: t.activityLog || [],
-              is_meeting: t.isMeeting || false,
-              meeting_time: t.meetingTime || null,
-              meeting_attendees: t.meetingAttendees || [],
-              meeting_confirmations: t.meetingConfirmations || []
-            }));
+            const records = localData.tasks.map(t => {
+              const finalDescription = injectMeetingMetadata(t.description || '', {
+                isMeeting: t.isMeeting,
+                meetingTime: t.meetingTime,
+                meetingAttendees: t.meetingAttendees,
+                meetingConfirmations: t.meetingConfirmations
+              });
+              return {
+                id: t.id,
+                title: t.title,
+                description: finalDescription,
+                type: t.type,
+                repeat_pattern: t.repeatPattern || null,
+                steps: t.steps || [],
+                company_id: t.companyId || null,
+                assignee_id: t.assigneeId || null,
+                assignee_ids: t.assigneeIds || [],
+                status: t.status,
+                priority: t.priority,
+                origin: t.origin,
+                due_date: t.dueDate,
+                attachments: t.attachments || [],
+                activity_log: t.activityLog || []
+              };
+            });
             const { error: err } = await supabase.from('tasks').insert(records);
             if (err) console.error("Error seeding tasks:", err);
           }
@@ -524,27 +561,30 @@ export class DBService implements IDBService {
       await this.ensureDatabase();
       const { data, error } = await supabase.from('tasks').select('*');
       if (error) throw error;
-      return (data || []).map(t => ({
-        id: t.id,
-        title: t.title,
-        description: t.description,
-        type: t.type as any,
-        repeatPattern: t.repeat_pattern as any,
-        steps: t.steps || [],
-        companyId: t.company_id || '',
-        assigneeId: t.assignee_id || '',
-        assigneeIds: t.assignee_ids || [],
-        status: t.status as any,
-        priority: t.priority as any,
-        origin: t.origin as any,
-        dueDate: t.due_date,
-        attachments: t.attachments || [],
-        activityLog: t.activity_log || [],
-        isMeeting: t.is_meeting || false,
-        meetingTime: t.meeting_time || '',
-        meetingAttendees: t.meeting_attendees || [],
-        meetingConfirmations: t.meeting_confirmations || []
-      }));
+      return (data || []).map(t => {
+        const { cleanDescription, metadata } = extractMeetingMetadata(t.description || '');
+        return {
+          id: t.id,
+          title: t.title,
+          description: cleanDescription,
+          type: t.type as any,
+          repeatPattern: t.repeat_pattern as any,
+          steps: t.steps || [],
+          companyId: t.company_id || '',
+          assigneeId: t.assignee_id || '',
+          assigneeIds: t.assignee_ids || [],
+          status: t.status as any,
+          priority: t.priority as any,
+          origin: t.origin as any,
+          dueDate: t.due_date,
+          attachments: t.attachments || [],
+          activityLog: t.activity_log || [],
+          isMeeting: metadata.isMeeting || false,
+          meetingTime: metadata.meetingTime || '',
+          meetingAttendees: metadata.meetingAttendees || [],
+          meetingConfirmations: metadata.meetingConfirmations || []
+        };
+      });
     }
 
     const data = await this.readData();
@@ -557,10 +597,11 @@ export class DBService implements IDBService {
       const { data, error } = await supabase.from('tasks').select('*').eq('id', id).maybeSingle();
       if (error) throw error;
       if (!data) return null;
+      const { cleanDescription, metadata } = extractMeetingMetadata(data.description || '');
       return {
         id: data.id,
         title: data.title,
-        description: data.description,
+        description: cleanDescription,
         type: data.type as any,
         repeatPattern: data.repeat_pattern as any,
         steps: data.steps || [],
@@ -573,10 +614,10 @@ export class DBService implements IDBService {
         dueDate: data.due_date,
         attachments: data.attachments || [],
         activityLog: data.activity_log || [],
-        isMeeting: data.is_meeting || false,
-        meetingTime: data.meeting_time || '',
-        meetingAttendees: data.meeting_attendees || [],
-        meetingConfirmations: data.meeting_confirmations || []
+        isMeeting: metadata.isMeeting || false,
+        meetingTime: metadata.meetingTime || '',
+        meetingAttendees: metadata.meetingAttendees || [],
+        meetingConfirmations: metadata.meetingConfirmations || []
       };
     }
 
@@ -594,10 +635,16 @@ export class DBService implements IDBService {
         action: 'Tarea creada',
         type: 'User' as const
       }];
+      const finalDescription = injectMeetingMetadata(task.description, {
+        isMeeting: task.isMeeting,
+        meetingTime: task.meetingTime,
+        meetingAttendees: task.meetingAttendees,
+        meetingConfirmations: task.meetingConfirmations
+      });
       const record = {
         id,
         title: task.title,
-        description: task.description,
+        description: finalDescription,
         type: task.type,
         repeat_pattern: task.repeatPattern || null,
         steps: task.steps || [],
@@ -609,11 +656,7 @@ export class DBService implements IDBService {
         origin: task.origin,
         due_date: task.dueDate,
         attachments: task.attachments || [],
-        activity_log: activityLog,
-        is_meeting: task.isMeeting || false,
-        meeting_time: task.meetingTime || null,
-        meeting_attendees: task.meetingAttendees || [],
-        meeting_confirmations: task.meetingConfirmations || []
+        activity_log: activityLog
       };
       const { error } = await supabase.from('tasks').insert(record);
       if (error) throw error;
@@ -723,11 +766,24 @@ export class DBService implements IDBService {
         });
       }
 
+      // Merge meeting metadata
+      const currentMetadata: MeetingMetadata = {
+        isMeeting: taskUpdates.isMeeting !== undefined ? taskUpdates.isMeeting : existing.isMeeting,
+        meetingTime: taskUpdates.meetingTime !== undefined ? taskUpdates.meetingTime : existing.meetingTime,
+        meetingAttendees: taskUpdates.meetingAttendees !== undefined ? taskUpdates.meetingAttendees : existing.meetingAttendees,
+        meetingConfirmations: taskUpdates.meetingConfirmations !== undefined ? taskUpdates.meetingConfirmations : existing.meetingConfirmations,
+      };
+
+      const finalDescription = injectMeetingMetadata(
+        taskUpdates.description !== undefined ? taskUpdates.description : existing.description,
+        currentMetadata
+      );
+
       const record: any = {
-        activity_log: activityLog
+        activity_log: activityLog,
+        description: finalDescription
       };
       if (taskUpdates.title !== undefined) record.title = taskUpdates.title;
-      if (taskUpdates.description !== undefined) record.description = taskUpdates.description;
       if (taskUpdates.type !== undefined) record.type = taskUpdates.type;
       if (taskUpdates.repeatPattern !== undefined) record.repeat_pattern = taskUpdates.repeatPattern;
       if (taskUpdates.steps !== undefined) record.steps = taskUpdates.steps;
@@ -739,15 +795,16 @@ export class DBService implements IDBService {
       if (taskUpdates.origin !== undefined) record.origin = taskUpdates.origin;
       if (taskUpdates.dueDate !== undefined) record.due_date = taskUpdates.dueDate;
       if (taskUpdates.attachments !== undefined) record.attachments = taskUpdates.attachments;
-      if (taskUpdates.isMeeting !== undefined) record.is_meeting = taskUpdates.isMeeting;
-      if (taskUpdates.meetingTime !== undefined) record.meeting_time = taskUpdates.meetingTime;
-      if (taskUpdates.meetingAttendees !== undefined) record.meeting_attendees = taskUpdates.meetingAttendees;
-      if (taskUpdates.meetingConfirmations !== undefined) record.meeting_confirmations = taskUpdates.meetingConfirmations;
 
       const { error } = await supabase.from('tasks').update(record).eq('id', id);
       if (error) throw error;
 
-      return { ...existing, ...taskUpdates, activityLog };
+      return {
+        ...existing,
+        ...taskUpdates,
+        description: extractMeetingMetadata(finalDescription).cleanDescription,
+        activityLog
+      };
     }
 
     const release = await this.mutex.acquire();
