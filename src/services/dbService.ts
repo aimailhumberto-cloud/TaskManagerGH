@@ -1030,19 +1030,41 @@ export class DBService implements IDBService {
       await this.ensureDatabase();
       const { data, error } = await supabase.from('people').select('*');
       if (error) throw error;
-      return (data || []).map(p => ({
-        id: p.id,
-        name: p.name,
-        role: p.role,
-        avatar: p.avatar,
-        companyId: p.company_id || undefined,
-        workingHoursStart: p.working_hours_start || undefined,
-        workingHoursEnd: p.working_hours_end || undefined,
-        timeOff: p.time_off || undefined,
-        recurringDaysOff: p.recurring_days_off || undefined,
-        lunchStart: p.lunch_start || undefined,
-        lunchEnd: p.lunch_end || undefined
-      }));
+
+      // Fetch availability templates
+      const { data: availData, error: availError } = await supabase
+        .from('email_templates')
+        .select('*')
+        .like('id', 'person_availability_%');
+
+      const availMap: Record<string, any> = {};
+      if (!availError && availData) {
+        availData.forEach(t => {
+          try {
+            const pId = t.id.replace('person_availability_', '');
+            availMap[pId] = JSON.parse(t.body);
+          } catch (e) {
+            console.error('Error parsing availability payload for template ' + t.id, e);
+          }
+        });
+      }
+
+      return (data || []).map(p => {
+        const avail = availMap[p.id] || {};
+        return {
+          id: p.id,
+          name: p.name,
+          role: p.role,
+          avatar: p.avatar,
+          companyId: p.company_id || undefined,
+          workingHoursStart: avail.workingHoursStart || p.working_hours_start || undefined,
+          workingHoursEnd: avail.workingHoursEnd || p.working_hours_end || undefined,
+          timeOff: avail.timeOff || p.time_off || undefined,
+          recurringDaysOff: avail.recurringDaysOff || p.recurring_days_off || undefined,
+          lunchStart: avail.lunchStart || p.lunch_start || undefined,
+          lunchEnd: avail.lunchEnd || p.lunch_end || undefined
+        };
+      });
     }
 
     const data = await this.readData();
@@ -1108,15 +1130,45 @@ export class DBService implements IDBService {
       if (personUpdates.role !== undefined) record.role = personUpdates.role;
       if (personUpdates.avatar !== undefined) record.avatar = personUpdates.avatar;
       if (personUpdates.companyId !== undefined) record.company_id = personUpdates.companyId || null;
-      if (personUpdates.workingHoursStart !== undefined) record.working_hours_start = personUpdates.workingHoursStart;
-      if (personUpdates.workingHoursEnd !== undefined) record.working_hours_end = personUpdates.workingHoursEnd;
-      if (personUpdates.timeOff !== undefined) record.time_off = personUpdates.timeOff;
-      if (personUpdates.recurringDaysOff !== undefined) record.recurring_days_off = personUpdates.recurringDaysOff;
-      if (personUpdates.lunchStart !== undefined) record.lunch_start = personUpdates.lunchStart;
-      if (personUpdates.lunchEnd !== undefined) record.lunch_end = personUpdates.lunchEnd;
 
-      const { error } = await supabase.from('people').update(record).eq('id', id);
-      if (error) throw error;
+      // Only write standard columns to the 'people' table in Supabase
+      if (Object.keys(record).length > 0) {
+        const { error } = await supabase.from('people').update(record).eq('id', id);
+        if (error) throw error;
+      }
+
+      // Fetch existing availability metadata from email_templates to merge
+      const { data: templateData } = await supabase
+        .from('email_templates')
+        .select('*')
+        .eq('id', 'person_availability_' + id)
+        .maybeSingle();
+
+      let currentAvail: any = {};
+      if (templateData && templateData.body) {
+        try {
+          currentAvail = JSON.parse(templateData.body);
+        } catch {}
+      }
+
+      // Merge availability updates
+      if (personUpdates.workingHoursStart !== undefined) currentAvail.workingHoursStart = personUpdates.workingHoursStart;
+      if (personUpdates.workingHoursEnd !== undefined) currentAvail.workingHoursEnd = personUpdates.workingHoursEnd;
+      if (personUpdates.timeOff !== undefined) currentAvail.timeOff = personUpdates.timeOff;
+      if (personUpdates.recurringDaysOff !== undefined) currentAvail.recurringDaysOff = personUpdates.recurringDaysOff;
+      if (personUpdates.lunchStart !== undefined) currentAvail.lunchStart = personUpdates.lunchStart;
+      if (personUpdates.lunchEnd !== undefined) currentAvail.lunchEnd = personUpdates.lunchEnd;
+
+      // Save merged availability to email_templates
+      const availRecord = {
+        id: 'person_availability_' + id,
+        name: 'Person Availability ' + id,
+        subject: 'availability',
+        body: JSON.stringify(currentAvail)
+      };
+
+      const { error: upsertError } = await supabase.from('email_templates').upsert(availRecord);
+      if (upsertError) throw upsertError;
 
       return {
         id,
@@ -1124,12 +1176,12 @@ export class DBService implements IDBService {
         role: personUpdates.role ?? existing.data.role,
         avatar: personUpdates.avatar ?? existing.data.avatar,
         companyId: personUpdates.companyId !== undefined ? personUpdates.companyId : (existing.data.company_id || undefined),
-        workingHoursStart: personUpdates.workingHoursStart !== undefined ? personUpdates.workingHoursStart : (existing.data.working_hours_start || undefined),
-        workingHoursEnd: personUpdates.workingHoursEnd !== undefined ? personUpdates.workingHoursEnd : (existing.data.working_hours_end || undefined),
-        timeOff: personUpdates.timeOff !== undefined ? personUpdates.timeOff : (existing.data.time_off || undefined),
-        recurringDaysOff: personUpdates.recurringDaysOff !== undefined ? personUpdates.recurringDaysOff : (existing.data.recurring_days_off || undefined),
-        lunchStart: personUpdates.lunchStart !== undefined ? personUpdates.lunchStart : (existing.data.lunch_start || undefined),
-        lunchEnd: personUpdates.lunchEnd !== undefined ? personUpdates.lunchEnd : (existing.data.lunch_end || undefined)
+        workingHoursStart: currentAvail.workingHoursStart,
+        workingHoursEnd: currentAvail.workingHoursEnd,
+        timeOff: currentAvail.timeOff,
+        recurringDaysOff: currentAvail.recurringDaysOff,
+        lunchStart: currentAvail.lunchStart,
+        lunchEnd: currentAvail.lunchEnd
       };
     }
 
