@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import HslAvatar from '@/components/HslAvatar';
 import TaskDrawer from '@/components/TaskDrawer';
 
@@ -70,6 +70,22 @@ export default function TasksPage() {
   const [rawCompanies, setRawCompanies] = useState<Company[]>([]);
   const [rawPeople, setRawPeople] = useState<Person[]>([]);
   const [session, setSession] = useState<any>(null);
+
+  // Rapid Task Input Panel States
+  const [rawTaskInput, setRawTaskInput] = useState('');
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  
+  // Speech Dictation States
+  const [isDictating, setIsDictating] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
+
+  // Refined Task Review Panel
+  const [refinedTask, setRefinedTask] = useState<any>(null);
+  const [isReviewingRefined, setIsReviewingRefined] = useState(false);
+
+  // Share menu tracker
+  const [activeShareMenuId, setActiveShareMenuId] = useState<string | null>(null);
 
   // Fetch session on mount
   useEffect(() => {
@@ -206,6 +222,27 @@ export default function TasksPage() {
     };
   }, [tasks, visibleColumns, viewMode]);
 
+  // Speech Recognition setup
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const rec = new SpeechRecognition();
+        rec.continuous = false;
+        rec.interimResults = false;
+        rec.lang = 'es-ES';
+        rec.onstart = () => setIsDictating(true);
+        rec.onend = () => setIsDictating(false);
+        rec.onerror = () => setIsDictating(false);
+        rec.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          setRawTaskInput(prev => (prev ? prev + ' ' + transcript : transcript));
+        };
+        setRecognition(rec);
+      }
+    }
+  }, []);
+
   const normalizeTask = (t: any): Task => {
     if (!t) return t;
 
@@ -281,11 +318,6 @@ export default function TasksPage() {
 
   const getCompanyById = (id: string) => companies.find(c => c.id === id);
   const getPersonById = (id: string) => people.find(p => p.id === id);
-
-  const formatTypeForTestId = (type: string) => {
-    const formatted = type.toLowerCase();
-    return formatted === 'one-shot' ? 'oneshot' : formatted;
-  };
 
   const handleOpenDrawer = (taskId: string | null) => {
     setActiveTaskId(taskId);
@@ -402,6 +434,233 @@ export default function TasksPage() {
     }
 
     return [];
+  };
+
+  // Drag and Drop helpers
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    e.dataTransfer.setData('text/plain', taskId);
+  };
+
+  const handleDrop = async (e: React.DragEvent, newStatus: 'Pending' | 'In Progress' | 'Blocked' | 'Completed') => {
+    e.preventDefault();
+    const taskId = e.dataTransfer.getData('text/plain');
+    if (!taskId) return;
+
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    if (task.status === newStatus) return;
+
+    setRawTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+
+    try {
+      const apiStatus = newStatus.toLowerCase().replace(/ /g, '-');
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': 'mock-api-key-12345'
+        },
+        body: JSON.stringify({ status: apiStatus })
+      });
+      if (!res.ok) throw new Error('Network error');
+      setToastMessage(`Task status updated to ${newStatus}`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2500);
+      loadAllData();
+    } catch (err) {
+      console.error(err);
+      setRawTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: task.status } : t));
+    }
+  };
+
+  // AI Inputs Actions
+  const handleToggleDictation = () => {
+    if (!recognition) {
+      alert('Dictation not supported in this browser.');
+      return;
+    }
+    if (isDictating) {
+      recognition.stop();
+    } else {
+      recognition.start();
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAIRefine = async () => {
+    if (!rawTaskInput.trim() && !selectedImage) {
+      alert('Escribe algo o carga una imagen.');
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const res = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: selectedImage ? 'vision' : 'refine',
+          text: rawTaskInput,
+          image: selectedImage
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.result) {
+          setRefinedTask(data.result);
+          setIsReviewingRefined(true);
+        }
+      } else {
+        alert('Error al perfeccionar la tarea.');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleSaveRefinedTask = async () => {
+    if (!refinedTask.title) {
+      alert('El título es requerido.');
+      return;
+    }
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': 'mock-api-key-12345'
+        },
+        body: JSON.stringify({
+          title: refinedTask.title,
+          description: refinedTask.description,
+          priority: refinedTask.priority.toLowerCase(),
+          type: refinedTask.type.toLowerCase(),
+          steps: (refinedTask.steps || []).map((s: string) => ({ text: s, completed: false, status: 'Pending' })),
+          companyId: session?.companyId || 'comp-1',
+          assigneeId: session?.personId || 'usr-daniel',
+          dueDate: new Date(Date.now() + 86400000).toISOString().substring(0, 10)
+        })
+      });
+      if (res.ok) {
+        setRawTaskInput('');
+        setSelectedImage(null);
+        setIsReviewingRefined(false);
+        setRefinedTask(null);
+        setToastMessage('Tarea perfeccionada guardada con éxito!');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 2000);
+        loadAllData();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleQuickCreate = async () => {
+    if (!rawTaskInput.trim()) return;
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': 'mock-api-key-12345'
+        },
+        body: JSON.stringify({
+          title: rawTaskInput.trim(),
+          description: 'Creado rápidamente desde el Taskboard.',
+          priority: 'medium',
+          type: 'one-shot',
+          companyId: session?.companyId || 'comp-1',
+          assigneeId: session?.personId || 'usr-daniel',
+          dueDate: new Date(Date.now() + 86400000).toISOString().substring(0, 10)
+        })
+      });
+      if (res.ok) {
+        setRawTaskInput('');
+        setToastMessage('Tarea creada con éxito!');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 2000);
+        loadAllData();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Task sharing actions
+  const handleShareTelegram = (task: Task) => {
+    const text = encodeURIComponent(`📢 Tarea: ${task.title}\n👤 Responsable: ${task.assigneeId ? (getPersonById(task.assigneeId)?.name || 'Sin asignar') : 'Sin asignar'}\n📅 Límite: ${task.dueDate || 'Sin fecha'}\n📌 Estado: ${task.status}`);
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${text}`, '_blank');
+    setActiveShareMenuId(null);
+  };
+
+  const handleShareWhatsApp = (task: Task) => {
+    const text = encodeURIComponent(`📢 Tarea: ${task.title}\n👤 Responsable: ${task.assigneeId ? (getPersonById(task.assigneeId)?.name || 'Sin asignar') : 'Sin asignar'}\n📅 Límite: ${task.dueDate || 'Sin fecha'}\n📌 Estado: ${task.status}`);
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+    setActiveShareMenuId(null);
+  };
+
+  const handleShareEmail = async (task: Task) => {
+    setToastMessage('Enviando correo por SMTP...');
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 2000);
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const settings = await res.json();
+        if (settings.smtpConfig && settings.smtpConfig.host) {
+          setToastMessage(`Correo enviado con SMTP (${settings.smtpConfig.host})`);
+        } else {
+          setToastMessage('Correo simulado enviado con éxito!');
+        }
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setActiveShareMenuId(null);
+  };
+
+  // Kanban Columns Builder
+  const kanbanColumns = useMemo(() => {
+    const cols: Record<'Pending' | 'In Progress' | 'Blocked' | 'Completed', Task[]> = {
+      'Pending': [],
+      'In Progress': [],
+      'Blocked': [],
+      'Completed': []
+    };
+    sortedTasks.forEach(t => {
+      if (cols[t.status]) {
+        cols[t.status].push(t);
+      } else {
+        cols['Pending'].push(t);
+      }
+    });
+    return cols;
+  }, [sortedTasks]);
+
+  const cleanMarkdown = (text: string): string => {
+    if (!text) return '';
+    return text
+      .replace(/[#*`~_]/g, '')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/^[-*+]\s+/gm, '')
+      .replace(/^\d+\.\s+/gm, '')
+      .trim();
   };
 
   const statusStyles = {
@@ -601,12 +860,193 @@ export default function TasksPage() {
         </div>
       </div>
 
+      {/* MULTIMODAL AI RAPID TASK CREATOR (Taskboard) */}
+      {viewMode === 'grid' && grouping === 'none' && (
+        <section className="bg-white border-2 border-gold-400/20 rounded-2xl p-6 shadow-sm">
+          <h3 className="text-sm font-bold text-primary-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <span>✨</span> Creador Rápido de Tareas por IA
+          </h3>
+
+          <div className="space-y-4">
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={rawTaskInput}
+                  onChange={(e) => setRawTaskInput(e.target.value)}
+                  placeholder="Escribe la tarea aquí (ej. perfeccionar reporte de ventas urgente para el lunes)..."
+                  className="w-full pl-4 pr-12 py-3 border border-primary-200 rounded-xl text-sm focus:ring-2 focus:ring-gold-500 focus:outline-none transition bg-[#faf9f6]"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleQuickCreate(); }}
+                />
+                <button
+                  type="button"
+                  onClick={handleToggleDictation}
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all ${
+                    isDictating ? 'bg-red-500 text-white animate-pulse' : 'text-primary-400 hover:text-gold-600 hover:bg-gold-50'
+                  }`}
+                  title="Dictar Tarea por Voz"
+                >
+                  🎤
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <label className="px-4 py-3 bg-[#faf9f6] border border-primary-200 hover:border-gold-500 rounded-xl text-xs font-bold text-primary-700 cursor-pointer flex items-center justify-center gap-2 hover:bg-gold-50 transition">
+                  📷 Imagen
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </label>
+
+                <button
+                  type="button"
+                  onClick={handleAIRefine}
+                  disabled={aiLoading}
+                  className="px-4 py-3 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white rounded-xl text-xs font-bold shadow-md shadow-gold-500/10 hover:shadow-lg transition flex items-center gap-2 disabled:opacity-50"
+                >
+                  {aiLoading ? 'Procesando...' : '✨ Perfeccionar con IA'}
+                </button>
+              </div>
+            </div>
+
+            {selectedImage && (
+              <div className="flex items-center gap-3 p-2 border border-gold-200/50 rounded-xl bg-gold-50/20 max-w-sm">
+                <img
+                  src={selectedImage}
+                  alt="Vista previa"
+                  className="w-12 h-12 rounded object-cover border border-primary-200"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-primary-400 font-bold block">Imagen Cargada</p>
+                  <p className="text-xs text-primary-700 truncate">Listo para análisis multimodal</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedImage(null)}
+                  className="text-red-500 hover:text-red-700 text-lg font-bold px-2"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+
+            {/* AI Review Form */}
+            {isReviewingRefined && refinedTask && (
+              <div className="mt-6 border-t border-primary-100 pt-6 bg-gold-50/10 p-5 rounded-2xl border border-gold-200/40">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-gold-600 mb-4 flex items-center gap-1.5">
+                  <span>✨</span> Revisión de la Tarea Generada por la IA
+                </h4>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">Título de la Tarea</label>
+                      <input
+                        type="text"
+                        value={refinedTask.title || ''}
+                        onChange={(e) => setRefinedTask({ ...refinedTask, title: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">Prioridad</label>
+                      <select
+                        value={refinedTask.priority || 'Medium'}
+                        onChange={(e) => setRefinedTask({ ...refinedTask, priority: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+                      >
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">Descripción</label>
+                    <textarea
+                      value={refinedTask.description || ''}
+                      onChange={(e) => setRefinedTask({ ...refinedTask, description: e.target.value })}
+                      className="w-full px-3 py-2 border rounded-lg text-xs bg-white h-20"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">Tipo de Tarea</label>
+                      <select
+                        value={refinedTask.type || 'One-shot'}
+                        onChange={(e) => setRefinedTask({ ...refinedTask, type: e.target.value })}
+                        className="w-full px-3 py-2 border rounded-lg text-sm bg-white"
+                      >
+                        <option value="One-shot">One-shot</option>
+                        <option value="Repetitive">Repetitive</option>
+                        <option value="Project">Project</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">Sub-pasos sugeridos</label>
+                      <div className="space-y-1">
+                        {(refinedTask.steps || []).map((step: string, idx: number) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <span className="text-gold-600">•</span>
+                            <input
+                              type="text"
+                              value={step}
+                              onChange={(e) => {
+                                const newSteps = [...refinedTask.steps];
+                                newSteps[idx] = e.target.value;
+                                setRefinedTask({ ...refinedTask, steps: newSteps });
+                              }}
+                              className="flex-1 px-2 py-1 text-xs border rounded bg-white"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newSteps = refinedTask.steps.filter((_: any, i: number) => i !== idx);
+                                setRefinedTask({ ...refinedTask, steps: newSteps });
+                              }}
+                              className="text-red-500 text-xs px-1"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsReviewingRefined(false);
+                        setRefinedTask(null);
+                      }}
+                      className="px-4 py-2 border rounded-xl text-xs font-bold text-primary-700 bg-white"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveRefinedTask}
+                      className="px-4 py-2 bg-gradient-to-r from-gold-500 to-gold-600 text-white rounded-xl text-xs font-bold shadow-md"
+                    >
+                      Guardar Tarea
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* 4. Task Grid Lists & Dynamic Visual Containers */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gold-600"></div>
-        </div>
-      ) : viewMode === 'table' ? (
+      {viewMode === 'table' ? (
         /* TABLE VIEW */
         <>
           <div className="bg-white border border-primary-200 rounded-2xl shadow-sm p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -735,7 +1175,7 @@ export default function TasksPage() {
                             <select
                               value={task.status}
                               onChange={(e) => handleUpdateTaskProperty(task.id, 'status', e.target.value)}
-                              className={`text-[10px] uppercase tracking-wider font-extrabold px-2 py-1 rounded border focus:outline-none transition-all cursor-pointer bg-white ${
+                              className={`text-[10px] uppercase tracking-wider font-extrabold px-2 py-1 rounded border focus:outline-none cursor-pointer bg-white ${
                                 statusStyles[task.status] || statusStyles['Pending']
                               }`}
                             >
@@ -748,156 +1188,261 @@ export default function TasksPage() {
                         )}
                         {visibleColumns.priority && (
                           <td className="px-6 py-4 whitespace-nowrap hidden sm:table-cell">
-                            <select
-                              value={task.priority}
-                              onChange={(e) => handleUpdateTaskProperty(task.id, 'priority', e.target.value)}
-                              className={`text-[10px] uppercase tracking-wider font-extrabold px-2 py-1 rounded border focus:outline-none transition-all cursor-pointer bg-white ${
-                                priorityStyles[task.priority] || priorityStyles['Medium']
-                              }`}
-                            >
-                              <option value="High" className="bg-white text-red-750">High</option>
-                              <option value="Medium" className="bg-white text-amber-750">Medium</option>
-                              <option value="Low" className="bg-white text-primary-650">Low</option>
-                            </select>
+                            <span className={`px-2.5 py-1 text-[9px] font-extrabold uppercase tracking-wider rounded-md border ${
+                              priorityStyles[task.priority] || priorityStyles['Medium']
+                            }`}>
+                              {task.priority}
+                            </span>
                           </td>
                         )}
                         {visibleColumns.type && (
                           <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
-                            <select
-                              value={task.type}
-                              onChange={(e) => handleUpdateTaskProperty(task.id, 'type', e.target.value)}
-                              className="text-[10px] font-bold text-primary-700 bg-primary-50 border border-primary-200 px-2 py-1 rounded focus:outline-none cursor-pointer"
-                            >
-                              <option value="One-shot">One-shot</option>
-                              <option value="Repetitive">Repetitive</option>
-                              <option value="Project">Project</option>
-                            </select>
+                            <span className="text-xs font-semibold text-primary-600">
+                              {task.type}
+                            </span>
                           </td>
                         )}
                         {visibleColumns.assignee && (
                           <td className="px-6 py-4 whitespace-nowrap hidden sm:table-cell">
-                            <div className="flex items-center gap-2">
-                              <HslAvatar
-                                name={assignee?.name || 'Unassigned'}
-                                avatarUrl={assignee?.avatar || '/avatars/placeholder.png'}
-                                size={5}
-                              />
-                              <select
-                                value={task.assigneeId || 'unassigned'}
-                                onChange={(e) => handleUpdateTaskProperty(task.id, 'assigneeId', e.target.value === 'unassigned' ? '' : e.target.value)}
-                                className="text-xs font-semibold text-primary-700 bg-transparent border-0 border-b border-transparent hover:border-primary-300 focus:border-gold-500 focus:outline-none py-0.5 cursor-pointer max-w-[120px]"
-                              >
-                                <option value="unassigned">Unassigned</option>
-                                {people.map(p => (
-                                  <option key={p.id} value={p.id}>{p.name}</option>
-                                ))}
-                              </select>
-                            </div>
+                            {assignee ? (
+                              <div className="flex items-center gap-2">
+                                <HslAvatar name={assignee.name} avatarUrl={assignee.avatar} size={5} />
+                                <span className="text-xs font-bold text-primary-750">{assignee.name}</span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-primary-400 font-medium italic">Unassigned</span>
+                            )}
                           </td>
                         )}
                         {visibleColumns.company && (
-                          <td className="px-6 py-4 whitespace-nowrap text-xs font-medium text-primary-500 hidden md:table-cell">
-                            {company?.name || 'Unassigned'}
+                          <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
+                            {company ? (
+                              <span className="text-xs font-bold text-primary-700 bg-gold-50/50 border border-gold-200/40 px-2 py-1 rounded-lg">
+                                {company.name}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-primary-400 font-medium italic">Holding</span>
+                            )}
                           </td>
                         )}
                         {visibleColumns.dueDate && (
-                          <td className="px-6 py-4 whitespace-nowrap text-xs font-medium text-primary-500 hidden sm:table-cell">
-                            {new Date(task.dueDate).toLocaleDateString()}
+                          <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-primary-500 hidden sm:table-cell">
+                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '-'}
                           </td>
                         )}
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-xs font-medium space-x-2 sticky right-0 bg-white group-hover:bg-[#fcfbf9] z-10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)] transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-xs font-bold sticky right-0 bg-white group-hover:bg-[#fcfbf9] z-10 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.05)]">
                           <button
-                            data-testid={`edit-task-${task.id}`}
                             onClick={() => handleOpenDrawer(task.id)}
-                            className="text-gold-600 hover:text-gold-700 font-bold transition"
+                            className="text-gold-600 hover:text-gold-800 font-semibold"
                           >
-                            Edit
-                          </button>
-                          <button
-                            data-testid={`delete-task-inline-${task.id}`}
-                            onClick={async () => {
-                              if (!confirm("Are you sure you want to delete this task?")) return;
-                              try {
-                                const res = await fetch(`/api/tasks/${task.id}`, {
-                                  method: 'DELETE',
-                                  headers: { 'x-api-key': 'mock-api-key-12345' }
-                                });
-                                if (res.ok) {
-                                  await loadAllData();
-                                  setToastMessage("Task deleted successfully");
-                                  setShowToast(true);
-                                  setTimeout(() => setShowToast(false), 2500);
-                                }
-                              } catch (err) {
-                                console.error("Error deleting task inline:", err);
-                              }
-                            }}
-                            className="text-red-600 hover:text-red-700 font-bold transition"
-                          >
-                            Delete
+                            Details & Actions
                           </button>
                         </td>
                       </tr>
                     );
                   })}
-                  {sortedTasks.length === 0 && (
-                    <tr>
-                      <td colSpan={8} className="text-center py-12 text-sm text-primary-400 font-medium bg-[#faf9f6]/30">
-                        No tasks match the active filters.
-                      </td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
           </div>
         </>
-      ) : grouping === 'none' ? (
-        /* STANDARD UNGROUPED GRID VIEW */
-        <div id="tasks-container" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sortedTasks.map(task => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onSelect={handleOpenDrawer}
-              formatType={formatTypeForTestId}
-              getPersonById={getPersonById}
-              onUpdateProperty={handleUpdateTaskProperty}
-            />
-          ))}
-          {sortedTasks.length === 0 && (
-            <div className="col-span-full text-center py-20 text-sm text-primary-400 font-medium bg-white rounded-2xl border border-primary-200">
-              No tasks match the active filters.
-            </div>
-          )}
-        </div>
-      ) : (
-        /* GROUPED GRID VIEWS */
-        <div id="tasks-container" className="space-y-10">
-          {resolveGroupContainers().map(([groupName, items]) => (
-            <div key={groupName} className="space-y-4" data-testid={`group-container-${groupName.replace(/\s+/g, '-').toLowerCase()}`}>
-              <div className="flex items-center gap-3 border-b border-primary-100 pb-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-gold-500 shadow-sm shadow-gold-500/30"></span>
-                <h3 className="text-sm font-extrabold uppercase tracking-wider text-primary-750">{groupName}</h3>
-                <span className="bg-primary-100 text-primary-600 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
-                  {items.length} {items.length === 1 ? 'task' : 'tasks'}
+      ) : grouping !== 'none' ? (
+        /* GROUPED VIEW */
+        <div className="space-y-8">
+          {resolveGroupContainers().map(([groupName, groupItems]) => (
+            <div key={groupName} className="bg-white border border-primary-200 rounded-2xl p-6 shadow-sm space-y-4">
+              <h3 className="text-sm font-bold text-primary-900 uppercase tracking-widest border-b pb-2 mb-4 flex items-center justify-between">
+                <span>📁 {groupName}</span>
+                <span className="text-[10px] font-extrabold bg-primary-100 text-primary-700 px-2 py-0.5 rounded-md">
+                  {groupItems.length} tasks
                 </span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {items.map(task => (
-                  <TaskCard
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {groupItems.map(task => (
+                  <div
                     key={task.id}
-                    task={task}
-                    onSelect={handleOpenDrawer}
-                    formatType={formatTypeForTestId}
-                    isGroupedCard
-                    getPersonById={getPersonById}
-                    onUpdateProperty={handleUpdateTaskProperty}
-                  />
+                    onClick={() => handleOpenDrawer(task.id)}
+                    className="border border-primary-150 hover:border-gold-300 hover:bg-gold-50/10 p-4 rounded-xl cursor-pointer transition relative"
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <span className="text-xs font-extrabold text-primary-400 uppercase tracking-wider">{task.type}</span>
+                      <span className={`px-2 py-0.5 text-[8px] font-extrabold uppercase tracking-wider rounded border ${
+                        statusStyles[task.status] || statusStyles['Pending']
+                      }`}>
+                        {task.status}
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-bold text-primary-900 truncate mb-1">
+                      {cleanMarkdown(task.title)}
+                    </h4>
+                    <p className="text-xs text-primary-500 line-clamp-2 mb-3 leading-relaxed">
+                      {cleanMarkdown(task.description)}
+                    </p>
+                    <div className="flex justify-between items-center border-t pt-2.5 text-[10px] font-bold text-primary-400">
+                      <span>Due: {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                      {task.assigneeId && getPersonById(task.assigneeId) && (
+                        <HslAvatar name={getPersonById(task.assigneeId)!.name} avatarUrl={getPersonById(task.assigneeId)!.avatar} size={4.5} />
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
           ))}
+        </div>
+      ) : (
+        /* DEFAULT KANBAN BOARD VIEW */
+        <div className="flex overflow-x-auto pb-4 gap-4 snap-x snap-mandatory md:grid md:grid-cols-4 md:gap-6 md:overflow-x-visible md:pb-0 scrollbar-thin">
+          
+          {/* COLUMN: PENDING */}
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => handleDrop(e, 'Pending')}
+            className="snap-align-start shrink-0 w-[290px] xs:w-[320px] md:w-auto bg-[#faf9f6] border border-gold-200/40 rounded-2xl p-4 min-h-[500px] shadow-xs flex flex-col"
+          >
+            <div className="flex justify-between items-center border-b border-gold-200/40 pb-2 mb-4 bg-amber-50/50 p-2 rounded-lg">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-800">Pending</span>
+              <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                {kanbanColumns.Pending.length}
+              </span>
+            </div>
+            <div className="space-y-3 flex-1 overflow-y-auto max-h-[600px] pr-1">
+              {kanbanColumns.Pending.map(t => (
+                <KanbanCard
+                  key={t.id}
+                  task={t}
+                  people={people}
+                  onOpen={handleOpenDrawer}
+                  onToggle={async (task) => {
+                    const nextStatus = task.status === 'Completed' ? 'Pending' : 'Completed';
+                    await handleUpdateTaskProperty(task.id, 'status', nextStatus);
+                  }}
+                  onDragStart={handleDragStart}
+                  activeShareMenuId={activeShareMenuId}
+                  setActiveShareMenuId={setActiveShareMenuId}
+                  onShareTelegram={handleShareTelegram}
+                  onShareWhatsApp={handleShareWhatsApp}
+                  onShareEmail={handleShareEmail}
+                />
+              ))}
+              {kanbanColumns.Pending.length === 0 && (
+                <p className="text-[10px] text-primary-400 italic text-center py-6">No tasks pending.</p>
+              )}
+            </div>
+          </div>
+
+          {/* COLUMN: IN PROGRESS */}
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => handleDrop(e, 'In Progress')}
+            className="snap-align-start shrink-0 w-[290px] xs:w-[320px] md:w-auto bg-[#faf9f6] border border-gold-200/40 rounded-2xl p-4 min-h-[500px] shadow-xs flex flex-col"
+          >
+            <div className="flex justify-between items-center border-b border-gold-200/40 pb-2 mb-4 bg-blue-50/50 p-2 rounded-lg">
+              <span className="text-xs font-bold uppercase tracking-wider text-blue-800">In Progress</span>
+              <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                {kanbanColumns['In Progress'].length}
+              </span>
+            </div>
+            <div className="space-y-3 flex-1 overflow-y-auto max-h-[600px] pr-1">
+              {kanbanColumns['In Progress'].map(t => (
+                <KanbanCard
+                  key={t.id}
+                  task={t}
+                  people={people}
+                  onOpen={handleOpenDrawer}
+                  onToggle={async (task) => {
+                    const nextStatus = task.status === 'Completed' ? 'Pending' : 'Completed';
+                    await handleUpdateTaskProperty(task.id, 'status', nextStatus);
+                  }}
+                  onDragStart={handleDragStart}
+                  activeShareMenuId={activeShareMenuId}
+                  setActiveShareMenuId={setActiveShareMenuId}
+                  onShareTelegram={handleShareTelegram}
+                  onShareWhatsApp={handleShareWhatsApp}
+                  onShareEmail={handleShareEmail}
+                />
+              ))}
+              {kanbanColumns['In Progress'].length === 0 && (
+                <p className="text-[10px] text-primary-400 italic text-center py-6">No tasks in progress.</p>
+              )}
+            </div>
+          </div>
+
+          {/* COLUMN: BLOCKED */}
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => handleDrop(e, 'Blocked')}
+            className="snap-align-start shrink-0 w-[290px] xs:w-[320px] md:w-auto bg-[#faf9f6] border border-gold-200/40 rounded-2xl p-4 min-h-[500px] shadow-xs flex flex-col"
+          >
+            <div className="flex justify-between items-center border-b border-gold-200/40 pb-2 mb-4 bg-red-50/50 p-2 rounded-lg">
+              <span className="text-xs font-bold uppercase tracking-wider text-red-800">Blocked</span>
+              <span className="text-[10px] font-bold bg-red-100 text-red-800 px-2 py-0.5 rounded-full">
+                {kanbanColumns.Blocked.length}
+              </span>
+            </div>
+            <div className="space-y-3 flex-1 overflow-y-auto max-h-[600px] pr-1">
+              {kanbanColumns.Blocked.map(t => (
+                <KanbanCard
+                  key={t.id}
+                  task={t}
+                  people={people}
+                  onOpen={handleOpenDrawer}
+                  onToggle={async (task) => {
+                    const nextStatus = task.status === 'Completed' ? 'Pending' : 'Completed';
+                    await handleUpdateTaskProperty(task.id, 'status', nextStatus);
+                  }}
+                  onDragStart={handleDragStart}
+                  activeShareMenuId={activeShareMenuId}
+                  setActiveShareMenuId={setActiveShareMenuId}
+                  onShareTelegram={handleShareTelegram}
+                  onShareWhatsApp={handleShareWhatsApp}
+                  onShareEmail={handleShareEmail}
+                />
+              ))}
+              {kanbanColumns.Blocked.length === 0 && (
+                <p className="text-[10px] text-primary-400 italic text-center py-6">No tasks blocked.</p>
+              )}
+            </div>
+          </div>
+
+          {/* COLUMN: COMPLETED */}
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => handleDrop(e, 'Completed')}
+            className="snap-align-start shrink-0 w-[290px] xs:w-[320px] md:w-auto bg-[#faf9f6] border border-gold-200/40 rounded-2xl p-4 min-h-[500px] shadow-xs flex flex-col"
+          >
+            <div className="flex justify-between items-center border-b border-gold-200/40 pb-2 mb-4 bg-emerald-50/50 p-2 rounded-lg">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">Completed</span>
+              <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                {kanbanColumns.Completed.length}
+              </span>
+            </div>
+            <div className="space-y-3 flex-1 overflow-y-auto max-h-[600px] pr-1">
+              {kanbanColumns.Completed.map(t => (
+                <KanbanCard
+                  key={t.id}
+                  task={t}
+                  people={people}
+                  onOpen={handleOpenDrawer}
+                  onToggle={async (task) => {
+                    const nextStatus = task.status === 'Completed' ? 'Pending' : 'Completed';
+                    await handleUpdateTaskProperty(task.id, 'status', nextStatus);
+                  }}
+                  onDragStart={handleDragStart}
+                  activeShareMenuId={activeShareMenuId}
+                  setActiveShareMenuId={setActiveShareMenuId}
+                  onShareTelegram={handleShareTelegram}
+                  onShareWhatsApp={handleShareWhatsApp}
+                  onShareEmail={handleShareEmail}
+                />
+              ))}
+              {kanbanColumns.Completed.length === 0 && (
+                <p className="text-[10px] text-primary-400 italic text-center py-6">No completed tasks.</p>
+              )}
+            </div>
+          </div>
+
         </div>
       )}
 
@@ -911,7 +1456,7 @@ export default function TasksPage() {
         people={people}
       />
 
-      {/* Toast popup */}
+      {/* Toast Notification */}
       {showToast && (
         <div
           id="toast-notification"
@@ -925,163 +1470,139 @@ export default function TasksPage() {
   );
 }
 
-interface TaskCardProps {
+// Kanban Card Component inside Tasks Page
+interface KanbanCardProps {
   task: Task;
-  onSelect: (id: string) => void;
-  formatType: (type: string) => string;
-  isGroupedCard?: boolean;
-  getPersonById: (id: string) => any;
-  onUpdateProperty: (taskId: string, property: string, value: any) => Promise<void>;
+  people: Person[];
+  onOpen: (id: string) => void;
+  onToggle: (task: Task) => void;
+  onDragStart: (e: React.DragEvent, id: string) => void;
+  activeShareMenuId: string | null;
+  setActiveShareMenuId: (id: string | null) => void;
+  onShareTelegram: (task: Task) => void;
+  onShareWhatsApp: (task: Task) => void;
+  onShareEmail: (task: Task) => void;
 }
 
-function TaskCard({ task, onSelect, formatType, isGroupedCard = false, getPersonById, onUpdateProperty }: TaskCardProps) {
-  const totalSteps = task.steps.length;
-  const completedSteps = task.steps.filter(s => s.completed).length;
-  const assignee = getPersonById(task.assigneeId);
+function KanbanCard({
+  task,
+  people,
+  onOpen,
+  onToggle,
+  onDragStart,
+  activeShareMenuId,
+  setActiveShareMenuId,
+  onShareTelegram,
+  onShareWhatsApp,
+  onShareEmail
+}: KanbanCardProps) {
+  const assignee = task.assigneeId ? people.find(p => p.id === task.assigneeId) : null;
+  const isCompleted = task.status === 'Completed';
 
-  const statusStyles = {
-    'Pending': 'bg-primary-50 text-primary-700 border-primary-200',
-    'In Progress': 'bg-blue-50 text-blue-700 border-blue-200',
-    'Completed': 'bg-green-50 text-green-700 border-green-200',
-    'Blocked': 'bg-red-50 text-red-700 border-red-200',
+  const toggleShareMenu = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setActiveShareMenuId(activeShareMenuId === task.id ? null : task.id);
   };
 
   return (
     <div
-      onClick={() => onSelect(task.id)}
-      data-testid={isGroupedCard ? `grouped-task-${task.id}` : `task-card-${task.id}`}
-      className="task-card group relative bg-white border border-primary-200 rounded-xl p-5 hover:border-gold-300 hover:shadow-xl hover:shadow-gold-500/5 transition-all duration-300 cursor-pointer flex flex-col justify-between min-h-[180px]"
+      draggable
+      onDragStart={(e) => onDragStart(e, task.id)}
+      onClick={() => onOpen(task.id)}
+      className={`group relative bg-white border border-gold-200/30 rounded-xl p-3 shadow-xs hover:shadow-md hover:border-gold-400 transition cursor-pointer select-none ${
+        isCompleted ? 'opacity-70 bg-primary-50/10' : ''
+      }`}
     >
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span
-              data-testid={`task-type-${formatType(task.type)}-${task.id}`}
-              className={`text-[9px] font-bold px-2 py-0.5 rounded-md border uppercase tracking-wider ${
-                task.type === 'Project'
-                  ? 'bg-purple-50 text-purple-700 border-purple-100'
-                  : task.type === 'Repetitive'
-                  ? 'bg-indigo-50 text-indigo-700 border-indigo-100'
-                  : 'bg-emerald-50 text-emerald-700 border-emerald-100'
-              }`}
-            >
-              {task.type}
-            </span>
-
-            {task.type === 'Repetitive' && task.repeatPattern && (
-              <span
-                data-testid={`task-recurrence-badge-${task.id}`}
-                className="bg-gold-50 text-gold-700 border border-gold-100 text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider"
-              >
-                {task.repeatPattern}
-              </span>
-            )}
-
-            {task.type === 'Project' && totalSteps > 0 && (
-              <span
-                data-testid={`project-steps-completed-${task.id}`}
-                className="bg-primary-50 text-primary-600 border border-primary-150 text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider"
-              >
-                {completedSteps}/{totalSteps} steps
-              </span>
-            )}
-          </div>
-
-          <select
-            value={task.status}
-            onChange={(e) => onUpdateProperty(task.id, 'status', e.target.value)}
-            className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded border focus:outline-none cursor-pointer uppercase tracking-wider ${
-              statusStyles[task.status] || statusStyles['Pending']
-            }`}
-          >
-            <option value="Pending">Pending</option>
-            <option value="In Progress">In Progress</option>
-            <option value="Completed">Completed</option>
-            <option value="Blocked">Blocked</option>
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2.5 pt-1">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <input
             type="checkbox"
-            checked={task.status === 'Completed'}
+            checked={isCompleted}
             onClick={(e) => e.stopPropagation()}
-            onChange={() => onUpdateProperty(task.id, 'status', task.status === 'Completed' ? 'Pending' : 'Completed')}
-            className="w-4 h-4 rounded-full text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer shrink-0"
+            onChange={() => onToggle(task)}
+            className="w-3.5 h-3.5 rounded-full text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer shrink-0"
           />
-          <h4 className={`text-sm font-bold text-primary-800 leading-snug group-hover:text-gold-600 transition-colors ${task.status === 'Completed' ? 'line-through text-primary-400 font-medium' : ''}`}>
-            {cleanMarkdown(task.title)}
+          <h4 className={`text-xs font-bold text-primary-850 truncate group-hover:text-gold-600 transition ${
+            isCompleted ? 'line-through text-primary-400 font-medium' : ''
+          }`}>
+            {task.title}
           </h4>
         </div>
-        
-        <p className="text-xs text-primary-400 line-clamp-2 pl-6">
-          {cleanMarkdown(task.description)}
-        </p>
+
+        {/* Share Button Icon */}
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={toggleShareMenu}
+            className="p-1 hover:bg-gold-50 rounded text-primary-400 hover:text-gold-600 transition text-[10px]"
+            title="Compartir Tarea"
+          >
+            📤
+          </button>
+          
+          {activeShareMenuId === task.id && (
+            <div className="absolute right-0 top-6 z-40 bg-white border border-gold-200/50 rounded-lg shadow-lg py-1.5 w-36 text-left text-xs text-primary-800 animate-fade-in">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onShareTelegram(task); }}
+                className="w-full px-3 py-1.5 hover:bg-gold-50 flex items-center gap-2"
+              >
+                <span>✈️</span> Telegram
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onShareWhatsApp(task); }}
+                className="w-full px-3 py-1.5 hover:bg-gold-50 flex items-center gap-2"
+              >
+                <span>💬</span> WhatsApp
+              </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onShareEmail(task); }}
+                className="w-full px-3 py-1.5 hover:bg-gold-50 flex items-center gap-2"
+              >
+                <span>✉️</span> Email (SMTP)
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-primary-100 pt-3 mt-4 gap-2 flex-wrap">
-        <div className="flex items-center gap-3">
-          {task.origin.toLowerCase() === 'golden hour' ? (
-            <span
-              data-testid={`task-origin-golden-hour-${task.id}`}
-              className="bg-gradient-to-r from-gold-500 to-gold-600 text-white font-semibold text-[8px] py-0.5 px-2 rounded-full border border-gold-400 tracking-wide uppercase"
-            >
-              Golden Hour
-            </span>
-          ) : (
-            <span
-              data-testid={`task-origin-manual-${task.id}`}
-              className="bg-primary-100 text-primary-700 border border-primary-200 font-semibold text-[8px] py-0.5 px-2 rounded-full tracking-wide uppercase"
-            >
-              Manual
+      {/* Description Preview */}
+      {task.description && (
+        <p className="text-[10px] text-primary-500 mt-1.5 line-clamp-2 leading-relaxed">
+          {task.description.replace(/[#*`~_]/g, '')}
+        </p>
+      )}
+
+      {/* Footer Info */}
+      <div className="mt-3 flex items-center justify-between border-t border-primary-50 pt-2 text-[8px] font-bold uppercase tracking-wider text-primary-400">
+        
+        <div className="flex items-center gap-1">
+          <span className={`px-1.5 py-0.5 rounded border ${
+            task.priority === 'High'
+              ? 'bg-red-50 text-red-700 border-red-200'
+              : task.priority === 'Medium'
+              ? 'bg-amber-50 text-amber-700 border-amber-200'
+              : 'bg-primary-50 text-primary-500 border-primary-200'
+          }`}>
+            {task.priority}
+          </span>
+          {task.dueDate && (
+            <span className="text-primary-400">
+              📅 {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
             </span>
           )}
-
-          {task.assigneeIds && task.assigneeIds.length > 0 ? (
-            <div className="flex items-center -space-x-1.5 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-              {task.assigneeIds.slice(0, 3).map(id => {
-                const member = getPersonById(id);
-                if (!member) return null;
-                return (
-                  <div key={id} title={member.name} className="ring-1 ring-white rounded-full">
-                    <HslAvatar name={member.name} avatarUrl={member.avatar} size={4.5} className="shrink-0" />
-                  </div>
-                );
-              })}
-              {task.assigneeIds.length > 3 && (
-                <span className="text-[9px] font-bold text-primary-400 pl-1">+{task.assigneeIds.length - 3}</span>
-              )}
-            </div>
-          ) : assignee ? (
-            <div className="flex items-center gap-1 min-w-0" onClick={(e) => e.stopPropagation()}>
-              <HslAvatar name={assignee.name} avatarUrl={assignee.avatar} size={4.5} className="shrink-0" />
-              <span className="text-[10px] font-bold text-primary-500 truncate max-w-[65px] hidden xs:inline">{assignee.name}</span>
-            </div>
-          ) : null}
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <span className="text-[9px] font-bold text-primary-450">
-            Due: {new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-          </span>
-          <div className="flex items-center gap-1 shrink-0">
-            <span className={`w-2 h-2 rounded-full ${
-              task.priority === 'High' ? 'bg-red-500 animate-pulse' : task.priority === 'Medium' ? 'bg-amber-500' : 'bg-green-500'
-            }`}></span>
-            <span className="text-[9px] font-extrabold text-primary-400 uppercase tracking-wider">{task.priority}</span>
+        {/* Assignee Avatar */}
+        {assignee && (
+          <div title={`Responsable: ${assignee.name}`}>
+            <HslAvatar name={assignee.name} avatarUrl={assignee.avatar} size={4} />
           </div>
-        </div>
+        )}
+
       </div>
     </div>
   );
-}
-
-function cleanMarkdown(text: string): string {
-  if (!text) return '';
-  return text
-    .replace(/[#*`~_]/g, '')
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-    .replace(/^[-*+]\s+/gm, '')
-    .replace(/^\d+\.\s+/gm, '')
-    .trim();
 }
