@@ -18,6 +18,9 @@ interface Person {
   workingHoursStart?: string;
   workingHoursEnd?: string;
   timeOff?: string[];
+  recurringDaysOff?: number[];
+  lunchStart?: string;
+  lunchEnd?: string;
 }
 
 interface Step {
@@ -258,8 +261,12 @@ export default function CalendarPage() {
     const start = new Date(baseDate.getTime() + (week - 23) * 7 * 24 * 60 * 60 * 1000);
     const dates = Array.from({ length: 7 }, (_, i) => {
       const d = new Date(start.getTime() + i * 24 * 60 * 60 * 1000);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const date = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${date}`;
       return {
-        dateStr: d.toISOString().substring(0, 10),
+        dateStr,
         dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()]
       };
     });
@@ -598,7 +605,20 @@ export default function CalendarPage() {
 
             // Check availability for selected person
             const selectedPerson = people.find(p => p.id === selectedPersonId);
-            const isTimeOff = !!(selectedPerson && selectedPerson.timeOff && selectedPerson.timeOff.includes(dayDateStr));
+            const dayOfWeekMap: Record<string, number> = {
+              'Sunday': 0,
+              'Monday': 1,
+              'Tuesday': 2,
+              'Wednesday': 3,
+              'Thursday': 4,
+              'Friday': 5,
+              'Saturday': 6
+            };
+            const dayOfWeekNum = dayOfWeekMap[dayName];
+            const isTimeOff = !!(selectedPerson && (
+              (selectedPerson.timeOff && selectedPerson.timeOff.includes(dayDateStr)) ||
+              (selectedPerson.recurringDaysOff && selectedPerson.recurringDaysOff.includes(dayOfWeekNum))
+            ));
             const workingHours = selectedPerson && selectedPerson.workingHoursStart 
               ? `${selectedPerson.workingHoursStart} - ${selectedPerson.workingHoursEnd}`
               : '08:00 - 17:00';
@@ -752,10 +772,32 @@ export default function CalendarPage() {
             {/* Availability visual timeline if member filter is selected */}
             {selectedPersonId && (() => {
               const selectedPerson = people.find(p => p.id === selectedPersonId);
-              const isTimeOff = !!(selectedPerson && selectedPerson.timeOff && selectedPerson.timeOff.includes(currentDayRange.dateStr));
+              const dayOfWeekMap: Record<string, number> = {
+                'Sunday': 0,
+                'Monday': 1,
+                'Tuesday': 2,
+                'Wednesday': 3,
+                'Thursday': 4,
+                'Friday': 5,
+                'Saturday': 6
+              };
+              const dayOfWeekNum = dayOfWeekMap[currentDayRange.dayName];
+              const isTimeOff = !!(selectedPerson && (
+                (selectedPerson.timeOff && selectedPerson.timeOff.includes(currentDayRange.dateStr)) ||
+                (selectedPerson.recurringDaysOff && selectedPerson.recurringDaysOff.includes(dayOfWeekNum))
+              ));
               const startHour = selectedPerson?.workingHoursStart ? parseInt(selectedPerson.workingHoursStart.split(':')[0], 10) : 8;
               const endHour = selectedPerson?.workingHoursEnd ? parseInt(selectedPerson.workingHoursEnd.split(':')[0], 10) : 17;
               
+              const hasLunch = !!(selectedPerson?.lunchStart && selectedPerson?.lunchEnd);
+              const lunchStartHour = hasLunch ? parseInt(selectedPerson!.lunchStart!.split(':')[0], 10) : -1;
+              const lunchEndHour = hasLunch ? parseInt(selectedPerson!.lunchEnd!.split(':')[0], 10) : -1;
+
+              const isLunchHour = (h: number) => {
+                if (!hasLunch) return false;
+                return h >= lunchStartHour && h < lunchEndHour;
+              };
+
               const todayEvents = calendarEvents.filter(e => e.dateStr === currentDayRange.dateStr);
               
               const isHourBusy = (h: number) => {
@@ -765,7 +807,7 @@ export default function CalendarPage() {
 
               const freeHours: string[] = [];
               for (let h = startHour; h < endHour; h++) {
-                if (!isHourBusy(h)) {
+                if (!isHourBusy(h) && !isLunchHour(h)) {
                   freeHours.push(`${String(h).padStart(2, '0')}:00`);
                 }
               }
@@ -788,22 +830,31 @@ export default function CalendarPage() {
                           {Array.from({ length: 14 }).map((_, idx) => {
                             const hour = idx + 7; // from 07:00 AM to 08:00 PM
                             const isWorking = hour >= startHour && hour < endHour;
-                            const isBusy = isWorking && isHourBusy(hour);
+                            const isLunch = isWorking && isLunchHour(hour);
+                            const isBusy = isWorking && !isLunch && isHourBusy(hour);
                             
                             let bg = 'bg-primary-100 text-primary-450 border-primary-200/30';
+                            let titleText = `${hour}:00 - Fuera de Horario`;
                             if (isWorking) {
-                              bg = isBusy 
-                                ? 'bg-amber-100 text-amber-700 border-amber-300 font-extrabold shadow-sm' 
-                                : 'bg-emerald-100 text-emerald-800 border-emerald-300 shadow-sm';
+                              if (isLunch) {
+                                bg = 'bg-amber-50 text-amber-600 border-amber-250/50 font-semibold italic';
+                                titleText = `${hour}:00 - Almuerzo / Break`;
+                              } else if (isBusy) {
+                                bg = 'bg-red-100 text-red-700 border-red-300 font-extrabold shadow-sm';
+                                titleText = `${hour}:00 - Ocupado (Reunión)`;
+                              } else {
+                                bg = 'bg-emerald-100 text-emerald-800 border-emerald-300 shadow-sm';
+                                titleText = `${hour}:00 - Disponible`;
+                              }
                             }
 
                             return (
                               <div
                                 key={hour}
                                 className={`flex-1 text-center text-[9px] py-1.5 px-1 rounded-md border font-bold min-w-[24px] ${bg}`}
-                                title={`${hour}:00 - ${isWorking ? (isBusy ? 'Ocupado (Reunión)' : 'Disponible') : 'No Laborable'}`}
+                                title={titleText}
                               >
-                                {hour}
+                                {isLunch ? '🥪' : hour}
                               </div>
                             );
                           })}

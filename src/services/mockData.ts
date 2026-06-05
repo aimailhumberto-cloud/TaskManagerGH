@@ -12,6 +12,9 @@ export interface Person {
   workingHoursStart?: string;
   workingHoursEnd?: string;
   timeOff?: string[];
+  recurringDaysOff?: number[];
+  lunchStart?: string;
+  lunchEnd?: string;
 }
 
 export interface Step {

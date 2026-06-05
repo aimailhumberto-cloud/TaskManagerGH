@@ -17,6 +17,9 @@ export interface Person {
   workingHoursStart?: string;
   workingHoursEnd?: string;
   timeOff?: string[];
+  recurringDaysOff?: number[];
+  lunchStart?: string;
+  lunchEnd?: string;
 }
 
 export interface Step {
@@ -387,6 +390,8 @@ Hermes Task Hub`;
     const conflicts: string[] = [];
     if (!dueDate) return conflicts;
 
+    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+
     selectedAttendees.forEach(email => {
       // Find the Person object for this email
       const person = people.find(p => {
@@ -397,13 +402,21 @@ Hermes Task Hub`;
 
       if (!person) return;
 
-      // 1. Time off conflict
       const cleanDate = dueDate.substring(0, 10);
+      
+      // 1. Time off conflict (specific date)
       if (person.timeOff && person.timeOff.includes(cleanDate)) {
         conflicts.push(`${person.name} tiene registrado día libre / vacaciones el ${cleanDate}.`);
       }
 
-      // 2. Working hours conflict
+      // 1b. Recurring weekly day off conflict
+      const localDateObj = new Date(cleanDate + 'T12:00:00');
+      const dayOfWeek = localDateObj.getDay();
+      if (person.recurringDaysOff && person.recurringDaysOff.includes(dayOfWeek)) {
+        conflicts.push(`${person.name} tiene el día ${dayNames[dayOfWeek]} libre recurrentemente.`);
+      }
+
+      // 2. Working hours & Lunch conflicts
       if (meetingTime) {
         const mHour = parseInt(meetingTime.split(':')[0], 10);
         const mMin = parseInt(meetingTime.split(':')[1], 10);
@@ -416,8 +429,24 @@ Hermes Task Hub`;
         const endTotal = endH * 60 + endM;
         const mTotal = mHour * 60 + mMin;
 
+        // Working hours validation
         if (mTotal < startTotal || mTotal >= endTotal) {
           conflicts.push(`${person.name} está fuera de su jornada laboral (${person.workingHoursStart || '08:00'} - ${person.workingHoursEnd || '17:00'}).`);
+        }
+
+        // Lunch validation
+        if (person.lunchStart && person.lunchEnd) {
+          const lStartHour = parseInt(person.lunchStart.split(':')[0], 10);
+          const lStartMin = parseInt(person.lunchStart.split(':')[1], 10);
+          const lEndHour = parseInt(person.lunchEnd.split(':')[0], 10);
+          const lEndMin = parseInt(person.lunchEnd.split(':')[1], 10);
+
+          const lStartTotal = lStartHour * 60 + lStartMin;
+          const lEndTotal = lEndHour * 60 + lEndMin;
+
+          if (mTotal >= lStartTotal && mTotal < lEndTotal) {
+            conflicts.push(`${person.name} está en su horario de almuerzo / descanso (${person.lunchStart} - ${person.lunchEnd}).`);
+          }
         }
 
         // 3. Double booking conflict

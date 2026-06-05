@@ -29,6 +29,12 @@ export default function SettingsPage() {
   const [newTimeOffDate, setNewTimeOffDate] = useState('');
   const [availabilityStatus, setAvailabilityStatus] = useState('');
   const [availabilityStatusColor, setAvailabilityStatusColor] = useState('text-primary-600');
+  const [lunchStart, setLunchStart] = useState('12:00');
+  const [lunchEnd, setLunchEnd] = useState('13:00');
+  const [enableLunch, setEnableLunch] = useState(false);
+  const [recurringDaysOff, setRecurringDaysOff] = useState<number[]>([]);
+  const [timeOffRangeStart, setTimeOffRangeStart] = useState('');
+  const [timeOffRangeEnd, setTimeOffRangeEnd] = useState('');
 
   // Interactive Manual Tabs and loading states
   const [activeManualTab, setActiveManualTab] = useState<'endpoints' | 'casing' | 'recurrence' | 'duplicates' | 'maintenance' | 'safety'>('endpoints');
@@ -67,6 +73,10 @@ export default function SettingsPage() {
             setWorkingHoursStart(peopleData[0].workingHoursStart || '08:00');
             setWorkingHoursEnd(peopleData[0].workingHoursEnd || '17:00');
             setTimeOff(peopleData[0].timeOff || []);
+            setRecurringDaysOff(peopleData[0].recurringDaysOff || []);
+            setLunchStart(peopleData[0].lunchStart || '12:00');
+            setLunchEnd(peopleData[0].lunchEnd || '13:00');
+            setEnableLunch(!!(peopleData[0].lunchStart && peopleData[0].lunchEnd));
           }
         }
       } catch (e) {
@@ -84,6 +94,10 @@ export default function SettingsPage() {
       setWorkingHoursStart(p.workingHoursStart || '08:00');
       setWorkingHoursEnd(p.workingHoursEnd || '17:00');
       setTimeOff(p.timeOff || []);
+      setRecurringDaysOff(p.recurringDaysOff || []);
+      setLunchStart(p.lunchStart || '12:00');
+      setLunchEnd(p.lunchEnd || '13:00');
+      setEnableLunch(!!(p.lunchStart && p.lunchEnd));
     }
   }, [selectedPersonId, people]);
 
@@ -103,7 +117,10 @@ export default function SettingsPage() {
         body: JSON.stringify({
           workingHoursStart,
           workingHoursEnd,
-          timeOff
+          timeOff,
+          recurringDaysOff,
+          lunchStart: enableLunch ? lunchStart : null,
+          lunchEnd: enableLunch ? lunchEnd : null
         })
       });
       if (res.ok) {
@@ -131,6 +148,48 @@ export default function SettingsPage() {
     }
     setTimeOff(prev => [...prev, newTimeOffDate].sort());
     setNewTimeOffDate('');
+  };
+
+  const handleAddTimeOffRange = () => {
+    if (!timeOffRangeStart || !timeOffRangeEnd) {
+      alert('Por favor selecciona ambas fechas de inicio y fin.');
+      return;
+    }
+    const start = new Date(timeOffRangeStart + 'T12:00:00');
+    const end = new Date(timeOffRangeEnd + 'T12:00:00');
+    if (end < start) {
+      alert('La fecha de fin no puede ser anterior a la de inicio.');
+      return;
+    }
+    
+    const newDates: string[] = [];
+    const current = new Date(start);
+    while (current <= end) {
+      const year = current.getFullYear();
+      const month = String(current.getMonth() + 1).padStart(2, '0');
+      const date = String(current.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${date}`;
+      newDates.push(dateStr);
+      current.setDate(current.getDate() + 1);
+    }
+    
+    setTimeOff(prev => {
+      const combined = [...prev, ...newDates];
+      const uniqueSorted = Array.from(new Set(combined)).sort();
+      return uniqueSorted;
+    });
+    setTimeOffRangeStart('');
+    setTimeOffRangeEnd('');
+  };
+
+  const handleToggleRecurringDayOff = (dayNum: number) => {
+    setRecurringDaysOff(prev => {
+      if (prev.includes(dayNum)) {
+        return prev.filter(d => d !== dayNum);
+      } else {
+        return [...prev, dayNum].sort();
+      }
+    });
   };
 
   const handleRemoveTimeOff = (dateToRemove: string) => {
@@ -1123,25 +1182,148 @@ const data = await res.json();`}
                       </div>
                     </div>
 
-                    {/* Time off calendar date picker and tags */}
+                    {/* Lunch Break Section */}
+                    <div className="bg-[#faf9f6]/40 p-4 border border-gold-200/30 rounded-2xl space-y-4">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={enableLunch}
+                            onChange={(e) => setEnableLunch(e.target.checked)}
+                            className="w-4 h-4 rounded text-gold-550 focus:ring-gold-500 border-primary-300"
+                          />
+                          <span className="text-xs font-bold text-primary-800 uppercase tracking-wider">Habilitar Horario de Almuerzo / Descanso</span>
+                        </label>
+                      </div>
+                      
+                      {enableLunch && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label htmlFor="lunch-start" className="block text-[10px] font-semibold text-primary-500 uppercase tracking-wider mb-2">
+                              Inicio de Almuerzo
+                            </label>
+                            <select
+                              id="lunch-start"
+                              value={lunchStart}
+                              onChange={(e) => setLunchStart(e.target.value)}
+                              className="w-full px-4 py-2 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:outline-none bg-white font-bold text-xs"
+                            >
+                              {Array.from({ length: 24 }).map((_, h) => {
+                                const hh = String(h).padStart(2, '0');
+                                return (
+                                  <React.Fragment key={h}>
+                                    <option value={`${hh}:00`}>{hh}:00</option>
+                                    <option value={`${hh}:30`}>{hh}:30</option>
+                                  </React.Fragment>
+                                );
+                              })}
+                            </select>
+                          </div>
+                          <div>
+                            <label htmlFor="lunch-end" className="block text-[10px] font-semibold text-primary-500 uppercase tracking-wider mb-2">
+                              Fin de Almuerzo
+                            </label>
+                            <select
+                              id="lunch-end"
+                              value={lunchEnd}
+                              onChange={(e) => setLunchEnd(e.target.value)}
+                              className="w-full px-4 py-2 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:outline-none bg-white font-bold text-xs"
+                            >
+                              {Array.from({ length: 24 }).map((_, h) => {
+                                const hh = String(h).padStart(2, '0');
+                                return (
+                                  <React.Fragment key={h}>
+                                    <option value={`${hh}:00`}>{hh}:00</option>
+                                    <option value={`${hh}:30`}>{hh}:30</option>
+                                  </React.Fragment>
+                                );
+                              })}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Recurring Days Off */}
                     <div className="space-y-3">
                       <label className="block text-xs font-semibold text-primary-600 uppercase tracking-wider mb-1">
-                        Días Libres / Tiempo Fuera de Oficina (Time Off)
+                        Días Libres Semanales Recurrentes
                       </label>
-                      <div className="flex gap-2">
-                        <input
-                          type="date"
-                          value={newTimeOffDate}
-                          onChange={(e) => setNewTimeOffDate(e.target.value)}
-                          className="px-4 py-2 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:outline-none bg-white text-xs font-bold"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddTimeOff}
-                          className="px-4 py-2 bg-primary-850 hover:bg-primary-905 text-white rounded-xl text-xs font-bold transition"
-                        >
-                          Agregar Día
-                        </button>
+                      <div className="flex flex-wrap gap-2">
+                        {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map((dayName, idx) => {
+                          const isSelected = recurringDaysOff.includes(idx);
+                          return (
+                            <button
+                              key={dayName}
+                              type="button"
+                              onClick={() => handleToggleRecurringDayOff(idx)}
+                              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition border ${
+                                isSelected
+                                  ? 'bg-red-50 text-red-750 border-red-300 shadow-xs'
+                                  : 'bg-white text-primary-650 border-primary-200 hover:bg-gold-50/50'
+                              }`}
+                            >
+                              {dayName}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Time off calendar date picker and tags */}
+                    <div className="space-y-4">
+                      <label className="block text-xs font-semibold text-primary-600 uppercase tracking-wider mb-1">
+                        Días Libres Específicos / Vacaciones (Time Off)
+                      </label>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#faf9f6]/40 p-4 border border-gold-200/30 rounded-2xl">
+                        {/* Single Date */}
+                        <div className="space-y-2">
+                          <span className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider">Un solo día</span>
+                          <div className="flex gap-2">
+                            <input
+                              type="date"
+                              value={newTimeOffDate}
+                              onChange={(e) => setNewTimeOffDate(e.target.value)}
+                              className="w-full px-4 py-2 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:outline-none bg-white text-xs font-bold"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddTimeOff}
+                              className="px-4 py-2 bg-primary-850 hover:bg-primary-905 text-white rounded-xl text-xs font-bold transition shrink-0"
+                            >
+                              Agregar
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Date Range */}
+                        <div className="space-y-2 border-t md:border-t-0 md:border-l border-gold-200/30 pt-3 md:pt-0 md:pl-4">
+                          <span className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider">Rango de días</span>
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <input
+                              type="date"
+                              value={timeOffRangeStart}
+                              onChange={(e) => setTimeOffRangeStart(e.target.value)}
+                              className="w-full px-3 py-1.5 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:outline-none bg-white text-xs font-bold"
+                              placeholder="Inicio"
+                            />
+                            <input
+                              type="date"
+                              value={timeOffRangeEnd}
+                              onChange={(e) => setTimeOffRangeEnd(e.target.value)}
+                              className="w-full px-3 py-1.5 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:outline-none bg-white text-xs font-bold"
+                              placeholder="Fin"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleAddTimeOffRange}
+                              className="px-4 py-2 bg-gold-550 hover:bg-gold-600 text-white rounded-xl text-xs font-bold transition shrink-0"
+                            >
+                              Agregar Rango
+                            </button>
+                          </div>
+                        </div>
                       </div>
 
                       {/* Display date tags */}
