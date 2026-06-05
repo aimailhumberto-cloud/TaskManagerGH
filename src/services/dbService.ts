@@ -1051,18 +1051,26 @@ export class DBService implements IDBService {
 
       return (data || []).map(p => {
         const avail = availMap[p.id] || {};
+        const getAvailField = (camelKey: string, snakeKey: string) => {
+          if (avail[camelKey] !== undefined) return avail[camelKey];
+          if (avail[snakeKey] !== undefined) return avail[snakeKey];
+          if (p[camelKey] !== undefined) return p[camelKey];
+          if (p[snakeKey] !== undefined) return p[snakeKey];
+          return undefined;
+        };
+
         return {
           id: p.id,
           name: p.name,
           role: p.role,
           avatar: p.avatar,
           companyId: p.company_id || undefined,
-          workingHoursStart: avail.workingHoursStart || p.working_hours_start || undefined,
-          workingHoursEnd: avail.workingHoursEnd || p.working_hours_end || undefined,
-          timeOff: avail.timeOff || p.time_off || undefined,
-          recurringDaysOff: avail.recurringDaysOff || p.recurring_days_off || undefined,
-          lunchStart: avail.lunchStart || p.lunch_start || undefined,
-          lunchEnd: avail.lunchEnd || p.lunch_end || undefined
+          workingHoursStart: getAvailField('workingHoursStart', 'working_hours_start'),
+          workingHoursEnd: getAvailField('workingHoursEnd', 'working_hours_end'),
+          timeOff: getAvailField('timeOff', 'time_off'),
+          recurringDaysOff: getAvailField('recurringDaysOff', 'recurring_days_off'),
+          lunchStart: getAvailField('lunchStart', 'lunch_start'),
+          lunchEnd: getAvailField('lunchEnd', 'lunch_end')
         };
       });
     }
@@ -1151,13 +1159,30 @@ export class DBService implements IDBService {
         } catch {}
       }
 
-      // Merge availability updates
-      if (personUpdates.workingHoursStart !== undefined) currentAvail.workingHoursStart = personUpdates.workingHoursStart;
-      if (personUpdates.workingHoursEnd !== undefined) currentAvail.workingHoursEnd = personUpdates.workingHoursEnd;
-      if (personUpdates.timeOff !== undefined) currentAvail.timeOff = personUpdates.timeOff;
-      if (personUpdates.recurringDaysOff !== undefined) currentAvail.recurringDaysOff = personUpdates.recurringDaysOff;
-      if (personUpdates.lunchStart !== undefined) currentAvail.lunchStart = personUpdates.lunchStart;
-      if (personUpdates.lunchEnd !== undefined) currentAvail.lunchEnd = personUpdates.lunchEnd;
+      // Merge availability updates with casing normalization support
+      const getUpdateField = (camelKey: string, snakeKey: string) => {
+        if ((personUpdates as any)[camelKey] !== undefined) return (personUpdates as any)[camelKey];
+        if ((personUpdates as any)[snakeKey] !== undefined) return (personUpdates as any)[snakeKey];
+        return undefined;
+      };
+
+      const wStart = getUpdateField('workingHoursStart', 'working_hours_start');
+      if (wStart !== undefined) currentAvail.workingHoursStart = wStart;
+
+      const wEnd = getUpdateField('workingHoursEnd', 'working_hours_end');
+      if (wEnd !== undefined) currentAvail.workingHoursEnd = wEnd;
+
+      const tOff = getUpdateField('timeOff', 'time_off');
+      if (tOff !== undefined) currentAvail.timeOff = tOff;
+
+      const recOff = getUpdateField('recurringDaysOff', 'recurring_days_off');
+      if (recOff !== undefined) currentAvail.recurringDaysOff = recOff;
+
+      const lStart = getUpdateField('lunchStart', 'lunch_start');
+      if (lStart !== undefined) currentAvail.lunchStart = lStart;
+
+      const lEnd = getUpdateField('lunchEnd', 'lunch_end');
+      if (lEnd !== undefined) currentAvail.lunchEnd = lEnd;
 
       // Save merged availability to email_templates
       const availRecord = {
@@ -1196,9 +1221,37 @@ export class DBService implements IDBService {
 
       const existingPerson = data.people[index];
 
+      // Normalize snake_case updates to camelCase for the JSON DB as well
+      const getUpdateField = (camelKey: string, snakeKey: string) => {
+        if ((personUpdates as any)[camelKey] !== undefined) return (personUpdates as any)[camelKey];
+        if ((personUpdates as any)[snakeKey] !== undefined) return (personUpdates as any)[snakeKey];
+        return undefined;
+      };
+
+      const normalizedUpdates: any = {};
+      const fields = [
+        ['workingHoursStart', 'working_hours_start'],
+        ['workingHoursEnd', 'working_hours_end'],
+        ['timeOff', 'time_off'],
+        ['recurringDaysOff', 'recurring_days_off'],
+        ['lunchStart', 'lunch_start'],
+        ['lunchEnd', 'lunch_end'],
+        ['name', 'name'],
+        ['role', 'role'],
+        ['avatar', 'avatar'],
+        ['companyId', 'company_id']
+      ];
+
+      fields.forEach(([camelKey, snakeKey]) => {
+        const val = getUpdateField(camelKey, snakeKey);
+        if (val !== undefined) {
+          normalizedUpdates[camelKey] = val;
+        }
+      });
+
       const updatedPerson: Person = {
         ...existingPerson,
-        ...personUpdates,
+        ...normalizedUpdates,
         id,
       };
 
