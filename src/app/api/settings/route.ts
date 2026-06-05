@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const smtpConfig = await dbService.getSMTPConfig();
-    return NextResponse.json({ smtpConfig });
+    const aiConfig = await dbService.getAIConfig();
+    return NextResponse.json({ smtpConfig, aiConfig });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -24,21 +25,31 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { host, port } = body;
+    const { host, port, endpoint, apiKey, activeModel } = body;
 
-    if (!host || !port || isNaN(Number(port))) {
-      return NextResponse.json({ error: 'SMTP Host and Port are mandatory' }, { status: 400 });
+    if (host !== undefined && port !== undefined) {
+      if (!host || isNaN(Number(port))) {
+        return NextResponse.json({ error: 'SMTP Host and Port are mandatory' }, { status: 400 });
+      }
+      const current = await dbService.getSMTPConfig();
+      const updated = {
+        ...current,
+        host,
+        port: Number(port),
+      };
+      await dbService.updateSMTPConfig(updated);
+      return NextResponse.json({ success: true, smtpConfig: updated });
+    } else if (endpoint !== undefined) {
+      const updated = {
+        endpoint: String(endpoint).trim(),
+        apiKey: String(apiKey || '').trim(),
+        activeModel: String(activeModel || '').trim()
+      };
+      await dbService.updateAIConfig(updated);
+      return NextResponse.json({ success: true, aiConfig: updated });
     }
 
-    const current = await dbService.getSMTPConfig();
-    const updated = {
-      ...current,
-      host,
-      port: Number(port),
-    };
-
-    await dbService.updateSMTPConfig(updated);
-    return NextResponse.json({ success: true, smtpConfig: updated });
+    return NextResponse.json({ error: 'Invalid config payload' }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

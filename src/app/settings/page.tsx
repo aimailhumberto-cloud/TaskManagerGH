@@ -9,11 +9,20 @@ export default function SettingsPage() {
   const [smtpStatusColor, setSmtpStatusColor] = useState('text-primary-600');
   const [selectedTemplate, setSelectedTemplate] = useState('none');
   
+  // AI Config State
+  const [aiEndpoint, setAiEndpoint] = useState('');
+  const [aiApiKey, setAiApiKey] = useState('');
+  const [aiModels, setAiModels] = useState<string[]>([]);
+  const [activeModel, setActiveModel] = useState('');
+  const [aiStatus, setAiStatus] = useState('');
+  const [aiStatusColor, setAiStatusColor] = useState('text-primary-600');
+  const [fetchingModels, setFetchingModels] = useState(false);
+
   // Interactive Manual Tabs and loading states
   const [activeManualTab, setActiveManualTab] = useState<'endpoints' | 'casing' | 'recurrence' | 'duplicates' | 'maintenance' | 'safety'>('endpoints');
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
 
-  // Load existing SMTP settings from the database on mount
+  // Load existing settings from the database on mount
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -24,9 +33,17 @@ export default function SettingsPage() {
             setHost(data.smtpConfig.host || '');
             setPort(data.smtpConfig.port ? String(data.smtpConfig.port) : '');
           }
+          if (data.aiConfig) {
+            setAiEndpoint(data.aiConfig.endpoint || '');
+            setAiApiKey(data.aiConfig.apiKey || '');
+            setActiveModel(data.aiConfig.activeModel || '');
+            if (data.aiConfig.activeModel) {
+              setAiModels([data.aiConfig.activeModel]);
+            }
+          }
         }
       } catch (e) {
-        console.error('Failed to load SMTP settings:', e);
+        console.error('Failed to load settings:', e);
       }
     };
     loadSettings();
@@ -129,6 +146,79 @@ export default function SettingsPage() {
     } catch (e) {
       setSmtpStatusColor('text-red-650');
       setSmtpStatus('Error: Failed to save SMTP configuration');
+    }
+  };
+
+  const handleSaveAIConfig = async (modelToSave = activeModel) => {
+    setAiStatus('Saving config...');
+    setAiStatusColor('text-primary-600');
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          endpoint: aiEndpoint,
+          apiKey: aiApiKey,
+          activeModel: modelToSave
+        })
+      });
+      if (res.ok) {
+        setAiStatusColor('text-green-600');
+        setAiStatus('AI Configuration saved successfully!');
+        return true;
+      } else {
+        const err = await res.json();
+        setAiStatusColor('text-red-650');
+        setAiStatus(`Error: ${err.error || 'Failed to save configuration'}`);
+        return false;
+      }
+    } catch (e: any) {
+      setAiStatusColor('text-red-650');
+      setAiStatus(`Error: ${e.message}`);
+      return false;
+    }
+  };
+
+  const handleFetchModels = async () => {
+    setFetchingModels(true);
+    setAiStatus('Fetching models...');
+    setAiStatusColor('text-primary-600');
+    try {
+      const res = await fetch('/api/ai/models');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.models && data.models.length > 0) {
+          setAiModels(data.models);
+          setAiStatusColor('text-green-600');
+          setAiStatus('Models fetched successfully!');
+          if (data.warning) {
+            setAiStatusColor('text-amber-600');
+            setAiStatus(`Fetched: ${data.warning}`);
+          }
+        } else {
+          setAiModels([]);
+          setAiStatusColor('text-amber-600');
+          setAiStatus(data.warning || 'No models found. Check endpoint connectivity.');
+        }
+      } else {
+        const err = await res.json();
+        setAiStatusColor('text-red-650');
+        setAiStatus(`Error: ${err.error || 'Failed to fetch models'}`);
+      }
+    } catch (e: any) {
+      setAiStatusColor('text-red-650');
+      setAiStatus(`Error: ${e.message || 'Network error'}`);
+    } finally {
+      setFetchingModels(false);
+    }
+  };
+
+  const handleSaveAndFetchModels = async () => {
+    const saved = await handleSaveAIConfig();
+    if (saved) {
+      await handleFetchModels();
     }
   };
 
@@ -656,6 +746,99 @@ const data = await res.json();`}
                   className={`text-sm font-semibold mt-3 ${smtpStatusColor} transition-all duration-200`}
                 >
                   {smtpStatus}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Section 1.5: Ollama Cloud AI Configuration */}
+          <section className="bg-white border border-gold-200/50 rounded-2xl p-6 md:p-8 shadow-sm">
+            <h3 className="text-lg font-bold text-primary-900 mb-6 border-b border-primary-100 pb-3 flex items-center gap-2">
+              <span>🤖</span> Ollama Cloud AI Config
+            </h3>
+            <div className="space-y-4 max-w-md">
+              <div>
+                <label htmlFor="ai-endpoint" className="block text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2">
+                  Ollama Connection Endpoint URL
+                </label>
+                <input
+                  type="text"
+                  id="ai-endpoint"
+                  data-testid="ai-endpoint"
+                  value={aiEndpoint}
+                  onChange={(e) => setAiEndpoint(e.target.value)}
+                  placeholder="https://api.ollama.cloud or http://localhost:11434"
+                  className="w-full px-4 py-2 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:border-gold-500 focus:outline-none transition-all duration-200"
+                />
+              </div>
+              <div>
+                <label htmlFor="ai-api-key" className="block text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2">
+                  API Key / Token (if required)
+                </label>
+                <input
+                  type="password"
+                  id="ai-api-key"
+                  data-testid="ai-api-key"
+                  value={aiApiKey}
+                  onChange={(e) => setAiApiKey(e.target.value)}
+                  placeholder="Bearer token"
+                  className="w-full px-4 py-2 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:border-gold-500 focus:outline-none transition-all duration-200"
+                />
+              </div>
+              
+              <div className="flex gap-3">
+                <button
+                  id="ai-save-btn"
+                  data-testid="ai-save-btn"
+                  onClick={() => handleSaveAIConfig()}
+                  className="px-4 py-2 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white rounded-xl text-sm font-medium shadow-md shadow-gold-500/10 hover:shadow-lg transition-all duration-200"
+                >
+                  Save Config
+                </button>
+                <button
+                  id="ai-fetch-models-btn"
+                  data-testid="ai-fetch-models-btn"
+                  onClick={handleSaveAndFetchModels}
+                  disabled={fetchingModels || !aiEndpoint}
+                  className="px-4 py-2 border border-primary-300 hover:border-gold-500 text-primary-750 rounded-xl text-sm font-medium hover:bg-gold-50 transition-all duration-200 disabled:opacity-50"
+                >
+                  {fetchingModels ? 'Loading...' : 'Obtener Modelos'}
+                </button>
+              </div>
+
+              {aiStatus && (
+                <div
+                  id="ai-status"
+                  data-testid="ai-status"
+                  className={`text-sm font-semibold mt-2 ${aiStatusColor} transition-all duration-200`}
+                >
+                  {aiStatus}
+                </div>
+              )}
+
+              {aiModels.length > 0 && (
+                <div className="pt-2">
+                  <label htmlFor="ai-active-model" className="block text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2">
+                    Active AI Model
+                  </label>
+                  <select
+                    id="ai-active-model"
+                    data-testid="ai-active-model"
+                    value={activeModel}
+                    onChange={(e) => {
+                      const modelVal = e.target.value;
+                      setActiveModel(modelVal);
+                      handleSaveAIConfig(modelVal);
+                    }}
+                    className="w-full px-4 py-2 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:outline-none bg-white transition-all duration-200"
+                  >
+                    <option value="">Select a model</option>
+                    {aiModels.map((model) => (
+                      <option key={model} value={model}>
+                        {model}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               )}
             </div>

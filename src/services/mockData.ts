@@ -67,6 +67,12 @@ export interface SMTPConfig {
   pass: string;
 }
 
+export interface AIConfig {
+  endpoint: string;
+  apiKey: string;
+  activeModel: string;
+}
+
 export interface QueueItem {
   id: string;
   taskId: string;
@@ -91,6 +97,7 @@ export interface DatabaseSchema {
   tasks: Task[];
   templates: EmailTemplate[];
   smtpConfig: SMTPConfig;
+  aiConfig?: AIConfig;
   agentQueue: QueueItem[];
   users: User[];
 }

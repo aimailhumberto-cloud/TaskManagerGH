@@ -11,6 +11,7 @@ import {
   Task,
   EmailTemplate,
   SMTPConfig,
+  AIConfig,
   QueueItem,
   User,
   DatabaseSchema,
@@ -27,6 +28,7 @@ export type {
   Task,
   EmailTemplate,
   SMTPConfig,
+  AIConfig,
   QueueItem,
   User,
   DatabaseSchema,
@@ -61,6 +63,8 @@ export interface IDBService {
   updateEmailTemplates(templates: EmailTemplate[]): Promise<void>;
   getSMTPConfig(): Promise<SMTPConfig>;
   updateSMTPConfig(config: SMTPConfig): Promise<void>;
+  getAIConfig(): Promise<AIConfig>;
+  updateAIConfig(config: AIConfig): Promise<void>;
   pushToQueue(item: Omit<QueueItem, 'id' | 'status' | 'timestamp'>): Promise<QueueItem>;
   getQueue(): Promise<QueueItem[]>;
   processQueueItem(id: string): Promise<boolean>;
@@ -1162,6 +1166,57 @@ export class DBService implements IDBService {
       await this.ensureDatabase();
       const data = JSON.parse(await fs.promises.readFile(this.dbPath, 'utf-8')) as DatabaseSchema;
       data.smtpConfig = config;
+      await this.atomicWrite(data);
+    } finally {
+      release();
+    }
+  }
+
+  // AI Config (Ollama)
+  async getAIConfig(): Promise<AIConfig> {
+    if (supabase) {
+      await this.ensureDatabase();
+      const { data, error } = await supabase.from('email_templates').select('*').eq('id', 'ollama_ai_config').maybeSingle();
+      if (error) throw error;
+      if (!data) return { endpoint: '', apiKey: '', activeModel: '' };
+      try {
+        const payload = JSON.parse(data.body);
+        return {
+          endpoint: data.subject || '',
+          apiKey: payload.apiKey || '',
+          activeModel: payload.activeModel || ''
+        };
+      } catch {
+        return { endpoint: data.subject || '', apiKey: '', activeModel: '' };
+      }
+    }
+
+    const data = await this.readData();
+    return data.aiConfig || { endpoint: '', apiKey: '', activeModel: '' };
+  }
+
+  async updateAIConfig(config: AIConfig): Promise<void> {
+    if (supabase) {
+      await this.ensureDatabase();
+      const record = {
+        id: 'ollama_ai_config',
+        name: 'Ollama AI Config',
+        subject: config.endpoint,
+        body: JSON.stringify({
+          apiKey: config.apiKey,
+          activeModel: config.activeModel
+        })
+      };
+      const { error } = await supabase.from('email_templates').upsert(record);
+      if (error) throw error;
+      return;
+    }
+
+    const release = await this.mutex.acquire();
+    try {
+      await this.ensureDatabase();
+      const data = JSON.parse(await fs.promises.readFile(this.dbPath, 'utf-8')) as DatabaseSchema;
+      data.aiConfig = config;
       await this.atomicWrite(data);
     } finally {
       release();

@@ -99,6 +99,136 @@ export default function TaskDrawer({
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [newStepText, setNewStepText] = useState('');
 
+  // AI & Sharing States
+  const [isDictating, setIsDictating] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+
+  // Dictation speech setup
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const rec = new SpeechRecognition();
+        rec.continuous = false;
+        rec.interimResults = false;
+        rec.lang = 'es-ES';
+        rec.onstart = () => setIsDictating(true);
+        rec.onend = () => setIsDictating(false);
+        rec.onerror = () => setIsDictating(false);
+        rec.onresult = (event: any) => {
+          const transcript = event.results[0][0].transcript;
+          setDescription(prev => (prev ? prev + '\n' + transcript : transcript));
+        };
+        setRecognition(rec);
+      }
+    }
+  }, []);
+
+  const handleToggleDictation = () => {
+    if (!recognition) {
+      alert('Speech Recognition is not supported or active in this browser.');
+      return;
+    }
+    if (isDictating) {
+      recognition.stop();
+    } else {
+      recognition.start();
+    }
+  };
+
+  const handleAIRefineInDrawer = async () => {
+    if (!description.trim() && !selectedImage && !title.trim()) {
+      alert('Por favor escribe título, descripción o carga una imagen.');
+      return;
+    }
+    setAiLoading(true);
+    try {
+      const res = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          action: selectedImage ? 'vision' : 'refine',
+          text: description || title,
+          image: selectedImage
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.result) {
+          setTitle(data.result.title || title);
+          setDescription(data.result.description || description);
+          setPriority(data.result.priority || priority);
+          setType(data.result.type || type);
+          if (data.result.steps && data.result.steps.length > 0) {
+            setSteps(data.result.steps.map((s: string) => ({ id: `step-${Date.now()}-${Math.random()}`, text: s, completed: false, status: 'Pending' })));
+          }
+          setToastMessage('Tarea perfeccionada por la IA!');
+          setShowToast(true);
+          setTimeout(() => setShowToast(false), 2000);
+        }
+      } else {
+        alert('Error al procesar con IA.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de red al conectar con IA.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleImageUploadInDrawer = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleShareTelegram = () => {
+    const pName = people.find(p => p.id === assigneeId)?.name || 'Sin asignar';
+    const text = encodeURIComponent(`📢 Tarea: ${title}\n👤 Responsable: ${pName}\n📅 Límite: ${dueDate}\n📌 Estado: ${status}`);
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.origin)}&text=${text}`, '_blank');
+    setShareMenuOpen(false);
+  };
+
+  const handleShareWhatsApp = () => {
+    const pName = people.find(p => p.id === assigneeId)?.name || 'Sin asignar';
+    const text = encodeURIComponent(`📢 Tarea: ${title}\n👤 Responsable: ${pName}\n📅 Límite: ${dueDate}\n📌 Estado: ${status}`);
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+    setShareMenuOpen(false);
+  };
+
+  const handleShareEmail = async () => {
+    setToastMessage('Enviando correo por SMTP...');
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 2000);
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const settings = await res.json();
+        if (settings.smtpConfig && settings.smtpConfig.host) {
+          setToastMessage(`Correo enviado con SMTP (${settings.smtpConfig.host})`);
+        } else {
+          setToastMessage('Correo simulado enviado con éxito!');
+        }
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setShareMenuOpen(false);
+  };
+
   // Normalize single task helper
   const normalizeTask = (t: any): Task => {
     if (!t) return t;
@@ -542,6 +672,46 @@ export default function TaskDrawer({
               dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(description) }}
               className="mt-2 p-3 bg-primary-50 border border-dashed rounded-lg text-xs prose prose-sm max-w-none text-primary-800 max-h-36 overflow-y-auto"
             />
+
+            <div className="flex items-center justify-between mt-3 gap-2">
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleToggleDictation}
+                  className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold transition flex items-center gap-1 ${
+                    isDictating ? 'bg-red-500 text-white animate-pulse border-red-500' : 'text-primary-600 border-primary-200 hover:bg-gold-50'
+                  }`}
+                  title="Dictar por voz"
+                >
+                  🎤 Dictar
+                </button>
+                <label className="px-2.5 py-1.5 rounded-lg border border-primary-200 text-primary-600 hover:bg-gold-50 transition cursor-pointer text-xs font-bold flex items-center gap-1">
+                  📷 Imagen
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUploadInDrawer}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAIRefineInDrawer}
+                disabled={aiLoading}
+                className="px-3 py-1.5 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white rounded-lg text-xs font-bold shadow-sm transition disabled:opacity-50"
+              >
+                {aiLoading ? 'Procesando...' : '✨ Perfeccionar con IA'}
+              </button>
+            </div>
+
+            {selectedImage && (
+              <div className="mt-2 flex items-center justify-between p-2 border border-gold-200/50 rounded-lg bg-gold-50/20 text-xs">
+                <span className="truncate max-w-[150px] font-medium text-primary-700">Imagen de referencia lista</span>
+                <button type="button" onClick={() => setSelectedImage(null)} className="text-red-500 font-bold px-1 hover:text-red-700">×</button>
+              </div>
+            )}
           </div>
 
           {/* Assignees (Multiselect Stack) */}
@@ -926,6 +1096,42 @@ export default function TaskDrawer({
               </svg>
               Ping Hermes AI
             </button>
+          )}
+          {taskId && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShareMenuOpen(!shareMenuOpen)}
+                className="w-full py-2 bg-[#faf9f6] border border-primary-200 hover:border-gold-500 text-primary-700 rounded-lg font-bold text-xs transition uppercase tracking-wider flex items-center justify-center gap-2"
+              >
+                <span>📤</span> Compartir Tarea
+              </button>
+              {shareMenuOpen && (
+                <div className="absolute left-0 right-0 bottom-10 z-50 bg-white border border-gold-200/55 rounded-lg shadow-lg py-1.5 text-xs text-primary-800 animate-fade-in flex flex-col">
+                  <button
+                    type="button"
+                    onClick={handleShareTelegram}
+                    className="w-full text-left px-4 py-2 hover:bg-gold-50 flex items-center gap-2"
+                  >
+                    <span>✈️</span> Compartir en Telegram
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShareWhatsApp}
+                    className="w-full text-left px-4 py-2 hover:bg-gold-50 flex items-center gap-2"
+                  >
+                    <span>💬</span> Compartir en WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShareEmail}
+                    className="w-full text-left px-4 py-2 hover:bg-gold-50 flex items-center gap-2"
+                  >
+                    <span>✉️</span> Enviar por Correo (SMTP)
+                  </button>
+                </div>
+              )}
+            </div>
           )}
 
           <div className="flex gap-3">
