@@ -48,6 +48,7 @@ export interface MeetingMetadata {
   meetingTime?: string;
   meetingAttendees?: string[];
   meetingConfirmations?: string[];
+  meetingLink?: string;
 }
 
 export function extractMeetingMetadata(description: string): { cleanDescription: string; metadata: MeetingMetadata } {
@@ -582,7 +583,8 @@ export class DBService implements IDBService {
           isMeeting: metadata.isMeeting || false,
           meetingTime: metadata.meetingTime || '',
           meetingAttendees: metadata.meetingAttendees || [],
-          meetingConfirmations: metadata.meetingConfirmations || []
+          meetingConfirmations: metadata.meetingConfirmations || [],
+          meetingLink: metadata.meetingLink || ''
         };
       });
     }
@@ -617,7 +619,8 @@ export class DBService implements IDBService {
         isMeeting: metadata.isMeeting || false,
         meetingTime: metadata.meetingTime || '',
         meetingAttendees: metadata.meetingAttendees || [],
-        meetingConfirmations: metadata.meetingConfirmations || []
+        meetingConfirmations: metadata.meetingConfirmations || [],
+        meetingLink: metadata.meetingLink || ''
       };
     }
 
@@ -639,7 +642,8 @@ export class DBService implements IDBService {
         isMeeting: task.isMeeting,
         meetingTime: task.meetingTime,
         meetingAttendees: task.meetingAttendees,
-        meetingConfirmations: task.meetingConfirmations
+        meetingConfirmations: task.meetingConfirmations,
+        meetingLink: task.meetingLink
       });
       const record = {
         id,
@@ -772,6 +776,7 @@ export class DBService implements IDBService {
         meetingTime: taskUpdates.meetingTime !== undefined ? taskUpdates.meetingTime : existing.meetingTime,
         meetingAttendees: taskUpdates.meetingAttendees !== undefined ? taskUpdates.meetingAttendees : existing.meetingAttendees,
         meetingConfirmations: taskUpdates.meetingConfirmations !== undefined ? taskUpdates.meetingConfirmations : existing.meetingConfirmations,
+        meetingLink: taskUpdates.meetingLink !== undefined ? taskUpdates.meetingLink : existing.meetingLink,
       };
 
       const finalDescription = injectMeetingMetadata(

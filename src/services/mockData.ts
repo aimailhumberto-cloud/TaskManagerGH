@@ -54,6 +54,7 @@ export interface Task {
   meetingTime?: string;
   meetingAttendees?: string[];
   meetingConfirmations?: string[];
+  meetingLink?: string;
 }
 
 export interface EmailTemplate {

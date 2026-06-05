@@ -59,6 +59,7 @@ export interface Task {
   meetingTime?: string;
   meetingAttendees?: string[];
   meetingConfirmations?: string[];
+  meetingLink?: string;
 }
 
 interface TaskDrawerProps {
@@ -115,6 +116,9 @@ export default function TaskDrawer({
   const [meetingTime, setMeetingTime] = useState('');
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
   const [meetingConfirmations, setMeetingConfirmations] = useState<string[]>([]);
+  const [meetingLink, setMeetingLink] = useState('');
+  const [activeTab, setActiveTab] = useState<'meeting' | 'task'>('meeting');
+  const [isMeeting, setIsMeeting] = useState(false);
   const [selectedAttachmentNames, setSelectedAttachmentNames] = useState<string[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [sendingMeeting, setSendingMeeting] = useState(false);
@@ -525,6 +529,9 @@ Hermes Task Hub`;
             setMeetingTime(taskData.meetingTime || '');
             setSelectedAttendees(taskData.meetingAttendees || []);
             setMeetingConfirmations(taskData.meetingConfirmations || []);
+            setMeetingLink(taskData.meetingLink || '');
+            setIsMeeting(taskData.isMeeting || false);
+            setActiveTab(taskData.isMeeting ? 'meeting' : 'task');
             setSelectedAttachmentNames([]);
           }
         } catch (err) {
@@ -570,6 +577,9 @@ Hermes Task Hub`;
           setSelectedAttendees([]);
           setMeetingConfirmations([]);
           setSelectedAttachmentNames([]);
+          setMeetingLink('');
+          setIsMeeting(false);
+          setActiveTab('task');
         } else {
           setTitle('');
           setDescription('');
@@ -588,6 +598,9 @@ Hermes Task Hub`;
           setSelectedAttendees([]);
           setMeetingConfirmations([]);
           setSelectedAttachmentNames([]);
+          setMeetingLink('');
+          setIsMeeting(false);
+          setActiveTab('task');
         }
       }
     }
@@ -662,6 +675,43 @@ Hermes Task Hub`;
     setNewStepText('');
   };
 
+  const handleCancelMeeting = async (mode: 'convert' | 'delete') => {
+    if (mode === 'delete') {
+      if (!confirm("¿Estás seguro de que deseas eliminar esta reunión por completo?")) return;
+      await handleDeleteTask();
+    } else {
+      if (!confirm("¿Deseas desvincular la reunión y conservar esta actividad como una tarea normal?")) return;
+      try {
+        const headers = {
+          'Content-Type': 'application/json',
+          'x-api-key': 'mock-api-key-12345'
+        };
+        const res = await fetch(`/api/tasks/${taskId}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({
+            isMeeting: false,
+            meetingTime: null,
+            meetingAttendees: [],
+            meetingConfirmations: [],
+            meetingLink: '',
+          })
+        });
+        if (res.ok) {
+          setToastMessage("Reunión cancelada. Convertida a tarea normal.");
+          setShowToast(true);
+          setTimeout(() => {
+            setShowToast(false);
+            onSuccess();
+            onClose();
+          }, 1500);
+        }
+      } catch (err) {
+        console.error("Error canceling/converting meeting:", err);
+      }
+    }
+  };
+
   const handleSaveTask = async () => {
     if (!title.trim()) {
       alert("Title is mandatory");
@@ -683,10 +733,11 @@ Hermes Task Hub`;
       repeatPattern: type === 'Repetitive' ? repeatPattern : null,
       companyId,
       dueDate,
-      isMeeting: meetingTime ? true : false,
+      isMeeting: isMeeting,
       meetingTime: meetingTime || null,
       meetingAttendees: selectedAttendees,
       meetingConfirmations: meetingConfirmations,
+      meetingLink: meetingLink || '',
     };
 
     try {
@@ -893,10 +944,281 @@ Hermes Task Hub`;
           </button>
         </div>
 
-        {/* Drawer Form Body */}
-        <div className="flex-1 space-y-6 overflow-y-auto pr-1 md:pr-2 pb-4">
-          {/* Title */}
-          <div>
+        {/* Tabs Bar for Meetings */}
+        {isMeeting && (
+          <div className="flex border-b border-primary-200 mb-4 gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('meeting')}
+              className={`flex-1 pb-2.5 text-xs font-bold border-b-2 transition-all uppercase tracking-wider ${
+                activeTab === 'meeting'
+                  ? 'border-gold-500 text-gold-700 font-extrabold'
+                  : 'border-transparent text-primary-400 hover:text-primary-650'
+              }`}
+            >
+              👥 Reunión
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('task')}
+              className={`flex-1 pb-2.5 text-xs font-bold border-b-2 transition-all uppercase tracking-wider ${
+                activeTab === 'task'
+                  ? 'border-gold-500 text-gold-700 font-extrabold'
+                  : 'border-transparent text-primary-400 hover:text-primary-650'
+              }`}
+            >
+              📝 Tarea
+            </button>
+          </div>
+        )}
+
+        {isMeeting && activeTab === 'meeting' ? (
+          /* FOCUSED MEETING VIEW */
+          <>
+            {/* Drawer Form Body */}
+            <div className="flex-1 space-y-6 overflow-y-auto pr-1 md:pr-2 pb-4">
+              {/* Meeting Info Block */}
+              <div className="bg-gold-50/10 border border-gold-200/50 p-4 rounded-xl space-y-3">
+                <div className="flex justify-between items-start gap-2">
+                  <h4 className="text-sm font-bold text-primary-900 leading-snug">
+                    👥 {title}
+                  </h4>
+                  <span className="text-[9px] font-black uppercase tracking-wider bg-gold-100 text-gold-800 border border-gold-300 px-2 py-0.5 rounded">
+                    Reunión
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-primary-750 border-t border-gold-100/50 pt-2.5">
+                  <div>
+                    <span className="text-[9px] text-primary-400 uppercase block font-bold">Fecha:</span>
+                    <span className="text-primary-850 font-extrabold">{dueDate}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-primary-400 uppercase block font-bold">Hora:</span>
+                    <span className="text-primary-850 font-extrabold">{meetingTime || 'No definida'}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Meeting Link input */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-primary-500">🔗 Enlace de la Reunión (Google Meet / Zoom / Teams)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={meetingLink}
+                    onChange={(e) => setMeetingLink(e.target.value)}
+                    placeholder="https://meet.google.com/abc-defg-hij"
+                    className="flex-1 px-3 py-2 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 font-bold"
+                  />
+                  {meetingLink && (
+                    <a
+                      href={meetingLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center justify-center shrink-0 uppercase tracking-wider"
+                    >
+                      Unirse
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Reschedule scheduler segment */}
+              <div className="bg-primary-50/20 p-4 border border-primary-200/50 rounded-xl space-y-4">
+                <span className="block text-xs font-bold text-primary-500 uppercase tracking-wider">
+                  📅 Modificar Programación
+                </span>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[9px] font-bold text-primary-450 uppercase mb-1">Fecha de Reunión</label>
+                    <input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 font-semibold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-bold text-primary-450 uppercase mb-1">Hora (Intervalos AM/PM)</label>
+                    <select
+                      value={meetingTime}
+                      onChange={(e) => setMeetingTime(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 font-bold"
+                    >
+                      <option value="">Selecciona hora</option>
+                      {Array.from({ length: 16 }).flatMap((_, idx) => {
+                        const h = idx + 7;
+                        const hour24Str = String(h).padStart(2, '0');
+                        const ampm = h >= 12 ? 'PM' : 'AM';
+                        const displayHour = h % 12 === 0 ? 12 : h % 12;
+                        return [
+                          { val: `${hour24Str}:00`, label: `${displayHour}:00 ${ampm}` },
+                          { val: `${hour24Str}:30`, label: `${displayHour}:30 ${ampm}` }
+                        ];
+                      }).map(({ val, label }) => (
+                        <option key={val} value={val}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Selection of Attendees */}
+                <div>
+                  <label className="block text-[9px] font-bold text-primary-450 uppercase mb-1.5">
+                    Seleccionar Invitados (Miembros del Equipo)
+                  </label>
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto border border-primary-150 rounded-lg p-2 bg-white">
+                    {people.map(p => {
+                      const matchedUser = users.find(u => u.personId === p.id);
+                      const email = matchedUser ? matchedUser.email : `${p.name.toLowerCase().replace(/\s+/g, '')}@holding.com`;
+                      const isChecked = selectedAttendees.includes(email);
+                      return (
+                        <label key={p.id} className="flex items-center gap-2 cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              if (isChecked) {
+                                setSelectedAttendees(prev => prev.filter(e => e !== email));
+                              } else {
+                                setSelectedAttendees(prev => [...prev, email]);
+                              }
+                            }}
+                            className="w-4.5 h-4.5 rounded text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer"
+                          />
+                          <div className="flex items-center gap-1.5">
+                            <HslAvatar name={p.name} avatarUrl={p.avatar} size={4} />
+                            <span className="font-bold text-primary-800">{p.name}</span>
+                            <span className="text-[10px] text-primary-400">({email})</span>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Live RSVP confirmations */}
+              {selectedAttendees.length > 0 && (
+                <div className="bg-[#faf9f6] border border-gold-200/40 rounded-xl p-3 space-y-2 border-dashed">
+                  <span className="block text-[10px] font-extrabold text-gold-700 uppercase tracking-wider">
+                    Confirmaciones de Invitados (RSVP)
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedAttendees.map((email, idx) => {
+                      const isConfirmed = meetingConfirmations.includes(email);
+                      return (
+                        <span
+                          key={idx}
+                          className={`inline-flex items-center gap-1.5 text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                            isConfirmed
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-250'
+                              : 'bg-amber-50 text-amber-700 border-amber-250'
+                          }`}
+                        >
+                          <span>{isConfirmed ? '✓' : '⌛'}</span>
+                          <span>{email}</span>
+                          <span className="text-[7.5px] font-black uppercase opacity-75">
+                            ({isConfirmed ? 'Confirmado' : 'Pendiente'})
+                          </span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Attachment Files List */}
+              {attachments.length > 0 && (
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-primary-500">📁 Archivos Adjuntos Vinculados</label>
+                  <div className="space-y-2 max-h-36 overflow-y-auto">
+                    {attachments.map((att, idx) => (
+                      <div
+                        key={att.id || idx}
+                        className="flex items-center justify-between p-2 bg-primary-50 border border-primary-100 rounded-lg text-xs"
+                      >
+                        <span className="font-medium text-primary-750 truncate max-w-[200px]">
+                          {att.filename}
+                         </span>
+                         <div className="flex items-center gap-2">
+                           <a
+                             href={`/data/attachments/${att.filename}`}
+                             className="text-gold-600 hover:text-gold-700 font-semibold"
+                             download
+                           >
+                             Descargar
+                           </a>
+                           <button
+                             type="button"
+                             onClick={() => handlePreviewAttachment(att.filename)}
+                             className="text-primary-600 hover:text-primary-750 font-semibold"
+                           >
+                             Ver
+                           </button>
+                         </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Drawer Buttons Footer for Meeting Tab */}
+            <div className="border-t pt-4 mt-6 space-y-3">
+              <button
+                type="button"
+                onClick={handleSendMeetingInvite}
+                disabled={sendingMeeting || !meetingTime || selectedAttendees.length === 0}
+                className="w-full py-2 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white rounded-lg font-bold text-xs transition uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {sendingMeeting ? 'Actualizando Invitaciones...' : '✉️ Enviar/Actualizar Invitaciones (SMTP)'}
+              </button>
+              
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleCancelMeeting('convert')}
+                  className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold text-xs uppercase tracking-wider transition"
+                >
+                  🔓 Quitar Reunión
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleCancelMeeting('delete')}
+                  className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-xs uppercase tracking-wider transition"
+                >
+                  🗑️ Borrar Reunión
+                </button>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleSaveTask}
+                  className="flex-1 py-2 bg-primary-850 hover:bg-primary-900 text-white rounded-lg font-semibold text-xs uppercase tracking-wider transition"
+                >
+                  💾 Guardar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('task')}
+                  className="flex-1 py-2 bg-primary-100 hover:bg-primary-200 text-primary-750 rounded-lg font-semibold text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5"
+                >
+                  📝 Ver Tarea
+                </button>
+              </div>
+            </div>
+          </>
+        ) : (
+          /* STANDARD FULL TASK VIEW */
+          <>
+            {/* Drawer Form Body */}
+            <div className="flex-1 space-y-6 overflow-y-auto pr-1 md:pr-2 pb-4">
+              {/* Title */}
+              <div>
             <label className="block text-xs font-bold text-primary-500 mb-1">Task Title</label>
             <input
               type="text"
@@ -1565,7 +1887,9 @@ Hermes Task Hub`;
             </button>
           </div>
         </div>
-      </div>
+      </>
+    )}
+  </div>
 
       {/* Toast popup */}
       {showToast && (

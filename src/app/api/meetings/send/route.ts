@@ -14,7 +14,8 @@ function generateIcs(
   timeStr: string,
   email: string,
   confirmUrl: string,
-  smtpUser: string
+  smtpUser: string,
+  locationUrl?: string
 ) {
   // Parse dateStr (YYYY-MM-DD) and timeStr (HH:MM)
   const cleanedDate = dateStr.replace(/-/g, '');
@@ -37,7 +38,7 @@ function generateIcs(
 
   const eventUid = `meeting-${Date.now()}-${Math.floor(Math.random() * 1000)}@hermes.hub`;
 
-  return [
+  const arr = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     'PRODID:-//Hermes Task Hub//Integrated Meetings//EN',
@@ -53,9 +54,13 @@ function generateIcs(
     `DESCRIPTION:${description.replace(/\n/g, '\\n')} -> Confirmar asistencia: ${confirmUrl}`,
     `ORGANIZER;CN=Hermes Admin:mailto:${smtpUser || 'no-reply@hermes.hub'}`,
     `ATTENDEE;RSVP=TRUE;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION:mailto:${email}`,
-    'END:VEVENT',
-    'END:VCALENDAR',
-  ].join('\r\n');
+  ];
+  if (locationUrl) {
+    arr.push(`LOCATION:${locationUrl}`);
+  }
+  arr.push('END:VEVENT');
+  arr.push('END:VCALENDAR');
+  return arr.join('\r\n');
 }
 
 export async function POST(request: NextRequest) {
@@ -66,7 +71,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { taskId, attendees, meetingTime, dueDate, selectedAttachments } = body;
+    const { taskId, attendees, meetingTime, dueDate, selectedAttachments, meetingLink } = body;
 
     if (!taskId || !attendees || !Array.isArray(attendees) || attendees.length === 0 || !meetingTime || !dueDate) {
       return NextResponse.json({ error: 'Faltan parámetros requeridos: taskId, attendees, meetingTime, dueDate' }, { status: 400 });
@@ -84,6 +89,7 @@ export async function POST(request: NextRequest) {
       meetingAttendees: attendees,
       dueDate,
       meetingConfirmations: task.meetingConfirmations || [],
+      meetingLink: meetingLink || '',
     });
 
     const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000';
@@ -138,6 +144,7 @@ Se te ha invitado a una reunión de coordinación para la tarea: "${task.title}"
 🕒 Hora: ${meetingTime}
 🚩 Prioridad: ${task.priority || 'Medium'}
 📊 Estado: ${task.status || 'Pending'}
+${meetingLink ? `🔗 Enlace de Reunión: ${meetingLink}\n` : ''}
 
 📝 Descripción de la Tarea:
 ${task.description || 'Sin descripción'}
@@ -159,7 +166,8 @@ Hermes Task Hub`;
           meetingTime,
           attendee,
           confirmUrl,
-          smtpConfig.user
+          smtpConfig.user,
+          meetingLink
         );
 
         await transporter.sendMail({
@@ -190,6 +198,7 @@ Se te ha invitado a una reunión de coordinación para la tarea: "${task.title}"
 🕒 Hora: ${meetingTime}
 🚩 Prioridad: ${task.priority || 'Medium'}
 📊 Estado: ${task.status || 'Pending'}
+${meetingLink ? `🔗 Enlace de Reunión: ${meetingLink}\n` : ''}
 
 📝 Descripción de la Tarea:
 ${task.description || 'Sin descripción'}
@@ -211,7 +220,8 @@ Hermes Task Hub`;
           meetingTime,
           attendee,
           confirmUrl,
-          'simulated-sender@hermes.hub'
+          'simulated-sender@hermes.hub',
+          meetingLink
         );
 
         simulatedEmails.push({
