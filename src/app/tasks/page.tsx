@@ -56,6 +56,10 @@ interface Task {
   dueDate: string;
   attachments: Attachment[];
   activityLog: LogEntry[];
+  isMeeting?: boolean;
+  meetingTime?: string;
+  meetingAttendees?: string[];
+  meetingConfirmations?: string[];
 }
 
 export default function TasksPage() {
@@ -1177,9 +1181,14 @@ export default function TasksPage() {
                             <span 
                               data-testid={`task-card-${task.id}`}
                               onClick={() => handleOpenDrawer(task.id)}
-                              className={`cursor-pointer hover:text-gold-600 transition ${task.status === 'Completed' ? 'line-through text-primary-400 font-medium' : ''}`}
+                              className={`cursor-pointer hover:text-gold-600 transition ${task.status === 'Completed' ? 'line-through text-primary-400 font-medium' : ''} flex items-center gap-1.5`}
                             >
-                              {cleanMarkdown(task.title)}
+                              {task.isMeeting && (
+                                <span className="text-[7.5px] font-black uppercase tracking-wider bg-gold-100 text-gold-850 border border-gold-300 px-1 rounded shrink-0">
+                                  👥 Reunión
+                                </span>
+                              )}
+                              <span>{cleanMarkdown(task.title)}</span>
                             </span>
                           </div>
                         </td>
@@ -1210,8 +1219,10 @@ export default function TasksPage() {
                         )}
                         {visibleColumns.type && (
                           <td className="px-6 py-4 whitespace-nowrap hidden md:table-cell">
-                            <span className="text-xs font-semibold text-primary-600">
-                              {task.type}
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                              task.isMeeting ? 'bg-gold-50 text-gold-700 border border-gold-200 font-bold' : 'text-primary-600'
+                            }`}>
+                              {task.isMeeting ? '👥 Reunión' : task.type}
                             </span>
                           </td>
                         )}
@@ -1525,7 +1536,11 @@ function KanbanCard({
       draggable
       onDragStart={(e) => onDragStart(e, task.id)}
       onClick={() => onOpen(task.id)}
-      className={`group relative bg-white border border-gold-200/30 rounded-xl p-3 shadow-xs hover:shadow-md hover:border-gold-400 transition cursor-pointer select-none ${
+      className={`group relative border rounded-xl p-3 shadow-xs hover:shadow-md hover:border-gold-400 transition cursor-pointer select-none ${
+        task.isMeeting
+          ? 'bg-gold-50/20 border-gold-300 hover:bg-gold-50/35 ring-1 ring-gold-200/50'
+          : 'bg-white border-gold-200/30'
+      } ${
         isCompleted ? 'opacity-70 bg-primary-50/10' : ''
       }`}
     >
@@ -1538,6 +1553,11 @@ function KanbanCard({
             onChange={() => onToggle(task)}
             className="w-3.5 h-3.5 rounded-full text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer shrink-0"
           />
+          {task.isMeeting && (
+            <span className="text-[7.5px] font-black uppercase tracking-wider bg-gold-100 text-gold-800 border border-gold-300 px-1 rounded shrink-0">
+              👥 REUNIÓN
+            </span>
+          )}
           <h4 className={`text-xs font-bold text-primary-850 truncate group-hover:text-gold-600 transition ${
             isCompleted ? 'line-through text-primary-400 font-medium' : ''
           }`}>
@@ -1589,6 +1609,29 @@ function KanbanCard({
         <p className="text-[10px] text-primary-500 mt-1.5 line-clamp-2 leading-relaxed">
           {task.description.replace(/[#*`~_]/g, '')}
         </p>
+      )}
+
+      {/* RSVP Attendee Status badges on Card */}
+      {task.isMeeting && task.meetingAttendees && task.meetingAttendees.length > 0 && (
+        <div className="mt-2 pt-2 border-t border-dashed border-primary-100 flex flex-wrap gap-1">
+          {task.meetingAttendees.map((email, idx) => {
+            const isConfirmed = task.meetingConfirmations?.includes(email);
+            const prefix = email.split('@')[0];
+            return (
+              <span
+                key={idx}
+                title={`${email}: ${isConfirmed ? 'Confirmado' : 'Pendiente'}`}
+                className={`inline-flex items-center px-1 rounded-sm text-[7.5px] font-bold border ${
+                  isConfirmed
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-250'
+                    : 'bg-amber-50 text-amber-600 border-amber-250'
+                }`}
+              >
+                {isConfirmed ? '✓' : '⌛'} {prefix}
+              </span>
+            );
+          })}
+        </div>
       )}
 
       {/* Footer Info */}

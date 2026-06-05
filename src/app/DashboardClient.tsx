@@ -620,6 +620,11 @@ export default function DashboardClient({
                                   onChange={() => handleToggleTaskStatus(task)}
                                   className="w-4 h-4 rounded-full text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer shrink-0"
                                 />
+                                {task.isMeeting && (
+                                  <span className="text-[7.5px] font-black uppercase bg-gold-100 text-gold-800 border border-gold-300 px-1 rounded shrink-0">
+                                    Reunión
+                                  </span>
+                                )}
                                 <span className="text-xs font-bold text-red-950 group-hover:text-red-800 transition-colors truncate">
                                   {cleanMarkdown(task.title)}
                                 </span>
@@ -683,6 +688,11 @@ export default function DashboardClient({
                                 onChange={() => handleToggleTaskStatus(task)}
                                 className="w-4 h-4 rounded-full text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer shrink-0"
                               />
+                              {task.isMeeting && (
+                                <span className="text-[7.5px] font-black uppercase bg-gold-100 text-gold-800 border border-gold-300 px-1 rounded shrink-0">
+                                  Reunión
+                                </span>
+                              )}
                               <span className="text-xs font-bold text-primary-800 group-hover:text-gold-700 transition-colors truncate">
                                 {cleanMarkdown(task.title)}
                               </span>
@@ -747,6 +757,11 @@ export default function DashboardClient({
                                 onChange={() => handleToggleTaskStatus(task)}
                                 className="w-4 h-4 rounded-full text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer shrink-0"
                               />
+                              {task.isMeeting && (
+                                <span className="text-[7.5px] font-black uppercase bg-gold-100 text-gold-800 border border-gold-300 px-1 rounded shrink-0">
+                                  Reunión
+                                </span>
+                              )}
                               <span className="text-xs text-primary-650 group-hover:text-primary-800 transition-colors truncate">
                                 {cleanMarkdown(task.title)}
                               </span>
@@ -813,6 +828,15 @@ export default function DashboardClient({
                                 </span>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
+                                {attendees.length > 0 && (
+                                  <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded border ${
+                                    confirmations.length === attendees.length
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-250'
+                                      : 'bg-amber-50 text-amber-700 border-amber-250'
+                                  }`}>
+                                    {confirmations.length}/{attendees.length} Confirmados
+                                  </span>
+                                )}
                                 <span className="text-[8px] font-extrabold uppercase tracking-wide bg-gold-50 text-gold-700 border border-gold-200 px-1 rounded">
                                   {task.meetingTime}
                                 </span>
@@ -878,6 +902,15 @@ export default function DashboardClient({
                                 </span>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
+                                {attendees.length > 0 && (
+                                  <span className={`text-[8.5px] font-black px-1.5 py-0.5 rounded border ${
+                                    confirmations.length === attendees.length
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-250'
+                                      : 'bg-amber-50 text-amber-700 border-amber-250'
+                                  }`}>
+                                    {confirmations.length}/{attendees.length} Confirmados
+                                  </span>
+                                )}
                                 <span className="text-[8px] font-bold text-primary-400">
                                   {task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''} {task.meetingTime || ''}
                                 </span>

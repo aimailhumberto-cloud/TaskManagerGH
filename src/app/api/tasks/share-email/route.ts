@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       });
 
       await transporter.sendMail({
-        from: smtpConfig.user || 'no-reply@hermes.hub',
+        from: smtpConfig.user === 'resend' ? 'recepcion@casamahana.com' : (smtpConfig.user || 'no-reply@hermes.hub'),
         to,
         subject,
         text: emailBody,

@@ -114,6 +114,7 @@ export default function TaskDrawer({
 
   const [meetingTime, setMeetingTime] = useState('');
   const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
+  const [meetingConfirmations, setMeetingConfirmations] = useState<string[]>([]);
   const [selectedAttachmentNames, setSelectedAttachmentNames] = useState<string[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [sendingMeeting, setSendingMeeting] = useState(false);
@@ -411,13 +412,14 @@ Hermes Task Hub`;
         setTimeout(() => setShowToast(false), 3000);
         
         onSuccess();
-        // re-fetch activity logs
+        // re-fetch activity logs and confirmations
         const headers = { 'x-api-key': 'mock-api-key-12345' };
         const refreshRes = await fetch(`/api/tasks/${taskId}`, { headers });
         if (refreshRes.ok) {
           const rawTaskData = await refreshRes.json();
           const taskData = normalizeTask(rawTaskData);
           setActivityLog(taskData.activityLog || []);
+          setMeetingConfirmations(taskData.meetingConfirmations || []);
         }
       } else {
         const errorData = await res.json();
@@ -522,6 +524,7 @@ Hermes Task Hub`;
 
             setMeetingTime(taskData.meetingTime || '');
             setSelectedAttendees(taskData.meetingAttendees || []);
+            setMeetingConfirmations(taskData.meetingConfirmations || []);
             setSelectedAttachmentNames([]);
           }
         } catch (err) {
@@ -565,6 +568,7 @@ Hermes Task Hub`;
           setDueDate(new Date().toISOString().substring(0, 10));
           setMeetingTime('');
           setSelectedAttendees([]);
+          setMeetingConfirmations([]);
           setSelectedAttachmentNames([]);
         } else {
           setTitle('');
@@ -582,6 +586,7 @@ Hermes Task Hub`;
           setDueDate(new Date().toISOString().substring(0, 10));
           setMeetingTime('');
           setSelectedAttendees([]);
+          setMeetingConfirmations([]);
           setSelectedAttachmentNames([]);
         }
       }
@@ -678,6 +683,10 @@ Hermes Task Hub`;
       repeatPattern: type === 'Repetitive' ? repeatPattern : null,
       companyId,
       dueDate,
+      isMeeting: meetingTime ? true : false,
+      meetingTime: meetingTime || null,
+      meetingAttendees: selectedAttendees,
+      meetingConfirmations: meetingConfirmations,
     };
 
     try {
@@ -1352,6 +1361,36 @@ Hermes Task Hub`;
                           />
                           <span className="text-primary-700 truncate font-semibold">{att.filename}</span>
                         </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* RSVP Status / Confirmations List */}
+              {selectedAttendees.length > 0 && (
+                <div className="bg-[#faf9f6] border border-gold-200/40 rounded-xl p-3 space-y-2 border-dashed">
+                  <span className="block text-[10px] font-extrabold text-gold-700 uppercase tracking-wider">
+                    Confirmaciones de Invitados (RSVP)
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedAttendees.map((email, idx) => {
+                      const isConfirmed = meetingConfirmations.includes(email);
+                      return (
+                        <span
+                          key={idx}
+                          className={`inline-flex items-center gap-1.5 text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                            isConfirmed
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-250'
+                              : 'bg-amber-50 text-amber-700 border-amber-250'
+                          }`}
+                        >
+                          <span>{isConfirmed ? '✓' : '⌛'}</span>
+                          <span>{email}</span>
+                          <span className="text-[7.5px] font-black uppercase opacity-75">
+                            ({isConfirmed ? 'Confirmado' : 'Pendiente'})
+                          </span>
+                        </span>
                       );
                     })}
                   </div>

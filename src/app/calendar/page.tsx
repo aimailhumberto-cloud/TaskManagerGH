@@ -532,10 +532,14 @@ export default function CalendarPage() {
                         key={evt.id}
                         onClick={() => handleEventClick(evt)}
                         style={{ borderLeftColor: evt.color }}
-                        className="border-l-2 pl-1.5 text-[9px] font-bold text-primary-850 bg-[#faf9f6]/80 p-1 rounded hover:bg-gold-50 cursor-pointer truncate"
-                        title={evt.title}
+                        className={`border-l-2 pl-1.5 text-[9px] font-bold p-1 rounded cursor-pointer truncate ${
+                          evt.isMeeting
+                            ? 'bg-gold-50 text-gold-900 border-gold-300 hover:bg-gold-100'
+                            : 'bg-[#faf9f6]/80 text-primary-850 hover:bg-gold-50'
+                        }`}
+                        title={`${evt.isMeeting ? '👥 [REUNIÓN] ' : ''}${cleanMarkdown(evt.title)}`}
                       >
-                        {evt.isMeeting ? '📅 ' : ''}{cleanMarkdown(evt.title)}
+                        {evt.isMeeting ? '👥 ' : ''}{cleanMarkdown(evt.title)}
                       </div>
                     ))}
                   </div>
@@ -576,27 +580,62 @@ export default function CalendarPage() {
                           borderLeftWidth: '4px',
                           borderLeftStyle: 'solid'
                         }}
-                        className="bg-[#faf9f6]/40 hover:bg-gold-50/30 border border-gold-200/20 rounded-xl p-3 cursor-pointer transition-all hover:shadow-sm"
+                        className={`border rounded-xl p-3 cursor-pointer transition-all hover:shadow-sm ${
+                          evt.isMeeting
+                            ? 'bg-gold-50/20 border-gold-300 hover:bg-gold-50/40 ring-1 ring-gold-200/50'
+                            : 'bg-[#faf9f6]/40 border-gold-200/20 hover:bg-gold-50/30'
+                        }`}
                       >
                         <span className="block text-[9px] uppercase tracking-widest text-primary-400 font-bold mb-1">
                           {evt.time}
                         </span>
                         <h4 className="text-xs font-bold text-primary-900 leading-snug break-words">
-                          {evt.isMeeting ? '📅 ' : ''}{cleanMarkdown(evt.title)}
+                          {evt.isMeeting ? '👥 ' : ''}{cleanMarkdown(evt.title)}
                         </h4>
-                        <div className="flex items-center justify-between mt-2">
+                        
+                        {evt.isMeeting && evt.originTask && evt.originTask.meetingAttendees && evt.originTask.meetingAttendees.length > 0 && (
+                          <div className="mt-2 pt-2 border-t border-dashed border-primary-200/40 space-y-1">
+                            <div className="flex items-center justify-between text-[9px] font-bold text-gold-750">
+                              <span>Invitados:</span>
+                              <span>
+                                {evt.originTask.meetingConfirmations?.length || 0}/{evt.originTask.meetingAttendees.length} ✓
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {evt.originTask.meetingAttendees.map((email, attendeeIdx) => {
+                                const isConfirmed = evt.originTask?.meetingConfirmations?.includes(email);
+                                const prefix = email.split('@')[0];
+                                return (
+                                  <span
+                                    key={attendeeIdx}
+                                    title={`${email}: ${isConfirmed ? 'Confirmado' : 'Pendiente'}`}
+                                    className={`inline-flex items-center px-1 rounded-sm text-[7.5px] font-bold border ${
+                                      isConfirmed
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-250'
+                                        : 'bg-amber-50 text-amber-600 border-amber-250'
+                                    }`}
+                                  >
+                                    {isConfirmed ? '✓' : '⌛'} {prefix}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between mt-2.5">
                           <span
                             className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
                               evt.isMeeting
-                                ? 'bg-gold-50 text-gold-700 border-gold-200'
+                                ? 'bg-gold-100 text-gold-800 border-gold-300 font-extrabold'
                                 : evt.priority === 'High'
                                 ? 'bg-red-50 text-red-700 border-red-100'
                                 : 'bg-amber-50 text-amber-700 border-amber-100'
                             }`}
                           >
-                            {evt.isMeeting ? 'Meeting' : evt.priority}
+                            {evt.isMeeting ? 'Reunión' : evt.priority}
                           </span>
-                          <span className="text-[10px]">{evt.isMeeting ? '📅' : '📁'}</span>
+                          <span className="text-[10px]">{evt.isMeeting ? '👥' : '📁'}</span>
                         </div>
                       </div>
                     );
@@ -653,22 +692,60 @@ export default function CalendarPage() {
                   key={evt.id}
                   onClick={() => handleEventClick(evt)}
                   style={{ borderLeftColor: evt.color }}
-                  className="border-l-4 pl-4 py-4 bg-[#faf9f6]/50 rounded-r-xl border border-gold-200/10 hover:border-gold-300 transition cursor-pointer flex items-center justify-between"
+                  className={`border-l-4 pl-4 py-4 rounded-r-xl transition cursor-pointer flex items-center justify-between border ${
+                    evt.isMeeting
+                      ? 'bg-gold-50/20 border-gold-300 hover:bg-gold-50/40 ring-1 ring-gold-200/30'
+                      : 'bg-[#faf9f6]/50 border-gold-200/10 hover:border-gold-300'
+                  }`}
                 >
                   <div>
-                    <span className="text-[10px] uppercase font-bold tracking-wider text-primary-400 block mb-1">{evt.time}</span>
-                    <h4 className="text-sm font-bold text-primary-900">{evt.isMeeting ? '📅 ' : ''}{cleanMarkdown(evt.title)}</h4>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-primary-400 block mb-1">
+                      {evt.time} {evt.isMeeting ? '• 👥 REUNIÓN' : ''}
+                    </span>
+                    <h4 className="text-sm font-bold text-primary-900 flex items-center gap-1.5">
+                      {evt.isMeeting ? <span className="text-gold-700">👥</span> : ''}
+                      {cleanMarkdown(evt.title)}
+                    </h4>
+                    
+                    {evt.isMeeting && evt.originTask && evt.originTask.meetingAttendees && (
+                      <div className="flex flex-col gap-1 mt-2.5">
+                        <div className="text-[10px] font-bold text-gold-750 flex items-center gap-2">
+                          <span>Confirmaciones:</span>
+                          <span className="text-gold-800">
+                            {evt.originTask.meetingConfirmations?.length || 0}/{evt.originTask.meetingAttendees.length} ✓
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {evt.originTask.meetingAttendees.map((email, attendeeIdx) => {
+                            const isConfirmed = evt.originTask?.meetingConfirmations?.includes(email);
+                            const prefix = email.split('@')[0];
+                            return (
+                              <span
+                                key={attendeeIdx}
+                                className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${
+                                  isConfirmed
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-250'
+                                    : 'bg-amber-50 text-amber-700 border-amber-250'
+                                }`}
+                              >
+                                {isConfirmed ? '✓' : '⌛'} {prefix}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <span
-                    className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
+                    className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border shrink-0 ${
                       evt.isMeeting
-                        ? 'bg-gold-50 text-gold-700 border-gold-200'
+                        ? 'bg-gold-100 text-gold-800 border-gold-300 font-extrabold'
                         : evt.priority === 'High'
                         ? 'bg-red-50 text-red-700 border-red-100'
                         : 'bg-amber-50 text-amber-700 border-amber-100'
                     }`}
                   >
-                    {evt.isMeeting ? 'Meeting' : `${evt.priority} Priority`}
+                    {evt.isMeeting ? 'Reunión' : `${evt.priority} Priority`}
                   </span>
                 </div>
               ))}
