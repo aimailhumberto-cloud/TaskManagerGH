@@ -20,6 +20,16 @@ export default function SettingsPage() {
   const [aiStatusColor, setAiStatusColor] = useState('text-primary-600');
   const [fetchingModels, setFetchingModels] = useState(false);
 
+  // People Availability State
+  const [people, setPeople] = useState<any[]>([]);
+  const [selectedPersonId, setSelectedPersonId] = useState('');
+  const [workingHoursStart, setWorkingHoursStart] = useState('08:00');
+  const [workingHoursEnd, setWorkingHoursEnd] = useState('17:00');
+  const [timeOff, setTimeOff] = useState<string[]>([]);
+  const [newTimeOffDate, setNewTimeOffDate] = useState('');
+  const [availabilityStatus, setAvailabilityStatus] = useState('');
+  const [availabilityStatusColor, setAvailabilityStatusColor] = useState('text-primary-600');
+
   // Interactive Manual Tabs and loading states
   const [activeManualTab, setActiveManualTab] = useState<'endpoints' | 'casing' | 'recurrence' | 'duplicates' | 'maintenance' | 'safety'>('endpoints');
   const [maintenanceLoading, setMaintenanceLoading] = useState(false);
@@ -46,12 +56,86 @@ export default function SettingsPage() {
             }
           }
         }
+        
+        // Fetch team members list
+        const peopleRes = await fetch('/api/persons');
+        if (peopleRes.ok) {
+          const peopleData = await peopleRes.json();
+          setPeople(peopleData);
+          if (peopleData.length > 0) {
+            setSelectedPersonId(peopleData[0].id);
+            setWorkingHoursStart(peopleData[0].workingHoursStart || '08:00');
+            setWorkingHoursEnd(peopleData[0].workingHoursEnd || '17:00');
+            setTimeOff(peopleData[0].timeOff || []);
+          }
+        }
       } catch (e) {
         console.error('Failed to load settings:', e);
       }
     };
     loadSettings();
   }, []);
+
+  // Sync selected person values
+  useEffect(() => {
+    if (!selectedPersonId) return;
+    const p = people.find(person => person.id === selectedPersonId);
+    if (p) {
+      setWorkingHoursStart(p.workingHoursStart || '08:00');
+      setWorkingHoursEnd(p.workingHoursEnd || '17:00');
+      setTimeOff(p.timeOff || []);
+    }
+  }, [selectedPersonId, people]);
+
+  const handleSaveAvailability = async () => {
+    if (!selectedPersonId) return;
+    
+    setAvailabilityStatus('Guardando...');
+    setAvailabilityStatusColor('text-primary-600');
+    
+    try {
+      const res = await fetch(`/api/persons/${selectedPersonId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': 'mock-api-key-12345'
+        },
+        body: JSON.stringify({
+          workingHoursStart,
+          workingHoursEnd,
+          timeOff
+        })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setPeople(prev => prev.map(p => p.id === selectedPersonId ? { ...p, ...updated } : p));
+        setAvailabilityStatus('¡Disponibilidad guardada correctamente!');
+        setAvailabilityStatusColor('text-emerald-600');
+        setTimeout(() => setAvailabilityStatus(''), 3000);
+      } else {
+        setAvailabilityStatus('Error al guardar disponibilidad');
+        setAvailabilityStatusColor('text-red-600');
+      }
+    } catch (e) {
+      console.error(e);
+      setAvailabilityStatus('Error de red al guardar');
+      setAvailabilityStatusColor('text-red-600');
+    }
+  };
+
+  const handleAddTimeOff = () => {
+    if (!newTimeOffDate) return;
+    if (timeOff.includes(newTimeOffDate)) {
+      alert('Esta fecha ya está agregada');
+      return;
+    }
+    setTimeOff(prev => [...prev, newTimeOffDate].sort());
+    setNewTimeOffDate('');
+  };
+
+  const handleRemoveTimeOff = (dateToRemove: string) => {
+    setTimeOff(prev => prev.filter(d => d !== dateToRemove));
+  };
 
   // Set up simulator handlers on the window object for Playwright overrides
   useEffect(() => {
@@ -940,6 +1024,172 @@ const data = await res.json();`}
                   style={{ display: 'none' }}
                   className="text-sm font-semibold mt-4 text-purple-700 p-3 bg-purple-50 rounded-xl border border-purple-100 inline-block transition-all duration-200"
                 ></div>
+              </div>
+            </div>
+          </section>
+
+          {/* Section 2.5: Personal Availability & Working Hours */}
+          <section className="bg-white border border-gold-200/50 rounded-2xl p-6 md:p-8 shadow-sm">
+            <h3 className="text-lg font-bold text-primary-900 mb-6 border-b border-primary-100 pb-3 flex items-center gap-2">
+              <span>📅</span> Disponibilidad y Horarios del Personal
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Member list sidebar */}
+              <div className="bg-[#faf9f6]/50 p-4 border border-gold-100/55 rounded-2xl space-y-2">
+                <span className="block text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2">
+                  Seleccionar Integrante
+                </span>
+                <div className="space-y-1.5 max-h-60 overflow-y-auto">
+                  {people.map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setSelectedPersonId(p.id)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-bold transition-all border text-left ${
+                        selectedPersonId === p.id
+                          ? 'bg-gold-550 border-gold-600 text-white shadow-md'
+                          : 'bg-white border-primary-200 text-primary-750 hover:bg-gold-50/50'
+                      }`}
+                    >
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-primary-100 text-primary-800 flex items-center justify-center font-bold text-[10px] uppercase border border-gold-300">
+                        {p.name.substring(0, 2)}
+                      </span>
+                      <div className="truncate">
+                        <div className="font-extrabold truncate">{p.name}</div>
+                        <div className={`text-[9px] ${selectedPersonId === p.id ? 'text-gold-200' : 'text-primary-400'} font-semibold truncate`}>
+                          {p.role}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Settings Configuration Details on the right */}
+              <div className="md:col-span-2 space-y-6">
+                {selectedPersonId ? (
+                  <>
+                    <div className="flex items-center gap-2 pb-2 border-b border-primary-100">
+                      <span className="text-sm font-black text-primary-900 uppercase">
+                        Configurando a: {people.find(p => p.id === selectedPersonId)?.name}
+                      </span>
+                    </div>
+
+                    {/* Working hours inputs */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="working-hours-start" className="block text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2">
+                          Hora de Inicio (Trabajo)
+                        </label>
+                        <select
+                          id="working-hours-start"
+                          value={workingHoursStart}
+                          onChange={(e) => setWorkingHoursStart(e.target.value)}
+                          className="w-full px-4 py-2 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:outline-none bg-white font-bold text-xs"
+                        >
+                          {Array.from({ length: 24 }).map((_, h) => {
+                            const hh = String(h).padStart(2, '0');
+                            return (
+                              <React.Fragment key={h}>
+                                <option value={`${hh}:00`}>{hh}:00</option>
+                                <option value={`${hh}:30`}>{hh}:30</option>
+                              </React.Fragment>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label htmlFor="working-hours-end" className="block text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2">
+                          Hora de Finalización
+                        </label>
+                        <select
+                          id="working-hours-end"
+                          value={workingHoursEnd}
+                          onChange={(e) => setWorkingHoursEnd(e.target.value)}
+                          className="w-full px-4 py-2 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:outline-none bg-white font-bold text-xs"
+                        >
+                          {Array.from({ length: 24 }).map((_, h) => {
+                            const hh = String(h).padStart(2, '0');
+                            return (
+                              <React.Fragment key={h}>
+                                <option value={`${hh}:00`}>{hh}:00</option>
+                                <option value={`${hh}:30`}>{hh}:30</option>
+                              </React.Fragment>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Time off calendar date picker and tags */}
+                    <div className="space-y-3">
+                      <label className="block text-xs font-semibold text-primary-600 uppercase tracking-wider mb-1">
+                        Días Libres / Tiempo Fuera de Oficina (Time Off)
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="date"
+                          value={newTimeOffDate}
+                          onChange={(e) => setNewTimeOffDate(e.target.value)}
+                          className="px-4 py-2 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:outline-none bg-white text-xs font-bold"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddTimeOff}
+                          className="px-4 py-2 bg-primary-850 hover:bg-primary-905 text-white rounded-xl text-xs font-bold transition"
+                        >
+                          Agregar Día
+                        </button>
+                      </div>
+
+                      {/* Display date tags */}
+                      <div className="flex flex-wrap gap-2 p-3 bg-[#faf9f6] border border-dashed border-gold-200 rounded-xl min-h-[50px] items-center">
+                        {timeOff.length === 0 ? (
+                          <span className="text-xs text-primary-400 italic font-medium">No hay días libres registrados.</span>
+                        ) : (
+                          timeOff.map(d => (
+                            <span
+                              key={d}
+                              className="inline-flex items-center gap-1.5 text-xs font-extrabold px-2.5 py-1 bg-gold-50 text-gold-800 border border-gold-250 rounded-lg shadow-sm"
+                            >
+                              <span>{d}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveTimeOff(d)}
+                                className="text-red-500 hover:text-red-755 font-black px-0.5"
+                                title="Eliminar día"
+                              >
+                                &times;
+                              </button>
+                            </span>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Save action button */}
+                    <div className="flex items-center gap-4 border-t border-primary-100 pt-4">
+                      <button
+                        type="button"
+                        onClick={handleSaveAvailability}
+                        className="px-5 py-2.5 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white rounded-xl font-bold text-xs uppercase tracking-wider shadow-md shadow-gold-500/10 hover:shadow-lg transition-all duration-200"
+                      >
+                        💾 Guardar Disponibilidad
+                      </button>
+                      {availabilityStatus && (
+                        <span className={`text-xs font-bold ${availabilityStatusColor} animate-pulse`}>
+                          {availabilityStatus}
+                        </span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="h-full flex items-center justify-center border border-dashed border-primary-200 rounded-2xl py-12">
+                    <span className="text-xs text-primary-400 font-medium italic">Selecciona un integrante para configurar su disponibilidad.</span>
+                  </div>
+                )}
               </div>
             </div>
           </section>

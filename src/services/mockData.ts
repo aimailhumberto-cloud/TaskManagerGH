@@ -9,6 +9,9 @@ export interface Person {
   role: string;
   avatar: string;
   companyId?: string;
+  workingHoursStart?: string;
+  workingHoursEnd?: string;
+  timeOff?: string[];
 }
 
 export interface Step {

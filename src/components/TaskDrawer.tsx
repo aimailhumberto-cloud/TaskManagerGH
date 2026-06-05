@@ -14,6 +14,9 @@ export interface Person {
   role: string;
   avatar: string;
   companyId?: string;
+  workingHoursStart?: string;
+  workingHoursEnd?: string;
+  timeOff?: string[];
 }
 
 export interface Step {
@@ -121,6 +124,7 @@ export default function TaskDrawer({
   const [isMeeting, setIsMeeting] = useState(false);
   const [selectedAttachmentNames, setSelectedAttachmentNames] = useState<string[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [sendingMeeting, setSendingMeeting] = useState(false);
 
   // Email Sharing States
@@ -343,7 +347,7 @@ Hermes Task Hub`;
     }
   };
 
-  // Fetch users and SMTP settings
+  // Fetch users, SMTP settings and all tasks for conflict checking
   useEffect(() => {
     async function fetchUsersAndSmtp() {
       try {
@@ -351,6 +355,12 @@ Hermes Task Hub`;
         if (res.ok) {
           const data = await res.json();
           setUsers(data);
+        }
+
+        const tasksRes = await fetch('/api/tasks', { headers: { 'x-api-key': 'mock-api-key-12345' } });
+        if (tasksRes.ok) {
+          const tasksData = await tasksRes.json();
+          setAllTasks(Array.isArray(tasksData) ? tasksData : []);
         }
 
         const settingsRes = await fetch('/api/settings');
@@ -372,6 +382,62 @@ Hermes Task Hub`;
       fetchUsersAndSmtp();
     }
   }, [isOpen]);
+
+  const checkAttendeeConflicts = (): string[] => {
+    const conflicts: string[] = [];
+    if (!dueDate) return conflicts;
+
+    selectedAttendees.forEach(email => {
+      // Find the Person object for this email
+      const person = people.find(p => {
+        const matchedUser = users.find(u => u.personId === p.id);
+        const pEmail = matchedUser ? matchedUser.email : `${p.name.toLowerCase().replace(/\s+/g, '')}@holding.com`;
+        return pEmail === email;
+      });
+
+      if (!person) return;
+
+      // 1. Time off conflict
+      const cleanDate = dueDate.substring(0, 10);
+      if (person.timeOff && person.timeOff.includes(cleanDate)) {
+        conflicts.push(`${person.name} tiene registrado día libre / vacaciones el ${cleanDate}.`);
+      }
+
+      // 2. Working hours conflict
+      if (meetingTime) {
+        const mHour = parseInt(meetingTime.split(':')[0], 10);
+        const mMin = parseInt(meetingTime.split(':')[1], 10);
+        const startH = person.workingHoursStart ? parseInt(person.workingHoursStart.split(':')[0], 10) : 8;
+        const startM = person.workingHoursStart ? parseInt(person.workingHoursStart.split(':')[1], 10) : 0;
+        const endH = person.workingHoursEnd ? parseInt(person.workingHoursEnd.split(':')[0], 10) : 17;
+        const endM = person.workingHoursEnd ? parseInt(person.workingHoursEnd.split(':')[1], 10) : 0;
+
+        const startTotal = startH * 60 + startM;
+        const endTotal = endH * 60 + endM;
+        const mTotal = mHour * 60 + mMin;
+
+        if (mTotal < startTotal || mTotal >= endTotal) {
+          conflicts.push(`${person.name} está fuera de su jornada laboral (${person.workingHoursStart || '08:00'} - ${person.workingHoursEnd || '17:00'}).`);
+        }
+
+        // 3. Double booking conflict
+        const doubleBooking = allTasks.find(t => {
+          if (t.id === taskId) return false;
+          if (!t.isMeeting || !t.dueDate || !t.meetingTime) return false;
+          const tDate = t.dueDate.substring(0, 10);
+          if (tDate !== cleanDate) return false;
+          if (t.meetingTime !== meetingTime) return false;
+          return t.meetingAttendees && t.meetingAttendees.includes(email);
+        });
+
+        if (doubleBooking) {
+          conflicts.push(`${person.name} ya está ocupado(a) en la reunión "${doubleBooking.title}" a la misma hora.`);
+        }
+      }
+    });
+
+    return conflicts;
+  };
 
   const handleSendMeetingInvite = async () => {
     if (!meetingTime) {
@@ -1138,6 +1204,24 @@ Hermes Task Hub`;
                 </div>
               )}
 
+              {/* Availability Conflicts Banner */}
+              {selectedAttendees.length > 0 && (() => {
+                const conflicts = checkAttendeeConflicts();
+                if (conflicts.length === 0) return null;
+                return (
+                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-800 space-y-1 shadow-xs my-2">
+                    <div className="font-extrabold flex items-center gap-1.5 text-amber-900">
+                      <span>⚠️</span> Conflicto de Disponibilidad:
+                    </div>
+                    <ul className="list-disc pl-4 space-y-0.5 font-semibold">
+                      {conflicts.map((c, i) => (
+                        <li key={i}>{c}</li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
+
               {/* Attachment Files List */}
               {attachments.length > 0 && (
                 <div className="space-y-2">
@@ -1726,6 +1810,24 @@ Hermes Task Hub`;
                   </div>
                 </div>
               )}
+
+              {/* Availability Conflicts Banner */}
+              {selectedAttendees.length > 0 && (() => {
+                const conflicts = checkAttendeeConflicts();
+                if (conflicts.length === 0) return null;
+                return (
+                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-800 space-y-1 shadow-xs my-3">
+                    <div className="font-extrabold flex items-center gap-1.5 text-amber-900">
+                      <span>⚠️</span> Conflicto de Disponibilidad:
+                    </div>
+                    <ul className="list-disc pl-4 space-y-0.5 font-semibold">
+                      {conflicts.map((c, i) => (
+                        <li key={i}>{c}</li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
 
               {/* Send Invitation Button */}
               <button

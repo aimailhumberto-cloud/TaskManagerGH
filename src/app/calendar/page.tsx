@@ -15,6 +15,9 @@ interface Person {
   role: string;
   avatar: string;
   companyId?: string;
+  workingHoursStart?: string;
+  workingHoursEnd?: string;
+  timeOff?: string[];
 }
 
 interface Step {
@@ -98,6 +101,10 @@ export default function CalendarPage() {
   const [rawCompanies, setRawCompanies] = useState<Company[]>([]);
   const [rawPeople, setRawPeople] = useState<Person[]>([]);
   const [session, setSession] = useState<any>(null);
+  
+  // Member filtering states
+  const [selectedPersonId, setSelectedPersonId] = useState<string>('');
+  const [usersList, setUsersList] = useState<any[]>([]);
 
   // Fetch session on mount
   useEffect(() => {
@@ -227,10 +234,13 @@ export default function CalendarPage() {
       const companiesData = await companiesRes.json();
       const peopleRes = await fetch('/api/persons', { headers });
       const peopleData = await peopleRes.json();
+      const usersRes = await fetch('/api/users', { headers });
+      const usersData = await usersRes.json();
 
       setRawTasks(Array.isArray(tasksData) ? tasksData.map(normalizeTask) : []);
       setRawCompanies(Array.isArray(companiesData) ? companiesData : []);
       setRawPeople(Array.isArray(peopleData) ? peopleData : []);
+      setUsersList(Array.isArray(usersData) ? usersData : []);
     } catch (err) {
       console.error("Error loading calendar API resources:", err);
     } finally {
@@ -260,7 +270,21 @@ export default function CalendarPage() {
   const calendarEvents = useMemo(() => {
     const events: CalendarEvent[] = [];
 
+    // Find selected person email for meeting matching
+    const selectedPerson = people.find(p => p.id === selectedPersonId);
+    const matchedUser = usersList.find(u => u.personId === selectedPersonId);
+    const selectedEmail = selectedPerson
+      ? (matchedUser ? matchedUser.email : `${selectedPerson.name.toLowerCase().replace(/\s+/g, '')}@holding.com`)
+      : '';
+
     tasks.forEach(task => {
+      // If a specific person filter is active, only show their assigned/attended tasks/meetings
+      if (selectedPersonId) {
+        const isAssigned = task.assigneeId === selectedPersonId || (task.assigneeIds && task.assigneeIds.includes(selectedPersonId));
+        const isAttendee = !!(task.isMeeting && task.meetingAttendees && task.meetingAttendees.includes(selectedEmail));
+        if (!isAssigned && !isAttendee) return;
+      }
+
       const dateStr = task.dueDate ? task.dueDate.substring(0, 10) : '';
       if (dateStr) {
         const isMeeting = !!task.isMeeting;
@@ -297,7 +321,7 @@ export default function CalendarPage() {
     });
 
     return events;
-  }, [tasks, showTasks, showMeetings]);
+  }, [tasks, showTasks, showMeetings, selectedPersonId, people, usersList]);
 
   // Drawer slider actions
   const handleEventClick = async (evt: CalendarEvent) => {
@@ -416,6 +440,21 @@ export default function CalendarPage() {
 
         {/* View Mode & Weekly Controls */}
         <div className="flex flex-wrap items-center gap-4">
+          {/* Member Filter Dropdown */}
+          <div className="flex items-center gap-2 bg-[#faf9f6]/85 p-1 rounded-xl border border-gold-200/40 shadow-xs">
+            <span className="text-[10px] font-black text-gold-700 uppercase pl-2 tracking-wider">Integrante:</span>
+            <select
+              value={selectedPersonId}
+              onChange={(e) => setSelectedPersonId(e.target.value)}
+              className="px-3 py-1.5 border border-primary-150 rounded-lg text-xs font-bold bg-white text-primary-800 focus:outline-none focus:ring-1 focus:ring-gold-500 cursor-pointer"
+            >
+              <option value="">Todos los integrantes</option>
+              {people.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Month/Week/Day Toggles */}
           <div className="flex items-center gap-1.5 bg-primary-100/50 p-1 rounded-xl border border-primary-200 shadow-sm">
             <button
@@ -551,19 +590,43 @@ export default function CalendarPage() {
       )}
 
       {/* --- WEEK VIEW DISPLAY --- */}
-      {viewMode === 'week' && (
+       {viewMode === 'week' && (
         <div className="grid grid-cols-1 md:grid-cols-7 gap-3 lg:gap-4">
           {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((dayName, idx) => {
             const dayEvents = calendarEvents.filter(e => e.day === dayName);
+            const dayDateStr = weekRange[idx]?.dateStr;
+
+            // Check availability for selected person
+            const selectedPerson = people.find(p => p.id === selectedPersonId);
+            const isTimeOff = !!(selectedPerson && selectedPerson.timeOff && selectedPerson.timeOff.includes(dayDateStr));
+            const workingHours = selectedPerson && selectedPerson.workingHoursStart 
+              ? `${selectedPerson.workingHoursStart} - ${selectedPerson.workingHoursEnd}`
+              : '08:00 - 17:00';
+
             return (
               <div
                 key={dayName}
-                className="bg-white border border-gold-200/40 rounded-2xl p-4 lg:p-3 min-h-[250px] md:min-h-[350px] flex flex-col shadow-sm"
+                className={`border rounded-2xl p-4 lg:p-3 min-h-[250px] md:min-h-[350px] flex flex-col shadow-sm transition-all duration-200 ${
+                  isTimeOff
+                    ? 'bg-primary-50/75 border-dashed border-primary-300 opacity-80'
+                    : 'bg-white border-gold-200/40'
+                }`}
               >
-                <h3 className="text-sm font-extrabold text-primary-900 border-b border-primary-100 pb-2 mb-3.5 flex justify-between flex-wrap gap-1">
+                <h3 className="text-sm font-extrabold text-primary-900 border-b border-primary-100 pb-2 mb-3 flex justify-between flex-wrap gap-1">
                   <span>{dayName}</span>
-                  <span className="text-[10px] text-primary-400 font-semibold">{weekRange[idx]?.dateStr}</span>
+                  <span className="text-[10px] text-primary-400 font-semibold">{dayDateStr}</span>
                 </h3>
+
+                {selectedPersonId && (
+                  <div className={`mb-3 flex justify-between items-center text-[9px] font-bold px-2 py-1 rounded border ${
+                    isTimeOff 
+                      ? 'bg-red-50 text-red-700 border-red-200/60' 
+                      : 'bg-primary-50/50 text-primary-450 border-primary-150/50'
+                  }`}>
+                    <span>⏰ Jornada:</span>
+                    <span>{isTimeOff ? '🚫 DÍA LIBRE' : workingHours}</span>
+                  </div>
+                )}
                 
                 <div className="flex-1 space-y-2.5">
                   {dayEvents.map((evt, evtIdx) => {
@@ -685,6 +748,87 @@ export default function CalendarPage() {
                 {calendarEvents.filter(e => e.dateStr === currentDayRange.dateStr).length} tasks scheduled
               </span>
             </div>
+
+            {/* Availability visual timeline if member filter is selected */}
+            {selectedPersonId && (() => {
+              const selectedPerson = people.find(p => p.id === selectedPersonId);
+              const isTimeOff = !!(selectedPerson && selectedPerson.timeOff && selectedPerson.timeOff.includes(currentDayRange.dateStr));
+              const startHour = selectedPerson?.workingHoursStart ? parseInt(selectedPerson.workingHoursStart.split(':')[0], 10) : 8;
+              const endHour = selectedPerson?.workingHoursEnd ? parseInt(selectedPerson.workingHoursEnd.split(':')[0], 10) : 17;
+              
+              const todayEvents = calendarEvents.filter(e => e.dateStr === currentDayRange.dateStr);
+              
+              const isHourBusy = (h: number) => {
+                const timeStr = `${String(h).padStart(2, '0')}:`;
+                return todayEvents.some(e => e.isMeeting && e.time && e.time.startsWith(timeStr));
+              };
+
+              const freeHours: string[] = [];
+              for (let h = startHour; h < endHour; h++) {
+                if (!isHourBusy(h)) {
+                  freeHours.push(`${String(h).padStart(2, '0')}:00`);
+                }
+              }
+
+              return (
+                <div className="mb-6 p-4 rounded-2xl border border-gold-250/50 bg-[#faf9f6]/60 space-y-3 shadow-xs">
+                  <span className="block text-[10px] font-black uppercase tracking-wider text-gold-700">
+                    ⚡ Disponibilidad de {selectedPerson?.name} ({currentDayRange.dateStr})
+                  </span>
+
+                  {isTimeOff ? (
+                    <div className="text-xs text-red-600 font-bold bg-red-50 border border-red-200 p-2.5 rounded-xl">
+                      🚫 Este integrante tiene registrado Día Libre / Tiempo Fuera de Oficina para esta fecha.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex gap-1.5 items-center flex-wrap md:flex-nowrap">
+                        <span className="text-[10px] font-bold text-primary-450 uppercase w-14 shrink-0">Jornada:</span>
+                        <div className="flex-1 flex gap-1 select-none overflow-x-auto pb-1">
+                          {Array.from({ length: 14 }).map((_, idx) => {
+                            const hour = idx + 7; // from 07:00 AM to 08:00 PM
+                            const isWorking = hour >= startHour && hour < endHour;
+                            const isBusy = isWorking && isHourBusy(hour);
+                            
+                            let bg = 'bg-primary-100 text-primary-450 border-primary-200/30';
+                            if (isWorking) {
+                              bg = isBusy 
+                                ? 'bg-amber-100 text-amber-700 border-amber-300 font-extrabold shadow-sm' 
+                                : 'bg-emerald-100 text-emerald-800 border-emerald-300 shadow-sm';
+                            }
+
+                            return (
+                              <div
+                                key={hour}
+                                className={`flex-1 text-center text-[9px] py-1.5 px-1 rounded-md border font-bold min-w-[24px] ${bg}`}
+                                title={`${hour}:00 - ${isWorking ? (isBusy ? 'Ocupado (Reunión)' : 'Disponible') : 'No Laborable'}`}
+                              >
+                                {hour}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 text-xs text-primary-700 font-semibold pt-1">
+                        <span className="text-[10px] font-bold text-primary-450 uppercase w-14 shrink-0">Libres:</span>
+                        {freeHours.length === 0 ? (
+                          <span className="text-xs text-red-500 font-bold">Sin horas libres disponibles (Jornada Ocupada).</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {freeHours.map(fh => (
+                              <span key={fh} className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[10px] font-bold">
+                                {fh}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
 
             <div className="space-y-4">
               {calendarEvents.filter(e => e.dateStr === currentDayRange.dateStr).map(evt => (
