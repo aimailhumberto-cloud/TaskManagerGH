@@ -126,6 +126,10 @@ export default function TaskDrawer({
   const [emailSelectedAttachments, setEmailSelectedAttachments] = useState<string[]>([]);
   const [sendingEmail, setSendingEmail] = useState(false);
 
+  // SMTP Settings check states
+  const [isSmtpConfigured, setIsSmtpConfigured] = useState(false);
+  const [smtpHost, setSmtpHost] = useState('');
+
   // Dictation speech setup
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -334,21 +338,33 @@ Hermes Task Hub`;
     }
   };
 
-  // Fetch users to resolve emails
+  // Fetch users and SMTP settings
   useEffect(() => {
-    async function fetchUsers() {
+    async function fetchUsersAndSmtp() {
       try {
         const res = await fetch('/api/users');
         if (res.ok) {
           const data = await res.json();
           setUsers(data);
         }
+
+        const settingsRes = await fetch('/api/settings');
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json();
+          if (settingsData.smtpConfig && settingsData.smtpConfig.host && settingsData.smtpConfig.port) {
+            setIsSmtpConfigured(true);
+            setSmtpHost(settingsData.smtpConfig.host);
+          } else {
+            setIsSmtpConfigured(false);
+            setSmtpHost('');
+          }
+        }
       } catch (e) {
         console.error(e);
       }
     }
     if (isOpen) {
-      fetchUsers();
+      fetchUsersAndSmtp();
     }
   }, [isOpen]);
 
@@ -1235,6 +1251,12 @@ Hermes Task Hub`;
               <h4 className="text-xs font-bold uppercase tracking-wider text-gold-600 flex items-center gap-1.5">
                 <span>📅</span> Programar Reunión / Enviar Calendario (ICS)
               </h4>
+
+              {!isSmtpConfigured && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-800 p-2.5 rounded-lg text-[11px] leading-relaxed font-semibold">
+                  ⚠️ Servidor SMTP no configurado. La reunión se guardará en el sistema y aparecerá en el calendario/dashboard, pero los correos se simularán localmente. Configúralo en Settings para correos reales.
+                </div>
+              )}
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1247,21 +1269,24 @@ Hermes Task Hub`;
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">Hora (Intervalos 30 min)</label>
+                  <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">Hora (Intervalos AM/PM)</label>
                   <select
                     value={meetingTime}
                     onChange={(e) => setMeetingTime(e.target.value)}
                     className="w-full px-3 py-1.5 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 font-bold"
                   >
                     <option value="">Selecciona hora</option>
-                    {Array.from({ length: 24 }).flatMap((_, h) => {
-                      const hourStr = String(h).padStart(2, '0');
+                    {Array.from({ length: 16 }).flatMap((_, idx) => {
+                      const h = idx + 7; // From 7 to 22 (07:00 AM to 10:00 PM)
+                      const hour24Str = String(h).padStart(2, '0');
+                      const ampm = h >= 12 ? 'PM' : 'AM';
+                      const displayHour = h % 12 === 0 ? 12 : h % 12;
                       return [
-                        `${hourStr}:00`,
-                        `${hourStr}:30`
+                        { val: `${hour24Str}:00`, label: `${displayHour}:00 ${ampm}` },
+                        { val: `${hour24Str}:30`, label: `${displayHour}:30 ${ampm}` }
                       ];
-                    }).map((timeVal) => (
-                      <option key={timeVal} value={timeVal}>{timeVal}</option>
+                    }).map(({ val, label }) => (
+                      <option key={val} value={val}>{label}</option>
                     ))}
                   </select>
                 </div>
@@ -1575,6 +1600,12 @@ Hermes Task Hub`;
                 &times;
               </button>
             </div>
+
+            {!isSmtpConfigured && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 p-2.5 rounded-lg text-[11px] leading-relaxed font-semibold">
+                ⚠️ Servidor SMTP no configurado. El correo se simulará localmente. Configúralo en Settings para enviar correos reales.
+              </div>
+            )}
 
             <form onSubmit={handleSubmitShareEmail} className="space-y-4">
               {/* Recipient Field */}

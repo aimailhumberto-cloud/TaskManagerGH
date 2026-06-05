@@ -82,6 +82,7 @@ export async function POST(request: NextRequest) {
       isMeeting: true,
       meetingTime,
       meetingAttendees: attendees,
+      dueDate,
       meetingConfirmations: task.meetingConfirmations || [],
     });
 
