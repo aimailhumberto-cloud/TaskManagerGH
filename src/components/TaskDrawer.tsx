@@ -653,6 +653,14 @@ Hermes Task Hub`;
       return;
     }
 
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+
     setUploadProgress("100%");
     const newAttachment: Attachment = {
       id: `att-${Date.now()}`,

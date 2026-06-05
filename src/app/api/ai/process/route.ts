@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     };
 
     if (!hasConfig) {
-      // Return local fallback instantly if no AI configured
+      console.log("AI Config is missing or empty. Returning local simulated fallback result.");
       const mockResult = generateLocalFallback(text || '', action);
       return NextResponse.json({ result: mockResult });
     }
@@ -99,13 +99,16 @@ export async function POST(req: NextRequest) {
     }
 
     const activeModel = aiConfig.activeModel || 'llama3';
+    console.log(`Calling AI API: Endpoint=${endpoint}, Model=${activeModel}, Action=${action}`);
+    
     let promptText = '';
 
     if (action === 'refine') {
       promptText = `Refine this raw task text into a structured JSON object. Format your output strictly as a JSON object with keys: "title", "description" (detailed markdown), "priority" ("High", "Medium", or "Low"), "type" ("One-shot", "Repetitive", or "Project"), and "steps" (an array of strings). Do not write anything outside the JSON object.
 Raw task text: "${text}"`;
     } else if (action === 'vision') {
-      promptText = `Extract tasks from this image. Return a JSON object with keys: "title", "description" (detailed markdown), "priority" ("High", "Medium", or "Low"), "type" ("One-shot", "Repetitive", or "Project"), and "steps" (an array of strings). Do not write anything outside the JSON object.`;
+      promptText = `Extract tasks from this image. Return a JSON object with keys: "title", "description" (detailed markdown), "priority" ("High", "Medium", or "Low"), "type" ("One-shot", "Repetitive", or "Project"), and "steps" (an array of strings). Do not write anything outside the JSON object.
+User instruction: "${text || ''}"`;
     } else if (action === 'meeting') {
       promptText = `Parse these meeting minutes and extract all action items. Return a JSON object with a single key "tasks" which contains an array of tasks. Each task must have keys: "title", "description", "priority" ("High", "Medium", or "Low"), "type" ("One-shot", "Repetitive", or "Project"), and "steps" (an array of strings). If an assignee is mentioned in the text, include an "assigneeName" key with their name. Do not write anything outside the JSON object.
 Meeting minutes: "${text}"`;
