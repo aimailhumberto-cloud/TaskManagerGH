@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { host, port, endpoint, apiKey, activeModel } = body;
+    const { host, port, user, pass, endpoint, apiKey, activeModel } = body;
 
     if (host !== undefined && port !== undefined) {
       if (!host || isNaN(Number(port))) {
@@ -36,6 +36,8 @@ export async function POST(req: NextRequest) {
         ...current,
         host,
         port: Number(port),
+        user: user !== undefined ? String(user).trim() : current.user,
+        pass: pass !== undefined ? String(pass) : current.pass,
       };
       await dbService.updateSMTPConfig(updated);
       return NextResponse.json({ success: true, smtpConfig: updated });

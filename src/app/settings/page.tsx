@@ -5,6 +5,8 @@ import React, { useState, useEffect } from 'react';
 export default function SettingsPage() {
   const [host, setHost] = useState('');
   const [port, setPort] = useState('');
+  const [smtpUser, setSmtpUser] = useState('');
+  const [smtpPass, setSmtpPass] = useState('');
   const [smtpStatus, setSmtpStatus] = useState('');
   const [smtpStatusColor, setSmtpStatusColor] = useState('text-primary-600');
   const [selectedTemplate, setSelectedTemplate] = useState('none');
@@ -32,6 +34,8 @@ export default function SettingsPage() {
           if (data.smtpConfig) {
             setHost(data.smtpConfig.host || '');
             setPort(data.smtpConfig.port ? String(data.smtpConfig.port) : '');
+            setSmtpUser(data.smtpConfig.user || '');
+            setSmtpPass(data.smtpConfig.pass || '');
           }
           if (data.aiConfig) {
             setAiEndpoint(data.aiConfig.endpoint || '');
@@ -133,7 +137,7 @@ export default function SettingsPage() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ host, port })
+        body: JSON.stringify({ host, port, user: smtpUser, pass: smtpPass })
       });
 
       if (res.ok) {
@@ -728,6 +732,34 @@ const data = await res.json();`}
                   value={port}
                   onChange={(e) => setPort(e.target.value)}
                   placeholder="587"
+                  className="w-full px-4 py-2 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:border-gold-500 focus:outline-none transition-all duration-200"
+                />
+              </div>
+              <div>
+                <label htmlFor="smtp-user" className="block text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2">
+                  SMTP Sender Email / User
+                </label>
+                <input
+                  type="text"
+                  id="smtp-user"
+                  data-testid="smtp-user"
+                  value={smtpUser}
+                  onChange={(e) => setSmtpUser(e.target.value)}
+                  placeholder="sender@hermes.com"
+                  className="w-full px-4 py-2 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:border-gold-500 focus:outline-none transition-all duration-200"
+                />
+              </div>
+              <div>
+                <label htmlFor="smtp-pass" className="block text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2">
+                  SMTP Password
+                </label>
+                <input
+                  type="password"
+                  id="smtp-pass"
+                  data-testid="smtp-pass"
+                  value={smtpPass}
+                  onChange={(e) => setSmtpPass(e.target.value)}
+                  placeholder="••••••••"
                   className="w-full px-4 py-2 border border-primary-200 rounded-xl focus:ring-2 focus:ring-gold-500 focus:border-gold-500 focus:outline-none transition-all duration-200"
                 />
               </div>
