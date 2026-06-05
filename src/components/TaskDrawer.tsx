@@ -55,6 +55,10 @@ export interface Task {
   dueDate: string;
   attachments: Attachment[];
   activityLog: LogEntry[];
+  isMeeting?: boolean;
+  meetingTime?: string;
+  meetingAttendees?: string[];
+  meetingConfirmations?: string[];
 }
 
 interface TaskDrawerProps {
@@ -107,6 +111,12 @@ export default function TaskDrawer({
   const [aiLoading, setAiLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
+
+  const [meetingTime, setMeetingTime] = useState('');
+  const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
+  const [selectedAttachmentNames, setSelectedAttachmentNames] = useState<string[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [sendingMeeting, setSendingMeeting] = useState(false);
 
   // Dictation speech setup
   useEffect(() => {
@@ -238,6 +248,87 @@ export default function TaskDrawer({
     setShareMenuOpen(false);
   };
 
+  // Fetch users to resolve emails
+  useEffect(() => {
+    async function fetchUsers() {
+      try {
+        const res = await fetch('/api/users');
+        if (res.ok) {
+          const data = await res.json();
+          setUsers(data);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    if (isOpen) {
+      fetchUsers();
+    }
+  }, [isOpen]);
+
+  const handleSendMeetingInvite = async () => {
+    if (!meetingTime) {
+      alert('Por favor selecciona una hora para la reunión.');
+      return;
+    }
+    if (selectedAttendees.length === 0) {
+      alert('Por favor selecciona al menos un invitado.');
+      return;
+    }
+
+    setSendingMeeting(true);
+    setToastMessage('Enviando invitación de calendario...');
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 2000);
+
+    try {
+      const res = await fetch('/api/meetings/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': 'mock-api-key-12345'
+        },
+        body: JSON.stringify({
+          taskId,
+          attendees: selectedAttendees,
+          meetingTime,
+          dueDate,
+          selectedAttachments: selectedAttachmentNames
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sentReal) {
+          setToastMessage('¡Invitación de reunión enviada por SMTP!');
+        } else {
+          setToastMessage('¡Invitación enviada con éxito! (Simulado)');
+          console.log('Simulated Emails:', data.simulatedEmails);
+        }
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+        
+        onSuccess();
+        // re-fetch activity logs
+        const headers = { 'x-api-key': 'mock-api-key-12345' };
+        const refreshRes = await fetch(`/api/tasks/${taskId}`, { headers });
+        if (refreshRes.ok) {
+          const rawTaskData = await refreshRes.json();
+          const taskData = normalizeTask(rawTaskData);
+          setActivityLog(taskData.activityLog || []);
+        }
+      } else {
+        const errorData = await res.json();
+        alert(`Error al enviar invitación: ${errorData.error}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error de red al enviar la invitación.');
+    } finally {
+      setSendingMeeting(false);
+    }
+  };
+
   // Normalize single task helper
   const normalizeTask = (t: any): Task => {
     if (!t) return t;
@@ -326,6 +417,10 @@ export default function TaskDrawer({
               : (taskData.assigneeId ? [taskData.assigneeId] : []);
             setAssigneeIds(initialAssignees);
             setActivityLog(taskData.activityLog || []);
+
+            setMeetingTime(taskData.meetingTime || '');
+            setSelectedAttendees(taskData.meetingAttendees || []);
+            setSelectedAttachmentNames([]);
           }
         } catch (err) {
           console.error("Error fetching task details inside TaskDrawer:", err);
@@ -366,6 +461,9 @@ export default function TaskDrawer({
           setRepeatPattern('');
           setCompanyId('comp-1');
           setDueDate(new Date().toISOString().substring(0, 10));
+          setMeetingTime('');
+          setSelectedAttendees([]);
+          setSelectedAttachmentNames([]);
         } else {
           setTitle('');
           setDescription('');
@@ -380,6 +478,9 @@ export default function TaskDrawer({
           setRepeatPattern('');
           setCompanyId('comp-1');
           setDueDate(new Date().toISOString().substring(0, 10));
+          setMeetingTime('');
+          setSelectedAttendees([]);
+          setSelectedAttachmentNames([]);
         }
       }
     }
@@ -1041,6 +1142,122 @@ export default function TaskDrawer({
               )}
             </div>
           </div>
+
+          {/* Section: Programar Reunión y Calendario (ICS) */}
+          {taskId && (
+            <div className="border border-gold-200/50 bg-gold-50/10 p-4 rounded-xl space-y-4">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-gold-600 flex items-center gap-1.5">
+                <span>📅</span> Programar Reunión / Enviar Calendario (ICS)
+              </h4>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">Fecha de Reunión</label>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-primary-200 rounded-lg text-xs bg-white text-primary-800"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">Hora (Intervalos 30 min)</label>
+                  <select
+                    value={meetingTime}
+                    onChange={(e) => setMeetingTime(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 font-bold"
+                  >
+                    <option value="">Selecciona hora</option>
+                    {Array.from({ length: 24 }).flatMap((_, h) => {
+                      const hourStr = String(h).padStart(2, '0');
+                      return [
+                        `${hourStr}:00`,
+                        `${hourStr}:30`
+                      ];
+                    }).map((timeVal) => (
+                      <option key={timeVal} value={timeVal}>{timeVal}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Selection of Attendees (people in task credentials / users) */}
+              <div>
+                <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1.5">
+                  Seleccionar Invitados (Miembros del Equipo)
+                </label>
+                <div className="space-y-1.5 max-h-32 overflow-y-auto border border-primary-150 rounded-lg p-2 bg-white">
+                  {people.map(p => {
+                    const matchedUser = users.find(u => u.personId === p.id);
+                    const email = matchedUser ? matchedUser.email : `${p.name.toLowerCase().replace(/\s+/g, '')}@holding.com`;
+                    const isChecked = selectedAttendees.includes(email);
+                    return (
+                      <label key={p.id} className="flex items-center gap-2 cursor-pointer text-xs">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setSelectedAttendees(prev => prev.filter(e => e !== email));
+                            } else {
+                              setSelectedAttendees(prev => [...prev, email]);
+                            }
+                          }}
+                          className="w-4.5 h-4.5 rounded text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer"
+                        />
+                        <div className="flex items-center gap-1.5">
+                          <HslAvatar name={p.name} avatarUrl={p.avatar} size={4} />
+                          <span className="font-bold text-primary-800">{p.name}</span>
+                          <span className="text-[10px] text-primary-400">({email})</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Selection of attachments to include in email */}
+              {attachments.length > 0 && (
+                <div>
+                  <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1.5">
+                    Seleccionar Archivos Adjuntos a Enviar
+                  </label>
+                  <div className="space-y-1.5 border border-primary-150 rounded-lg p-2 bg-white">
+                    {attachments.map((att) => {
+                      const isChecked = selectedAttachmentNames.includes(att.filename);
+                      return (
+                        <label key={att.id} className="flex items-center gap-2 cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              if (isChecked) {
+                                setSelectedAttachmentNames(prev => prev.filter(f => f !== att.filename));
+                              } else {
+                                setSelectedAttachmentNames(prev => [...prev, att.filename]);
+                              }
+                            }}
+                            className="w-4.5 h-4.5 rounded text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer"
+                          />
+                          <span className="text-primary-700 truncate font-semibold">{att.filename}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Send Invitation Button */}
+              <button
+                type="button"
+                onClick={handleSendMeetingInvite}
+                disabled={sendingMeeting || !meetingTime || selectedAttendees.length === 0}
+                className="w-full py-2 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white rounded-lg font-bold text-xs transition uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {sendingMeeting ? 'Enviando Invitación...' : '✉️ Enviar Invitación de Calendario (SMTP)'}
+              </button>
+            </div>
+          )}
 
           {/* Attachments */}
           <div>
