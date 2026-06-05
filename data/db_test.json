@@ -87,15 +87,18 @@
       "steps": [],
       "companyId": "c1",
       "assigneeId": "p2",
+      "assigneeIds": [
+        "p2"
+      ],
       "status": "Pending",
       "priority": "Medium",
       "origin": "Manual",
-      "dueDate": "2026-06-01T18:38:48.473Z",
+      "dueDate": "2026-06-05T12:01:10.098Z",
       "attachments": [],
       "id": "t2",
       "activityLog": [
         {
-          "timestamp": "2026-06-01T18:38:48.474Z",
+          "timestamp": "2026-06-05T12:01:10.105Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"
@@ -110,15 +113,18 @@
       "steps": [],
       "companyId": "c1",
       "assigneeId": "p2",
+      "assigneeIds": [
+        "p2"
+      ],
       "status": "Pending",
       "priority": "Low",
       "origin": "Manual",
-      "dueDate": "2026-06-01T18:38:48.501Z",
+      "dueDate": "2026-06-05T12:01:10.165Z",
       "attachments": [],
       "id": "t3",
       "activityLog": [
         {
-          "timestamp": "2026-06-01T18:38:48.502Z",
+          "timestamp": "2026-06-05T12:01:10.165Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"
@@ -133,21 +139,24 @@
       "steps": [],
       "companyId": "c1",
       "assigneeId": "p2",
+      "assigneeIds": [
+        "p2"
+      ],
       "status": "Pending",
       "priority": "Medium",
       "origin": "Manual",
-      "dueDate": "2026-06-01T18:38:48.522Z",
+      "dueDate": "2026-06-05T12:01:10.189Z",
       "attachments": [],
       "id": "t4",
       "activityLog": [
         {
-          "timestamp": "2026-06-01T18:38:48.523Z",
+          "timestamp": "2026-06-05T12:01:10.189Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"
         },
         {
-          "timestamp": "2026-06-01T18:38:48.540Z",
+          "timestamp": "2026-06-05T12:01:10.204Z",
           "user": "System",
           "action": "Notificación enviada al Agente (Comando: Ping Hermes)",
           "type": "AI"
@@ -162,45 +171,48 @@
       "steps": [],
       "companyId": "c1",
       "assigneeId": "p2",
+      "assigneeIds": [
+        "p2"
+      ],
       "status": "Pending",
       "priority": "Medium",
       "origin": "Manual",
-      "dueDate": "2026-06-01T18:38:48.582Z",
+      "dueDate": "2026-06-05T12:01:10.249Z",
       "attachments": [],
       "id": "t5",
       "activityLog": [
         {
-          "timestamp": "2026-06-01T18:38:48.582Z",
+          "timestamp": "2026-06-05T12:01:10.250Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"
         },
         {
-          "timestamp": "2026-06-01T18:38:48.596Z",
+          "timestamp": "2026-06-05T12:01:10.265Z",
           "user": "System",
           "action": "Tarea actualizada",
           "type": "User"
         },
         {
-          "timestamp": "2026-06-01T18:38:48.599Z",
+          "timestamp": "2026-06-05T12:01:10.268Z",
           "user": "System",
           "action": "Tarea actualizada",
           "type": "User"
         },
         {
-          "timestamp": "2026-06-01T18:38:48.600Z",
+          "timestamp": "2026-06-05T12:01:10.270Z",
           "user": "System",
           "action": "Tarea actualizada",
           "type": "User"
         },
         {
-          "timestamp": "2026-06-01T18:38:48.602Z",
+          "timestamp": "2026-06-05T12:01:10.272Z",
           "user": "System",
           "action": "Tarea actualizada",
           "type": "User"
         },
         {
-          "timestamp": "2026-06-01T18:38:48.603Z",
+          "timestamp": "2026-06-05T12:01:10.274Z",
           "user": "System",
           "action": "Tarea actualizada",
           "type": "User"
@@ -230,7 +242,17 @@
       "payload": {},
       "id": "q1",
       "status": "Pending",
-      "timestamp": "2026-06-01T18:38:48.538Z"
+      "timestamp": "2026-06-05T12:01:10.203Z"
+    }
+  ],
+  "users": [
+    {
+      "id": "auth-admin",
+      "personId": "usr-daniel",
+      "email": "admin@hermes.com",
+      "passwordHash": "77049f4b461e4cdc50cabdc6b4d3855f0f0e75ce8d68906c22204865ff0b8c9e7980c429b3d2e24d4369397265e84251216e3a94c694cc62fa55990dfeac59ac",
+      "salt": "13397276ec2950ce2da61a7937d13dc8",
+      "isActive": true
     }
   ]
 }

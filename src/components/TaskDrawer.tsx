@@ -118,6 +118,14 @@ export default function TaskDrawer({
   const [users, setUsers] = useState<any[]>([]);
   const [sendingMeeting, setSendingMeeting] = useState(false);
 
+  // Email Sharing States
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [emailTo, setEmailTo] = useState('');
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
+  const [emailSelectedAttachments, setEmailSelectedAttachments] = useState<string[]>([]);
+  const [sendingEmail, setSendingEmail] = useState(false);
+
   // Dictation speech setup
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -226,26 +234,104 @@ export default function TaskDrawer({
     setShareMenuOpen(false);
   };
 
-  const handleShareEmail = async () => {
+  const handleShareEmail = () => {
+    const p = people.find(person => person.id === assigneeId);
+    const matchedUser = users.find(u => u.personId === p?.id);
+    const defaultEmail = matchedUser ? matchedUser.email : (p ? `${p.name.toLowerCase().replace(/\s+/g, '')}@holding.com` : '');
+
+    setEmailTo(defaultEmail);
+    setEmailSubject(`[Holding] Compartir Tarea: ${title}`);
+    
+    const stepsText = steps.map((s) => `- [${s.completed ? 'x' : ' '}] ${s.text}`).join('\n');
+    const defaultBody = `Hola,
+
+Te comparto los detalles de la siguiente tarea del Hermes Task Hub:
+
+📌 Tarea: ${title}
+👤 Responsable: ${p ? p.name : 'Sin asignar'}
+📅 Fecha límite: ${dueDate}
+🚩 Prioridad: ${priority}
+📊 Estado: ${status}
+
+📝 Descripción:
+${description || 'Sin descripción'}
+
+${stepsText ? `\n✅ Pasos / Subtareas:\n${stepsText}` : ''}
+
+Atentamente,
+Hermes Task Hub`;
+
+    setEmailBody(defaultBody);
+    setEmailSelectedAttachments(attachments.map(att => att.filename));
+    setEmailModalOpen(true);
+    setShareMenuOpen(false);
+  };
+
+  const handleSubmitShareEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailTo.trim()) {
+      alert('Por favor ingresa un correo de destino.');
+      return;
+    }
+    if (!emailSubject.trim()) {
+      alert('Por favor ingresa un asunto.');
+      return;
+    }
+    if (!emailBody.trim()) {
+      alert('Por favor ingresa el cuerpo del correo.');
+      return;
+    }
+
+    setSendingEmail(true);
     setToastMessage('Enviando correo por SMTP...');
     setShowToast(true);
-    setTimeout(() => setShowToast(false), 2000);
+
     try {
-      const res = await fetch('/api/settings');
+      const res = await fetch('/api/tasks/share-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': 'mock-api-key-12345'
+        },
+        body: JSON.stringify({
+          taskId,
+          to: emailTo,
+          subject: emailSubject,
+          body: emailBody,
+          selectedAttachments: emailSelectedAttachments
+        })
+      });
+
       if (res.ok) {
-        const settings = await res.json();
-        if (settings.smtpConfig && settings.smtpConfig.host) {
-          setToastMessage(`Correo enviado con SMTP (${settings.smtpConfig.host})`);
+        const data = await res.json();
+        if (data.sentReal) {
+          setToastMessage(`¡Correo enviado con SMTP con éxito!`);
         } else {
-          setToastMessage('Correo simulado enviado con éxito!');
+          setToastMessage('¡Correo simulado guardado con éxito!');
         }
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
+        setEmailModalOpen(false);
+
+        // Refresh task to get new activity log
+        onSuccess();
+        const headers = { 'x-api-key': 'mock-api-key-12345' };
+        const refreshRes = await fetch(`/api/tasks/${taskId}`, { headers });
+        if (refreshRes.ok) {
+          const rawTaskData = await refreshRes.json();
+          const taskData = normalizeTask(rawTaskData);
+          setActivityLog(taskData.activityLog || []);
+        }
+      } else {
+        const errorData = await res.json();
+        alert(`Error al enviar correo: ${errorData.error}`);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
+      alert('Error de red al enviar el correo.');
+    } finally {
+      setSendingEmail(false);
     }
-    setShareMenuOpen(false);
   };
 
   // Fetch users to resolve emails
@@ -1461,6 +1547,149 @@ export default function TaskDrawer({
                 Close Preview
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Sharing Modal */}
+      {emailModalOpen && (
+        <div
+          id="email-share-modal"
+          data-testid="email-share-modal"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 overflow-y-auto"
+          onClick={() => setEmailModalOpen(false)}
+        >
+          <div
+            className="bg-[#faf9f6] border border-gold-200 rounded-xl p-6 max-w-xl w-full relative shadow-2xl flex flex-col gap-4 animate-fade-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gold-200/50 pb-3">
+              <h3 className="text-sm font-extrabold text-primary-800 uppercase tracking-wider flex items-center gap-2">
+                <span>✉️</span> Compartir Tarea por Correo (SMTP)
+              </h3>
+              <button
+                type="button"
+                onClick={() => setEmailModalOpen(false)}
+                className="text-primary-400 hover:text-primary-650 text-lg font-bold transition"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitShareEmail} className="space-y-4">
+              {/* Recipient Field */}
+              <div>
+                <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">
+                  Destinatario (Email)
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="ejemplo@holding.com"
+                  value={emailTo}
+                  onChange={(e) => setEmailTo(e.target.value)}
+                  className="w-full px-3 py-2 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 focus:outline-none focus:border-gold-500 transition font-medium"
+                />
+                
+                {/* Quick select buttons */}
+                <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+                  <span className="text-[9px] font-bold text-primary-400 uppercase tracking-wider mr-1">Sugerencias:</span>
+                  {people.map(p => {
+                    const matchedUser = users.find(u => u.personId === p.id);
+                    const email = matchedUser ? matchedUser.email : `${p.name.toLowerCase().replace(/\s+/g, '')}@holding.com`;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setEmailTo(email)}
+                        className="px-2 py-0.5 bg-primary-100 hover:bg-gold-100 text-primary-750 hover:text-gold-800 rounded text-[10px] font-bold transition border border-transparent hover:border-gold-300"
+                      >
+                        {p.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Subject Field */}
+              <div>
+                <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">
+                  Asunto
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Asunto del correo"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  className="w-full px-3 py-2 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 focus:outline-none focus:border-gold-500 transition font-bold"
+                />
+              </div>
+
+              {/* Body Field */}
+              <div>
+                <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">
+                  Mensaje / Cuerpo
+                </label>
+                <textarea
+                  rows={8}
+                  required
+                  placeholder="Detalles de la tarea..."
+                  value={emailBody}
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  className="w-full px-3 py-2 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 focus:outline-none focus:border-gold-500 transition font-mono whitespace-pre-wrap leading-relaxed"
+                />
+              </div>
+
+              {/* Selectable Attachments */}
+              {attachments.length > 0 && (
+                <div>
+                  <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1.5">
+                    Adjuntos de la Tarea a Incluir
+                  </label>
+                  <div className="space-y-1.5 border border-primary-150 rounded-lg p-2.5 bg-white max-h-24 overflow-y-auto">
+                    {attachments.map((att) => {
+                      const isChecked = emailSelectedAttachments.includes(att.filename);
+                      return (
+                        <label key={att.id} className="flex items-center gap-2 cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              if (isChecked) {
+                                setEmailSelectedAttachments(prev => prev.filter(f => f !== att.filename));
+                              } else {
+                                setEmailSelectedAttachments(prev => [...prev, att.filename]);
+                              }
+                            }}
+                            className="w-4 h-4 rounded text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer"
+                          />
+                          <span className="text-primary-700 truncate font-semibold">{att.filename}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Submit / Cancel Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEmailModalOpen(false)}
+                  className="flex-1 py-2 bg-primary-200 hover:bg-primary-300 text-primary-800 rounded-lg font-bold text-xs transition uppercase tracking-wider"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={sendingEmail || !emailTo.trim() || !emailSubject.trim() || !emailBody.trim()}
+                  className="flex-1 py-2 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white rounded-lg font-bold text-xs transition uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {sendingEmail ? 'Enviando...' : '✉️ Enviar Correo'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
