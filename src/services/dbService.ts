@@ -1035,7 +1035,13 @@ export class DBService implements IDBService {
         name: p.name,
         role: p.role,
         avatar: p.avatar,
-        companyId: p.company_id || undefined
+        companyId: p.company_id || undefined,
+        workingHoursStart: p.working_hours_start || undefined,
+        workingHoursEnd: p.working_hours_end || undefined,
+        timeOff: p.time_off || undefined,
+        recurringDaysOff: p.recurring_days_off || undefined,
+        lunchStart: p.lunch_start || undefined,
+        lunchEnd: p.lunch_end || undefined
       }));
     }
 
@@ -1102,6 +1108,12 @@ export class DBService implements IDBService {
       if (personUpdates.role !== undefined) record.role = personUpdates.role;
       if (personUpdates.avatar !== undefined) record.avatar = personUpdates.avatar;
       if (personUpdates.companyId !== undefined) record.company_id = personUpdates.companyId || null;
+      if (personUpdates.workingHoursStart !== undefined) record.working_hours_start = personUpdates.workingHoursStart;
+      if (personUpdates.workingHoursEnd !== undefined) record.working_hours_end = personUpdates.workingHoursEnd;
+      if (personUpdates.timeOff !== undefined) record.time_off = personUpdates.timeOff;
+      if (personUpdates.recurringDaysOff !== undefined) record.recurring_days_off = personUpdates.recurringDaysOff;
+      if (personUpdates.lunchStart !== undefined) record.lunch_start = personUpdates.lunchStart;
+      if (personUpdates.lunchEnd !== undefined) record.lunch_end = personUpdates.lunchEnd;
 
       const { error } = await supabase.from('people').update(record).eq('id', id);
       if (error) throw error;
@@ -1111,7 +1123,13 @@ export class DBService implements IDBService {
         name: personUpdates.name ?? existing.data.name,
         role: personUpdates.role ?? existing.data.role,
         avatar: personUpdates.avatar ?? existing.data.avatar,
-        companyId: personUpdates.companyId !== undefined ? personUpdates.companyId : (existing.data.company_id || undefined)
+        companyId: personUpdates.companyId !== undefined ? personUpdates.companyId : (existing.data.company_id || undefined),
+        workingHoursStart: personUpdates.workingHoursStart !== undefined ? personUpdates.workingHoursStart : (existing.data.working_hours_start || undefined),
+        workingHoursEnd: personUpdates.workingHoursEnd !== undefined ? personUpdates.workingHoursEnd : (existing.data.working_hours_end || undefined),
+        timeOff: personUpdates.timeOff !== undefined ? personUpdates.timeOff : (existing.data.time_off || undefined),
+        recurringDaysOff: personUpdates.recurringDaysOff !== undefined ? personUpdates.recurringDaysOff : (existing.data.recurring_days_off || undefined),
+        lunchStart: personUpdates.lunchStart !== undefined ? personUpdates.lunchStart : (existing.data.lunch_start || undefined),
+        lunchEnd: personUpdates.lunchEnd !== undefined ? personUpdates.lunchEnd : (existing.data.lunch_end || undefined)
       };
     }
 
