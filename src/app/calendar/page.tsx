@@ -53,6 +53,10 @@ interface Task {
   dueDate: string;
   attachments: Attachment[];
   activityLog: LogEntry[];
+  isMeeting?: boolean;
+  meetingTime?: string;
+  meetingAttendees?: string[];
+  meetingConfirmations?: string[];
 }
 
 interface CalendarEvent {
@@ -64,12 +68,20 @@ interface CalendarEvent {
   priority: 'High' | 'Medium' | 'Low';
   color: string;
   originTask?: Task;
+  isMeeting?: boolean;
+}
+
+function cleanMarkdown(text: string): string {
+  if (!text) return '';
+  return text.replace(/[*_`~#\-]/g, '');
 }
 
 export default function CalendarPage() {
   // Navigation & View Mode states
   const [week, setWeek] = useState<number>(23);
   const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('week');
+  const [showTasks, setShowTasks] = useState(true);
+  const [showMeetings, setShowMeetings] = useState(true);
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0); // 0 = Monday (default for Day View)
   const [currentYear, setCurrentYear] = useState<number>(2026);
   const [currentMonth, setCurrentMonth] = useState<number>(5); // 5 = June (0-indexed)
@@ -251,6 +263,10 @@ export default function CalendarPage() {
     tasks.forEach(task => {
       const dateStr = task.dueDate ? task.dueDate.substring(0, 10) : '';
       if (dateStr) {
+        const isMeeting = !!task.isMeeting;
+        if (isMeeting && !showMeetings) return;
+        if (!isMeeting && !showTasks) return;
+
         const parts = dateStr.split('-');
         const y = parseInt(parts[0], 10);
         const m = parseInt(parts[1], 10) - 1;
@@ -269,18 +285,19 @@ export default function CalendarPage() {
         events.push({
           id: task.id,
           title: task.title,
-          time: '09:00 - 17:00',
+          time: isMeeting ? (task.meetingTime || 'Hora por definir') : '09:00 - 17:00',
           day: dayName,
           dateStr,
           priority: task.priority,
-          color: priorityColors[task.priority] || 'rgb(245, 158, 11)',
-          originTask: task
+          color: isMeeting ? 'rgb(212, 163, 89)' : (priorityColors[task.priority] || 'rgb(245, 158, 11)'),
+          originTask: task,
+          isMeeting
         });
       }
     });
 
     return events;
-  }, [tasks]);
+  }, [tasks, showTasks, showMeetings]);
 
   // Drawer slider actions
   const handleEventClick = async (evt: CalendarEvent) => {
@@ -369,6 +386,32 @@ export default function CalendarPage() {
           <p className="text-primary-500 mt-1">
             Dynamic view modes with drag & drop simulator and HSL priority badges.
           </p>
+          
+          {/* Toggle Filters: Tasks & Meetings */}
+          <div className="flex items-center gap-3 mt-4 bg-primary-100/30 p-1.5 rounded-xl border border-primary-200/50 max-w-fit">
+            <button
+              onClick={() => setShowTasks(!showTasks)}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 border ${
+                showTasks
+                  ? 'bg-white text-primary-900 border-primary-200 shadow-sm'
+                  : 'bg-transparent text-primary-450 border-transparent hover:text-primary-800'
+              }`}
+            >
+              <span className={showTasks ? 'text-gold-655' : 'text-primary-300'}>{showTasks ? '✓' : '○'}</span>
+              <span>Ver Tareas</span>
+            </button>
+            <button
+              onClick={() => setShowMeetings(!showMeetings)}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 border ${
+                showMeetings
+                  ? 'bg-white text-primary-900 border-primary-200 shadow-sm'
+                  : 'bg-transparent text-primary-450 border-transparent hover:text-primary-800'
+              }`}
+            >
+              <span className={showMeetings ? 'text-gold-655' : 'text-primary-300'}>{showMeetings ? '✓' : '○'}</span>
+              <span>Ver Reuniones 📅</span>
+            </button>
+          </div>
         </div>
 
         {/* View Mode & Weekly Controls */}
@@ -492,7 +535,7 @@ export default function CalendarPage() {
                         className="border-l-2 pl-1.5 text-[9px] font-bold text-primary-850 bg-[#faf9f6]/80 p-1 rounded hover:bg-gold-50 cursor-pointer truncate"
                         title={evt.title}
                       >
-                        {evt.title}
+                        {evt.isMeeting ? '📅 ' : ''}{cleanMarkdown(evt.title)}
                       </div>
                     ))}
                   </div>
@@ -539,19 +582,21 @@ export default function CalendarPage() {
                           {evt.time}
                         </span>
                         <h4 className="text-xs font-bold text-primary-900 leading-snug break-words">
-                          {evt.title}
+                          {evt.isMeeting ? '📅 ' : ''}{cleanMarkdown(evt.title)}
                         </h4>
                         <div className="flex items-center justify-between mt-2">
                           <span
                             className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${
-                              evt.priority === 'High'
+                              evt.isMeeting
+                                ? 'bg-gold-50 text-gold-700 border-gold-200'
+                                : evt.priority === 'High'
                                 ? 'bg-red-50 text-red-700 border-red-100'
                                 : 'bg-amber-50 text-amber-700 border-amber-100'
                             }`}
                           >
-                            {evt.priority}
+                            {evt.isMeeting ? 'Meeting' : evt.priority}
                           </span>
-                          <span className="text-[10px]">📁</span>
+                          <span className="text-[10px]">{evt.isMeeting ? '📅' : '📁'}</span>
                         </div>
                       </div>
                     );
@@ -612,16 +657,18 @@ export default function CalendarPage() {
                 >
                   <div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-primary-400 block mb-1">{evt.time}</span>
-                    <h4 className="text-sm font-bold text-primary-900">{evt.title}</h4>
+                    <h4 className="text-sm font-bold text-primary-900">{evt.isMeeting ? '📅 ' : ''}{cleanMarkdown(evt.title)}</h4>
                   </div>
                   <span
                     className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
-                      evt.priority === 'High'
+                      evt.isMeeting
+                        ? 'bg-gold-50 text-gold-700 border-gold-200'
+                        : evt.priority === 'High'
                         ? 'bg-red-50 text-red-700 border-red-100'
                         : 'bg-amber-50 text-amber-700 border-amber-100'
                     }`}
                   >
-                    {evt.priority} Priority
+                    {evt.isMeeting ? 'Meeting' : `${evt.priority} Priority`}
                   </span>
                 </div>
               ))}

@@ -83,6 +83,7 @@ export default function TasksPage() {
   // Refined Task Review Panel
   const [refinedTask, setRefinedTask] = useState<any>(null);
   const [isReviewingRefined, setIsReviewingRefined] = useState(false);
+  const [preloadedAiData, setPreloadedAiData] = useState<any>(null);
 
   // Share menu tracker
   const [activeShareMenuId, setActiveShareMenuId] = useState<string | null>(null);
@@ -228,15 +229,22 @@ export default function TasksPage() {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const rec = new SpeechRecognition();
-        rec.continuous = false;
+        rec.continuous = true;
         rec.interimResults = false;
         rec.lang = 'es-ES';
         rec.onstart = () => setIsDictating(true);
         rec.onend = () => setIsDictating(false);
         rec.onerror = () => setIsDictating(false);
         rec.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          setRawTaskInput(prev => (prev ? prev + ' ' + transcript : transcript));
+          let transcript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              transcript += event.results[i][0].transcript;
+            }
+          }
+          if (transcript) {
+            setRawTaskInput(prev => (prev ? prev + ' ' + transcript.trim() : transcript.trim()));
+          }
         };
         setRecognition(rec);
       }
@@ -327,6 +335,7 @@ export default function TasksPage() {
   const handleCloseDrawer = () => {
     setIsDrawerOpen(false);
     setActiveTaskId(null);
+    setPreloadedAiData(null);
   };
 
   const handleRefreshTasks = () => {
@@ -518,8 +527,11 @@ export default function TasksPage() {
       if (res.ok) {
         const data = await res.json();
         if (data.result) {
-          setRefinedTask(data.result);
-          setIsReviewingRefined(true);
+          setPreloadedAiData(data.result);
+          setActiveTaskId(null);
+          setIsDrawerOpen(true);
+          setRawTaskInput('');
+          setSelectedImage(null);
         }
       } else {
         alert('Error al perfeccionar la tarea.');
@@ -1163,6 +1175,7 @@ export default function TasksPage() {
                               )}
                             </button>
                             <span 
+                              data-testid={`task-card-${task.id}`}
                               onClick={() => handleOpenDrawer(task.id)}
                               className={`cursor-pointer hover:text-gold-600 transition ${task.status === 'Completed' ? 'line-through text-primary-400 font-medium' : ''}`}
                             >
@@ -1262,6 +1275,7 @@ export default function TasksPage() {
                 {groupItems.map(task => (
                   <div
                     key={task.id}
+                    data-testid={`task-card-${task.id}`}
                     onClick={() => handleOpenDrawer(task.id)}
                     className="border border-primary-150 hover:border-gold-300 hover:bg-gold-50/10 p-4 rounded-xl cursor-pointer transition relative"
                   >
@@ -1454,6 +1468,7 @@ export default function TasksPage() {
         onSuccess={handleRefreshTasks}
         companies={companies}
         people={people}
+        preloadedAiData={preloadedAiData}
       />
 
       {/* Toast Notification */}
@@ -1506,6 +1521,7 @@ function KanbanCard({
 
   return (
     <div
+      data-testid={`task-card-${task.id}`}
       draggable
       onDragStart={(e) => onDragStart(e, task.id)}
       onClick={() => onOpen(task.id)}

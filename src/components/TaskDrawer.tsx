@@ -65,6 +65,7 @@ interface TaskDrawerProps {
   companies: Company[];
   people: Person[];
   dataTestId?: string;
+  preloadedAiData?: any;
 }
 
 export default function TaskDrawer({
@@ -75,6 +76,7 @@ export default function TaskDrawer({
   companies,
   people,
   dataTestId,
+  preloadedAiData,
 }: TaskDrawerProps) {
   // Form states
   const [title, setTitle] = useState('');
@@ -112,15 +114,22 @@ export default function TaskDrawer({
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const rec = new SpeechRecognition();
-        rec.continuous = false;
+        rec.continuous = true;
         rec.interimResults = false;
         rec.lang = 'es-ES';
         rec.onstart = () => setIsDictating(true);
         rec.onend = () => setIsDictating(false);
         rec.onerror = () => setIsDictating(false);
         rec.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          setDescription(prev => (prev ? prev + '\n' + transcript : transcript));
+          let transcript = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            if (event.results[i].isFinal) {
+              transcript += event.results[i][0].transcript;
+            }
+          }
+          if (transcript) {
+            setDescription(prev => (prev ? prev + '\n' + transcript.trim() : transcript.trim()));
+          }
         };
         setRecognition(rec);
       }
@@ -322,25 +331,61 @@ export default function TaskDrawer({
           console.error("Error fetching task details inside TaskDrawer:", err);
         }
       } else {
-        // Reset to default new task state
-        setTitle('');
-        setDescription('');
-        setAssigneeId('unassigned');
-        setAssigneeIds([]);
-        setSteps([]);
-        setAttachments([]);
-        setActivityLog([]);
-        setStatus('Pending');
-        setPriority('Medium');
-        setType('One-shot');
-        setRepeatPattern('');
-        setCompanyId('comp-1');
-        setDueDate(new Date().toISOString().substring(0, 10));
+        // Reset to default new task state or load preloadedAiData
+        if (preloadedAiData) {
+          setTitle(preloadedAiData.title || '');
+          setDescription(preloadedAiData.description || '');
+          setAssigneeId('unassigned');
+          setAssigneeIds([]);
+          if (preloadedAiData.steps && preloadedAiData.steps.length > 0) {
+            setSteps(preloadedAiData.steps.map((s: string) => ({
+              id: `step-${Date.now()}-${Math.random()}`,
+              text: s,
+              completed: false,
+              status: 'Pending'
+            })));
+          } else {
+            setSteps([]);
+          }
+          setAttachments([]);
+          setActivityLog([]);
+          setStatus('Pending');
+          
+          let prio: 'High' | 'Medium' | 'Low' = 'Medium';
+          const rawPrio = String(preloadedAiData.priority || '').toLowerCase();
+          if (rawPrio === 'high') prio = 'High';
+          else if (rawPrio === 'low') prio = 'Low';
+          setPriority(prio);
+
+          let tType: 'One-shot' | 'Repetitive' | 'Project' = 'One-shot';
+          const rawType = String(preloadedAiData.type || '').toLowerCase();
+          if (rawType === 'repetitive') tType = 'Repetitive';
+          else if (rawType === 'project') tType = 'Project';
+          setType(tType);
+
+          setRepeatPattern('');
+          setCompanyId('comp-1');
+          setDueDate(new Date().toISOString().substring(0, 10));
+        } else {
+          setTitle('');
+          setDescription('');
+          setAssigneeId('unassigned');
+          setAssigneeIds([]);
+          setSteps([]);
+          setAttachments([]);
+          setActivityLog([]);
+          setStatus('Pending');
+          setPriority('Medium');
+          setType('One-shot');
+          setRepeatPattern('');
+          setCompanyId('comp-1');
+          setDueDate(new Date().toISOString().substring(0, 10));
+        }
       }
     }
 
     fetchTask();
-  }, [isOpen, taskId]);
+  }, [isOpen, taskId, preloadedAiData]);
 
   const handleSingleAssigneeChange = (val: string) => {
     setAssigneeId(val);

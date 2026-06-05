@@ -50,6 +50,10 @@ export interface Task {
   dueDate: string;
   attachments: Attachment[];
   activityLog: LogEntry[];
+  isMeeting?: boolean;
+  meetingTime?: string;
+  meetingAttendees?: string[];
+  meetingConfirmations?: string[];
 }
 
 export interface EmailTemplate {

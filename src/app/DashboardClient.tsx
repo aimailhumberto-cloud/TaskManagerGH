@@ -267,6 +267,27 @@ export default function DashboardClient({
     return new Date().toISOString().substring(0, 10);
   }, []);
 
+  const todayMeetings = useMemo(() => {
+    return tasks.filter(t => 
+      t.isMeeting && 
+      t.dueDate && t.dueDate.substring(0, 10) === todayStr
+    ).sort((a, b) => (a.meetingTime || '').localeCompare(b.meetingTime || ''));
+  }, [tasks, todayStr]);
+
+  const upcomingMeetings = useMemo(() => {
+    return tasks.filter(t => 
+      t.isMeeting && 
+      (!t.dueDate || t.dueDate.substring(0, 10) > todayStr)
+    ).sort((a, b) => a.dueDate.localeCompare(b.dueDate) || (a.meetingTime || '').localeCompare(b.meetingTime || ''));
+  }, [tasks, todayStr]);
+
+  const pastMeetings = useMemo(() => {
+    return tasks.filter(t => 
+      t.isMeeting && 
+      t.dueDate && t.dueDate.substring(0, 10) < todayStr
+    ).sort((a, b) => b.dueDate.localeCompare(a.dueDate) || (b.meetingTime || '').localeCompare(a.meetingTime || ''));
+  }, [tasks, todayStr]);
+
   const overdueOneShotTasks = useMemo(() => {
     return tasks.filter(t => 
       t.type === 'One-shot' && 
@@ -554,8 +575,8 @@ export default function DashboardClient({
           </div>
         )}
 
-        {/* Three Columns Operational Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+        {/* Four Columns Operational Grid (Control Tower) */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-10">
           
           {/* PANEL 1: Tareas del Día (One-shot Tasks) */}
           <div className="bg-white border border-gold-200/50 rounded-2xl p-6 shadow-sm flex flex-col justify-between min-h-[450px]">
@@ -753,7 +774,196 @@ export default function DashboardClient({
             </div>
           </div>
 
-          {/* PANEL 2: Tareas Repetitivas (Recurring flow) */}
+          {/* PANEL 2: Agenda de Reuniones (Upcoming Meetings with live RSVP) */}
+          <div className="bg-white border border-gold-200/50 rounded-2xl p-6 shadow-sm flex flex-col justify-between min-h-[450px]">
+            <div>
+              <div className="flex items-center justify-between border-b border-primary-100 pb-3 mb-4">
+                <h3 className="text-sm font-bold text-primary-900 uppercase tracking-wider flex items-center gap-2">
+                  👥 Agenda de Reuniones
+                </h3>
+                <span className="text-[10px] font-bold text-primary-400 bg-primary-100 px-2 py-0.5 rounded-md">
+                  {todayMeetings.length + upcomingMeetings.length + pastMeetings.length} Active
+                </span>
+              </div>
+
+              <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1 scrollbar-thin">
+                {/* Section A: Hoy */}
+                {todayMeetings.length > 0 && (
+                  <div>
+                    <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-gold-600 mb-2 border-b border-gold-100 pb-1 flex items-center justify-between">
+                      <span>📍 Hoy</span>
+                      <span className="text-[8px] font-extrabold bg-gold-50 text-gold-700 border border-gold-200 px-1 rounded">Today</span>
+                    </h4>
+                    <div className="space-y-2">
+                      {todayMeetings.map(task => {
+                        const assignee = task.assigneeId ? peopleMap.get(task.assigneeId) : null;
+                        const attendees = task.meetingAttendees || [];
+                        const confirmations = task.meetingConfirmations || [];
+
+                        return (
+                          <div
+                            key={task.id}
+                            onClick={() => handleOpenDrawer(task.id)}
+                            className="group border border-gold-100 hover:border-gold-300 bg-gold-50/10 hover:bg-gold-50/20 p-3 rounded-xl transition-all duration-200 cursor-pointer relative"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-xs font-bold text-primary-800 group-hover:text-gold-700 transition-colors truncate">
+                                  {cleanMarkdown(task.title)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[8px] font-extrabold uppercase tracking-wide bg-gold-50 text-gold-700 border border-gold-200 px-1 rounded">
+                                  {task.meetingTime}
+                                </span>
+                                {assignee && (
+                                  <HslAvatar name={assignee.name} avatarUrl={assignee.avatar} size={4} />
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Live RSVP Status list */}
+                            {attendees.length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-primary-50">
+                                <span className="text-[8px] font-extrabold uppercase tracking-wider text-primary-400 block mb-1">Asistencia en Vivo</span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {attendees.map((email, idx) => {
+                                    const isConfirmed = confirmations.includes(email);
+                                    return (
+                                      <span
+                                        key={idx}
+                                        className={`inline-flex items-center gap-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${
+                                          isConfirmed
+                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-250'
+                                            : 'bg-amber-50 text-amber-700 border-amber-250'
+                                        }`}
+                                      >
+                                        <span>{isConfirmed ? '✓' : '⌛'}</span>
+                                        <span>{email}</span>
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Section B: Próximas */}
+                {upcomingMeetings.length > 0 && (
+                  <div>
+                    <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-primary-400 mb-2 border-b border-primary-100 pb-1">
+                      📅 Próximas Reuniones
+                    </h4>
+                    <div className="space-y-2">
+                      {upcomingMeetings.map(task => {
+                        const assignee = task.assigneeId ? peopleMap.get(task.assigneeId) : null;
+                        const attendees = task.meetingAttendees || [];
+                        const confirmations = task.meetingConfirmations || [];
+
+                        return (
+                          <div
+                            key={task.id}
+                            onClick={() => handleOpenDrawer(task.id)}
+                            className="group border border-primary-50 hover:border-gold-300 hover:bg-gold-50/20 p-3 rounded-xl transition-all duration-200 cursor-pointer relative"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-xs font-semibold text-primary-800 group-hover:text-gold-700 transition-colors truncate">
+                                  {cleanMarkdown(task.title)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[8px] font-bold text-primary-400">
+                                  {task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''} {task.meetingTime || ''}
+                                </span>
+                                {assignee && (
+                                  <HslAvatar name={assignee.name} avatarUrl={assignee.avatar} size={4} />
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Live RSVP Status list */}
+                            {attendees.length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-primary-50">
+                                <span className="text-[8px] font-extrabold uppercase tracking-wider text-primary-400 block mb-1">Asistencia en Vivo</span>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {attendees.map((email, idx) => {
+                                    const isConfirmed = confirmations.includes(email);
+                                    return (
+                                      <span
+                                        key={idx}
+                                        className={`inline-flex items-center gap-1 text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${
+                                          isConfirmed
+                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-250'
+                                            : 'bg-amber-50 text-amber-700 border-amber-250'
+                                        }`}
+                                      >
+                                        <span>{isConfirmed ? '✓' : '⌛'}</span>
+                                        <span>{email}</span>
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Section C: Pasadas */}
+                {pastMeetings.length > 0 && (
+                  <div>
+                    <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-primary-400 mb-2 border-b border-primary-100 pb-1">
+                      🕒 Pasadas / Archivo
+                    </h4>
+                    <div className="space-y-2">
+                      {pastMeetings.map(task => {
+                        const assignee = task.assigneeId ? peopleMap.get(task.assigneeId) : null;
+
+                        return (
+                          <div
+                            key={task.id}
+                            onClick={() => handleOpenDrawer(task.id)}
+                            className="group border border-transparent hover:border-primary-150 hover:bg-primary-50/40 p-2 rounded-xl transition-all duration-200 cursor-pointer opacity-65"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-xs text-primary-650 truncate">
+                                  {cleanMarkdown(task.title)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[8px] text-primary-400">
+                                  {task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : ''}
+                                </span>
+                                {assignee && (
+                                  <HslAvatar name={assignee.name} avatarUrl={assignee.avatar} size={4} />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {todayMeetings.length === 0 && upcomingMeetings.length === 0 && pastMeetings.length === 0 && (
+                  <p className="text-[10px] text-primary-400 italic py-6 text-center">No hay reuniones programadas.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* PANEL 3: Tareas Repetitivas (Recurring flow) */}
           <div className="bg-white border border-gold-200/50 rounded-2xl p-6 shadow-sm flex flex-col justify-between min-h-[450px]">
             <div>
               <div className="flex items-center justify-between border-b border-primary-100 pb-3 mb-4">
@@ -836,16 +1046,16 @@ export default function DashboardClient({
                                 onChange={() => handleToggleTaskStatus(task)}
                                 className="w-4 h-4 rounded text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer shrink-0"
                               />
-                              <span className="text-xs font-bold text-primary-800 group-hover:text-gold-700 transition-colors truncate">
+                              <span className="text-xs font-bold text-primary-850 group-hover:text-gold-700 transition-colors truncate">
                                 {cleanMarkdown(task.title)}
                               </span>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
-                              <span className="text-[8px] font-extrabold uppercase tracking-wide bg-gold-50 text-gold-700 border border-gold-250 px-1 rounded">
-                                {task.repeatPattern || 'Daily'}
+                              <span className="text-[8px] font-extrabold uppercase tracking-wide bg-primary-100 text-primary-700 border border-primary-200 px-1 rounded">
+                                {task.repeatPattern || 'Routine'}
                               </span>
                               {assignee && (
-                                <HslAvatar name={assignee.name} avatarUrl={assignee.avatar} size={4} />
+                                <HslAvatar name={assignee.name} avatarUrl={assignee.avatar} size={5} />
                               )}
                             </div>
                           </div>
@@ -854,7 +1064,7 @@ export default function DashboardClient({
                     })}
 
                     {todayRepetitiveTasks.length === 0 && (
-                      <p className="text-[10px] text-primary-400 italic py-2">No recurring duties for today.</p>
+                      <p className="text-[10px] text-primary-400 italic py-2">No repetitive tasks for today.</p>
                     )}
                   </div>
                 </div>
@@ -875,9 +1085,18 @@ export default function DashboardClient({
                           className="group border border-transparent hover:border-primary-100 hover:bg-primary-50/40 p-2 rounded-xl transition-all duration-200 cursor-pointer"
                         >
                           <div className="flex items-center justify-between gap-3">
-                            <span className="text-xs text-primary-600 group-hover:text-primary-800 transition-colors truncate">
-                              {cleanMarkdown(task.title)}
-                            </span>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <input
+                                type="checkbox"
+                                checked={task.status === 'Completed'}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={() => handleToggleTaskStatus(task)}
+                                className="w-4 h-4 rounded text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer shrink-0"
+                              />
+                              <span className="text-xs text-primary-650 group-hover:text-primary-800 transition-colors truncate">
+                                {cleanMarkdown(task.title)}
+                              </span>
+                            </div>
                             <div className="flex items-center gap-1.5 shrink-0">
                               <span className="text-[9px] font-bold text-primary-400">
                                 {new Date(task.dueDate).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}
@@ -901,7 +1120,7 @@ export default function DashboardClient({
             </div>
           </div>
 
-          {/* PANEL 3: Consola de Proyectos (Active Projects) */}
+          {/* PANEL 4: Consola de Proyectos (Active Projects) */}
           <div className="bg-white border border-gold-200/50 rounded-2xl p-6 shadow-sm flex flex-col justify-between min-h-[450px]">
             <div>
               <div className="flex items-center justify-between border-b border-primary-100 pb-3 mb-4">
@@ -989,7 +1208,7 @@ export default function DashboardClient({
                           className="group border border-primary-50 hover:border-gold-300 hover:bg-gold-50/20 p-3.5 rounded-xl transition-all duration-200 cursor-pointer"
                         >
                           <div className="flex items-center justify-between gap-3">
-                            <span className="text-xs font-bold text-primary-850 group-hover:text-gold-700 transition-colors truncate">
+                            <span className="text-xs font-bold text-primary-855 group-hover:text-gold-700 transition-colors truncate">
                               {cleanMarkdown(project.title)}
                             </span>
                             {assignee && (
