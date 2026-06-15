@@ -357,6 +357,9 @@ Rules:
 - PRESERVE the blocks in "Plan of blocks currently on screen (current blocks)" unless the user's input explicitly asks to change or delete them. Do not discard manual modifications.
 - MERGE new Assigned Tasks or Assigned Meetings that are not already represented in the current plan. Avoid duplicates.
 - Avoid solapamientos (overlapping). If there is a fixed meeting time, keep it and schedule tasks around it.
+- DYNAMIC BLOCK DURATIONS: Do not restrict yourself to rigid 1-hour slots. Tasks can be 15, 30, 45, or 60 minutes depending on task size, priority, or user requests.
+- TASK GROUPING & CHECKLISTS: If the user requests to group quick tasks, checklist items, or run minor tasks in a short timeframe (e.g., "pónmelas en 30 minutos"), group those items into a single block with a combined description (e.g., "Checklist: [Task 1], [Task 2]...").
+- TRAVEL & TRANSIT BUFFER: Automatically detect if meetings or events require travel or occur in different locations. Schedule a 15-minute or 30-minute block (type: "personal", titled "Traslado / Tiempo de viaje") right before that activity.
 - Format your output strictly as a JSON object with two keys:
   - "message": A string written in Spanish detailing your assessment of the day's tasks, the changes you propose in the schedule, and asking the user to evaluate and confirm them.
   - "plan": An array of blocks representing the proposed schedule.
