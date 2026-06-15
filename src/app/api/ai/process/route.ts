@@ -40,13 +40,157 @@ export async function POST(req: NextRequest) {
         const plan: any[] = [];
         const addedChanges: string[] = [];
 
-        // Simple helper to check overlap
-        const isTimeOverlapping = (start1: string, end1: string, start2: string, end2: string) => {
-          return start1 < end2 && start2 < end1;
+        // Time conversion helpers
+        const timeToMin = (t: string) => {
+          const [h, m] = t.split(':').map(Number);
+          return h * 60 + (m || 0);
+        };
+        const minToTime = (min: number) => {
+          const h = Math.floor(min / 60);
+          const m = min % 60;
+          return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
         };
 
-        // Extract "a las X ... hasta/a las Y" patterns
-        // Matches "a las 9 voy a caracol que tengo clasede de surf hasta las 11"
+        // Helper to check if a range overlaps with any block already in the plan
+        const hasOverlap = (startM: number, endM: number) => {
+          return plan.some(b => {
+            const bStart = timeToMin(b.start);
+            const bEnd = timeToMin(b.end);
+            return startM < bEnd && bStart < endM;
+          });
+        };
+
+        // 1. Determine day boundaries (default 08:00 to 18:00)
+        let dayStartMin = 480; // 08:00
+        let dayEndMin = 1080;  // 18:00
+
+        // Parse start boundary: e.g. "empiezo a las 8"
+        const startMatch = /empiezo a las\s+(\d{1,2})(?::(\d{2}))?/i.exec(combinedText);
+        if (startMatch) {
+          const h = parseInt(startMatch[1]);
+          const m = parseInt(startMatch[2] || '0');
+          dayStartMin = h * 60 + m;
+        }
+
+        // Parse end boundary: e.g. "a las 5 quiero estar libre" or "a las 17:00 libre"
+        const endMatch = /(?:a las\s+(\d{1,2})(?::(\d{2}))?\s+quiero estar libre|libre a las\s+(\d{1,2})(?::(\d{2}))?)/i.exec(combinedText);
+        if (endMatch) {
+          const hStr = endMatch[1] || endMatch[3];
+          const mStr = endMatch[2] || endMatch[4] || '0';
+          let h = parseInt(hStr);
+          if (h < 8) h += 12; // 5 -> 17
+          dayEndMin = h * 60 + parseInt(mStr);
+        }
+
+        // Block slots outside day boundaries
+        if (dayStartMin > 480) {
+          plan.push({
+            id: 'boundary_start',
+            title: 'Fuera de Horario (Inicio)',
+            start: '08:00',
+            end: minToTime(dayStartMin),
+            type: 'personal'
+          });
+        }
+        if (dayEndMin < 1080) {
+          plan.push({
+            id: 'boundary_end',
+            title: 'Fuera de Horario / Libre',
+            start: minToTime(dayEndMin),
+            end: '18:00',
+            type: 'personal'
+          });
+        }
+
+        // 2. Extract explicit time range custom blocks
+        // E.g. "de 8:00 a 9:00 voy a estar haciendo esto"
+        const rangeMatchRegex = /de\s+(\d{1,2})(?::(\d{2}))?\s*(?:a|hasta)\s*(\d{1,2})(?::(\d{2}))?\s+voy a estar haciendo\s+([^.\n,-]+)/gi;
+        let rMatch;
+        while ((rMatch = rangeMatchRegex.exec(combinedText)) !== null) {
+          let startH = parseInt(rMatch[1]);
+          const startM = rMatch[2] || '00';
+          let endH = parseInt(rMatch[3]);
+          const endM = rMatch[4] || '00';
+          const title = rMatch[5].trim();
+
+          if (startH < 8) startH += 12;
+          if (endH < 8) endH += 12;
+
+          const startStr = `${String(startH).padStart(2, '0')}:${startM}`;
+          const endStr = `${String(endH).padStart(2, '0')}:${endM}`;
+          const sM = timeToMin(startStr);
+          const eM = timeToMin(endStr);
+
+          if (!hasOverlap(sM, eM)) {
+            plan.push({
+              id: 'custom_' + Math.random().toString(36).substring(2, 9),
+              title: title.charAt(0).toUpperCase() + title.slice(1),
+              start: startStr,
+              end: endStr,
+              type: 'personal'
+            });
+          }
+        }
+
+        // 3. Extract single hour blocks (e.g. "a las 10 bloqueame para tal cosa")
+        const blockMatchRegex = /a las\s+(\d{1,2})(?::(\d{2}))?,\s+bloqueame la agenda para\s+([^.\n,-]+)/gi;
+        let bMatch;
+        while ((bMatch = blockMatchRegex.exec(combinedText)) !== null) {
+          let startH = parseInt(bMatch[1]);
+          const startM = bMatch[2] || '00';
+          const title = bMatch[3].trim();
+          
+          if (startH < 8) startH += 12;
+          const endH = startH + 1;
+
+          const startStr = `${String(startH).padStart(2, '0')}:${startM}`;
+          const endStr = `${String(endH).padStart(2, '0')}:${startM}`;
+          const sM = timeToMin(startStr);
+          const eM = timeToMin(endStr);
+
+          if (!hasOverlap(sM, eM)) {
+            plan.push({
+              id: 'custom_' + Math.random().toString(36).substring(2, 9),
+              title: title.charAt(0).toUpperCase() + title.slice(1),
+              start: startStr,
+              end: endStr,
+              type: 'personal'
+            });
+          }
+        }
+
+        // 4. Extract kid pickups / other duties (e.g. "buscar a los kids a las 2:00")
+        const dutiesRegex = /(?:tengo que|toca|buscar a los|ir a buscar a)\s+([^.\n,-]+)\s+a las\s+(\d{1,2})(?::(\d{2}))?/gi;
+        let dMatch;
+        while ((dMatch = dutiesRegex.exec(combinedText)) !== null) {
+          const dutyName = dMatch[1].trim();
+          let startH = parseInt(dMatch[2]);
+          const startM = dMatch[3] || '00';
+
+          if (startH < 8) startH += 12;
+          const endH = startH + 1; // default 1 hour buffer
+
+          const startStr = `${String(startH).padStart(2, '0')}:${startM}`;
+          const endStr = `${String(endH).padStart(2, '0')}:${startM}`;
+          const sM = timeToMin(startStr);
+          const eM = timeToMin(endStr);
+
+          if (!hasOverlap(sM, eM)) {
+            let fullTitle = dutyName.charAt(0).toUpperCase() + dutyName.slice(1);
+            if (!fullTitle.toLowerCase().includes('buscar')) {
+              fullTitle = `Buscar a los ${fullTitle}`;
+            }
+            plan.push({
+              id: 'custom_' + Math.random().toString(36).substring(2, 9),
+              title: fullTitle,
+              start: startStr,
+              end: endStr,
+              type: 'personal'
+            });
+          }
+        }
+
+        // 5. Extract "a las X ... hasta/a las Y" patterns (e.g. surf class)
         const pattern1 = /a las\s+(\d{1,2})(?::(\d{2}))?\s+(.*?)\s+(?:a|hasta)\s+las?\s+(\d{1,2})(?::(\d{2}))?/gi;
         let match;
         while ((match = pattern1.exec(combinedText)) !== null) {
@@ -58,8 +202,9 @@ export async function POST(req: NextRequest) {
 
           const startStr = `${String(startH).padStart(2, '0')}:${startM}`;
           const endStr = `${String(endH).padStart(2, '0')}:${endM}`;
+          const sM = timeToMin(startStr);
+          const eM = timeToMin(endStr);
 
-          // Clean title keywords
           title = title.replace(/^(voy a|tengo|quiero|ir a|clase de|clasede de|clasede)\s+/i, '');
           title = title.replace(/^(que tengo|tengo que|para)\s+/i, '');
           
@@ -69,48 +214,72 @@ export async function POST(req: NextRequest) {
             title = title.charAt(0).toUpperCase() + title.slice(1);
           }
 
-          plan.push({
-            id: 'custom_' + Math.random().toString(36).substring(2, 9),
-            title: title || 'Evento Especial',
-            start: startStr,
-            end: endStr,
-            type: 'personal'
-          });
+          if (!hasOverlap(sM, eM)) {
+            plan.push({
+              id: 'custom_' + Math.random().toString(36).substring(2, 9),
+              title,
+              start: startStr,
+              end: endStr,
+              type: 'personal'
+            });
+            
+            // Add a 30-min transit buffer before it
+            const transitStart = sM - 30;
+            if (transitStart >= dayStartMin && !hasOverlap(transitStart, sM)) {
+              plan.push({
+                id: 'transit_' + Math.random().toString(36).substring(2, 9),
+                title: "Traslado / Tiempo de viaje",
+                start: minToTime(transitStart),
+                end: startStr,
+                type: 'personal'
+              });
+            }
+          }
         }
 
-        // Also check if user mentioned lunch/eating
-        if (combinedText.includes('comer') || combinedText.includes('almuerzo')) {
-          const startStr = '13:00';
-          const endStr = '14:00';
-          const hasOverlap = plan.some(b => isTimeOverlapping(b.start, b.end, startStr, endStr));
-          if (!hasOverlap) {
+        // 6. Check lunch suggestion
+        if (combinedText.includes('comer') || combinedText.includes('almuerzo') || combinedText.includes('planificame el almuerzo')) {
+          // Put lunch at 13:00 if free, else 12:00, else 14:00
+          let lunchStart = '13:00';
+          let lunchEnd = '14:00';
+          if (hasOverlap(timeToMin('13:00'), timeToMin('14:00'))) {
+            if (!hasOverlap(timeToMin('12:00'), timeToMin('13:00'))) {
+              lunchStart = '12:00';
+              lunchEnd = '13:00';
+            } else if (!hasOverlap(timeToMin('14:00'), timeToMin('15:00'))) {
+              lunchStart = '14:00';
+              lunchEnd = '15:00';
+            }
+          }
+          const sM = timeToMin(lunchStart);
+          const eM = timeToMin(lunchEnd);
+          if (!hasOverlap(sM, eM)) {
             plan.push({
               id: 'custom_' + Math.random().toString(36).substring(2, 9),
               title: 'Almuerzo / Descanso',
-              start: startStr,
-              end: endStr,
+              start: lunchStart,
+              end: lunchEnd,
               type: 'personal'
             });
           }
         }
 
-        // Also check if user mentioned exercise/gym
+        // Check exercise/gym
         if (combinedText.includes('ejercicio') || combinedText.includes('gimnasio') || combinedText.includes('gym') || combinedText.includes('entrenar')) {
-          const startStr = '17:00';
-          const endStr = '18:00';
-          const hasOverlap = plan.some(b => isTimeOverlapping(b.start, b.end, startStr, endStr));
-          if (!hasOverlap) {
+          const sM = timeToMin('17:00');
+          const eM = timeToMin('18:00');
+          if (!hasOverlap(sM, eM)) {
             plan.push({
               id: 'custom_' + Math.random().toString(36).substring(2, 9),
               title: 'Gimnasio / Deporte',
-              start: startStr,
-              end: endStr,
+              start: '17:00',
+              end: '18:00',
               type: 'personal'
             });
           }
         }
 
-        // Gather all tasks and meetings to schedule
+        // 7. Parse database tasks and text tasks
         const itemsToSchedule: any[] = [];
         if (meetings && meetings.length > 0) {
           meetings.forEach((m: any) => {
@@ -123,31 +292,46 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Parse new tasks from user input text separated by dash "-"
-        const segments = cleaned.split(/\s+-\s+/);
-        if (segments.length > 1) {
-          segments.forEach((seg, index) => {
-            let cleanSeg = seg.trim();
-            if (index === 0) {
-              // Ignore introductory instructions in the first segment
-              return;
-            }
+        // Parse new tasks from user input separated by " - "
+        const rawSegments = cleaned.split(/\s+-\s+/);
+        const segmentTasks: string[] = [];
+        if (rawSegments.length > 1) {
+          rawSegments.forEach((seg, index) => {
+            if (index === 0) return;
+            let cleanSeg = seg.trim().replace(/^[.\s-]+/, '').trim();
             if (cleanSeg && cleanSeg.length > 2) {
-              cleanSeg = cleanSeg.replace(/^[.\s-]+/, '').trim();
-              if (cleanSeg) {
-                itemsToSchedule.push({
-                  title: cleanSeg,
-                  type: 'task'
-                });
-              }
+              segmentTasks.push(cleanSeg);
             }
+          });
+        }
+
+        const requestGrouping = combinedText.includes('agrupa') || combinedText.includes('checklist') || combinedText.includes('tareas rápidas');
+        if (requestGrouping && segmentTasks.length > 0) {
+          const groupCount = Math.min(5, segmentTasks.length);
+          const groupedTitles = segmentTasks.slice(0, groupCount).join(', ');
+          itemsToSchedule.push({
+            title: `Checklist: ${groupedTitles.substring(0, 50)}...`,
+            type: 'task',
+            duration: 30
+          });
+          for (let i = groupCount; i < segmentTasks.length; i++) {
+            itemsToSchedule.push({
+              title: segmentTasks[i],
+              type: 'task'
+            });
+          }
+        } else {
+          segmentTasks.forEach(title => {
+            itemsToSchedule.push({
+              title,
+              type: 'task'
+            });
           });
         }
 
         // Add today's DB tasks
         if (tasks && tasks.length > 0) {
           tasks.forEach((t: any) => {
-            // Check if we already added a task with a very similar title from the text to avoid duplicates
             const isSimilar = itemsToSchedule.some(item => 
               item.title.toLowerCase().includes(t.title.toLowerCase()) || 
               t.title.toLowerCase().includes(item.title.toLowerCase())
@@ -162,23 +346,18 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Place items into available slots
-        // 1. Place fixed meetings
+        // 8. Place items into available slots
+        // First: Place fixed meetings
         itemsToSchedule.forEach((item) => {
           if (item.fixedTime) {
-            let start = item.fixedTime;
-            let end = '10:00';
-            const parts = start.split(':');
-            const hNum = parseInt(parts[0]);
-            end = `${String(hNum + 1).padStart(2, '0')}:${parts[1] || '00'}`;
-
-            const hasOverlap = plan.some(b => isTimeOverlapping(b.start, b.end, start, end));
-            if (!hasOverlap) {
+            let startM = timeToMin(item.fixedTime);
+            let endM = startM + 60;
+            if (!hasOverlap(startM, endM)) {
               plan.push({
                 id: 'block_' + Math.random().toString(36).substring(2, 9),
                 title: item.title,
-                start,
-                end,
+                start: item.fixedTime,
+                end: minToTime(endM),
                 type: item.type,
                 taskId: item.taskId
               });
@@ -187,42 +366,92 @@ export async function POST(req: NextRequest) {
           }
         });
 
-        // 2. Place other items in free hourly slots from 08:00 to 18:00
-        let currentH = 8;
+        // Parse task restriction timeframe: e.g. "tareas de 11:00 a 2:00"
+        let taskTimeStart = dayStartMin;
+        let taskTimeEnd = dayEndMin;
+        const taskTimeMatch = /tareas.* de\s+(\d{1,2})(?::(\d{2}))?\s*(?:a|hasta)\s*(\d{1,2})(?::(\d{2}))?/i.exec(combinedText);
+        if (taskTimeMatch) {
+          let tsH = parseInt(taskTimeMatch[1]);
+          const tsM = parseInt(taskTimeMatch[2] || '0');
+          let teH = parseInt(taskTimeMatch[3]);
+          const teM = parseInt(taskTimeMatch[4] || '0');
+          if (tsH < 8) tsH += 12;
+          if (teH < 8) teH += 12;
+          taskTimeStart = tsH * 60 + tsM;
+          taskTimeEnd = teH * 60 + teM;
+        }
+
+        const unscheduledCount = itemsToSchedule.filter(i => !i.scheduled).length;
+        const defaultDuration = unscheduledCount > 5 ? 30 : 60;
+
+        // Second: Place restricted database tasks inside taskTimeStart to taskTimeEnd
+        let currentM = taskTimeStart;
         itemsToSchedule.forEach((item) => {
-          if (item.scheduled) return;
+          if (item.scheduled || item.type !== 'task') return;
 
-          while (currentH < 18) {
-            const startStr = `${String(currentH).padStart(2, '0')}:00`;
-            const endStr = `${String(currentH + 1).padStart(2, '0')}:00`;
+          const duration = item.duration || defaultDuration;
+          while (currentM < taskTimeEnd) {
+            const endM = currentM + duration;
+            if (endM > taskTimeEnd) break;
 
-            const hasOverlap = plan.some(b => isTimeOverlapping(b.start, b.end, startStr, endStr));
-            if (!hasOverlap) {
+            if (!hasOverlap(currentM, endM)) {
               plan.push({
                 id: 'block_' + Math.random().toString(36).substring(2, 9),
                 title: item.title,
-                start: startStr,
-                end: endStr,
+                start: minToTime(currentM),
+                end: minToTime(endM),
                 type: item.type,
                 taskId: item.taskId
               });
               item.scheduled = true;
-              currentH++;
+              currentM = endM;
               break;
             }
-            currentH++;
+            currentM += 30;
+          }
+        });
+
+        // Third: Place other remaining tasks in general day slots (dayStartMin to dayEndMin)
+        currentM = dayStartMin;
+        itemsToSchedule.forEach((item) => {
+          if (item.scheduled) return;
+
+          const duration = item.duration || defaultDuration;
+          while (currentM < dayEndMin) {
+            const endM = currentM + duration;
+            if (endM > dayEndMin) break;
+
+            if (!hasOverlap(currentM, endM)) {
+              plan.push({
+                id: 'block_' + Math.random().toString(36).substring(2, 9),
+                title: item.title,
+                start: minToTime(currentM),
+                end: minToTime(endM),
+                type: item.type,
+                taskId: item.taskId
+              });
+              item.scheduled = true;
+              currentM = endM;
+              break;
+            }
+            currentM += 30;
           }
         });
 
         plan.sort((a, b) => a.start.localeCompare(b.start));
 
-        // Construct response evaluation message
+        // 9. Construct response evaluation message with red styling for unscheduled tasks
         const scheduledItems = itemsToSchedule.filter(i => i.scheduled);
         const unscheduledItems = itemsToSchedule.filter(i => !i.scheduled);
 
-        let message = `### 📝 Evaluación de la Planificación Propuesta\n\nHe evaluado tus peticiones y la conversación anterior. Propongo los siguientes ajustes en tu agenda:\n\n`;
+        let message = `### 📝 Evaluación de la Planificación Propuesta\n\nHe adaptado la planificación considerando tus límites de horario y prioridades:\n\n`;
         
-        const personalEvents = plan.filter(b => b.type === 'personal');
+        // Show boundaries
+        message += `**Límites del Día:**\n`;
+        message += `- 🕗 Hora de inicio: **${minToTime(dayStartMin)}**\n`;
+        message += `- 🕔 Fin de jornada (libre): **${minToTime(dayEndMin)}**\n\n`;
+
+        const personalEvents = plan.filter(b => b.type === 'personal' && b.id !== 'boundary_start' && b.id !== 'boundary_end');
         if (personalEvents.length > 0) {
           message += `**Bloqueos Personales y Descansos:**\n`;
           personalEvents.forEach(p => {
@@ -241,14 +470,14 @@ export async function POST(req: NextRequest) {
         });
 
         if (unscheduledItems.length > 0) {
-          message += `\n⚠️ **Actividades no asignadas (sin espacio hoy):**\n`;
+          message += `\n🔴 **Actividades no asignadas (Exceso de Tiempo / Quedan en Rojo):**\n`;
           unscheduledItems.forEach(item => {
-            message += `- ❌ *${item.title}*\n`;
+            message += `- ❌ <span style="color: #dc2626; font-weight: bold;">${item.title}</span>\n`;
           });
-          message += `\n*Nota: Tu jornada laboral (08:00 - 18:00) está completamente llena. Estas actividades quedan como tareas pendientes en el panel.*`;
+          message += `\n*Nota: Al marcar tu salida a las ${minToTime(dayEndMin)}, estas actividades no caben en la jornada de hoy. Se mantendrán marcadas en tu panel como pendientes.*`;
         }
 
-        message += `\n\n¿Deseas confirmar y aplicar esta distribución a tu agenda? Revisa los bloques sombreados en el calendario y haz clic en "Aplicar Agenda" o descártalos.`;
+        message += `\n\n¿Deseas aplicar estos bloques sombreados a tu agenda diaria? Haz clic en "Aplicar Agenda" o descártalos.`;
 
         return { plan, message };
       }
