@@ -5,6 +5,34 @@ import HslAvatar from '@/components/HslAvatar';
 import TaskDrawer, { Task, Person, Company } from '@/components/TaskDrawer';
 import { useUnreadComments } from '@/hooks/useUnreadComments';
 
+export interface DayPlanBlock {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  type: 'task' | 'meeting' | 'personal';
+  taskId?: string;
+}
+
+function extractDayPlanClient(description: string): DayPlanBlock[] {
+  if (!description) return [];
+  const match = description.match(/<!-- HERMES_DAY_PLAN: (.*?) -->/);
+  if (match) {
+    try {
+      return JSON.parse(match[1]);
+    } catch (e) {
+      console.error('Error parsing day plan:', e);
+    }
+  }
+  return [];
+}
+
+function injectDayPlanClient(description: string, plan: DayPlanBlock[]): string {
+  const clean = (description || '').replace(/<!-- HERMES_DAY_PLAN: (.*?) -->/g, '').trim();
+  const jsonStr = JSON.stringify(plan);
+  return `${clean}\n\n<!-- HERMES_DAY_PLAN: ${jsonStr} -->`;
+}
+
 export default function UserDashboard() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
@@ -85,9 +113,215 @@ export default function UserDashboard() {
 
   // Selected User State (defaults to first user in list on load)
   const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const selectedUser = useMemo(() => {
+    return people.find(p => p.id === selectedUserId) || null;
+  }, [people, selectedUserId]);
   const [viewMode, setViewMode] = useState<'standard' | 'visual'>('standard');
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().substring(0, 10));
+  const [dayPlanBlocks, setDayPlanBlocks] = useState<DayPlanBlock[]>([]);
+  const [dayPlanTask, setDayPlanTask] = useState<Task | null>(null);
+
+  // Chat planner states
+  const [plannerMessages, setPlannerMessages] = useState<{ sender: 'user' | 'ai'; text: string }[]>([
+    {
+      sender: 'ai',
+      text: 'Hola, soy Hermes Asistente. ¿Cómo te gustaría estructurar tu día hoy? Cuéntame sobre tus prioridades o reuniones y te ayudaré a planificarlo.'
+    }
+  ]);
+  const [plannerInput, setPlannerInput] = useState('');
+  const [aiPlannerLoading, setAiPlannerLoading] = useState(false);
+  const [isEditingBlock, setIsEditingBlock] = useState<boolean>(false);
+  const [editingBlock, setEditingBlock] = useState<DayPlanBlock | null>(null);
+  const [showAddBlockInline, setShowAddBlockInline] = useState<string | null>(null); // Start hour for inline adding
+  const [newBlockTitle, setNewBlockTitle] = useState('');
+  const [newBlockType, setNewBlockType] = useState<'task' | 'meeting' | 'personal'>('task');
+  const [newBlockEnd, setNewBlockEnd] = useState('');
+
+  // Sync / Load Daily Plan Task
+  useEffect(() => {
+    if (!selectedUserId || !selectedDate) return;
+    const planTitle = `Plan de Trabajo - ${selectedUser?.name || ''} - ${selectedDate}`;
+    const foundTask = rawTasks.find(t => 
+      t.assigneeId === selectedUserId && 
+      t.title === planTitle
+    );
+    if (foundTask) {
+      setDayPlanTask(foundTask);
+      setDayPlanBlocks(extractDayPlanClient(foundTask.description));
+    } else {
+      setDayPlanTask(null);
+      setDayPlanBlocks([]);
+    }
+  }, [selectedUserId, selectedDate, rawTasks, selectedUser]);
+
+  const handleSaveDayPlan = async (blocks: DayPlanBlock[]) => {
+    if (!selectedUserId || !selectedDate) return;
+    const planTitle = `Plan de Trabajo - ${selectedUser?.name || ''} - ${selectedDate}`;
+    const updatedDescription = injectDayPlanClient(
+      dayPlanTask?.description || `Plan de Trabajo para ${selectedUser?.name || 'Usuario'} el ${selectedDate}`,
+      blocks
+    );
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': 'mock-api-key-12345'
+      };
+
+      if (dayPlanTask) {
+        const res = await fetch(`/api/tasks/${dayPlanTask.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({
+            description: updatedDescription
+          })
+        });
+        if (res.ok) {
+          const updatedTask = await res.json();
+          setRawTasks(prev => prev.map(t => t.id === updatedTask.id ? { ...t, description: updatedTask.description } : t));
+          setToastMessage("Agenda diaria guardada");
+          setShowToast(true);
+          setTimeout(() => setShowToast(false), 2000);
+        }
+      } else {
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            title: planTitle,
+            description: updatedDescription,
+            type: 'One-shot',
+            assigneeId: selectedUserId,
+            status: 'Pending',
+            priority: 'Medium',
+            origin: 'Manual',
+            dueDate: `${selectedDate}T23:59:59Z`,
+            companyId: selectedUser?.companyId || ''
+          })
+        });
+        if (res.ok) {
+          const newTask = await res.json();
+          setRawTasks(prev => [...prev, {
+            ...newTask,
+            steps: [],
+            attachments: [],
+            activityLog: [],
+            completedDays: []
+          }]);
+          setToastMessage("Agenda diaria creada");
+          setShowToast(true);
+          setTimeout(() => setShowToast(false), 2000);
+        }
+      }
+    } catch (err) {
+      console.error("Error saving day plan:", err);
+    }
+  };
+
+  const handleAddBlock = (startHour: string) => {
+    if (!newBlockTitle.trim()) return;
+    const startNum = parseInt(startHour.split(':')[0]);
+    const endHour = newBlockEnd || `${String(startNum + 1).padStart(2, '0')}:00`;
+
+    const newBlock: DayPlanBlock = {
+      id: 'block_' + Math.random().toString(36).substring(2, 9),
+      title: newBlockTitle,
+      start: startHour,
+      end: endHour,
+      type: newBlockType
+    };
+
+    const updatedBlocks = [...dayPlanBlocks, newBlock].sort((a, b) => a.start.localeCompare(b.start));
+    setDayPlanBlocks(updatedBlocks);
+    handleSaveDayPlan(updatedBlocks);
+
+    setNewBlockTitle('');
+    setNewBlockType('task');
+    setNewBlockEnd('');
+    setShowAddBlockInline(null);
+  };
+
+  const handleDeleteBlock = (blockId: string) => {
+    const updatedBlocks = dayPlanBlocks.filter(b => b.id !== blockId);
+    setDayPlanBlocks(updatedBlocks);
+    handleSaveDayPlan(updatedBlocks);
+  };
+
+  const handleUpdateBlock = (updated: DayPlanBlock) => {
+    const updatedBlocks = dayPlanBlocks.map(b => b.id === updated.id ? updated : b).sort((a, b) => a.start.localeCompare(b.start));
+    setDayPlanBlocks(updatedBlocks);
+    handleSaveDayPlan(updatedBlocks);
+    setIsEditingBlock(false);
+    setEditingBlock(null);
+  };
+
+  const handleAutoplanWithAI = async () => {
+    setAiPlannerLoading(true);
+    const todayTasks = userTasks.filter(t => 
+      t.dueDate && t.dueDate.substring(0, 10) === selectedDate && !t.isMeeting
+    ).map(t => ({ id: t.id, title: t.title }));
+
+    const todayMeetings = userTasks.filter(t => 
+      t.dueDate && t.dueDate.substring(0, 10) === selectedDate && t.isMeeting
+    ).map(t => ({ id: t.id, title: t.title, meetingTime: t.meetingTime }));
+
+    const userPrompt = plannerInput || "Por favor organízame el día de la mejor manera.";
+
+    try {
+      const res = await fetch('/api/ai/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': 'mock-api-key-12345'
+        },
+        body: JSON.stringify({
+          action: 'day_plan',
+          text: userPrompt,
+          tasks: todayTasks,
+          meetings: todayMeetings
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.result && data.result.plan) {
+          const suggestedBlocks = data.result.plan;
+          setPlannerMessages(prev => [
+            ...prev,
+            { sender: 'user', text: userPrompt },
+            { sender: 'ai', text: `He generado una agenda sugerida con ${suggestedBlocks.length} bloques. He incorporado tus tareas y reuniones del día. ¿Qué te parece?` }
+          ]);
+          setPlannerInput('');
+          setDayPlanBlocks(suggestedBlocks);
+          handleSaveDayPlan(suggestedBlocks);
+        } else {
+          setPlannerMessages(prev => [
+            ...prev,
+            { sender: 'user', text: userPrompt },
+            { sender: 'ai', text: 'Lo siento, no pude estructurar el plan en este momento. Inténtalo de nuevo.' }
+          ]);
+        }
+      } else {
+        setPlannerMessages(prev => [
+          ...prev,
+          { sender: 'user', text: userPrompt },
+          { sender: 'ai', text: 'El servidor no pudo procesar tu solicitud. Revisa la consola para más detalles.' }
+        ]);
+      }
+    } catch (err) {
+      console.error("Error auto planning with AI:", err);
+      setPlannerMessages(prev => [
+        ...prev,
+        { sender: 'user', text: userPrompt },
+        { sender: 'ai', text: 'Error de red al intentar conectar con la inteligencia artificial.' }
+      ]);
+    } finally {
+      setAiPlannerLoading(false);
+    }
+  };
 
   const { unreadTasks, markAsRead } = useUnreadComments(tasks, session);
 
@@ -189,17 +423,15 @@ export default function UserDashboard() {
     loadData();
   };
 
-  // Selected User Object
-  const selectedUser = useMemo(() => {
-    return people.find(p => p.id === selectedUserId) || null;
-  }, [people, selectedUserId]);
+
 
   // Filter tasks where the selected user is primary assignee OR inside assigneeIds (shared task)
   const userTasks = useMemo(() => {
     if (!selectedUserId) return [];
     return tasks.filter(t => 
-      t.assigneeId === selectedUserId || 
-      (t.assigneeIds && t.assigneeIds.includes(selectedUserId))
+      (t.assigneeId === selectedUserId || 
+      (t.assigneeIds && t.assigneeIds.includes(selectedUserId))) &&
+      !t.title.startsWith('Plan de Trabajo -')
     );
   }, [tasks, selectedUserId]);
 
@@ -311,6 +543,243 @@ export default function UserDashboard() {
     }
   };
 
+  const renderDailyPlannerAndAI = () => {
+    const hours = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 bg-[#faf9f6]/30 border border-primary-200 rounded-3xl p-6 shadow-xs backdrop-blur-xs">
+        {/* Left Column: AI Assistant (cols-5) */}
+        <div className="lg:col-span-5 flex flex-col h-[600px] bg-white border border-primary-150 rounded-2xl shadow-sm overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-primary-900 to-primary-950 text-white p-4 border-b border-primary-800 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-xl animate-pulse">✨</span>
+              <div>
+                <h3 className="text-xs font-black uppercase tracking-widest text-gold-300">Hermes AI</h3>
+                <h4 className="text-[11px] font-medium text-primary-300">Planificador de Día Inteligente</h4>
+              </div>
+            </div>
+            {aiPlannerLoading && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gold-300"></div>
+            )}
+          </div>
+
+          {/* Messages Feed */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-primary-50/15">
+            {plannerMessages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs font-bold leading-relaxed ${
+                    msg.sender === 'user'
+                      ? 'bg-primary-900 text-white rounded-br-xs shadow-xs'
+                      : 'bg-gold-50/60 border border-gold-200 text-primary-900 rounded-bl-xs'
+                  }`}
+                >
+                  {msg.text}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Input & Form */}
+          <div className="p-3 border-t border-primary-100 bg-white space-y-3">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!plannerInput.trim()) return;
+                handleAutoplanWithAI();
+              }}
+              className="flex gap-2"
+            >
+              <input
+                type="text"
+                placeholder="Escribe cómo quieres planificar tu día..."
+                value={plannerInput}
+                onChange={(e) => setPlannerInput(e.target.value)}
+                disabled={aiPlannerLoading}
+                className="flex-1 px-3 py-2.5 border border-primary-200 rounded-xl text-xs font-bold text-primary-800 bg-[#faf9f6] focus:outline-none focus:ring-2 focus:ring-gold-500/20 disabled:opacity-60"
+              />
+              <button
+                type="submit"
+                disabled={aiPlannerLoading || !plannerInput.trim()}
+                className="px-4 py-2.5 bg-primary-900 hover:bg-primary-800 text-white rounded-xl text-xs font-extrabold transition disabled:opacity-50 shrink-0"
+              >
+                Enviar
+              </button>
+            </form>
+            
+            <button
+              type="button"
+              onClick={handleAutoplanWithAI}
+              disabled={aiPlannerLoading}
+              className="w-full py-2.5 bg-gradient-to-r from-gold-600 to-amber-600 hover:from-gold-700 hover:to-amber-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition flex items-center justify-center gap-2 group disabled:opacity-60"
+            >
+              <span>✨</span>
+              <span>Autoplanificar con Hermes AI</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Right Column: Timeline Planner (cols-7) */}
+        <div className="lg:col-span-7 flex flex-col h-[600px] bg-white border border-primary-150 rounded-2xl shadow-sm overflow-hidden">
+          {/* Header */}
+          <div className="p-4 border-b border-primary-100 flex items-center justify-between bg-primary-50/10">
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-wider text-primary-900">
+                📅 Agenda del Día
+              </h3>
+              <p className="text-[10px] text-primary-400 font-bold">
+                {selectedDate === new Date().toISOString().substring(0, 10) ? 'Hoy' : selectedDate} — Plan de bloques horarios
+              </p>
+            </div>
+            <span className="text-[10px] font-black uppercase text-gold-650 bg-gold-50 px-2.5 py-1 rounded-md border border-gold-150">
+              {selectedUser?.name || 'Miembro'}
+            </span>
+          </div>
+
+          {/* Timeline Scroll Container */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {hours.map((hour) => {
+              const matchingBlocks = dayPlanBlocks.filter(b => b.start.startsWith(hour.substring(0, 3)));
+
+              return (
+                <div key={hour} className="flex gap-4 items-start min-h-[55px]">
+                  {/* Hour indicator label */}
+                  <span className="w-12 text-[10px] font-black text-primary-400 tracking-wider pt-1 shrink-0">
+                    {hour}
+                  </span>
+
+                  {/* Slot content */}
+                  <div className="flex-1">
+                    {matchingBlocks.length > 0 ? (
+                      <div className="space-y-2">
+                        {matchingBlocks.map((block) => {
+                          let styleClasses = 'bg-blue-50/40 border-blue-200 text-blue-950';
+                          let typeBadge = 'Tarea';
+                          if (block.type === 'meeting') {
+                            styleClasses = 'bg-gold-600/10 border-gold-400 text-gold-950';
+                            typeBadge = 'Reunión';
+                          } else if (block.type === 'personal') {
+                            styleClasses = 'bg-emerald-50/45 border-emerald-250 text-emerald-950';
+                            typeBadge = 'Personal';
+                          }
+
+                          return (
+                            <div
+                              key={block.id}
+                              className={`p-3 rounded-xl border flex items-center justify-between gap-3 shadow-2xs group hover:shadow-xs transition duration-200 ${styleClasses}`}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs font-black truncate">{block.title}</span>
+                                  <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-white/70 border tracking-wider">
+                                    {typeBadge}
+                                  </span>
+                                </div>
+                                <span className="text-[9px] font-bold opacity-75 mt-0.5 block">
+                                  {block.start} - {block.end}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingBlock({ ...block });
+                                    setIsEditingBlock(true);
+                                  }}
+                                  className="w-7 h-7 bg-white hover:bg-primary-50 rounded-lg border border-primary-200 flex items-center justify-center text-xs shadow-2xs"
+                                  title="Editar"
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteBlock(block.id)}
+                                  className="w-7 h-7 bg-white hover:bg-red-50 hover:border-red-200 rounded-lg border border-primary-200 flex items-center justify-center text-xs text-red-500 shadow-2xs"
+                                  title="Eliminar"
+                                >
+                                  ❌
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : showAddBlockInline === hour ? (
+                      /* Inline add form */
+                      <div className="bg-primary-50/40 border border-primary-200/80 rounded-xl p-3 space-y-3 shadow-2xs">
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Título del bloque..."
+                            value={newBlockTitle}
+                            onChange={(e) => setNewBlockTitle(e.target.value)}
+                            className="flex-1 px-3 py-1.5 border border-primary-200 rounded-lg text-xs font-bold text-primary-850 focus:outline-none focus:ring-1 focus:ring-gold-500/20 bg-white"
+                          />
+                          <select
+                            value={newBlockType}
+                            onChange={(e) => setNewBlockType(e.target.value as any)}
+                            className="px-2.5 py-1.5 border border-primary-200 rounded-lg text-xs font-bold text-primary-800 bg-white"
+                          >
+                            <option value="task">Tarea</option>
+                            <option value="meeting">Reunión</option>
+                            <option value="personal">Personal</option>
+                          </select>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-primary-400">Termina:</span>
+                            <input
+                              type="text"
+                              placeholder="09:00"
+                              value={newBlockEnd}
+                              onChange={(e) => setNewBlockEnd(e.target.value)}
+                              className="w-16 px-2 py-1 border border-primary-200 rounded-lg text-xs font-bold text-primary-800 text-center bg-white"
+                            />
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowAddBlockInline(null)}
+                              className="px-2.5 py-1 border border-primary-250 rounded-lg text-[10px] font-extrabold text-primary-500 hover:bg-primary-50"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAddBlock(hour)}
+                              className="px-3 py-1 bg-gold-600 text-white rounded-lg text-[10px] font-extrabold hover:bg-gold-700 transition"
+                            >
+                              Guardar
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Dotted empty slot */
+                      <div
+                        onClick={() => {
+                          const startNum = parseInt(hour.split(':')[0]);
+                          setNewBlockEnd(`${String(startNum + 1).padStart(2, '0')}:00`);
+                          setNewBlockType('task');
+                          setNewBlockTitle('');
+                          setShowAddBlockInline(hour);
+                        }}
+                        className="h-10 border border-dashed border-primary-200 hover:border-gold-400 hover:bg-gold-50/5 transition rounded-xl flex items-center justify-center text-[10px] font-black uppercase text-primary-400 tracking-wider cursor-pointer group"
+                      >
+                        <span className="group-hover:text-gold-650 transition">+ Agregar Bloque</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderWeeklyFocusPlanner = () => {
     const today = new Date();
     const currentDay = today.getDay();
@@ -351,10 +820,13 @@ export default function UserDashboard() {
             return (
               <div 
                 key={day.date} 
-                className={`rounded-xl p-3 flex flex-col space-y-3 min-h-[180px] border ${
-                  day.isToday 
+                onClick={() => setSelectedDate(day.date)}
+                className={`rounded-xl p-3 flex flex-col space-y-3 min-h-[180px] border cursor-pointer transition ${
+                  day.date === selectedDate 
+                    ? 'bg-gold-50/25 border-gold-500 shadow-sm ring-2 ring-gold-400' 
+                    : day.isToday 
                     ? 'bg-gold-50/10 border-gold-400 shadow-sm ring-1 ring-gold-400' 
-                    : 'bg-primary-50/30 border-primary-200/60'
+                    : 'bg-primary-50/30 border-primary-200/60 hover:border-primary-350'
                 }`}
               >
                 <div className="flex items-center justify-between border-b border-primary-100/50 pb-1.5">
@@ -703,6 +1175,7 @@ export default function UserDashboard() {
 
       {viewMode === 'visual' ? (
         <div className="space-y-8">
+          {renderDailyPlannerAndAI()}
           {renderWeeklyFocusPlanner()}
           {renderHabitTrackerGrid()}
         </div>
@@ -834,6 +1307,74 @@ export default function UserDashboard() {
         people={people}
         currentUser={session}
       />
+      {isEditingBlock && editingBlock && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50">
+          <div className="bg-white border border-primary-200 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <h3 className="text-sm font-black text-primary-900 uppercase tracking-wider">Editar Bloque Horario</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] font-black uppercase text-primary-400">Título</label>
+                <input
+                  type="text"
+                  value={editingBlock.title}
+                  onChange={(e) => setEditingBlock({ ...editingBlock, title: e.target.value })}
+                  className="w-full mt-1 px-3 py-2 border border-primary-200 rounded-xl text-xs font-bold text-primary-800 bg-[#faf9f6] focus:ring-2 focus:ring-gold-500/20"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-black uppercase text-primary-400">Hora Inicio</label>
+                  <input
+                    type="text"
+                    placeholder="08:00"
+                    value={editingBlock.start}
+                    onChange={(e) => setEditingBlock({ ...editingBlock, start: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 border border-primary-200 rounded-xl text-xs font-bold text-primary-800 bg-[#faf9f6] focus:ring-2 focus:ring-gold-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase text-primary-400">Hora Fin</label>
+                  <input
+                    type="text"
+                    placeholder="09:00"
+                    value={editingBlock.end}
+                    onChange={(e) => setEditingBlock({ ...editingBlock, end: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 border border-primary-200 rounded-xl text-xs font-bold text-primary-800 bg-[#faf9f6] focus:ring-2 focus:ring-gold-500/20"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-black uppercase text-primary-400">Categoría</label>
+                <select
+                  value={editingBlock.type}
+                  onChange={(e) => setEditingBlock({ ...editingBlock, type: e.target.value as any })}
+                  className="w-full mt-1 px-3 py-2 border border-primary-200 rounded-xl text-xs font-bold text-primary-800 bg-[#faf9f6] focus:ring-2 focus:ring-gold-500/20"
+                >
+                  <option value="task">Tarea</option>
+                  <option value="meeting">Reunión</option>
+                  <option value="personal">Personal</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => { setIsEditingBlock(false); setEditingBlock(null); }}
+                className="px-3 py-1.5 border border-primary-200 rounded-xl text-xs font-extrabold text-primary-500 hover:bg-primary-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleUpdateBlock(editingBlock)}
+                className="px-4 py-1.5 bg-gold-600 text-white rounded-xl text-xs font-extrabold hover:bg-gold-700 transition"
+              >
+                Guardar Cambios
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showToast && (
         <div
           id="toast-notification"

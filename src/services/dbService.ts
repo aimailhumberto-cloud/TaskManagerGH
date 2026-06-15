@@ -87,6 +87,37 @@ export function injectMeetingMetadata(description: string, metadata: MeetingMeta
   return cleanDescription;
 }
 
+export interface DayPlanBlock {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  type: 'task' | 'meeting' | 'personal';
+  taskId?: string;
+}
+
+export function extractDayPlan(description: string): DayPlanBlock[] {
+  if (!description) {
+    return [];
+  }
+  const match = description.match(/<!-- HERMES_DAY_PLAN: (.*?) -->/);
+  if (match) {
+    try {
+      return JSON.parse(match[1]);
+    } catch (e) {
+      console.error('Error parsing day plan from description:', e);
+    }
+  }
+  return [];
+}
+
+export function injectDayPlan(description: string, plan: DayPlanBlock[]): string {
+  const clean = (description || '').replace(/<!-- HERMES_DAY_PLAN: (.*?) -->/g, '').trim();
+  const jsonStr = JSON.stringify(plan);
+  return `${clean}\n\n<!-- HERMES_DAY_PLAN: ${jsonStr} -->`;
+}
+
+
 
 export interface IDBService {
   readData(): Promise<DatabaseSchema>;
