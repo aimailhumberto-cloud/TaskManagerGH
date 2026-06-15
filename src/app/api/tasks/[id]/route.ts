@@ -93,6 +93,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (body.attachments !== undefined) updates.attachments = body.attachments;
     if (body.comments !== undefined) updates.comments = body.comments;
     if (body.completedDays !== undefined) updates.completedDays = body.completedDays;
+    if (body.isMeeting !== undefined) updates.isMeeting = body.isMeeting;
+    if (body.meetingTime !== undefined) updates.meetingTime = body.meetingTime;
+    if (body.meetingAttendees !== undefined) updates.meetingAttendees = body.meetingAttendees;
+    if (body.meetingConfirmations !== undefined) updates.meetingConfirmations = body.meetingConfirmations;
+    if (body.meetingLink !== undefined) updates.meetingLink = body.meetingLink;
+    if (body.activityLog !== undefined) updates.activityLog = body.activityLog;
 
     const task = await dbService.updateTask(params.id, updates);
     return NextResponse.json(mapDbToApi(task));

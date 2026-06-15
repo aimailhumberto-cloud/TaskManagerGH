@@ -74,12 +74,19 @@ export function extractMeetingMetadata(description: string): { cleanDescription:
 
 export function injectMeetingMetadata(description: string, metadata: MeetingMetadata): string {
   const { cleanDescription } = extractMeetingMetadata(description);
-  if (metadata.isMeeting || metadata.meetingTime || (metadata.meetingAttendees && metadata.meetingAttendees.length > 0)) {
+  if (
+    metadata.isMeeting ||
+    metadata.meetingTime ||
+    (metadata.meetingAttendees && metadata.meetingAttendees.length > 0) ||
+    (metadata.comments && metadata.comments.length > 0) ||
+    (metadata.completedDays && metadata.completedDays.length > 0)
+  ) {
     const jsonStr = JSON.stringify(metadata);
     return `${cleanDescription}\n\n<!-- HERMES_MEETING_METADATA: ${jsonStr} -->`;
   }
   return cleanDescription;
 }
+
 
 export interface IDBService {
   readData(): Promise<DatabaseSchema>;
@@ -729,7 +736,22 @@ export class DBService implements IDBService {
       const existing = await this.getTaskById(id);
       if (!existing) throw new Error(`Task with id ${id} not found`);
 
-      const activityLog = [...(existing.activityLog || [])];
+      // Safe retrieval of existing activity log
+      let existingLog: LogEntry[] = [];
+      if (Array.isArray(existing.activityLog)) {
+        existingLog = [...existing.activityLog];
+      } else if (typeof existing.activityLog === 'string') {
+        try {
+          existingLog = JSON.parse(existing.activityLog);
+        } catch (_) {
+          existingLog = [];
+        }
+      }
+
+      // Merge activity log correctly
+      const activityLog = taskUpdates.activityLog !== undefined
+        ? taskUpdates.activityLog
+        : [...existingLog];
       
       let wasStatusRescheduled = false;
       const isCompleted = taskUpdates.status === 'Completed';
@@ -772,12 +794,15 @@ export class DBService implements IDBService {
           type: 'User',
         });
       } else {
-        activityLog.push({
-          timestamp: new Date().toISOString(),
-          user: 'System',
-          action: 'Tarea actualizada',
-          type: 'User',
-        });
+        // Only append generic 'Tarea actualizada' if no custom activityLog was provided
+        if (taskUpdates.activityLog === undefined) {
+          activityLog.push({
+            timestamp: new Date().toISOString(),
+            user: 'System',
+            action: 'Tarea actualizada',
+            type: 'User',
+          });
+        }
       }
 
       // Merge meeting metadata

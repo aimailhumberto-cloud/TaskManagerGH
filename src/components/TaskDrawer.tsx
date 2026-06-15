@@ -1002,7 +1002,8 @@ Hermes Task Hub`;
         setTimeout(() => setShowToast(false), 2000);
         onSuccess();
       } else {
-        alert("Error al guardar el avance");
+        const errorData = await res.json().catch(() => ({}));
+        alert(`Error al guardar el avance: ${errorData.error || res.statusText || res.status}`);
       }
     } catch (err) {
       console.error("Error sending comment:", err);

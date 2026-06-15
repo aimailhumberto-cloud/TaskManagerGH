@@ -73,6 +73,13 @@ export async function POST(request: NextRequest) {
       origin: mapApiToDb.origin(body.origin) || 'Manual',
       dueDate: body.dueDate || new Date().toISOString(),
       attachments: Array.isArray(body.attachments) ? body.attachments : [],
+      isMeeting: body.isMeeting || false,
+      meetingTime: body.meetingTime || '',
+      meetingAttendees: Array.isArray(body.meetingAttendees) ? body.meetingAttendees : [],
+      meetingConfirmations: Array.isArray(body.meetingConfirmations) ? body.meetingConfirmations : [],
+      meetingLink: body.meetingLink || '',
+      comments: Array.isArray(body.comments) ? body.comments : [],
+      completedDays: Array.isArray(body.completedDays) ? body.completedDays : [],
     };
 
     const task = await dbService.createTask(payload);
