@@ -658,81 +658,9 @@ export default function UserDashboard() {
     };
 
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 bg-[#faf9f6]/30 border border-primary-200 rounded-3xl p-6 shadow-xs backdrop-blur-xs">
-        {/* Left Column: AI Assistant (cols-5) */}
-        <div className="lg:col-span-5 flex flex-col h-[600px] bg-white border border-primary-150 rounded-2xl shadow-sm overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-primary-900 to-primary-950 text-white p-4 border-b border-primary-800 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-xl animate-pulse">✨</span>
-              <div>
-                <h3 className="text-xs font-black uppercase tracking-widest text-gold-300">Hermes AI</h3>
-                <h4 className="text-[11px] font-medium text-primary-300">Planificador de Día Inteligente</h4>
-              </div>
-            </div>
-            {aiPlannerLoading && (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gold-300"></div>
-            )}
-          </div>
-
-          {/* Messages Feed */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-primary-50/15">
-            {plannerMessages.map((msg, i) => (
-              <div key={i} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div
-                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs font-bold leading-relaxed ${
-                    msg.sender === 'user'
-                      ? 'bg-primary-900 text-white rounded-br-xs shadow-xs'
-                      : 'bg-gold-50/60 border border-gold-200 text-primary-900 rounded-bl-xs'
-                  }`}
-                >
-                  {msg.text}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Input & Form */}
-          <div className="p-3 border-t border-primary-100 bg-white space-y-3">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!plannerInput.trim()) return;
-                handleAutoplanWithAI();
-              }}
-              className="flex gap-2"
-            >
-              <input
-                type="text"
-                placeholder="Escribe cómo quieres planificar tu día..."
-                value={plannerInput}
-                onChange={(e) => setPlannerInput(e.target.value)}
-                disabled={aiPlannerLoading}
-                className="flex-1 px-3 py-2.5 border border-primary-200 rounded-xl text-xs font-bold text-primary-800 bg-[#faf9f6] focus:outline-none focus:ring-2 focus:ring-gold-500/20 disabled:opacity-60"
-              />
-              <button
-                type="submit"
-                disabled={aiPlannerLoading || !plannerInput.trim()}
-                className="px-4 py-2.5 bg-primary-900 hover:bg-primary-800 text-white rounded-xl text-xs font-extrabold transition disabled:opacity-50 shrink-0"
-              >
-                Enviar
-              </button>
-            </form>
-            
-            <button
-              type="button"
-              onClick={handleAutoplanWithAI}
-              disabled={aiPlannerLoading}
-              className="w-full py-2.5 bg-gradient-to-r from-gold-600 to-amber-600 hover:from-gold-700 hover:to-amber-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition flex items-center justify-center gap-2 group disabled:opacity-60"
-            >
-              <span>✨</span>
-              <span>Autoplanificar con Hermes AI</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Right Column: Timeline Planner (cols-7) */}
-        <div className="lg:col-span-7 flex flex-col h-[600px] bg-white border border-primary-150 rounded-2xl shadow-sm overflow-hidden">
+      <div className="bg-[#faf9f6]/30 border border-primary-200 rounded-3xl p-6 shadow-xs backdrop-blur-xs">
+        {/* Timeline Planner (full width) */}
+        <div className="w-full flex flex-col h-[600px] bg-white border border-primary-150 rounded-2xl shadow-sm overflow-hidden">
           {/* Header with Sub-view switcher */}
           <div className="p-4 border-b border-primary-100 flex items-center justify-between bg-primary-50/10 flex-wrap gap-3 shrink-0">
             <div>
