@@ -683,7 +683,7 @@ export default function UserDashboard() {
               </p>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
                 data-testid="create-new-block-btn"
@@ -739,7 +739,7 @@ export default function UserDashboard() {
                 </button>
               </div>
               
-              <span className="text-[10px] font-black uppercase text-gold-650 bg-gold-50 px-2 py-1 rounded-md border border-gold-150">
+              <span className="hidden sm:inline-block text-[10px] font-black uppercase text-gold-650 bg-gold-50 px-2 py-1 rounded-md border border-gold-150">
                 {selectedUser?.name || 'Miembro'}
               </span>
             </div>
