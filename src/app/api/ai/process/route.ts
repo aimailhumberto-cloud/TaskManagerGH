@@ -132,66 +132,9 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // 3. Extract single hour blocks (e.g. "a las 10 bloqueame para tal cosa")
-        const blockMatchRegex = /a las\s+(\d{1,2})(?::(\d{2}))?,\s+bloqueame la agenda para\s+([^.\n,-]+)/gi;
-        let bMatch;
-        while ((bMatch = blockMatchRegex.exec(combinedText)) !== null) {
-          let startH = parseInt(bMatch[1]);
-          const startM = bMatch[2] || '00';
-          const title = bMatch[3].trim();
-          
-          if (startH < 8) startH += 12;
-          const endH = startH + 1;
-
-          const startStr = `${String(startH).padStart(2, '0')}:${startM}`;
-          const endStr = `${String(endH).padStart(2, '0')}:${startM}`;
-          const sM = timeToMin(startStr);
-          const eM = timeToMin(endStr);
-
-          if (!hasOverlap(sM, eM)) {
-            plan.push({
-              id: 'custom_' + Math.random().toString(36).substring(2, 9),
-              title: title.charAt(0).toUpperCase() + title.slice(1),
-              start: startStr,
-              end: endStr,
-              type: 'personal'
-            });
-          }
-        }
-
-        // 4. Extract kid pickups / other duties (e.g. "buscar a los kids a las 2:00")
-        const dutiesRegex = /(?:tengo que|toca|buscar a los|ir a buscar a)\s+([^.\n,-]+)\s+a las\s+(\d{1,2})(?::(\d{2}))?/gi;
-        let dMatch;
-        while ((dMatch = dutiesRegex.exec(combinedText)) !== null) {
-          const dutyName = dMatch[1].trim();
-          let startH = parseInt(dMatch[2]);
-          const startM = dMatch[3] || '00';
-
-          if (startH < 8) startH += 12;
-          const endH = startH + 1; // default 1 hour buffer
-
-          const startStr = `${String(startH).padStart(2, '0')}:${startM}`;
-          const endStr = `${String(endH).padStart(2, '0')}:${startM}`;
-          const sM = timeToMin(startStr);
-          const eM = timeToMin(endStr);
-
-          if (!hasOverlap(sM, eM)) {
-            let fullTitle = dutyName.charAt(0).toUpperCase() + dutyName.slice(1);
-            if (!fullTitle.toLowerCase().includes('buscar')) {
-              fullTitle = `Buscar a los ${fullTitle}`;
-            }
-            plan.push({
-              id: 'custom_' + Math.random().toString(36).substring(2, 9),
-              title: fullTitle,
-              start: startStr,
-              end: endStr,
-              type: 'personal'
-            });
-          }
-        }
-
-        // 5. Extract "a las X ... hasta/a las Y" patterns (e.g. surf class)
-        const pattern1 = /a las\s+(\d{1,2})(?::(\d{2}))?\s+(.*?)\s+(?:a|hasta)\s+las?\s+(\d{1,2})(?::(\d{2}))?/gi;
+        // 3. Extract duration ranges (e.g. "a las 9 me voy a Clases... hasta las 11")
+        // Uses negative lookahead (?!a las) to prevent crossing over another "a las" indicator
+        const pattern1 = /a las\s+(\d{1,2})(?::(\d{2}))?\s+((?:(?!a las).)*?)\s+(?:a|hasta)\s+las?\s+(\d{1,2})(?::(\d{2}))?/gi;
         let match;
         while ((match = pattern1.exec(combinedText)) !== null) {
           const startH = parseInt(match[1]);
@@ -222,20 +165,89 @@ export async function POST(req: NextRequest) {
               end: endStr,
               type: 'personal'
             });
-            
-            // Add a 30-min transit buffer before it
-            const transitStart = sM - 30;
-            if (transitStart >= dayStartMin && !hasOverlap(transitStart, sM)) {
+          }
+        }
+
+        // 4. Extract single hour blocks (e.g. "a las 8:30 con la coordinadora")
+        // Uses negative lookahead (?!a las|hasta las) to avoid matching range durations
+        const pattern2 = /a las\s+(\d{1,2})(?::(\d{2}))?\s+((?:(?!a las|hasta las).)*?)(?=\s*(?:,|a las|hasta las|y |adiciona|-|\.|$))/gi;
+        let match2;
+        while ((match2 = pattern2.exec(combinedText)) !== null) {
+          const startH = parseInt(match2[1]);
+          const startM = match2[2] || '00';
+          let title = match2[3].trim();
+
+          const startStr = `${String(startH).padStart(2, '0')}:${startM}`;
+          const sM = timeToMin(startStr);
+          const eM = sM + 30; // default 30 mins
+
+          if (hasOverlap(sM, eM)) continue;
+
+          title = title.replace(/^(voy a|tengo|quiero|ir a|clase de|clasede de|clasede)\s+/i, '');
+          title = title.replace(/^(que tengo|tengo que|para)\s+/i, '');
+          title = title.replace(/^con la\s+/i, 'Con la ').replace(/^con\s+/i, 'Con ');
+          
+          if (title) {
+            title = title.charAt(0).toUpperCase() + title.slice(1);
+            plan.push({
+              id: 'custom_' + Math.random().toString(36).substring(2, 9),
+              title,
+              start: startStr,
+              end: minToTime(eM),
+              type: 'personal'
+            });
+          }
+        }
+
+        // 5. Extract kid pickups / other duties (e.g. "buscar a los kids a las 2:00")
+        const dutiesRegex = /(?:tengo que|toca|buscar a los|ir a buscar a)\s+([^.\n,-]+)\s+a las\s+(\d{1,2})(?::(\d{2}))?/gi;
+        let dMatch;
+        while ((dMatch = dutiesRegex.exec(combinedText)) !== null) {
+          const dutyName = dMatch[1].trim();
+          let startH = parseInt(dMatch[2]);
+          const startM = dMatch[3] || '00';
+
+          if (startH < 8) startH += 12;
+          const endH = startH + 1; // default 1 hour buffer
+
+          const startStr = `${String(startH).padStart(2, '0')}:${startM}`;
+          const endStr = `${String(endH).padStart(2, '0')}:${startM}`;
+          const sM = timeToMin(startStr);
+          const eM = timeToMin(endStr);
+
+          if (!hasOverlap(sM, eM)) {
+            let fullTitle = dutyName.charAt(0).toUpperCase() + dutyName.slice(1);
+            if (!fullTitle.toLowerCase().includes('buscar')) {
+              fullTitle = `Buscar a los ${fullTitle}`;
+            }
+            plan.push({
+              id: 'custom_' + Math.random().toString(36).substring(2, 9),
+              title: fullTitle,
+              start: startStr,
+              end: endStr,
+              type: 'personal'
+            });
+          }
+        }
+
+        // 6. After scheduling all custom events:
+        // Add transit buffers for any block that is personal or meeting if needed
+        const customBlocksScheduled = [...plan];
+        customBlocksScheduled.forEach(block => {
+          if (block.title.toLowerCase().includes('surf') || block.type === 'meeting') {
+            const startM = timeToMin(block.start);
+            const transitStart = startM - 30;
+            if (transitStart >= dayStartMin && !hasOverlap(transitStart, startM)) {
               plan.push({
                 id: 'transit_' + Math.random().toString(36).substring(2, 9),
                 title: "Traslado / Tiempo de viaje",
                 start: minToTime(transitStart),
-                end: startStr,
+                end: block.start,
                 type: 'personal'
               });
             }
           }
-        }
+        });
 
         // 6. Check lunch suggestion
         if (combinedText.includes('comer') || combinedText.includes('almuerzo') || combinedText.includes('planificame el almuerzo')) {
@@ -583,9 +595,9 @@ ${historyStr || 'None'}
 5. Assigned Meetings for today: ${JSON.stringify(meetings || [])}
 
 Rules:
-- PRESERVE the blocks in "Plan of blocks currently on screen (current blocks)" unless the user's input explicitly asks to change or delete them. Do not discard manual modifications.
+- RESOLVE CONFLICTS & OVERWRITE: If the user explicitly requests a new block (e.g., Surf Class, meeting, custom event) that overlaps/conflicts with any existing block in "Plan of blocks currently on screen", you MUST override, move, or reschedule the existing block. The user's new instructions and time-slots ALWAYS take precedence over preserving old blocks.
+- PRESERVE other blocks in "Plan of blocks currently on screen (current blocks)" that do not conflict with the new instructions.
 - MERGE new Assigned Tasks or Assigned Meetings that are not already represented in the current plan. Avoid duplicates.
-- Avoid solapamientos (overlapping). If there is a fixed meeting time, keep it and schedule tasks around it.
 - DYNAMIC BLOCK DURATIONS: Do not restrict yourself to rigid 1-hour slots. Tasks can be 15, 30, 45, or 60 minutes depending on task size, priority, or user requests.
 - TASK GROUPING & CHECKLISTS: If the user requests to group quick tasks, checklist items, or run minor tasks in a short timeframe (e.g., "pónmelas en 30 minutos"), group those items into a single block with a combined description (e.g., "Checklist: [Task 1], [Task 2]...").
 - TRAVEL & TRANSIT BUFFER: Automatically detect if meetings or events require travel or occur in different locations. Schedule a 15-minute or 30-minute block (type: "personal", titled "Traslado / Tiempo de viaje") right before that activity.
