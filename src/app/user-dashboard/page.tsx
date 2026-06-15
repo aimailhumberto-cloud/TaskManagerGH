@@ -119,10 +119,12 @@ export default function UserDashboard() {
   const [viewMode, setViewMode] = useState<'standard' | 'visual'>('standard');
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [agendaViewMode, setAgendaViewMode] = useState<'timeline' | 'list' | 'board'>('timeline');
 
   const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().substring(0, 10));
   const [dayPlanBlocks, setDayPlanBlocks] = useState<DayPlanBlock[]>([]);
   const [dayPlanTask, setDayPlanTask] = useState<Task | null>(null);
+  const [draftBlocks, setDraftBlocks] = useState<DayPlanBlock[] | null>(null);
 
   // Chat planner states
   const [plannerMessages, setPlannerMessages] = useState<{ sender: 'user' | 'ai'; text: string }[]>([
@@ -155,6 +157,7 @@ export default function UserDashboard() {
       setDayPlanTask(null);
       setDayPlanBlocks([]);
     }
+    setDraftBlocks(null);
   }, [selectedUserId, selectedDate, rawTasks, selectedUser]);
 
   const handleSaveDayPlan = async (blocks: DayPlanBlock[]) => {
@@ -234,9 +237,15 @@ export default function UserDashboard() {
       type: newBlockType
     };
 
-    const updatedBlocks = [...dayPlanBlocks, newBlock].sort((a, b) => a.start.localeCompare(b.start));
-    setDayPlanBlocks(updatedBlocks);
-    handleSaveDayPlan(updatedBlocks);
+    const currentList = draftBlocks !== null ? draftBlocks : dayPlanBlocks;
+    const updatedBlocks = [...currentList, newBlock].sort((a, b) => a.start.localeCompare(b.start));
+    
+    if (draftBlocks !== null) {
+      setDraftBlocks(updatedBlocks);
+    } else {
+      setDayPlanBlocks(updatedBlocks);
+      handleSaveDayPlan(updatedBlocks);
+    }
 
     setNewBlockTitle('');
     setNewBlockType('task');
@@ -245,15 +254,27 @@ export default function UserDashboard() {
   };
 
   const handleDeleteBlock = (blockId: string) => {
-    const updatedBlocks = dayPlanBlocks.filter(b => b.id !== blockId);
-    setDayPlanBlocks(updatedBlocks);
-    handleSaveDayPlan(updatedBlocks);
+    const currentList = draftBlocks !== null ? draftBlocks : dayPlanBlocks;
+    const updatedBlocks = currentList.filter(b => b.id !== blockId);
+    
+    if (draftBlocks !== null) {
+      setDraftBlocks(updatedBlocks);
+    } else {
+      setDayPlanBlocks(updatedBlocks);
+      handleSaveDayPlan(updatedBlocks);
+    }
   };
 
   const handleUpdateBlock = (updated: DayPlanBlock) => {
-    const updatedBlocks = dayPlanBlocks.map(b => b.id === updated.id ? updated : b).sort((a, b) => a.start.localeCompare(b.start));
-    setDayPlanBlocks(updatedBlocks);
-    handleSaveDayPlan(updatedBlocks);
+    const currentList = draftBlocks !== null ? draftBlocks : dayPlanBlocks;
+    const updatedBlocks = currentList.map(b => b.id === updated.id ? updated : b).sort((a, b) => a.start.localeCompare(b.start));
+    
+    if (draftBlocks !== null) {
+      setDraftBlocks(updatedBlocks);
+    } else {
+      setDayPlanBlocks(updatedBlocks);
+      handleSaveDayPlan(updatedBlocks);
+    }
     setIsEditingBlock(false);
     setEditingBlock(null);
   };
@@ -270,6 +291,14 @@ export default function UserDashboard() {
 
     const userPrompt = plannerInput || "Por favor organízame el día de la mejor manera.";
 
+    const updatedHistory = [
+      ...plannerMessages,
+      { sender: 'user' as const, text: userPrompt }
+    ];
+
+    setPlannerMessages(updatedHistory);
+    setPlannerInput('');
+
     try {
       const res = await fetch('/api/ai/process', {
         method: 'POST',
@@ -281,7 +310,9 @@ export default function UserDashboard() {
           action: 'day_plan',
           text: userPrompt,
           tasks: todayTasks,
-          meetings: todayMeetings
+          meetings: todayMeetings,
+          currentBlocks: dayPlanBlocks,
+          history: updatedHistory
         })
       });
 
@@ -289,25 +320,21 @@ export default function UserDashboard() {
         const data = await res.json();
         if (data.result && data.result.plan) {
           const suggestedBlocks = data.result.plan;
+          const aiMessage = data.result.message || `He preparado una propuesta de agenda con ${suggestedBlocks.length} bloques. Por favor, revisa la vista previa sombreada en tu calendario y confirma si deseas aplicarla.`;
           setPlannerMessages(prev => [
             ...prev,
-            { sender: 'user', text: userPrompt },
-            { sender: 'ai', text: `He generado una agenda sugerida con ${suggestedBlocks.length} bloques. He incorporado tus tareas y reuniones del día. ¿Qué te parece?` }
+            { sender: 'ai', text: aiMessage }
           ]);
-          setPlannerInput('');
-          setDayPlanBlocks(suggestedBlocks);
-          handleSaveDayPlan(suggestedBlocks);
+          setDraftBlocks(suggestedBlocks);
         } else {
           setPlannerMessages(prev => [
             ...prev,
-            { sender: 'user', text: userPrompt },
-            { sender: 'ai', text: 'Lo siento, no pude estructurar el plan en este momento. Inténtalo de nuevo.' }
+            { sender: 'ai', text: 'Lo siento, no pude procesar la propuesta de agenda en este momento. Inténtalo de nuevo.' }
           ]);
         }
       } else {
         setPlannerMessages(prev => [
           ...prev,
-          { sender: 'user', text: userPrompt },
           { sender: 'ai', text: 'El servidor no pudo procesar tu solicitud. Revisa la consola para más detalles.' }
         ]);
       }
@@ -315,12 +342,30 @@ export default function UserDashboard() {
       console.error("Error auto planning with AI:", err);
       setPlannerMessages(prev => [
         ...prev,
-        { sender: 'user', text: userPrompt },
         { sender: 'ai', text: 'Error de red al intentar conectar con la inteligencia artificial.' }
       ]);
     } finally {
       setAiPlannerLoading(false);
     }
+  };
+
+  const handleConfirmProposal = () => {
+    if (!draftBlocks) return;
+    setDayPlanBlocks(draftBlocks);
+    handleSaveDayPlan(draftBlocks);
+    setDraftBlocks(null);
+    setPlannerMessages(prev => [
+      ...prev,
+      { sender: 'ai', text: '¡Agenda del día confirmada y guardada con éxito!' }
+    ]);
+  };
+
+  const handleRejectProposal = () => {
+    setDraftBlocks(null);
+    setPlannerMessages(prev => [
+      ...prev,
+      { sender: 'ai', text: 'Propuesta de agenda descartada.' }
+    ]);
   };
 
   const { unreadTasks, markAsRead } = useUnreadComments(tasks, session);
@@ -545,6 +590,72 @@ export default function UserDashboard() {
 
   const renderDailyPlannerAndAI = () => {
     const hours = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'];
+    const blocksToRender = draftBlocks !== null ? draftBlocks : dayPlanBlocks;
+    const isDraftActive = draftBlocks !== null;
+
+    const renderBoardCard = (block: DayPlanBlock) => {
+      let styleClasses = 'bg-blue-50/40 border-blue-200 text-blue-950 hover:border-blue-300';
+      if (block.type === 'meeting') {
+        styleClasses = 'bg-gold-600/10 border-gold-400 text-gold-950 hover:border-gold-500';
+      } else if (block.type === 'personal') {
+        styleClasses = 'bg-emerald-50/45 border-emerald-250 text-emerald-950 hover:border-emerald-350';
+      }
+
+      if (isDraftActive) {
+        styleClasses += ' border-dashed border-amber-400 bg-amber-50/20 shadow-inner';
+      }
+
+      return (
+        <div
+          key={block.id}
+          onClick={() => {
+            if (block.taskId) handleOpenDrawer(block.taskId);
+            else { setEditingBlock({ ...block }); setIsEditingBlock(true); }
+          }}
+          className={`p-3 rounded-xl border flex flex-col gap-2 shadow-2xs hover:shadow-xs transition duration-205 cursor-pointer ${styleClasses}`}
+        >
+          <div className="flex justify-between items-start gap-2">
+            <span className="text-[11px] font-black leading-snug break-words flex-1">{block.title}</span>
+            <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-white/70 border shrink-0">
+              {block.start} - {block.end}
+            </span>
+          </div>
+          
+          <div className="flex justify-between items-center mt-1 border-t border-primary-200/40 pt-1.5">
+            {block.taskId ? (
+              <span className="text-[7.5px] font-black uppercase text-primary-750">Ver Tarea ↗</span>
+            ) : (
+              <span className="text-[7.5px] font-bold text-primary-400">Manual</span>
+            )}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingBlock({ ...block });
+                  setIsEditingBlock(true);
+                }}
+                className="text-[10px] hover:text-gold-600 transition"
+                title="Editar Horas"
+              >
+                ✏️
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteBlock(block.id);
+                }}
+                className="text-[10px] text-red-500 hover:text-red-655 transition"
+                title="Eliminar"
+              >
+                ❌
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 bg-[#faf9f6]/30 border border-primary-200 rounded-3xl p-6 shadow-xs backdrop-blur-xs">
@@ -622,158 +733,373 @@ export default function UserDashboard() {
 
         {/* Right Column: Timeline Planner (cols-7) */}
         <div className="lg:col-span-7 flex flex-col h-[600px] bg-white border border-primary-150 rounded-2xl shadow-sm overflow-hidden">
-          {/* Header */}
-          <div className="p-4 border-b border-primary-100 flex items-center justify-between bg-primary-50/10">
+          {/* Header with Sub-view switcher */}
+          <div className="p-4 border-b border-primary-100 flex items-center justify-between bg-primary-50/10 flex-wrap gap-3 shrink-0">
             <div>
               <h3 className="text-xs font-black uppercase tracking-wider text-primary-900">
                 📅 Agenda del Día
               </h3>
               <p className="text-[10px] text-primary-400 font-bold">
-                {selectedDate === new Date().toISOString().substring(0, 10) ? 'Hoy' : selectedDate} — Plan de bloques horarios
+                {selectedDate === new Date().toISOString().substring(0, 10) ? 'Hoy' : selectedDate}
               </p>
             </div>
-            <span className="text-[10px] font-black uppercase text-gold-650 bg-gold-50 px-2.5 py-1 rounded-md border border-gold-150">
-              {selectedUser?.name || 'Miembro'}
-            </span>
+            
+            <div className="flex items-center gap-3">
+              {/* Change Views Selector */}
+              <div className="flex bg-primary-100 p-0.5 rounded-lg border border-primary-200">
+                <button
+                  type="button"
+                  onClick={() => setAgendaViewMode('timeline')}
+                  className={`px-2.5 py-1 text-[10px] font-extrabold rounded-md transition ${
+                    agendaViewMode === 'timeline'
+                      ? 'bg-white text-primary-950 shadow-2xs border border-primary-200/50'
+                      : 'text-primary-500 hover:text-primary-850'
+                  }`}
+                >
+                  Cronología
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAgendaViewMode('list')}
+                  className={`px-2.5 py-1 text-[10px] font-extrabold rounded-md transition ${
+                    agendaViewMode === 'list'
+                      ? 'bg-white text-primary-950 shadow-2xs border border-primary-200/50'
+                      : 'text-primary-500 hover:text-primary-850'
+                  }`}
+                >
+                  Lista
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAgendaViewMode('board')}
+                  className={`px-2.5 py-1 text-[10px] font-extrabold rounded-md transition ${
+                    agendaViewMode === 'board'
+                      ? 'bg-white text-primary-950 shadow-2xs border border-primary-200/50'
+                      : 'text-primary-500 hover:text-primary-850'
+                  }`}
+                >
+                  Tablero
+                </button>
+              </div>
+              
+              <span className="text-[10px] font-black uppercase text-gold-650 bg-gold-50 px-2 py-1 rounded-md border border-gold-150">
+                {selectedUser?.name || 'Miembro'}
+              </span>
+            </div>
           </div>
 
-          {/* Timeline Scroll Container */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {hours.map((hour) => {
-              const matchingBlocks = dayPlanBlocks.filter(b => b.start.startsWith(hour.substring(0, 3)));
+          {/* Proposal Evaluation Banner */}
+          {isDraftActive && (
+            <div className="bg-amber-50 border-b border-amber-250/60 px-4 py-2.5 flex items-center justify-between gap-4 shrink-0 shadow-2xs">
+              <span className="text-[10px] font-black text-amber-905 flex items-center gap-1.5 animate-pulse">
+                ⚠️ Propuesta de Agenda de Hermes AI
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleRejectProposal}
+                  className="px-2.5 py-1 bg-white hover:bg-amber-100 text-amber-850 rounded border border-amber-300 text-[9px] font-black tracking-wide transition shadow-2xs"
+                >
+                  Descartar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmProposal}
+                  className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[9px] font-black tracking-wide transition shadow-sm"
+                >
+                  Aplicar Agenda
+                </button>
+              </div>
+            </div>
+          )}
 
-              return (
-                <div key={hour} className="flex gap-4 items-start min-h-[55px]">
-                  {/* Hour indicator label */}
-                  <span className="w-12 text-[10px] font-black text-primary-400 tracking-wider pt-1 shrink-0">
-                    {hour}
-                  </span>
+          {/* Timeline Scroll Container based on View Mode */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {agendaViewMode === 'timeline' ? (
+              <div className="space-y-3">
+                {hours.map((hour) => {
+                  const matchingBlocks = blocksToRender.filter(b => b.start.startsWith(hour.substring(0, 3)));
 
-                  {/* Slot content */}
-                  <div className="flex-1">
-                    {matchingBlocks.length > 0 ? (
-                      <div className="space-y-2">
-                        {matchingBlocks.map((block) => {
-                          let styleClasses = 'bg-blue-50/40 border-blue-200 text-blue-950';
-                          let typeBadge = 'Tarea';
-                          if (block.type === 'meeting') {
-                            styleClasses = 'bg-gold-600/10 border-gold-400 text-gold-950';
-                            typeBadge = 'Reunión';
-                          } else if (block.type === 'personal') {
-                            styleClasses = 'bg-emerald-50/45 border-emerald-250 text-emerald-950';
-                            typeBadge = 'Personal';
-                          }
+                  return (
+                    <div key={hour} className="flex gap-4 items-start min-h-[50px]">
+                      {/* Hour indicator label */}
+                      <span className="w-12 text-[10px] font-black text-primary-400 tracking-wider pt-1 shrink-0">
+                        {hour}
+                      </span>
 
-                          return (
-                            <div
-                              key={block.id}
-                              className={`p-3 rounded-xl border flex items-center justify-between gap-3 shadow-2xs group hover:shadow-xs transition duration-200 ${styleClasses}`}
-                            >
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-xs font-black truncate">{block.title}</span>
-                                  <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-white/70 border tracking-wider">
-                                    {typeBadge}
-                                  </span>
+                      {/* Slot content */}
+                      <div className="flex-1">
+                        {matchingBlocks.length > 0 ? (
+                          <div className="space-y-2">
+                            {matchingBlocks.map((block) => {
+                              let styleClasses = 'bg-blue-50/40 border-blue-200 text-blue-950 hover:border-blue-300';
+                              let typeBadge = 'Tarea';
+                              if (block.type === 'meeting') {
+                                styleClasses = 'bg-gold-600/10 border-gold-400 text-gold-950 hover:border-gold-500';
+                                typeBadge = 'Reunión';
+                              } else if (block.type === 'personal') {
+                                styleClasses = 'bg-emerald-50/45 border-emerald-250 text-emerald-950 hover:border-emerald-350';
+                                typeBadge = 'Personal';
+                              }
+
+                              if (isDraftActive) {
+                                styleClasses += ' border-dashed border-amber-400 bg-amber-50/20 shadow-inner';
+                              }
+
+                              return (
+                                <div
+                                  key={block.id}
+                                  onClick={() => {
+                                    if (block.taskId) handleOpenDrawer(block.taskId);
+                                    else { setEditingBlock({ ...block }); setIsEditingBlock(true); }
+                                  }}
+                                  className={`p-3 rounded-xl border flex items-center justify-between gap-3 shadow-2xs group/item hover:shadow-xs transition duration-200 cursor-pointer ${styleClasses}`}
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className="text-xs font-black truncate">{block.title}</span>
+                                      {block.taskId ? (
+                                        <span className="text-[7.5px] font-black uppercase px-1 py-0.5 rounded bg-white text-primary-700 border tracking-wider">
+                                          Ver Tarea ↗
+                                        </span>
+                                      ) : (
+                                        <span className="text-[7.5px] font-black uppercase px-1 py-0.5 rounded bg-white text-primary-400 border tracking-wider">
+                                          {typeBadge}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-[9px] font-bold opacity-75 mt-0.5 block">
+                                      {block.start} - {block.end}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 opacity-0 group-hover/item:opacity-100 transition-opacity shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingBlock({ ...block });
+                                        setIsEditingBlock(true);
+                                      }}
+                                      className="w-7 h-7 bg-white hover:bg-primary-50 rounded-lg border border-primary-200 flex items-center justify-center text-xs shadow-2xs"
+                                      title="Editar Horas"
+                                    >
+                                      ✏️
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteBlock(block.id);
+                                      }}
+                                      className="w-7 h-7 bg-white hover:bg-red-50 hover:border-red-200 rounded-lg border border-primary-200 flex items-center justify-center text-xs text-red-500 shadow-2xs"
+                                      title="Eliminar"
+                                    >
+                                      ❌
+                                    </button>
+                                  </div>
                                 </div>
-                                <span className="text-[9px] font-bold opacity-75 mt-0.5 block">
-                                  {block.start} - {block.end}
-                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : showAddBlockInline === hour ? (
+                          /* Inline add form */
+                          <div className="bg-primary-50/40 border border-primary-200/80 rounded-xl p-3 space-y-3 shadow-2xs">
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="Título del bloque..."
+                                value={newBlockTitle}
+                                onChange={(e) => setNewBlockTitle(e.target.value)}
+                                className="flex-1 px-3 py-1.5 border border-primary-200 rounded-lg text-xs font-bold text-primary-850 focus:outline-none focus:ring-1 focus:ring-gold-500/20 bg-white"
+                              />
+                              <select
+                                value={newBlockType}
+                                onChange={(e) => setNewBlockType(e.target.value as any)}
+                                className="px-2.5 py-1.5 border border-primary-200 rounded-lg text-xs font-bold text-primary-800 bg-white"
+                              >
+                                <option value="task">Tarea</option>
+                                <option value="meeting">Reunión</option>
+                                <option value="personal">Personal</option>
+                              </select>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-primary-400">Termina:</span>
+                                <input
+                                  type="text"
+                                  placeholder="09:00"
+                                  value={newBlockEnd}
+                                  onChange={(e) => setNewBlockEnd(e.target.value)}
+                                  className="w-16 px-2 py-1 border border-primary-200 rounded-lg text-xs font-bold text-primary-800 text-center bg-white"
+                                />
                               </div>
-                              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex gap-2">
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setEditingBlock({ ...block });
-                                    setIsEditingBlock(true);
-                                  }}
-                                  className="w-7 h-7 bg-white hover:bg-primary-50 rounded-lg border border-primary-200 flex items-center justify-center text-xs shadow-2xs"
-                                  title="Editar"
+                                  onClick={() => setShowAddBlockInline(null)}
+                                  className="px-2.5 py-1 border border-primary-250 rounded-lg text-[10px] font-extrabold text-primary-500 hover:bg-primary-50"
                                 >
-                                  ✏️
+                                  Cancelar
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => handleDeleteBlock(block.id)}
-                                  className="w-7 h-7 bg-white hover:bg-red-50 hover:border-red-200 rounded-lg border border-primary-200 flex items-center justify-center text-xs text-red-500 shadow-2xs"
-                                  title="Eliminar"
+                                  onClick={() => handleAddBlock(hour)}
+                                  className="px-3 py-1 bg-gold-600 text-white rounded-lg text-[10px] font-extrabold hover:bg-gold-700 transition"
                                 >
-                                  ❌
+                                  Guardar
                                 </button>
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
-                    ) : showAddBlockInline === hour ? (
-                      /* Inline add form */
-                      <div className="bg-primary-50/40 border border-primary-200/80 rounded-xl p-3 space-y-3 shadow-2xs">
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            placeholder="Título del bloque..."
-                            value={newBlockTitle}
-                            onChange={(e) => setNewBlockTitle(e.target.value)}
-                            className="flex-1 px-3 py-1.5 border border-primary-200 rounded-lg text-xs font-bold text-primary-850 focus:outline-none focus:ring-1 focus:ring-gold-500/20 bg-white"
-                          />
-                          <select
-                            value={newBlockType}
-                            onChange={(e) => setNewBlockType(e.target.value as any)}
-                            className="px-2.5 py-1.5 border border-primary-200 rounded-lg text-xs font-bold text-primary-800 bg-white"
+                          </div>
+                        ) : (
+                          /* Dotted line indicator instead of empty dotted card */
+                          <div
+                            onClick={() => {
+                              const startNum = parseInt(hour.split(':')[0]);
+                              setNewBlockEnd(`${String(startNum + 1).padStart(2, '0')}:00`);
+                              setNewBlockType('task');
+                              setNewBlockTitle('');
+                              setShowAddBlockInline(hour);
+                            }}
+                            className="group relative flex items-center h-8 cursor-pointer"
                           >
-                            <option value="task">Tarea</option>
-                            <option value="meeting">Reunión</option>
-                            <option value="personal">Personal</option>
-                          </select>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-primary-400">Termina:</span>
-                            <input
-                              type="text"
-                              placeholder="09:00"
-                              value={newBlockEnd}
-                              onChange={(e) => setNewBlockEnd(e.target.value)}
-                              className="w-16 px-2 py-1 border border-primary-200 rounded-lg text-xs font-bold text-primary-800 text-center bg-white"
-                            />
+                            <div className="w-full border-t border-primary-100 group-hover:border-gold-300 transition-colors duration-200" />
+                            <span className="absolute right-4 text-[9px] font-black text-primary-400 opacity-0 group-hover:opacity-100 bg-white px-2 transition-opacity duration-200">
+                              + Agregar Bloque
+                            </span>
                           </div>
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setShowAddBlockInline(null)}
-                              className="px-2.5 py-1 border border-primary-250 rounded-lg text-[10px] font-extrabold text-primary-500 hover:bg-primary-50"
-                            >
-                              Cancelar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleAddBlock(hour)}
-                              className="px-3 py-1 bg-gold-600 text-white rounded-lg text-[10px] font-extrabold hover:bg-gold-700 transition"
-                            >
-                              Guardar
-                            </button>
-                          </div>
-                        </div>
+                        )}
                       </div>
-                    ) : (
-                      /* Dotted empty slot */
+                    </div>
+                  );
+                })}
+              </div>
+            ) : agendaViewMode === 'list' ? (
+              <div className="space-y-3">
+                {blocksToRender.length > 0 ? (
+                  blocksToRender.map((block) => {
+                    let styleClasses = 'bg-blue-50/40 border-blue-200 text-blue-950 hover:border-blue-300';
+                    let typeBadge = 'Tarea';
+                    if (block.type === 'meeting') {
+                      styleClasses = 'bg-gold-600/10 border-gold-400 text-gold-950 hover:border-gold-500';
+                      typeBadge = 'Reunión';
+                    } else if (block.type === 'personal') {
+                      styleClasses = 'bg-emerald-50/45 border-emerald-250 text-emerald-950 hover:border-emerald-350';
+                      typeBadge = 'Personal';
+                    }
+
+                    if (isDraftActive) {
+                      styleClasses += ' border-dashed border-amber-400 bg-amber-50/20 shadow-inner';
+                    }
+
+                    return (
                       <div
+                        key={block.id}
                         onClick={() => {
-                          const startNum = parseInt(hour.split(':')[0]);
-                          setNewBlockEnd(`${String(startNum + 1).padStart(2, '0')}:00`);
-                          setNewBlockType('task');
-                          setNewBlockTitle('');
-                          setShowAddBlockInline(hour);
+                          if (block.taskId) handleOpenDrawer(block.taskId);
+                          else { setEditingBlock({ ...block }); setIsEditingBlock(true); }
                         }}
-                        className="h-10 border border-dashed border-primary-200 hover:border-gold-400 hover:bg-gold-50/5 transition rounded-xl flex items-center justify-center text-[10px] font-black uppercase text-primary-400 tracking-wider cursor-pointer group"
+                        className={`p-3.5 rounded-xl border flex items-center justify-between gap-4 shadow-2xs hover:shadow-xs transition duration-200 cursor-pointer ${styleClasses}`}
                       >
-                        <span className="group-hover:text-gold-650 transition">+ Agregar Bloque</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <span className="text-[9.5px] font-black bg-white/70 px-2 py-0.5 rounded border uppercase tracking-wider">
+                              {block.start} - {block.end}
+                            </span>
+                            <span className="text-xs font-black truncate">{block.title}</span>
+                            {block.taskId && (
+                              <span className="text-[7.5px] font-black uppercase px-1 py-0.5 rounded bg-white text-primary-700 border tracking-wider">
+                                Ver Tarea ↗
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingBlock({ ...block });
+                              setIsEditingBlock(true);
+                            }}
+                            className="w-7 h-7 bg-white hover:bg-primary-50 rounded-lg border border-primary-200 flex items-center justify-center text-xs shadow-2xs"
+                            title="Editar Horas"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteBlock(block.id);
+                            }}
+                            className="w-7 h-7 bg-white hover:bg-red-50 hover:border-red-200 rounded-lg border border-primary-200 flex items-center justify-center text-xs text-red-500 shadow-2xs"
+                            title="Eliminar"
+                          >
+                            ❌
+                          </button>
+                        </div>
                       </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-16 text-primary-400 font-bold italic text-xs">
+                    Sin bloques planificados para este día.
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Board View */
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full">
+                {/* Column 1: Tareas */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-primary-100 pb-2">
+                    <span className="text-[10px] font-black uppercase text-primary-500 tracking-wider">📋 Tareas</span>
+                    <span className="bg-primary-100 text-primary-750 text-[9px] font-black px-2 py-0.5 rounded-full">
+                      {blocksToRender.filter(b => b.type === 'task').length}
+                    </span>
+                  </div>
+                  <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                    {blocksToRender.filter(b => b.type === 'task').map(block => renderBoardCard(block))}
+                    {blocksToRender.filter(b => b.type === 'task').length === 0 && (
+                      <div className="text-[10px] text-primary-400 italic text-center py-8 border border-dashed rounded-xl">Sin tareas asignadas</div>
                     )}
                   </div>
                 </div>
-              );
-            })}
+
+                {/* Column 2: Reuniones */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-primary-100 pb-2">
+                    <span className="text-[10px] font-black uppercase text-gold-700 tracking-wider">📅 Reuniones</span>
+                    <span className="bg-gold-55 text-gold-750 border border-gold-150 text-[9px] font-black px-2 py-0.5 rounded-full">
+                      {blocksToRender.filter(b => b.type === 'meeting').length}
+                    </span>
+                  </div>
+                  <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                    {blocksToRender.filter(b => b.type === 'meeting').map(block => renderBoardCard(block))}
+                    {blocksToRender.filter(b => b.type === 'meeting').length === 0 && (
+                      <div className="text-[10px] text-primary-400 italic text-center py-8 border border-dashed rounded-xl">Sin reuniones</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Column 3: Personal */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between border-b border-primary-100 pb-2">
+                    <span className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">🌿 Personal</span>
+                    <span className="bg-emerald-55 text-emerald-750 border border-emerald-150 text-[9px] font-black px-2 py-0.5 rounded-full">
+                      {blocksToRender.filter(b => b.type === 'personal').length}
+                    </span>
+                  </div>
+                  <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                    {blocksToRender.filter(b => b.type === 'personal').map(block => renderBoardCard(block))}
+                    {blocksToRender.filter(b => b.type === 'personal').length === 0 && (
+                      <div className="text-[10px] text-primary-400 italic text-center py-8 border border-dashed rounded-xl">Sin eventos personales</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

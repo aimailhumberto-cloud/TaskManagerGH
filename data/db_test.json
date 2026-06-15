@@ -93,12 +93,12 @@
       "status": "Pending",
       "priority": "Medium",
       "origin": "Manual",
-      "dueDate": "2026-06-05T12:24:14.413Z",
+      "dueDate": "2026-06-15T12:30:38.987Z",
       "attachments": [],
       "id": "t2",
       "activityLog": [
         {
-          "timestamp": "2026-06-05T12:24:14.420Z",
+          "timestamp": "2026-06-15T12:30:38.992Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"
@@ -119,12 +119,12 @@
       "status": "Pending",
       "priority": "Low",
       "origin": "Manual",
-      "dueDate": "2026-06-05T12:24:14.457Z",
+      "dueDate": "2026-06-15T12:30:39.054Z",
       "attachments": [],
       "id": "t3",
       "activityLog": [
         {
-          "timestamp": "2026-06-05T12:24:14.458Z",
+          "timestamp": "2026-06-15T12:30:39.055Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"
@@ -145,18 +145,18 @@
       "status": "Pending",
       "priority": "Medium",
       "origin": "Manual",
-      "dueDate": "2026-06-05T12:24:14.482Z",
+      "dueDate": "2026-06-15T12:30:39.082Z",
       "attachments": [],
       "id": "t4",
       "activityLog": [
         {
-          "timestamp": "2026-06-05T12:24:14.483Z",
+          "timestamp": "2026-06-15T12:30:39.083Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"
         },
         {
-          "timestamp": "2026-06-05T12:24:14.494Z",
+          "timestamp": "2026-06-15T12:30:39.096Z",
           "user": "System",
           "action": "Notificación enviada al Agente (Comando: Ping Hermes)",
           "type": "AI"
@@ -177,42 +177,42 @@
       "status": "Pending",
       "priority": "Medium",
       "origin": "Manual",
-      "dueDate": "2026-06-05T12:24:14.530Z",
+      "dueDate": "2026-06-15T12:30:39.147Z",
       "attachments": [],
       "id": "t5",
       "activityLog": [
         {
-          "timestamp": "2026-06-05T12:24:14.530Z",
+          "timestamp": "2026-06-15T12:30:39.148Z",
           "user": "System",
           "action": "Tarea creada",
           "type": "User"
         },
         {
-          "timestamp": "2026-06-05T12:24:14.543Z",
+          "timestamp": "2026-06-15T12:30:39.169Z",
           "user": "System",
           "action": "Tarea actualizada",
           "type": "User"
         },
         {
-          "timestamp": "2026-06-05T12:24:14.545Z",
+          "timestamp": "2026-06-15T12:30:39.185Z",
           "user": "System",
           "action": "Tarea actualizada",
           "type": "User"
         },
         {
-          "timestamp": "2026-06-05T12:24:14.547Z",
+          "timestamp": "2026-06-15T12:30:39.187Z",
           "user": "System",
           "action": "Tarea actualizada",
           "type": "User"
         },
         {
-          "timestamp": "2026-06-05T12:24:14.549Z",
+          "timestamp": "2026-06-15T12:30:39.190Z",
           "user": "System",
           "action": "Tarea actualizada",
           "type": "User"
         },
         {
-          "timestamp": "2026-06-05T12:24:14.551Z",
+          "timestamp": "2026-06-15T12:30:39.192Z",
           "user": "System",
           "action": "Tarea actualizada",
           "type": "User"
@@ -242,7 +242,7 @@
       "payload": {},
       "id": "q1",
       "status": "Pending",
-      "timestamp": "2026-06-05T12:24:14.492Z"
+      "timestamp": "2026-06-15T12:30:39.094Z"
     }
   ],
   "users": [
