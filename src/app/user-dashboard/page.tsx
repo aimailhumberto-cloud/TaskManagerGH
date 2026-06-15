@@ -84,6 +84,9 @@ export default function UserDashboard() {
 
   // Selected User State (defaults to first user in list on load)
   const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'standard' | 'visual'>('standard');
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
 
   // Mobile navigation hook & tab status (Hoy vs Rutinas vs Proyectos)
   const [activeTab, setActiveTab] = useState<'hoy' | 'rutinas' | 'proyectos'>('hoy');
@@ -148,6 +151,7 @@ export default function UserDashboard() {
           steps: Array.isArray(t.steps) ? t.steps : [],
           attachments: Array.isArray(t.attachments) ? t.attachments : [],
           activityLog: Array.isArray(t.activityLog) ? t.activityLog : [],
+          completedDays: Array.isArray(t.completedDays) ? t.completedDays : [],
         };
       }) : [];
 
@@ -258,6 +262,265 @@ export default function UserDashboard() {
     return { todayOneShots, repetitiveTasks, projects };
   }, [userTasks]);
 
+  const handleToggleHabitDay = async (task: Task, dateStr: string) => {
+    const currentCompleted = task.completedDays || [];
+    let updatedCompleted: string[];
+    if (currentCompleted.includes(dateStr)) {
+      updatedCompleted = currentCompleted.filter((d: string) => d !== dateStr);
+    } else {
+      updatedCompleted = [...currentCompleted, dateStr];
+    }
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': 'mock-api-key-12345'
+      };
+      
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          completedDays: updatedCompleted
+        })
+      });
+
+      if (res.ok) {
+        setRawTasks(prevTasks => prevTasks.map(t => {
+          if (t.id === task.id) {
+            return {
+              ...t,
+              completedDays: updatedCompleted
+            };
+          }
+          return t;
+        }));
+        setToastMessage("Rutina actualizada con éxito");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 2000);
+      } else {
+        alert("Error al actualizar la rutina");
+      }
+    } catch (e) {
+      console.error("Error toggling habit day:", e);
+      alert("Error de red al actualizar la rutina");
+    }
+  };
+
+  const renderWeeklyFocusPlanner = () => {
+    const today = new Date();
+    const currentDay = today.getDay();
+    const mondayDiff = currentDay === 0 ? -6 : 1 - currentDay;
+    
+    const days = [];
+    const dayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+    
+    for (let i = 0; i < 5; i++) {
+      const dayDate = new Date(today);
+      dayDate.setDate(today.getDate() + mondayDiff + i);
+      const dateStr = dayDate.toISOString().substring(0, 10);
+      days.push({
+        name: dayNames[i],
+        date: dateStr,
+        label: dayDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        isToday: dateStr === today.toISOString().substring(0, 10)
+      });
+    }
+
+    return (
+      <div className="bg-white border border-primary-200 rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="border-b border-primary-100 pb-3 flex items-center justify-between">
+          <h3 className="text-sm font-black text-primary-900 uppercase tracking-wider flex items-center gap-2">
+            📅 Planificador y Enfoque Semanal
+          </h3>
+          <span className="text-[10px] font-bold text-primary-400">
+            Semana del {days[0].label} al {days[4].label}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          {days.map(day => {
+            const dayTasks = userTasks.filter(t => 
+              t.dueDate && t.dueDate.substring(0, 10) === day.date
+            );
+
+            return (
+              <div 
+                key={day.date} 
+                className={`rounded-xl p-3 flex flex-col space-y-3 min-h-[180px] border ${
+                  day.isToday 
+                    ? 'bg-gold-50/10 border-gold-400 shadow-sm ring-1 ring-gold-400' 
+                    : 'bg-primary-50/30 border-primary-200/60'
+                }`}
+              >
+                <div className="flex items-center justify-between border-b border-primary-100/50 pb-1.5">
+                  <span className="text-xs font-black text-primary-850 uppercase tracking-wide">{day.name}</span>
+                  <span className="text-[10px] font-extrabold text-primary-400">{day.label}</span>
+                </div>
+
+                <div className="flex-1 space-y-2 overflow-y-auto max-h-[250px] pr-0.5">
+                  {dayTasks.map(task => {
+                    const isMeeting = task.isMeeting;
+                    const isProject = task.type === 'Project';
+                    const isCompleted = task.status === 'Completed';
+                    
+                    let blockColor = 'bg-[#faf9f6] border-primary-200 text-primary-800 hover:border-primary-300';
+                    if (isCompleted) {
+                      blockColor = 'bg-emerald-50/20 border-emerald-250/40 text-emerald-800/70 line-through opacity-85';
+                    } else if (isMeeting) {
+                      blockColor = 'bg-gold-550/10 border-gold-400 text-gold-950 hover:border-gold-500 shadow-xs';
+                    } else if (isProject) {
+                      blockColor = 'bg-purple-50/20 border-purple-300 text-purple-950 hover:border-purple-400';
+                    } else if (task.priority === 'High') {
+                      blockColor = 'bg-red-50/25 border-red-300 text-red-950 hover:border-red-400 shadow-2xs';
+                    }
+
+                    return (
+                      <div
+                        key={task.id}
+                        onClick={() => handleOpenDrawer(task.id)}
+                        className={`p-2.5 rounded-lg border text-[11px] leading-snug font-bold cursor-pointer transition ${blockColor}`}
+                      >
+                        <div className="flex justify-between items-start gap-1">
+                          <span className="truncate">{task.title}</span>
+                          {isMeeting && task.meetingTime && (
+                            <span className="text-[7.5px] font-black bg-gold-100 text-gold-800 px-1 rounded shrink-0 uppercase">
+                              {task.meetingTime}
+                            </span>
+                          )}
+                        </div>
+                        {isProject && task.steps.length > 0 && (
+                          <div className="mt-1.5 flex items-center justify-between text-[8px] font-extrabold text-purple-600">
+                            <span>{task.steps.filter(s => s.completed).length}/{task.steps.length} Pasos</span>
+                            <div className="w-12 bg-purple-100 h-1.5 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-purple-600 rounded-full"
+                                style={{ width: `${(task.steps.filter(s => s.completed).length / task.steps.length) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {dayTasks.length === 0 && (
+                    <div className="text-[10px] text-primary-400 italic text-center py-6">
+                      Sin actividades
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const renderHabitTrackerGrid = () => {
+    const today = new Date();
+    const currentDay = today.getDay();
+    const mondayDiff = currentDay === 0 ? -6 : 1 - currentDay;
+    
+    const weekDays: { shortName: string; date: string; dayOfMonth: number; isToday: boolean }[] = [];
+    const shortDayNames = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    
+    for (let i = 0; i < 7; i++) {
+      const dayDate = new Date(today);
+      dayDate.setDate(today.getDate() + mondayDiff + i);
+      const dateStr = dayDate.toISOString().substring(0, 10);
+      weekDays.push({
+        shortName: shortDayNames[i],
+        date: dateStr,
+        dayOfMonth: dayDate.getDate(),
+        isToday: dateStr === today.toISOString().substring(0, 10)
+      });
+    }
+
+    const todayStr = today.toISOString().substring(0, 10);
+
+    return (
+      <div className="bg-white border border-primary-200 rounded-2xl p-6 shadow-sm space-y-5">
+        <div className="border-b border-primary-100 pb-3 flex items-center justify-between">
+          <h3 className="text-sm font-black text-primary-900 uppercase tracking-wider flex items-center gap-2">
+            🔥 Matriz de Hábitos y Rutinas Semanales
+          </h3>
+          <span className="text-[10px] font-bold text-primary-400">
+            Frecuencia Semanal (Lunes a Domingo)
+          </span>
+        </div>
+
+        <div className="space-y-4">
+          {repetitiveTasks.map(task => {
+            return (
+              <div 
+                key={task.id} 
+                className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-4 bg-primary-50/20 border border-primary-150 rounded-xl hover:border-gold-300 transition"
+              >
+                <div className="space-y-1 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span 
+                      onClick={() => handleOpenDrawer(task.id)}
+                      className="text-xs font-bold text-primary-850 hover:text-gold-600 transition cursor-pointer truncate"
+                    >
+                      {task.title}
+                    </span>
+                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-gold-50 text-gold-700 border border-gold-150 tracking-wider shrink-0">
+                      {task.repeatPattern || 'Rutina'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-primary-400 truncate">
+                    {task.description ? task.description.replace(/[#*`~]/g, '') : 'Sin descripción'}
+                  </p>
+                </div>
+
+                {/* 7-Day Completion Bubbles row */}
+                <div className="flex items-center gap-2.5 shrink-0 justify-between md:justify-end">
+                  {weekDays.map(day => {
+                    const isCompleted = task.completedDays && task.completedDays.includes(day.date);
+                    const isFuture = day.date > todayStr;
+                    
+                    return (
+                      <div key={day.date} className="flex flex-col items-center space-y-1">
+                        <span className="text-[8px] font-black text-primary-400 uppercase tracking-wider">
+                          {day.shortName}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={isFuture}
+                          onClick={() => handleToggleHabitDay(task, day.date)}
+                          className={`w-8 h-8 rounded-full border flex items-center justify-center text-xs font-black transition-all ${
+                            isCompleted
+                              ? 'bg-emerald-500 border-emerald-600 text-white shadow-xs'
+                              : isFuture
+                              ? 'bg-primary-50/50 border-primary-150 text-primary-300 cursor-not-allowed opacity-50'
+                              : day.isToday
+                              ? 'bg-white border-gold-500 text-gold-650 hover:bg-gold-50/30'
+                              : 'bg-white border-primary-200 text-primary-500 hover:border-primary-450 hover:bg-primary-50/50'
+                          }`}
+                          title={isCompleted ? `Desmarcar ${day.date}` : `Marcar ${day.date}`}
+                        >
+                          {isCompleted ? '✓' : day.dayOfMonth}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+
+          {repetitiveTasks.length === 0 && (
+            <p className="text-xs text-primary-400 italic py-8 text-center bg-white border border-dashed rounded-xl">
+              No hay tareas de tipo rutina asignadas a este miembro.
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (!sessionLoaded || loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#faf9f6]">
@@ -279,42 +542,122 @@ export default function UserDashboard() {
           </p>
         </div>
 
-        {/* User Selector Row */}
-        <div className="flex items-center gap-3 bg-white p-3 border border-primary-200 rounded-2xl shadow-xs">
-          <label className="text-xs font-black uppercase text-primary-400 tracking-wider">Ver Miembro:</label>
-          <div className="flex items-center gap-2">
-            {selectedUser && (
-              <HslAvatar name={selectedUser.name} avatarUrl={selectedUser.avatar} size={7} className="border border-gold-200 shrink-0" />
-            )}
-            <select
-              value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
-              className="px-3 py-1.5 border rounded-xl text-xs font-bold text-primary-800 bg-[#faf9f6] focus:outline-none focus:ring-2 focus:ring-gold-500/20"
+        <div className="flex flex-wrap items-center gap-4">
+          {/* View Mode Toggle Switch */}
+          <div className="flex bg-primary-100 p-1 rounded-xl border border-primary-200 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setViewMode('standard')}
+              className={`px-3 py-1.5 text-xs font-extrabold rounded-lg transition-all flex items-center gap-1.5 ${
+                viewMode === 'standard'
+                  ? 'bg-white text-primary-900 shadow-sm border border-primary-200/50'
+                  : 'text-primary-500 hover:text-primary-850'
+              }`}
             >
-              {people.map(p => (
-                <option key={p.id} value={p.id}>{p.name} ({p.role})</option>
-              ))}
-            </select>
+              <span>📋</span> Lista Detallada
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('visual')}
+              className={`px-3 py-1.5 text-xs font-extrabold rounded-lg transition-all flex items-center gap-1.5 ${
+                viewMode === 'visual'
+                  ? 'bg-white text-primary-900 shadow-sm border border-primary-200/50'
+                  : 'text-primary-500 hover:text-primary-850'
+              }`}
+            >
+              <span>📊</span> Tablero Visual
+            </button>
+          </div>
+
+          {/* User Selector Row */}
+          <div className="flex items-center gap-3 bg-white p-3 border border-primary-200 rounded-2xl shadow-xs">
+            <label className="text-xs font-black uppercase text-primary-400 tracking-wider">Ver Miembro:</label>
+            <div className="flex items-center gap-2">
+              {selectedUser && (
+                <HslAvatar name={selectedUser.name} avatarUrl={selectedUser.avatar} size={7} className="border border-gold-200 shrink-0" />
+              )}
+              <select
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+                className="px-3 py-1.5 border rounded-xl text-xs font-bold text-primary-800 bg-[#faf9f6] focus:outline-none focus:ring-2 focus:ring-gold-500/20"
+              >
+                {people.map(p => (
+                  <option key={p.id} value={p.id}>{p.name} ({p.role})</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Stress & Health Advisor Banner */}
-      <div className={`p-5 rounded-2xl border ${kpis.stressColor} flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs`}>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-black uppercase tracking-wider">Estado de Carga Laboral:</span>
-            <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full border bg-white shadow-xs">
-              {kpis.stressLevel}
-            </span>
+      {/* Stress Banner / Premium Metrics Toggle */}
+      {viewMode === 'standard' ? (
+        /* Stress & Health Advisor Banner */
+        <div className={`p-5 rounded-2xl border ${kpis.stressColor} flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xs`}>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black uppercase tracking-wider">Estado de Carga Laboral:</span>
+              <span className="text-xs font-extrabold px-2.5 py-0.5 rounded-full border bg-white shadow-xs">
+                {kpis.stressLevel}
+              </span>
+            </div>
+            <p className="text-xs font-medium text-primary-600">{kpis.stressRecommendation}</p>
           </div>
-          <p className="text-xs font-medium text-primary-600">{kpis.stressRecommendation}</p>
+          <div className="text-right shrink-0">
+            <span className="text-3xl font-black">{kpis.activeCount}</span>
+            <span className="text-xs font-bold text-primary-400 block uppercase tracking-wider">Tareas Pendientes</span>
+          </div>
         </div>
-        <div className="text-right shrink-0">
-          <span className="text-3xl font-black">{kpis.activeCount}</span>
-          <span className="text-xs font-bold text-primary-400 block uppercase tracking-wider">Tareas Pendientes</span>
+      ) : (
+        /* New Premium Metrics Cards Row */
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-gradient-to-br from-primary-900 to-primary-950 text-white border border-primary-800 rounded-2xl p-5 shadow-sm flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gold-300">Tasa de Completado</span>
+              <h4 className="text-2xl font-black text-white">
+                {kpis.total > 0 ? Math.round((kpis.completed / kpis.total) * 100) : 0}%
+              </h4>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-primary-800/50 flex items-center justify-center font-bold text-lg text-gold-400 border border-primary-700">
+              📊
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-primary-900 to-primary-950 text-white border border-primary-800 rounded-2xl p-5 shadow-sm flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gold-300">Horas de Enfoque</span>
+              <h4 className="text-2xl font-black text-white">
+                {userTasks.filter(t => t.status === 'Completed').reduce((acc, t) => acc + (t.steps.length * 1.5 || 2), 0)} hrs
+              </h4>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-primary-800/50 flex items-center justify-center font-bold text-lg text-gold-400 border border-primary-700">
+              ⏱️
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-primary-900 to-primary-950 text-white border border-primary-800 rounded-2xl p-5 shadow-sm flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gold-300">Racha de Hábitos</span>
+              <h4 className="text-2xl font-black text-white">
+                {repetitiveTasks.filter(t => t.completedDays && t.completedDays.length > 0).length} Activos
+              </h4>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-primary-800/50 flex items-center justify-center font-bold text-lg text-gold-400 border border-primary-700">
+              🔥
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-primary-900 to-primary-950 text-white border border-primary-800 rounded-2xl p-5 shadow-sm flex items-center justify-between">
+            <div className="space-y-1">
+              <span className="text-[10px] font-black uppercase tracking-widest text-gold-300">Tareas Pendientes</span>
+              <h4 className="text-2xl font-black text-white">{kpis.activeCount}</h4>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-primary-800/50 flex items-center justify-center font-bold text-lg text-gold-400 border border-primary-700">
+              ⌛
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* KPI Stats Panel */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -354,6 +697,13 @@ export default function UserDashboard() {
         </div>
       </div>
 
+      {viewMode === 'visual' ? (
+        <div className="space-y-8">
+          {renderWeeklyFocusPlanner()}
+          {renderHabitTrackerGrid()}
+        </div>
+      ) : (
+        <>
       {/* Mobile Tab Selectors (only visible when isMobileScreen is true) */}
       {isMobileScreen && (
         <div className="flex bg-primary-100 p-1 rounded-xl border border-primary-200" data-testid="mobile-tabs-container">
@@ -468,6 +818,8 @@ export default function UserDashboard() {
         )}
       </div>
 
+        </>
+      )}
       {/* Global Unified Task Drawer details modal */}
       <TaskDrawer
         isOpen={isDrawerOpen}
@@ -477,6 +829,15 @@ export default function UserDashboard() {
         companies={companies}
         people={people}
       />
+      {showToast && (
+        <div
+          id="toast-notification"
+          data-testid="toast-notification"
+          className="fixed bottom-4 right-4 bg-emerald-600 text-white px-4 py-2.5 rounded-lg shadow-lg text-sm font-semibold z-50 animate-bounce"
+        >
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }

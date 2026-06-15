@@ -76,6 +76,7 @@ export interface Task {
   meetingConfirmations?: string[];
   meetingLink?: string;
   comments?: Comment[];
+  completedDays?: string[];
 }
 
 interface TaskDrawerProps {
@@ -599,6 +600,7 @@ Hermes Task Hub`;
       attachments: Array.isArray(t.attachments) ? t.attachments : [],
       activityLog: Array.isArray(t.activityLog) ? t.activityLog : [],
       comments: Array.isArray(t.comments) ? t.comments : [],
+      completedDays: Array.isArray(t.completedDays) ? t.completedDays : [],
     };
   };
 

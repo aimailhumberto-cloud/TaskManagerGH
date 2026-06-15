@@ -84,5 +84,6 @@ export const mapDbToApi = (task: any) => {
     attachments: Array.isArray(task.attachments) ? task.attachments : [],
     activityLog: Array.isArray(task.activityLog) ? task.activityLog : [],
     comments: Array.isArray(task.comments) ? task.comments : [],
+    completedDays: Array.isArray(task.completedDays) ? task.completedDays : [],
   };
 };

@@ -71,6 +71,7 @@ export interface Task {
   meetingConfirmations?: string[];
   meetingLink?: string;
   comments?: Comment[];
+  completedDays?: string[];
 }
 
 export interface EmailTemplate {

@@ -69,6 +69,7 @@ export default function DashboardClient({
       steps: Array.isArray(t.steps) ? t.steps : [],
       attachments: Array.isArray(t.attachments) ? t.attachments : [],
       activityLog: Array.isArray(t.activityLog) ? t.activityLog : [],
+      completedDays: Array.isArray(t.completedDays) ? t.completedDays : [],
     };
   };
 

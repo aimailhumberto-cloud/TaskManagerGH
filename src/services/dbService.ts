@@ -587,7 +587,8 @@ export class DBService implements IDBService {
           meetingAttendees: metadata.meetingAttendees || [],
           meetingConfirmations: metadata.meetingConfirmations || [],
           meetingLink: metadata.meetingLink || '',
-          comments: t.comments || []
+          comments: t.comments || [],
+          completedDays: t.completed_days || t.completedDays || []
         };
       });
     }
@@ -624,7 +625,8 @@ export class DBService implements IDBService {
         meetingAttendees: metadata.meetingAttendees || [],
         meetingConfirmations: metadata.meetingConfirmations || [],
         meetingLink: metadata.meetingLink || '',
-        comments: data.comments || []
+        comments: data.comments || [],
+        completedDays: data.completed_days || data.completedDays || []
       };
     }
 
@@ -805,6 +807,7 @@ export class DBService implements IDBService {
       if (taskUpdates.dueDate !== undefined) record.due_date = taskUpdates.dueDate;
       if (taskUpdates.attachments !== undefined) record.attachments = taskUpdates.attachments;
       if (taskUpdates.comments !== undefined) record.comments = taskUpdates.comments;
+      if (taskUpdates.completedDays !== undefined) record.completed_days = taskUpdates.completedDays;
 
       const { error } = await supabase.from('tasks').update(record).eq('id', id);
       if (error) throw error;
