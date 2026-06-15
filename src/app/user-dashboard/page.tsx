@@ -267,7 +267,18 @@ export default function UserDashboard() {
 
   const handleUpdateBlock = (updated: DayPlanBlock) => {
     const currentList = draftBlocks !== null ? draftBlocks : dayPlanBlocks;
-    const updatedBlocks = currentList.map(b => b.id === updated.id ? updated : b).sort((a, b) => a.start.localeCompare(b.start));
+    const exists = currentList.some(b => b.id === updated.id);
+    let updatedBlocks;
+    if (exists) {
+      updatedBlocks = currentList.map(b => b.id === updated.id ? updated : b);
+    } else {
+      const cleanBlock = {
+        ...updated,
+        id: updated.id.startsWith('new_') ? 'block_' + Math.random().toString(36).substring(2, 9) : updated.id
+      };
+      updatedBlocks = [...currentList, cleanBlock];
+    }
+    updatedBlocks.sort((a, b) => a.start.localeCompare(b.start));
     
     if (draftBlocks !== null) {
       setDraftBlocks(updatedBlocks);
@@ -673,6 +684,24 @@ export default function UserDashboard() {
             </div>
             
             <div className="flex items-center gap-3">
+              <button
+                type="button"
+                data-testid="create-new-block-btn"
+                onClick={() => {
+                  setEditingBlock({
+                    id: 'new_' + Math.random().toString(36).substring(2, 9),
+                    title: '',
+                    start: '09:00',
+                    end: '10:00',
+                    type: 'task'
+                  });
+                  setIsEditingBlock(true);
+                }}
+                className="px-2.5 py-1 text-[10px] font-black uppercase text-white bg-gold-600 hover:bg-gold-700 rounded-md transition flex items-center gap-1 shadow-2xs cursor-pointer"
+              >
+                <span>➕</span> Nuevo Bloque
+              </button>
+
               {/* Change Views Selector */}
               <div className="flex bg-primary-100 p-0.5 rounded-lg border border-primary-200">
                 <button
@@ -1564,12 +1593,15 @@ export default function UserDashboard() {
       {isEditingBlock && editingBlock && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50">
           <div className="bg-white border border-primary-200 rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
-            <h3 className="text-sm font-black text-primary-900 uppercase tracking-wider">Editar Bloque Horario</h3>
+            <h3 className="text-sm font-black text-primary-900 uppercase tracking-wider">
+              {editingBlock.id?.startsWith('new_') ? 'Crear Nuevo Bloque' : 'Editar Bloque Horario'}
+            </h3>
             <div className="space-y-3">
               <div>
                 <label className="text-[10px] font-black uppercase text-primary-400">Título</label>
                 <input
                   type="text"
+                  placeholder="Título del bloque..."
                   value={editingBlock.title}
                   onChange={(e) => setEditingBlock({ ...editingBlock, title: e.target.value })}
                   className="w-full mt-1 px-3 py-2 border border-primary-200 rounded-xl text-xs font-bold text-primary-800 bg-[#faf9f6] focus:ring-2 focus:ring-gold-500/20"
@@ -1620,10 +1652,16 @@ export default function UserDashboard() {
               </button>
               <button
                 type="button"
-                onClick={() => handleUpdateBlock(editingBlock)}
+                onClick={() => {
+                  if (!editingBlock.title.trim()) {
+                    alert('El título es requerido');
+                    return;
+                  }
+                  handleUpdateBlock(editingBlock);
+                }}
                 className="px-4 py-1.5 bg-gold-600 text-white rounded-xl text-xs font-extrabold hover:bg-gold-700 transition"
               >
-                Guardar Cambios
+                {editingBlock.id?.startsWith('new_') ? 'Crear Bloque' : 'Guardar Cambios'}
               </button>
             </div>
           </div>
