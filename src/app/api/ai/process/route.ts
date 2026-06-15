@@ -37,99 +37,218 @@ export async function POST(req: NextRequest) {
         userMessagesText.push(cleaned);
         const combinedText = userMessagesText.join(' ').toLowerCase();
 
-        const plan: any[] = Array.isArray(currentBlocks) ? [...currentBlocks] : [];
+        const plan: any[] = [];
         const addedChanges: string[] = [];
-        let currentHour = 9;
-        
+
+        // Simple helper to check overlap
+        const isTimeOverlapping = (start1: string, end1: string, start2: string, end2: string) => {
+          return start1 < end2 && start2 < end1;
+        };
+
+        // Extract "a las X ... hasta/a las Y" patterns
+        // Matches "a las 9 voy a caracol que tengo clasede de surf hasta las 11"
+        const pattern1 = /a las\s+(\d{1,2})(?::(\d{2}))?\s+(.*?)\s+(?:a|hasta)\s+las?\s+(\d{1,2})(?::(\d{2}))?/gi;
+        let match;
+        while ((match = pattern1.exec(combinedText)) !== null) {
+          const startH = parseInt(match[1]);
+          const startM = match[2] || '00';
+          let title = match[3].trim();
+          const endH = parseInt(match[4]);
+          const endM = match[5] || '00';
+
+          const startStr = `${String(startH).padStart(2, '0')}:${startM}`;
+          const endStr = `${String(endH).padStart(2, '0')}:${endM}`;
+
+          // Clean title keywords
+          title = title.replace(/^(voy a|tengo|quiero|ir a|clase de|clasede de|clasede)\s+/i, '');
+          title = title.replace(/^(que tengo|tengo que|para)\s+/i, '');
+          
+          if (title.toLowerCase().includes('surf') || title.toLowerCase().includes('caracol')) {
+            title = "Clase de Surf (Playa Caracol)";
+          } else {
+            title = title.charAt(0).toUpperCase() + title.slice(1);
+          }
+
+          plan.push({
+            id: 'custom_' + Math.random().toString(36).substring(2, 9),
+            title: title || 'Evento Especial',
+            start: startStr,
+            end: endStr,
+            type: 'personal'
+          });
+        }
+
+        // Also check if user mentioned lunch/eating
+        if (combinedText.includes('comer') || combinedText.includes('almuerzo')) {
+          const startStr = '13:00';
+          const endStr = '14:00';
+          const hasOverlap = plan.some(b => isTimeOverlapping(b.start, b.end, startStr, endStr));
+          if (!hasOverlap) {
+            plan.push({
+              id: 'custom_' + Math.random().toString(36).substring(2, 9),
+              title: 'Almuerzo / Descanso',
+              start: startStr,
+              end: endStr,
+              type: 'personal'
+            });
+          }
+        }
+
+        // Also check if user mentioned exercise/gym
+        if (combinedText.includes('ejercicio') || combinedText.includes('gimnasio') || combinedText.includes('gym') || combinedText.includes('entrenar')) {
+          const startStr = '17:00';
+          const endStr = '18:00';
+          const hasOverlap = plan.some(b => isTimeOverlapping(b.start, b.end, startStr, endStr));
+          if (!hasOverlap) {
+            plan.push({
+              id: 'custom_' + Math.random().toString(36).substring(2, 9),
+              title: 'Gimnasio / Deporte',
+              start: startStr,
+              end: endStr,
+              type: 'personal'
+            });
+          }
+        }
+
+        // Gather all tasks and meetings to schedule
+        const itemsToSchedule: any[] = [];
         if (meetings && meetings.length > 0) {
           meetings.forEach((m: any) => {
-            const exists = plan.some(b => b.taskId === m.id);
-            if (!exists) {
-              let start = m.meetingTime || `${String(currentHour).padStart(2, '0')}:00`;
-              let end = '10:00';
-              if (m.meetingTime) {
-                const parts = m.meetingTime.split(':');
-                const h = parts[0];
-                const m_parts = parts[1];
-                const hNum = parseInt(h);
-                end = `${String(hNum + 1).padStart(2, '0')}:${m_parts || '00'}`;
+            itemsToSchedule.push({
+              title: m.title || 'Reunión',
+              type: 'meeting',
+              taskId: m.id,
+              fixedTime: m.meetingTime
+            });
+          });
+        }
+
+        // Parse new tasks from user input text separated by dash "-"
+        const segments = cleaned.split(/\s+-\s+/);
+        if (segments.length > 1) {
+          segments.forEach((seg, index) => {
+            let cleanSeg = seg.trim();
+            if (index === 0) {
+              // Ignore introductory instructions in the first segment
+              return;
+            }
+            if (cleanSeg && cleanSeg.length > 2) {
+              cleanSeg = cleanSeg.replace(/^[.\s-]+/, '').trim();
+              if (cleanSeg) {
+                itemsToSchedule.push({
+                  title: cleanSeg,
+                  type: 'task'
+                });
               }
+            }
+          });
+        }
+
+        // Add today's DB tasks
+        if (tasks && tasks.length > 0) {
+          tasks.forEach((t: any) => {
+            // Check if we already added a task with a very similar title from the text to avoid duplicates
+            const isSimilar = itemsToSchedule.some(item => 
+              item.title.toLowerCase().includes(t.title.toLowerCase()) || 
+              t.title.toLowerCase().includes(item.title.toLowerCase())
+            );
+            if (!isSimilar) {
+              itemsToSchedule.push({
+                title: t.title,
+                type: 'task',
+                taskId: t.id
+              });
+            }
+          });
+        }
+
+        // Place items into available slots
+        // 1. Place fixed meetings
+        itemsToSchedule.forEach((item) => {
+          if (item.fixedTime) {
+            let start = item.fixedTime;
+            let end = '10:00';
+            const parts = start.split(':');
+            const hNum = parseInt(parts[0]);
+            end = `${String(hNum + 1).padStart(2, '0')}:${parts[1] || '00'}`;
+
+            const hasOverlap = plan.some(b => isTimeOverlapping(b.start, b.end, start, end));
+            if (!hasOverlap) {
               plan.push({
                 id: 'block_' + Math.random().toString(36).substring(2, 9),
-                title: m.title || 'Reunión',
+                title: item.title,
                 start,
                 end,
-                type: 'meeting',
-                taskId: m.id
+                type: item.type,
+                taskId: item.taskId
               });
-              addedChanges.push(`📅 **Reunión:** "${m.title || 'Reunión'}" de ${start} a ${end}`);
+              item.scheduled = true;
             }
-          });
-        }
+          }
+        });
 
-        if (tasks && tasks.length > 0) {
-          let currentHour = 10;
-          tasks.forEach((t: any) => {
-            const exists = plan.some(b => b.taskId === t.id);
-            if (!exists) {
-              while (currentHour < 18) {
-                const startStr = `${String(currentHour).padStart(2, '0')}:00`;
-                const hasOverlap = plan.some(b => b.start.startsWith(String(currentHour).padStart(2, '0')));
-                if (!hasOverlap) {
-                  const endStr = `${String(currentHour + 1).padStart(2, '0')}:00`;
-                  plan.push({
-                    id: 'block_' + Math.random().toString(36).substring(2, 9),
-                    title: t.title || 'Trabajar en tarea',
-                    start: startStr,
-                    end: endStr,
-                    type: 'task',
-                    taskId: t.id
-                  });
-                  addedChanges.push(`📋 **Tarea:** "${t.title || 'Trabajar en tarea'}" de ${startStr} a ${endStr}`);
-                  currentHour++;
-                  break;
-                }
-                currentHour++;
-              }
+        // 2. Place other items in free hourly slots from 08:00 to 18:00
+        let currentH = 8;
+        itemsToSchedule.forEach((item) => {
+          if (item.scheduled) return;
+
+          while (currentH < 18) {
+            const startStr = `${String(currentH).padStart(2, '0')}:00`;
+            const endStr = `${String(currentH + 1).padStart(2, '0')}:00`;
+
+            const hasOverlap = plan.some(b => isTimeOverlapping(b.start, b.end, startStr, endStr));
+            if (!hasOverlap) {
+              plan.push({
+                id: 'block_' + Math.random().toString(36).substring(2, 9),
+                title: item.title,
+                start: startStr,
+                end: endStr,
+                type: item.type,
+                taskId: item.taskId
+              });
+              item.scheduled = true;
+              currentH++;
+              break;
             }
-          });
-        }
-
-        if (combinedText.includes('comer') || combinedText.includes('almuerzo')) {
-          const exists = plan.some(b => b.title.toLowerCase().includes('almuerzo') || b.title.toLowerCase().includes('comer'));
-          if (!exists) {
-            plan.push({
-              id: 'block_' + Math.random().toString(36).substring(2, 9),
-              title: 'Almuerzo / Descanso',
-              start: '13:00',
-              end: '14:00',
-              type: 'personal'
-            });
-            addedChanges.push(`🌿 **Almuerzo / Descanso:** de 13:00 a 14:00`);
+            currentH++;
           }
-        }
-        if (combinedText.includes('ejercicio') || combinedText.includes('gimnasio') || combinedText.includes('gym') || combinedText.includes('entrenar')) {
-          const exists = plan.some(b => b.title.toLowerCase().includes('gimnasio') || b.title.toLowerCase().includes('deporte') || b.title.toLowerCase().includes('gym') || b.title.toLowerCase().includes('entrenar'));
-          if (!exists) {
-            plan.push({
-              id: 'block_' + Math.random().toString(36).substring(2, 9),
-              title: 'Gimnasio / Deporte',
-              start: '17:00',
-              end: '18:00',
-              type: 'personal'
-            });
-            addedChanges.push(`🌿 **Gimnasio / Deporte:** de 17:00 a 18:00`);
-          }
-        }
+        });
 
         plan.sort((a, b) => a.start.localeCompare(b.start));
 
-        let message = '';
-        if (addedChanges.length > 0) {
-          message = `### 📝 Evaluación de la Planificación Propuesta\n\nHe analizado tus peticiones anteriores y de esta sesión. Propongo los siguientes ajustes en tu agenda:\n\n${addedChanges.map(change => `- ${change}`).join('\n')}\n\n¿Deseas confirmar esta distribución de agenda? Revisa los bloques sombreados en el calendario y haz clic en "Aplicar Agenda" o descártalos si prefieres editarlos manualmente.`;
-        } else {
-          message = `He revisado tu agenda actual y cuenta con ${plan.length} bloques planificados. Si deseas que organice tareas específicas, reuniones, o añada descansos (como almuerzo o ejercicio), indícamelo en este chat.`;
+        // Construct response evaluation message
+        const scheduledItems = itemsToSchedule.filter(i => i.scheduled);
+        const unscheduledItems = itemsToSchedule.filter(i => !i.scheduled);
+
+        let message = `### 📝 Evaluación de la Planificación Propuesta\n\nHe evaluado tus peticiones y la conversación anterior. Propongo los siguientes ajustes en tu agenda:\n\n`;
+        
+        const personalEvents = plan.filter(b => b.type === 'personal');
+        if (personalEvents.length > 0) {
+          message += `**Bloqueos Personales y Descansos:**\n`;
+          personalEvents.forEach(p => {
+            message += `- 🌿 **${p.title}** (${p.start} - ${p.end})\n`;
+          });
+          message += `\n`;
         }
+
+        message += `**Actividades Agendadas:**\n`;
+        scheduledItems.forEach(item => {
+          const matchedBlock = plan.find(b => b.title === item.title);
+          if (matchedBlock) {
+            const icon = item.type === 'meeting' ? '📅' : '📋';
+            message += `- ${icon} **${item.title}** (${matchedBlock.start} - ${matchedBlock.end})\n`;
+          }
+        });
+
+        if (unscheduledItems.length > 0) {
+          message += `\n⚠️ **Actividades no asignadas (sin espacio hoy):**\n`;
+          unscheduledItems.forEach(item => {
+            message += `- ❌ *${item.title}*\n`;
+          });
+          message += `\n*Nota: Tu jornada laboral (08:00 - 18:00) está completamente llena. Estas actividades quedan como tareas pendientes en el panel.*`;
+        }
+
+        message += `\n\n¿Deseas confirmar y aplicar esta distribución a tu agenda? Revisa los bloques sombreados en el calendario y haz clic en "Aplicar Agenda" o descártalos.`;
 
         return { plan, message };
       }
