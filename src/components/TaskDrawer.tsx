@@ -88,6 +88,7 @@ interface TaskDrawerProps {
   people: Person[];
   dataTestId?: string;
   preloadedAiData?: any;
+  currentUser?: any;
 }
 
 export default function TaskDrawer({
@@ -99,6 +100,7 @@ export default function TaskDrawer({
   people,
   dataTestId,
   preloadedAiData,
+  currentUser: currentUserProp,
 }: TaskDrawerProps) {
   // Form states
   const [title, setTitle] = useState('');
@@ -127,6 +129,52 @@ export default function TaskDrawer({
   const [newCommentText, setNewCommentText] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [hasUnreadDrawer, setHasUnreadDrawer] = useState(false);
+
+  useEffect(() => {
+    if (currentUserProp) {
+      setCurrentUser(currentUserProp);
+    }
+  }, [currentUserProp]);
+
+  useEffect(() => {
+    if (!isOpen || !taskId || comments.length === 0) {
+      setHasUnreadDrawer(false);
+      return;
+    }
+    
+    const latestComment = comments.reduce((latest, c) => {
+      return !latest || new Date(c.timestamp) > new Date(latest.timestamp) ? c : latest;
+    }, comments[0]);
+    
+    if (!latestComment) {
+      setHasUnreadDrawer(false);
+      return;
+    }
+    
+    const isLatestByMe = 
+      (currentUser && (latestComment.personId === currentUser.personId || latestComment.user === currentUser.name)) ||
+      latestComment.user === 'Tú' || 
+      latestComment.user === 'Usuario';
+      
+    if (isLatestByMe) {
+      setHasUnreadDrawer(false);
+      return;
+    }
+    
+    if (drawerTab === 'view') {
+      localStorage.setItem(`hermes_task_viewed_${taskId}`, new Date().toISOString());
+      window.dispatchEvent(new Event('unread-update'));
+      setHasUnreadDrawer(false);
+    } else {
+      const lastViewed = localStorage.getItem(`hermes_task_viewed_${taskId}`);
+      if (!lastViewed) {
+        setHasUnreadDrawer(true);
+      } else {
+        setHasUnreadDrawer(new Date(latestComment.timestamp) > new Date(lastViewed));
+      }
+    }
+  }, [isOpen, taskId, comments, drawerTab, currentUser]);
 
   // AI & Sharing States
   const [isDictating, setIsDictating] = useState(false);
@@ -1117,13 +1165,16 @@ Hermes Task Hub`;
         <button
           type="button"
           onClick={() => setDrawerTab('view')}
-          className={`px-3 py-1.5 text-xs font-bold border-b-2 rounded-t-lg transition-all shrink-0 ${
+          className={`px-3 py-1.5 text-xs font-bold border-b-2 rounded-t-lg transition-all shrink-0 flex items-center gap-1.5 ${
             drawerTab === 'view'
               ? 'border-gold-500 text-gold-600 font-extrabold bg-gold-50/10'
               : 'border-transparent text-primary-500 hover:text-primary-750 hover:bg-primary-50'
           }`}
         >
-          💬 Avances
+          <span>💬 Avances</span>
+          {hasUnreadDrawer && (
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse border border-amber-600"></span>
+          )}
         </button>
         
         <button
@@ -1306,7 +1357,7 @@ Hermes Task Hub`;
                         </div>
                         <div className={`mt-1 p-2.5 rounded-2xl text-xs leading-relaxed shadow-2xs ${
                           isMe
-                            ? 'bg-gold-550 text-white rounded-tr-none font-medium'
+                            ? 'bg-gold-600 text-white rounded-tr-none font-medium'
                             : 'bg-primary-100/70 text-primary-850 rounded-tl-none font-bold'
                         }`}>
                           {comment.text}

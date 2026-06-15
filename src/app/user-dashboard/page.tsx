@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import HslAvatar from '@/components/HslAvatar';
 import TaskDrawer, { Task, Person, Company } from '@/components/TaskDrawer';
+import { useUnreadComments } from '@/hooks/useUnreadComments';
 
 export default function UserDashboard() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -87,6 +88,8 @@ export default function UserDashboard() {
   const [viewMode, setViewMode] = useState<'standard' | 'visual'>('standard');
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+
+  const { unreadTasks, markAsRead } = useUnreadComments(tasks, session);
 
   // Mobile navigation hook & tab status (Hoy vs Rutinas vs Proyectos)
   const [activeTab, setActiveTab] = useState<'hoy' | 'rutinas' | 'proyectos'>('hoy');
@@ -174,6 +177,7 @@ export default function UserDashboard() {
   const handleOpenDrawer = (taskId: string) => {
     setActiveTaskId(taskId);
     setIsDrawerOpen(true);
+    markAsRead(taskId);
   };
 
   const handleCloseDrawer = () => {
@@ -368,7 +372,7 @@ export default function UserDashboard() {
                     if (isCompleted) {
                       blockColor = 'bg-emerald-50/20 border-emerald-250/40 text-emerald-800/70 line-through opacity-85';
                     } else if (isMeeting) {
-                      blockColor = 'bg-gold-550/10 border-gold-400 text-gold-950 hover:border-gold-500 shadow-xs';
+                      blockColor = 'bg-gold-600/10 border-gold-400 text-gold-950 hover:border-gold-500 shadow-xs';
                     } else if (isProject) {
                       blockColor = 'bg-purple-50/20 border-purple-300 text-purple-950 hover:border-purple-400';
                     } else if (task.priority === 'High') {
@@ -758,7 +762,7 @@ export default function UserDashboard() {
 
             <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
               {todayOneShots.map(task => (
-                <UserTaskCard key={task.id} task={task} currentUserId={selectedUserId} people={people} onSelect={handleOpenDrawer} />
+                <UserTaskCard key={task.id} task={task} currentUserId={selectedUserId} people={people} onSelect={handleOpenDrawer} isUnread={unreadTasks[task.id]} />
               ))}
               {todayOneShots.length === 0 && (
                 <p className="text-xs text-primary-400 italic py-8 text-center bg-white border border-dashed rounded-xl">
@@ -782,7 +786,7 @@ export default function UserDashboard() {
 
             <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
               {repetitiveTasks.map(task => (
-                <UserTaskCard key={task.id} task={task} currentUserId={selectedUserId} people={people} onSelect={handleOpenDrawer} />
+                <UserTaskCard key={task.id} task={task} currentUserId={selectedUserId} people={people} onSelect={handleOpenDrawer} isUnread={unreadTasks[task.id]} />
               ))}
               {repetitiveTasks.length === 0 && (
                 <p className="text-xs text-primary-400 italic py-8 text-center bg-white border border-dashed rounded-xl">
@@ -806,7 +810,7 @@ export default function UserDashboard() {
 
             <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1 scrollbar-thin">
               {projects.map(task => (
-                <UserTaskCard key={task.id} task={task} currentUserId={selectedUserId} people={people} onSelect={handleOpenDrawer} />
+                <UserTaskCard key={task.id} task={task} currentUserId={selectedUserId} people={people} onSelect={handleOpenDrawer} isUnread={unreadTasks[task.id]} />
               ))}
               {projects.length === 0 && (
                 <p className="text-xs text-primary-400 italic py-8 text-center bg-white border border-dashed rounded-xl">
@@ -828,6 +832,7 @@ export default function UserDashboard() {
         onSuccess={handleRefresh}
         companies={companies}
         people={people}
+        currentUser={session}
       />
       {showToast && (
         <div
@@ -848,9 +853,10 @@ interface UserTaskCardProps {
   currentUserId: string;
   people: Person[];
   onSelect: (id: string) => void;
+  isUnread?: boolean;
 }
 
-function UserTaskCard({ task, currentUserId, people, onSelect }: UserTaskCardProps) {
+function UserTaskCard({ task, currentUserId, people, onSelect, isUnread }: UserTaskCardProps) {
   // Check if it is a joint/shared task
   const isShared = task.assigneeIds && task.assigneeIds.length > 1;
   
@@ -877,7 +883,7 @@ function UserTaskCard({ task, currentUserId, people, onSelect }: UserTaskCardPro
   return (
     <div
       onClick={() => onSelect(task.id)}
-      className="bg-white border border-primary-200 rounded-2xl p-5 hover:border-gold-300 hover:shadow-lg hover:shadow-gold-550/5 transition-all duration-300 cursor-pointer space-y-3.5 relative"
+      className="bg-white border border-primary-200 rounded-2xl p-5 hover:border-gold-300 hover:shadow-lg hover:shadow-gold-600/5 transition-all duration-300 cursor-pointer space-y-3.5 relative"
     >
       {/* Priority Bar Indicator on the left edge */}
       <div className={`absolute left-0 top-4 bottom-4 w-1 rounded-r-lg ${priorityColors[task.priority] || 'bg-primary-300'}`} />
@@ -908,9 +914,17 @@ function UserTaskCard({ task, currentUserId, people, onSelect }: UserTaskCardPro
 
       {/* Title */}
       <div className="pl-1.5">
-        <h4 className="text-sm font-black text-primary-850 leading-snug hover:text-gold-600 transition-colors">
-          {task.title}
-        </h4>
+        <div className="flex items-start justify-between gap-1.5">
+          <h4 className="text-sm font-black text-primary-850 leading-snug hover:text-gold-600 transition-colors">
+            {task.title}
+          </h4>
+          {isUnread && (
+            <span 
+              className="w-2 h-2 rounded-full bg-amber-500 animate-pulse border border-amber-600 shrink-0 mt-1" 
+              title="Nuevos avances sin leer"
+            />
+          )}
+        </div>
         <p className="text-xs text-primary-400 line-clamp-2 mt-1">
           {task.description.replace(/[#*`~]/g, '')}
         </p>
@@ -922,7 +936,7 @@ function UserTaskCard({ task, currentUserId, people, onSelect }: UserTaskCardPro
           <div className="w-full bg-primary-100 h-1.5 rounded-full overflow-hidden">
             <div 
               style={{ width: `${(completedSteps / totalSteps) * 100}%` }}
-              className="bg-gold-550 h-full rounded-full transition-all"
+              className="bg-gold-600 h-full rounded-full transition-all"
             />
           </div>
         </div>

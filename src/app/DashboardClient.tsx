@@ -4,6 +4,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import HslAvatar from '@/components/HslAvatar';
 import TaskDrawer from '@/components/TaskDrawer';
 import { Task, Person, QueueItem, Company, Step, Attachment, LogEntry } from '@/services/dbService';
+import { useUnreadComments } from '@/hooks/useUnreadComments';
 
 interface DashboardClientProps {
   initialTasks: Task[];
@@ -79,6 +80,8 @@ export default function DashboardClient({
   const [activeFilter, setActiveFilter] = useState<FilterType>('none');
   const [session, setSession] = useState<any>(null);
   const [sessionLoaded, setSessionLoaded] = useState(false);
+
+  const { unreadTasks, markAsRead } = useUnreadComments(tasks, session);
 
   // Fetch session on mount
   useEffect(() => {
@@ -378,10 +381,12 @@ export default function DashboardClient({
     setActiveFilter((prev) => (prev === filter ? 'none' : filter));
   };
 
-  // --- Task Details Drawer Slide-over Callbacks ---
   const handleOpenDrawer = (taskId: string | null) => {
     setActiveTaskId(taskId);
     setIsDrawerOpen(true);
+    if (taskId) {
+      markAsRead(taskId);
+    }
   };
 
   const handleCloseDrawer = () => {
@@ -697,6 +702,9 @@ export default function DashboardClient({
                               <span className="text-xs font-bold text-primary-800 group-hover:text-gold-700 transition-colors truncate">
                                 {cleanMarkdown(task.title)}
                               </span>
+                              {unreadTasks[task.id] && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse border border-amber-600 shrink-0" title="Avance nuevo sin leer" />
+                              )}
                             </div>
                             {assignee && (
                               <HslAvatar name={assignee.name} avatarUrl={assignee.avatar} size={5} className="shrink-0" />
@@ -766,6 +774,9 @@ export default function DashboardClient({
                               <span className="text-xs text-primary-650 group-hover:text-primary-800 transition-colors truncate">
                                 {cleanMarkdown(task.title)}
                               </span>
+                              {unreadTasks[task.id] && (
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse border border-amber-600 shrink-0" title="Avance nuevo sin leer" />
+                              )}
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
                               <span className="text-[9px] font-bold text-primary-400">
@@ -1475,7 +1486,7 @@ export default function DashboardClient({
                       <div className="w-full bg-primary-100 h-1.5 rounded-full overflow-hidden">
                         <div
                           style={{ width: `${member.pct}%` }}
-                          className="bg-gold-550 h-full rounded-full transition-all"
+                          className="bg-gold-600 h-full rounded-full transition-all"
                         ></div>
                       </div>
                     </div>
@@ -1504,6 +1515,7 @@ export default function DashboardClient({
         onSuccess={handleRefreshTasks}
         companies={initialCompanies}
         people={people}
+        currentUser={session}
       />
 
       {/* Luxury Footer */}
