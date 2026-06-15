@@ -51,6 +51,8 @@ export interface MeetingMetadata {
   meetingAttendees?: string[];
   meetingConfirmations?: string[];
   meetingLink?: string;
+  comments?: Comment[];
+  completedDays?: string[];
 }
 
 export function extractMeetingMetadata(description: string): { cleanDescription: string; metadata: MeetingMetadata } {
@@ -587,8 +589,8 @@ export class DBService implements IDBService {
           meetingAttendees: metadata.meetingAttendees || [],
           meetingConfirmations: metadata.meetingConfirmations || [],
           meetingLink: metadata.meetingLink || '',
-          comments: t.comments || [],
-          completedDays: t.completed_days || t.completedDays || []
+          comments: metadata.comments || [],
+          completedDays: metadata.completedDays || []
         };
       });
     }
@@ -625,8 +627,8 @@ export class DBService implements IDBService {
         meetingAttendees: metadata.meetingAttendees || [],
         meetingConfirmations: metadata.meetingConfirmations || [],
         meetingLink: metadata.meetingLink || '',
-        comments: data.comments || [],
-        completedDays: data.completed_days || data.completedDays || []
+        comments: metadata.comments || [],
+        completedDays: metadata.completedDays || []
       };
     }
 
@@ -649,7 +651,9 @@ export class DBService implements IDBService {
         meetingTime: task.meetingTime,
         meetingAttendees: task.meetingAttendees,
         meetingConfirmations: task.meetingConfirmations,
-        meetingLink: task.meetingLink
+        meetingLink: task.meetingLink,
+        comments: task.comments || [],
+        completedDays: task.completedDays || []
       });
       const record = {
         id,
@@ -783,6 +787,8 @@ export class DBService implements IDBService {
         meetingAttendees: taskUpdates.meetingAttendees !== undefined ? taskUpdates.meetingAttendees : existing.meetingAttendees,
         meetingConfirmations: taskUpdates.meetingConfirmations !== undefined ? taskUpdates.meetingConfirmations : existing.meetingConfirmations,
         meetingLink: taskUpdates.meetingLink !== undefined ? taskUpdates.meetingLink : existing.meetingLink,
+        comments: taskUpdates.comments !== undefined ? taskUpdates.comments : existing.comments,
+        completedDays: taskUpdates.completedDays !== undefined ? taskUpdates.completedDays : existing.completedDays,
       };
 
       const finalDescription = injectMeetingMetadata(
@@ -806,8 +812,7 @@ export class DBService implements IDBService {
       if (taskUpdates.origin !== undefined) record.origin = taskUpdates.origin;
       if (taskUpdates.dueDate !== undefined) record.due_date = taskUpdates.dueDate;
       if (taskUpdates.attachments !== undefined) record.attachments = taskUpdates.attachments;
-      if (taskUpdates.comments !== undefined) record.comments = taskUpdates.comments;
-      if (taskUpdates.completedDays !== undefined) record.completed_days = taskUpdates.completedDays;
+
 
       const { error } = await supabase.from('tasks').update(record).eq('id', id);
       if (error) throw error;
