@@ -38,6 +38,15 @@ export interface Attachment {
   uploadedAt: string;
 }
 
+export interface Comment {
+  id: string;
+  timestamp: string;
+  user: string;
+  personId: string;
+  avatar?: string;
+  text: string;
+}
+
 export interface LogEntry {
   timestamp: string;
   user: string;
@@ -66,6 +75,7 @@ export interface Task {
   meetingAttendees?: string[];
   meetingConfirmations?: string[];
   meetingLink?: string;
+  comments?: Comment[];
 }
 
 interface TaskDrawerProps {
@@ -97,6 +107,7 @@ export default function TaskDrawer({
   const [steps, setSteps] = useState<Step[]>([]);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [activityLog, setActivityLog] = useState<LogEntry[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [status, setStatus] = useState<'Pending' | 'In Progress' | 'Completed' | 'Blocked'>('Pending');
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('Medium');
   const [type, setType] = useState<'One-shot' | 'Repetitive' | 'Project'>('One-shot');
@@ -111,6 +122,10 @@ export default function TaskDrawer({
   const [previewAttachmentUrl, setPreviewAttachmentUrl] = useState<string | null>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [newStepText, setNewStepText] = useState('');
+  const [drawerTab, setDrawerTab] = useState<'view' | 'edit' | 'steps' | 'meeting' | 'attachments' | 'activity'>('view');
+  const [newCommentText, setNewCommentText] = useState('');
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   // AI & Sharing States
   const [isDictating, setIsDictating] = useState(false);
@@ -377,6 +392,14 @@ Hermes Task Hub`;
             setSmtpHost('');
           }
         }
+
+        const meRes = await fetch('/api/auth/me');
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData.authenticated) {
+            setCurrentUser(meData.user);
+          }
+        }
       } catch (e) {
         console.error(e);
       }
@@ -575,6 +598,7 @@ Hermes Task Hub`;
       steps: Array.isArray(t.steps) ? t.steps : [],
       attachments: Array.isArray(t.attachments) ? t.attachments : [],
       activityLog: Array.isArray(t.activityLog) ? t.activityLog : [],
+      comments: Array.isArray(t.comments) ? t.comments : [],
     };
   };
 
@@ -628,6 +652,8 @@ Hermes Task Hub`;
             setIsMeeting(taskData.isMeeting || false);
             setActiveTab(taskData.isMeeting ? 'meeting' : 'task');
             setSelectedAttachmentNames([]);
+            setComments(taskData.comments || []);
+            setDrawerTab('view');
           }
         } catch (err) {
           console.error("Error fetching task details inside TaskDrawer:", err);
@@ -675,6 +701,8 @@ Hermes Task Hub`;
           setMeetingLink('');
           setIsMeeting(false);
           setActiveTab('task');
+          setComments([]);
+          setDrawerTab('edit');
         } else {
           setTitle('');
           setDescription('');
@@ -696,6 +724,8 @@ Hermes Task Hub`;
           setMeetingLink('');
           setIsMeeting(false);
           setActiveTab('task');
+          setComments([]);
+          setDrawerTab('edit');
         }
       }
     }
@@ -841,6 +871,7 @@ Hermes Task Hub`;
       meetingAttendees: selectedAttendees,
       meetingConfirmations: meetingConfirmations,
       meetingLink: meetingLink || '',
+      comments,
     };
 
     try {
@@ -911,6 +942,71 @@ Hermes Task Hub`;
       }
     } catch (err) {
       console.error("Error deleting task in TaskDrawer:", err);
+    }
+  };
+
+  const handleSendComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCommentText.trim() || !taskId) return;
+    setSubmittingComment(true);
+
+    const userName = currentUser?.name || 'Usuario';
+    const userPersonId = currentUser?.personId || 'usr-1';
+    const userAvatar = currentUser?.avatar || '/avatars/user.png';
+
+    const newComment: Comment = {
+      id: `comment-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      user: userName,
+      personId: userPersonId,
+      avatar: userAvatar,
+      text: newCommentText.trim()
+    };
+
+    const updatedComments = [...comments, newComment];
+    const firstChars = newCommentText.trim().substring(0, 30);
+    const logAction = `Avance registrado: "${firstChars}${newCommentText.trim().length > 30 ? '...' : ''}"`;
+    const updatedActivityLog = [
+      ...activityLog,
+      {
+        timestamp: new Date().toISOString(),
+        user: userName,
+        action: logAction,
+        type: 'User' as const
+      }
+    ];
+
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-api-key': 'mock-api-key-12345'
+      };
+
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          comments: updatedComments,
+          activityLog: updatedActivityLog
+        })
+      });
+
+      if (res.ok) {
+        setComments(updatedComments);
+        setActivityLog(updatedActivityLog);
+        setNewCommentText('');
+        setToastMessage("Avance registrado con éxito");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 2000);
+        onSuccess();
+      } else {
+        alert("Error al guardar el avance");
+      }
+    } catch (err) {
+      console.error("Error sending comment:", err);
+      alert("Error de red al guardar el avance");
+    } finally {
+      setSubmittingComment(false);
     }
   };
 
@@ -1012,334 +1108,243 @@ Hermes Task Hub`;
     return resultLines.join('');
   };
 
-  if (!isOpen) return null;
+  const renderTabsBar = () => {
+    return (
+      <div className="flex overflow-x-auto gap-2 border-b border-primary-100 mb-4 pb-2 scrollbar-none shrink-0">
+        <button
+          type="button"
+          onClick={() => setDrawerTab('view')}
+          className={`px-3 py-1.5 text-xs font-bold border-b-2 rounded-t-lg transition-all shrink-0 ${
+            drawerTab === 'view'
+              ? 'border-gold-500 text-gold-600 font-extrabold bg-gold-50/10'
+              : 'border-transparent text-primary-500 hover:text-primary-750 hover:bg-primary-50'
+          }`}
+        >
+          💬 Avances
+        </button>
+        
+        <button
+          type="button"
+          onClick={() => setDrawerTab('edit')}
+          className={`px-3 py-1.5 text-xs font-bold border-b-2 rounded-t-lg transition-all shrink-0 ${
+            drawerTab === 'edit'
+              ? 'border-gold-500 text-gold-600 font-extrabold bg-gold-50/10'
+              : 'border-transparent text-primary-500 hover:text-primary-750 hover:bg-primary-50'
+          }`}
+        >
+          ⚙️ Editar
+        </button>
 
-  return (
-    <div
-      id="task-details-drawer"
-      data-testid={dataTestId || "task-details-drawer"}
-      className="fixed inset-0 z-50 overflow-hidden flex flex-col justify-end md:flex-row md:justify-end bg-primary-950/40 backdrop-blur-xs animate-fade-in"
-      onClick={onClose}
-    >
-      <div
-        data-testid="task-detail-pane"
-        className="w-full md:max-w-lg bg-white h-[92vh] md:h-full rounded-t-2xl md:rounded-t-none shadow-2xl flex flex-col justify-between p-6 md:p-8 transform transition-all duration-300 translate-y-0 md:translate-y-0 cursor-default overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Drawer Header */}
-        <div className="flex items-center justify-between border-b pb-4 mb-6">
-          <div>
-            <h3 className="text-xl font-black text-primary-900 tracking-tight">
-              {taskId ? 'Edit Task Details' : 'Create New Task'}
-            </h3>
-            <p className="text-xs text-primary-400 font-medium">
-              {taskId ? `Task Reference ID: ${taskId}` : 'Setup task workflow values'}
-            </p>
-          </div>
+        {type === 'Project' && (
           <button
-            onClick={onClose}
-            className="text-primary-400 hover:text-primary-600 transition p-1 rounded-full hover:bg-primary-100"
-            title="Close Drawer"
+            type="button"
+            onClick={() => setDrawerTab('steps')}
+            className={`px-3 py-1.5 text-xs font-bold border-b-2 rounded-t-lg transition-all shrink-0 ${
+              drawerTab === 'steps'
+                ? 'border-gold-500 text-gold-600 font-extrabold bg-gold-50/10'
+                : 'border-transparent text-primary-500 hover:text-primary-750 hover:bg-primary-50'
+            }`}
           >
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            📋 Pasos
           </button>
-        </div>
-
-        {/* Tabs Bar for Meetings */}
-        {isMeeting && (
-          <div className="flex border-b border-primary-200 mb-4 gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveTab('meeting')}
-              className={`flex-1 pb-2.5 text-xs font-bold border-b-2 transition-all uppercase tracking-wider ${
-                activeTab === 'meeting'
-                  ? 'border-gold-500 text-gold-700 font-extrabold'
-                  : 'border-transparent text-primary-400 hover:text-primary-650'
-              }`}
-            >
-              👥 Reunión
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('task')}
-              className={`flex-1 pb-2.5 text-xs font-bold border-b-2 transition-all uppercase tracking-wider ${
-                activeTab === 'task'
-                  ? 'border-gold-500 text-gold-700 font-extrabold'
-                  : 'border-transparent text-primary-400 hover:text-primary-650'
-              }`}
-            >
-              📝 Tarea
-            </button>
-          </div>
         )}
 
-        {isMeeting && activeTab === 'meeting' ? (
-          /* FOCUSED MEETING VIEW */
-          <>
-            {/* Drawer Form Body */}
-            <div className="flex-1 space-y-6 overflow-y-auto pr-1 md:pr-2 pb-4">
-              {/* Meeting Info Block */}
-              <div className="bg-gold-50/10 border border-gold-200/50 p-4 rounded-xl space-y-3">
-                <div className="flex justify-between items-start gap-2">
-                  <h4 className="text-sm font-bold text-primary-900 leading-snug">
-                    👥 {title}
-                  </h4>
-                  <span className="text-[9px] font-black uppercase tracking-wider bg-gold-100 text-gold-800 border border-gold-300 px-2 py-0.5 rounded">
-                    Reunión
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-primary-750 border-t border-gold-100/50 pt-2.5">
-                  <div>
-                    <span className="text-[9px] text-primary-400 uppercase block font-bold">Fecha:</span>
-                    <span className="text-primary-850 font-extrabold">{dueDate}</span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] text-primary-400 uppercase block font-bold">Hora:</span>
-                    <span className="text-primary-850 font-extrabold">{meetingTime || 'No definida'}</span>
-                  </div>
-                </div>
-              </div>
+        {isMeeting && (
+          <button
+            type="button"
+            onClick={() => setDrawerTab('meeting')}
+            className={`px-3 py-1.5 text-xs font-bold border-b-2 rounded-t-lg transition-all shrink-0 ${
+              drawerTab === 'meeting'
+                ? 'border-gold-500 text-gold-600 font-extrabold bg-gold-50/10'
+                : 'border-transparent text-primary-500 hover:text-primary-750 hover:bg-primary-50'
+            }`}
+          >
+            📅 Cita
+          </button>
+        )}
 
-              {/* Meeting Link input */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-primary-500">🔗 Enlace de la Reunión (Google Meet / Zoom / Teams)</label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={meetingLink}
-                    onChange={(e) => setMeetingLink(e.target.value)}
-                    placeholder="https://meet.google.com/abc-defg-hij"
-                    className="flex-1 px-3 py-2 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 font-bold"
-                  />
-                  {meetingLink && (
-                    <a
-                      href={meetingLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center justify-center shrink-0 uppercase tracking-wider"
-                    >
-                      Unirse
-                    </a>
-                  )}
-                </div>
-              </div>
+        <button
+          type="button"
+          onClick={() => setDrawerTab('attachments')}
+          className={`px-3 py-1.5 text-xs font-bold border-b-2 rounded-t-lg transition-all shrink-0 ${
+            drawerTab === 'attachments'
+              ? 'border-gold-500 text-gold-600 font-extrabold bg-gold-50/10'
+              : 'border-transparent text-primary-500 hover:text-primary-750 hover:bg-primary-50'
+          }`}
+        >
+          📎 Adjuntos ({attachments.length})
+        </button>
 
-              {/* Reschedule scheduler segment */}
-              <div className="bg-primary-50/20 p-4 border border-primary-200/50 rounded-xl space-y-4">
-                <span className="block text-xs font-bold text-primary-500 uppercase tracking-wider">
-                  📅 Modificar Programación
+        <button
+          type="button"
+          onClick={() => setDrawerTab('activity')}
+          className={`px-3 py-1.5 text-xs font-bold border-b-2 rounded-t-lg transition-all shrink-0 ${
+            drawerTab === 'activity'
+              ? 'border-gold-500 text-gold-600 font-extrabold bg-gold-50/10'
+              : 'border-transparent text-primary-500 hover:text-primary-750 hover:bg-primary-50'
+          }`}
+        >
+          📜 Historial
+        </button>
+      </div>
+    );
+  };
+
+  const renderViewTab = () => {
+    return (
+      <div className="flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 overflow-y-auto pr-1 md:pr-2 pb-4 space-y-5">
+          <div className="flex flex-wrap items-center gap-2 justify-between">
+            <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border shadow-xs ${
+              priority === 'High' 
+                ? 'bg-red-50 text-red-700 border-red-200' 
+                : priority === 'Low'
+                ? 'bg-primary-50 text-primary-500 border-primary-200'
+                : 'bg-amber-50 text-amber-700 border-amber-200'
+            }`}>
+              Prioridad {priority}
+            </span>
+
+            <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full border shadow-xs ${
+              status === 'Completed'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-250'
+                : status === 'In Progress'
+                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                : status === 'Blocked'
+                ? 'bg-rose-50 text-rose-700 border-rose-250'
+                : 'bg-primary-50 text-primary-600 border-primary-200'
+            }`}>
+              Estado: {status}
+            </span>
+          </div>
+
+          <div>
+            <h4 className="text-lg font-black text-primary-900 tracking-tight leading-snug">
+              {title}
+            </h4>
+            <div className="text-[10px] text-primary-400 font-semibold mt-1">
+              Due date: <span className="text-primary-700 font-bold">{dueDate}</span>
+            </div>
+          </div>
+
+          <div className="bg-primary-50/40 border border-primary-100 rounded-xl p-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <HslAvatar
+                name={people.find(p => p.id === assigneeId)?.name || 'Unassigned'}
+                avatarUrl={people.find(p => p.id === assigneeId)?.avatar || (assigneeId ? getAvatarForAssignee(assigneeId) : '/avatars/placeholder.png')}
+                size={10}
+              />
+              <div className="flex flex-col">
+                <span className="text-[10px] text-primary-400 uppercase font-black tracking-wider">Responsable</span>
+                <span className="text-xs font-bold text-primary-850">
+                  {people.find(p => p.id === assigneeId)?.name || 'Sin asignar'}
                 </span>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[9px] font-bold text-primary-450 uppercase mb-1">Fecha de Reunión</label>
-                    <input
-                      type="date"
-                      value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
-                      className="w-full px-3 py-1.5 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 font-semibold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] font-bold text-primary-450 uppercase mb-1">Hora (Intervalos AM/PM)</label>
-                    <select
-                      value={meetingTime}
-                      onChange={(e) => setMeetingTime(e.target.value)}
-                      className="w-full px-3 py-1.5 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 font-bold"
-                    >
-                      <option value="">Selecciona hora</option>
-                      {Array.from({ length: 16 }).flatMap((_, idx) => {
-                        const h = idx + 7;
-                        const hour24Str = String(h).padStart(2, '0');
-                        const ampm = h >= 12 ? 'PM' : 'AM';
-                        const displayHour = h % 12 === 0 ? 12 : h % 12;
-                        return [
-                          { val: `${hour24Str}:00`, label: `${displayHour}:00 ${ampm}` },
-                          { val: `${hour24Str}:30`, label: `${displayHour}:30 ${ampm}` }
-                        ];
-                      }).map(({ val, label }) => (
-                        <option key={val} value={val}>{label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Selection of Attendees */}
-                <div>
-                  <label className="block text-[9px] font-bold text-primary-450 uppercase mb-1.5">
-                    Seleccionar Invitados (Miembros del Equipo)
-                  </label>
-                  <div className="space-y-1.5 max-h-32 overflow-y-auto border border-primary-150 rounded-lg p-2 bg-white">
-                    {people.map(p => {
-                      const matchedUser = users.find(u => u.personId === p.id);
-                      const email = matchedUser ? matchedUser.email : `${p.name.toLowerCase().replace(/\s+/g, '')}@holding.com`;
-                      const isChecked = selectedAttendees.includes(email);
-                      return (
-                        <label key={p.id} className="flex items-center gap-2 cursor-pointer text-xs">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              if (isChecked) {
-                                setSelectedAttendees(prev => prev.filter(e => e !== email));
-                              } else {
-                                setSelectedAttendees(prev => [...prev, email]);
-                              }
-                            }}
-                            className="w-4.5 h-4.5 rounded text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer"
-                          />
-                          <div className="flex items-center gap-1.5">
-                            <HslAvatar name={p.name} avatarUrl={p.avatar} size={4} />
-                            <span className="font-bold text-primary-800">{p.name}</span>
-                            <span className="text-[10px] text-primary-400">({email})</span>
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
+                <span className="text-[10px] text-primary-400 font-medium">
+                  {people.find(p => p.id === assigneeId)?.role || 'Miembro'}
+                </span>
               </div>
+            </div>
 
-              {/* Live RSVP confirmations */}
-              {selectedAttendees.length > 0 && (
-                <div className="bg-[#faf9f6] border border-gold-200/40 rounded-xl p-3 space-y-2 border-dashed">
-                  <span className="block text-[10px] font-extrabold text-gold-700 uppercase tracking-wider">
-                    Confirmaciones de Invitados (RSVP)
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedAttendees.map((email, idx) => {
-                      const isConfirmed = meetingConfirmations.includes(email);
-                      return (
-                        <span
-                          key={idx}
-                          className={`inline-flex items-center gap-1.5 text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                            isConfirmed
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-250'
-                              : 'bg-amber-50 text-amber-700 border-amber-250'
-                          }`}
-                        >
-                          <span>{isConfirmed ? '✓' : '⌛'}</span>
-                          <span>{email}</span>
-                          <span className="text-[7.5px] font-black uppercase opacity-75">
-                            ({isConfirmed ? 'Confirmado' : 'Pendiente'})
-                          </span>
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Availability Conflicts Banner */}
-              {selectedAttendees.length > 0 && (() => {
-                const conflicts = checkAttendeeConflicts();
-                if (conflicts.length === 0) return null;
-                return (
-                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-800 space-y-1 shadow-xs my-2">
-                    <div className="font-extrabold flex items-center gap-1.5 text-amber-900">
-                      <span>⚠️</span> Conflicto de Disponibilidad:
-                    </div>
-                    <ul className="list-disc pl-4 space-y-0.5 font-semibold">
-                      {conflicts.map((c, i) => (
-                        <li key={i}>{c}</li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })()}
-
-              {/* Attachment Files List */}
-              {attachments.length > 0 && (
-                <div className="space-y-2">
-                  <label className="block text-xs font-bold text-primary-500">📁 Archivos Adjuntos Vinculados</label>
-                  <div className="space-y-2 max-h-36 overflow-y-auto">
-                    {attachments.map((att, idx) => (
-                      <div
-                        key={att.id || idx}
-                        className="flex items-center justify-between p-2 bg-primary-50 border border-primary-100 rounded-lg text-xs"
-                      >
-                        <span className="font-medium text-primary-750 truncate max-w-[200px]">
-                          {att.filename}
-                         </span>
-                         <div className="flex items-center gap-2">
-                           <a
-                             href={`/data/attachments/${att.filename}`}
-                             className="text-gold-600 hover:text-gold-700 font-semibold"
-                             download
-                           >
-                             Descargar
-                           </a>
-                           <button
-                             type="button"
-                             onClick={() => handlePreviewAttachment(att.filename)}
-                             className="text-primary-600 hover:text-primary-750 font-semibold"
-                           >
-                             Ver
-                           </button>
-                         </div>
+            {assigneeIds.length > 1 && (
+              <div className="flex flex-col items-end">
+                <span className="text-[9px] text-primary-400 uppercase font-black tracking-wider mb-1">Colaboradores</span>
+                <div className="flex -space-x-2">
+                  {assigneeIds.map(id => {
+                    const p = people.find(person => person.id === id);
+                    if (!p || p.id === assigneeId) return null;
+                    return (
+                      <div key={p.id} title={p.name} className="ring-2 ring-white rounded-full">
+                        <HslAvatar name={p.name} avatarUrl={p.avatar} size={6} />
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[9px] text-primary-400 uppercase font-black tracking-wider block">Descripción</span>
+            <div
+              id="task-view-description"
+              dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(description) || '<p class="italic text-primary-400 text-xs">Sin descripción de tarea.</p>' }}
+              className="p-4 bg-white border border-primary-150 rounded-xl text-xs prose prose-sm max-w-none text-primary-800 leading-relaxed shadow-2xs max-h-60 overflow-y-auto"
+            />
+          </div>
+
+          <div className="space-y-2 border-t border-primary-100 pt-4">
+            <span className="text-[10px] text-primary-400 uppercase font-black tracking-wider block">
+              💬 Avances y Comentarios ({comments.length})
+            </span>
+            
+            <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+              {comments.length === 0 ? (
+                <div className="text-xs text-primary-400 italic bg-primary-50/20 p-4 border border-dashed rounded-xl text-center">
+                  No hay avances registrados para esta tarea.
+                </div>
+              ) : (
+                comments.map((comment, index) => {
+                  const isMe = comment.personId === (currentUser?.personId || 'usr-1');
+                  return (
+                    <div
+                      key={comment.id || index}
+                      className={`flex items-start gap-2.5 max-w-[90%] ${isMe ? 'ml-auto flex-row-reverse' : 'mr-auto'}`}
+                    >
+                      <HslAvatar
+                        name={comment.user}
+                        avatarUrl={comment.avatar}
+                        size={7.5}
+                      />
+                      <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                        <div className="flex items-center gap-1.5 text-[9px] font-bold text-primary-400">
+                          <span>{comment.user}</span>
+                          <span>•</span>
+                          <span>{new Date(comment.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        <div className={`mt-1 p-2.5 rounded-2xl text-xs leading-relaxed shadow-2xs ${
+                          isMe
+                            ? 'bg-gold-550 text-white rounded-tr-none font-medium'
+                            : 'bg-primary-100/70 text-primary-850 rounded-tl-none font-bold'
+                        }`}>
+                          {comment.text}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
+          </div>
+        </div>
 
-            {/* Drawer Buttons Footer for Meeting Tab */}
-            <div className="border-t pt-4 mt-6 space-y-3">
-              <button
-                type="button"
-                onClick={handleSendMeetingInvite}
-                disabled={sendingMeeting || !meetingTime || selectedAttendees.length === 0}
-                className="w-full py-2 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white rounded-lg font-bold text-xs transition uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {sendingMeeting ? 'Actualizando Invitaciones...' : '✉️ Enviar/Actualizar Invitaciones (SMTP)'}
-              </button>
-              
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleCancelMeeting('convert')}
-                  className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold text-xs uppercase tracking-wider transition"
-                >
-                  🔓 Quitar Reunión
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleCancelMeeting('delete')}
-                  className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-xs uppercase tracking-wider transition"
-                >
-                  🗑️ Borrar Reunión
-                </button>
-              </div>
+        <form onSubmit={handleSendComment} className="border-t pt-4 mt-2 flex gap-2 shrink-0">
+          <input
+            type="text"
+            value={newCommentText}
+            onChange={(e) => setNewCommentText(e.target.value)}
+            placeholder="Escribe un avance o actualización..."
+            className="flex-1 px-3 py-2 border rounded-lg text-xs text-primary-855 bg-white"
+            disabled={submittingComment}
+          />
+          <button
+            type="submit"
+            disabled={submittingComment || !newCommentText.trim()}
+            className="px-4 py-2 bg-gold-600 hover:bg-gold-700 text-white rounded-lg text-xs font-black uppercase tracking-wider transition disabled:opacity-50 flex items-center gap-1 shrink-0"
+          >
+            {submittingComment ? 'Guardando...' : 'Avance'}
+          </button>
+        </form>
+      </div>
+    );
+  };
 
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleSaveTask}
-                  className="flex-1 py-2 bg-primary-850 hover:bg-primary-900 text-white rounded-lg font-semibold text-xs uppercase tracking-wider transition"
-                >
-                  💾 Guardar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('task')}
-                  className="flex-1 py-2 bg-primary-100 hover:bg-primary-200 text-primary-750 rounded-lg font-semibold text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5"
-                >
-                  📝 Ver Tarea
-                </button>
-              </div>
-            </div>
-          </>
-        ) : (
-          /* STANDARD FULL TASK VIEW */
-          <>
-            {/* Drawer Form Body */}
-            <div className="flex-1 space-y-6 overflow-y-auto pr-1 md:pr-2 pb-4">
-              {/* Title */}
-              <div>
+
+  const renderEditTab = () => {
+    return (
+      <div className="flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 space-y-6 overflow-y-auto pr-1 md:pr-2 pb-4">
+          {/* Title */}
+          <div>
             <label className="block text-xs font-bold text-primary-500 mb-1">Task Title</label>
             <input
               type="text"
@@ -1575,8 +1580,86 @@ Hermes Task Hub`;
               </div>
             )}
           </div>
+        </div>
 
-          {/* Checklist (Steps) for Projects */}
+        {/* Footer actions */}
+        <div className="border-t pt-4 mt-6 space-y-3 shrink-0">
+          {taskId && (
+            <button
+              type="button"
+              onClick={handlePingHermes}
+              className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold text-xs transition uppercase tracking-wider flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              Ping Hermes AI
+            </button>
+          )}
+          {taskId && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShareMenuOpen(!shareMenuOpen)}
+                className="w-full py-2 bg-[#faf9f6] border border-primary-200 hover:border-gold-500 text-primary-700 rounded-lg font-bold text-xs transition uppercase tracking-wider flex items-center justify-center gap-2"
+              >
+                <span>📤</span> Compartir Tarea
+              </button>
+              {shareMenuOpen && (
+                <div className="absolute left-0 right-0 bottom-10 z-50 bg-white border border-gold-200/55 rounded-lg shadow-lg py-1.5 text-xs text-primary-800 animate-fade-in flex flex-col">
+                  <button
+                    type="button"
+                    onClick={handleShareTelegram}
+                    className="w-full text-left px-4 py-2 hover:bg-gold-50 flex items-center gap-2"
+                  >
+                    <span>✈️</span> Compartir en Telegram
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShareWhatsApp}
+                    className="w-full text-left px-4 py-2 hover:bg-gold-50 flex items-center gap-2"
+                  >
+                    <span>💬</span> Compartir en WhatsApp
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShareEmail}
+                    className="w-full text-left px-4 py-2 hover:bg-gold-50 flex items-center gap-2"
+                  >
+                    <span>✉️</span> Enviar por Correo (SMTP)
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            {taskId && (
+              <button
+                data-testid="delete-task-btn"
+                onClick={handleDeleteTask}
+                className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-sm transition"
+              >
+                Delete Task
+              </button>
+            )}
+            <button
+              data-testid="save-task-btn"
+              onClick={handleSaveTask}
+              className="flex-1 py-2 bg-gold-600 hover:bg-gold-700 text-white rounded-lg font-semibold text-sm transition"
+            >
+              Save Task
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderStepsTab = () => {
+    return (
+      <div className="flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 space-y-6 overflow-y-auto pr-1 md:pr-2 pb-4">
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="block text-xs font-bold text-primary-500">Checklist Items (Proyectos)</label>
@@ -1602,7 +1685,7 @@ Hermes Task Hub`;
               </button>
             </div>
 
-            <div id="checklist-container" className="space-y-2.5 max-h-48 overflow-y-auto border p-3 rounded-xl bg-primary-50/20">
+            <div id="checklist-container" className="space-y-2.5 max-h-80 overflow-y-auto border p-3 rounded-xl bg-primary-50/20">
               {steps.length === 0 ? (
                 <div data-testid="no-steps-placeholder" className="text-xs text-primary-400 italic">
                   No steps inside this project checklist yet.
@@ -1696,181 +1779,282 @@ Hermes Task Hub`;
               )}
             </div>
           </div>
+        </div>
+        
+        {/* Footer for saving steps */}
+        <div className="border-t pt-4 mt-6 shrink-0">
+          <button
+            data-testid="save-task-btn"
+            onClick={handleSaveTask}
+            className="w-full py-2 bg-gold-600 hover:bg-gold-700 text-white rounded-lg font-semibold text-sm transition"
+          >
+            Save Task
+          </button>
+        </div>
+      </div>
+    );
+  };
 
-          {/* Section: Programar Reunión y Calendario (ICS) */}
-          {taskId && (
-            <div className="border border-gold-200/50 bg-gold-50/10 p-4 rounded-xl space-y-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-gold-600 flex items-center gap-1.5">
-                <span>📅</span> Programar Reunión / Enviar Calendario (ICS)
+  const renderMeetingTab = () => {
+    return (
+      <div className="flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 space-y-6 overflow-y-auto pr-1 md:pr-2 pb-4">
+          {/* Meeting Info Block */}
+          <div className="bg-gold-50/10 border border-gold-200/50 p-4 rounded-xl space-y-3">
+            <div className="flex justify-between items-start gap-2">
+              <h4 className="text-sm font-bold text-primary-900 leading-snug">
+                👥 {title || 'Reunión sin título'}
               </h4>
-
-              {!isSmtpConfigured && (
-                <div className="bg-amber-50 border border-amber-200 text-amber-800 p-2.5 rounded-lg text-[11px] leading-relaxed font-semibold">
-                  ⚠️ Servidor SMTP no configurado. La reunión se guardará en el sistema y aparecerá en el calendario/dashboard, pero los correos se simularán localmente. Configúralo en Settings para correos reales.
-                </div>
-              )}
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">Fecha de Reunión</label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-primary-200 rounded-lg text-xs bg-white text-primary-800"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1">Hora (Intervalos AM/PM)</label>
-                  <select
-                    value={meetingTime}
-                    onChange={(e) => setMeetingTime(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 font-bold"
-                  >
-                    <option value="">Selecciona hora</option>
-                    {Array.from({ length: 16 }).flatMap((_, idx) => {
-                      const h = idx + 7; // From 7 to 22 (07:00 AM to 10:00 PM)
-                      const hour24Str = String(h).padStart(2, '0');
-                      const ampm = h >= 12 ? 'PM' : 'AM';
-                      const displayHour = h % 12 === 0 ? 12 : h % 12;
-                      return [
-                        { val: `${hour24Str}:00`, label: `${displayHour}:00 ${ampm}` },
-                        { val: `${hour24Str}:30`, label: `${displayHour}:30 ${ampm}` }
-                      ];
-                    }).map(({ val, label }) => (
-                      <option key={val} value={val}>{label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Selection of Attendees (people in task credentials / users) */}
+              <span className="text-[9px] font-black uppercase tracking-wider bg-gold-100 text-gold-800 border border-gold-300 px-2 py-0.5 rounded">
+                Reunión
+              </span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-primary-755 border-t border-gold-100/50 pt-2.5">
               <div>
-                <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1.5">
-                  Seleccionar Invitados (Miembros del Equipo)
-                </label>
-                <div className="space-y-1.5 max-h-32 overflow-y-auto border border-primary-150 rounded-lg p-2 bg-white">
-                  {people.map(p => {
-                    const matchedUser = users.find(u => u.personId === p.id);
-                    const email = matchedUser ? matchedUser.email : `${p.name.toLowerCase().replace(/\s+/g, '')}@holding.com`;
-                    const isChecked = selectedAttendees.includes(email);
-                    return (
-                      <label key={p.id} className="flex items-center gap-2 cursor-pointer text-xs">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {
-                            if (isChecked) {
-                              setSelectedAttendees(prev => prev.filter(e => e !== email));
-                            } else {
-                              setSelectedAttendees(prev => [...prev, email]);
-                            }
-                          }}
-                          className="w-4.5 h-4.5 rounded text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer"
-                        />
-                        <div className="flex items-center gap-1.5">
-                          <HslAvatar name={p.name} avatarUrl={p.avatar} size={4} />
-                          <span className="font-bold text-primary-800">{p.name}</span>
-                          <span className="text-[10px] text-primary-400">({email})</span>
-                        </div>
-                      </label>
-                    );
-                  })}
-                </div>
+                <span className="text-[9px] text-primary-400 uppercase block font-bold">Fecha:</span>
+                <span className="text-primary-850 font-extrabold">{dueDate}</span>
               </div>
+              <div>
+                <span className="text-[9px] text-primary-400 uppercase block font-bold">Hora:</span>
+                <span className="text-primary-850 font-extrabold">{meetingTime || 'No definida'}</span>
+              </div>
+            </div>
+          </div>
 
-              {/* Selection of attachments to include in email */}
-              {attachments.length > 0 && (
-                <div>
-                  <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1.5">
-                    Seleccionar Archivos Adjuntos a Enviar
-                  </label>
-                  <div className="space-y-1.5 border border-primary-150 rounded-lg p-2 bg-white">
-                    {attachments.map((att) => {
-                      const isChecked = selectedAttachmentNames.includes(att.filename);
-                      return (
-                        <label key={att.id} className="flex items-center gap-2 cursor-pointer text-xs">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              if (isChecked) {
-                                setSelectedAttachmentNames(prev => prev.filter(f => f !== att.filename));
-                              } else {
-                                setSelectedAttachmentNames(prev => [...prev, att.filename]);
-                              }
-                            }}
-                            className="w-4.5 h-4.5 rounded text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer"
-                          />
-                          <span className="text-primary-700 truncate font-semibold">{att.filename}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
+          {/* Meeting Link input */}
+          <div className="space-y-2">
+            <label className="block text-xs font-bold text-primary-500">🔗 Enlace de la Reunión (Google Meet / Zoom / Teams)</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={meetingLink}
+                onChange={(e) => setMeetingLink(e.target.value)}
+                placeholder="https://meet.google.com/abc-defg-hij"
+                className="flex-1 px-3 py-2 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 font-bold"
+              />
+              {meetingLink && (
+                <a
+                  href={meetingLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition flex items-center justify-center shrink-0 uppercase tracking-wider"
+                >
+                  Unirse
+                </a>
               )}
+            </div>
+          </div>
 
-              {/* RSVP Status / Confirmations List */}
-              {selectedAttendees.length > 0 && (
-                <div className="bg-[#faf9f6] border border-gold-200/40 rounded-xl p-3 space-y-2 border-dashed">
-                  <span className="block text-[10px] font-extrabold text-gold-700 uppercase tracking-wider">
-                    Confirmaciones de Invitados (RSVP)
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {selectedAttendees.map((email, idx) => {
-                      const isConfirmed = meetingConfirmations.includes(email);
-                      return (
-                        <span
-                          key={idx}
-                          className={`inline-flex items-center gap-1.5 text-[9px] font-bold px-2 py-0.5 rounded-full border ${
-                            isConfirmed
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-250'
-                              : 'bg-amber-50 text-amber-700 border-amber-250'
-                          }`}
-                        >
-                          <span>{isConfirmed ? '✓' : '⌛'}</span>
-                          <span>{email}</span>
-                          <span className="text-[7.5px] font-black uppercase opacity-75">
-                            ({isConfirmed ? 'Confirmado' : 'Pendiente'})
-                          </span>
-                        </span>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+          {/* Reschedule scheduler segment */}
+          <div className="bg-primary-50/20 p-4 border border-primary-200/50 rounded-xl space-y-4">
+            <span className="block text-xs font-bold text-primary-500 uppercase tracking-wider">
+              📅 Modificar Programación
+            </span>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[9px] font-bold text-primary-450 uppercase mb-1">Fecha de Reunión</label>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 font-semibold"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-bold text-primary-450 uppercase mb-1">Hora (Intervalos AM/PM)</label>
+                <select
+                  value={meetingTime}
+                  onChange={(e) => setMeetingTime(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-primary-200 rounded-lg text-xs bg-white text-primary-800 font-bold"
+                >
+                  <option value="">Selecciona hora</option>
+                  {Array.from({ length: 16 }).flatMap((_, idx) => {
+                    const h = idx + 7;
+                    const hour24Str = String(h).padStart(2, '0');
+                    const ampm = h >= 12 ? 'PM' : 'AM';
+                    const displayHour = h % 12 === 0 ? 12 : h % 12;
+                    return [
+                      { val: `${hour24Str}:00`, label: `${displayHour}:00 ${ampm}` },
+                      { val: `${hour24Str}:30`, label: `${displayHour}:30 ${ampm}` }
+                    ];
+                  }).map(({ val, label }) => (
+                    <option key={val} value={val}>{label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-              {/* Availability Conflicts Banner */}
-              {selectedAttendees.length > 0 && (() => {
-                const conflicts = checkAttendeeConflicts();
-                if (conflicts.length === 0) return null;
-                return (
-                  <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-800 space-y-1 shadow-xs my-3">
-                    <div className="font-extrabold flex items-center gap-1.5 text-amber-900">
-                      <span>⚠️</span> Conflicto de Disponibilidad:
-                    </div>
-                    <ul className="list-disc pl-4 space-y-0.5 font-semibold">
-                      {conflicts.map((c, i) => (
-                        <li key={i}>{c}</li>
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })()}
+            {/* Selection of Attendees */}
+            <div>
+              <label className="block text-[9px] font-bold text-primary-450 uppercase mb-1.5">
+                Seleccionar Invitados (Miembros del Equipo)
+              </label>
+              <div className="space-y-1.5 max-h-32 overflow-y-auto border border-primary-150 rounded-lg p-2 bg-white">
+                {people.map(p => {
+                  const matchedUser = users.find(u => u.personId === p.id);
+                  const email = matchedUser ? matchedUser.email : `${p.name.toLowerCase().replace(/\s+/g, '')}@holding.com`;
+                  const isChecked = selectedAttendees.includes(email);
+                  return (
+                    <label key={p.id} className="flex items-center gap-2 cursor-pointer text-xs">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          if (isChecked) {
+                            setSelectedAttendees(prev => prev.filter(e => e !== email));
+                          } else {
+                            setSelectedAttendees(prev => [...prev, email]);
+                          }
+                        }}
+                        className="w-4.5 h-4.5 rounded text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer"
+                      />
+                      <div className="flex items-center gap-1.5">
+                        <HslAvatar name={p.name} avatarUrl={p.avatar} size={4} />
+                        <span className="font-bold text-primary-800">{p.name}</span>
+                        <span className="text-[10px] text-primary-400">({email})</span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
 
-              {/* Send Invitation Button */}
-              <button
-                type="button"
-                onClick={handleSendMeetingInvite}
-                disabled={sendingMeeting || !meetingTime || selectedAttendees.length === 0}
-                className="w-full py-2 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white rounded-lg font-bold text-xs transition uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {sendingMeeting ? 'Enviando Invitación...' : '✉️ Enviar Invitación de Calendario (SMTP)'}
-              </button>
+          {/* Selection of attachments to include in email */}
+          {attachments.length > 0 && (
+            <div>
+              <label className="block text-[10px] font-bold text-primary-500 uppercase tracking-wider mb-1.5">
+                Seleccionar Archivos Adjuntos a Enviar
+              </label>
+              <div className="space-y-1.5 border border-primary-150 rounded-lg p-2 bg-white max-h-24 overflow-y-auto">
+                {attachments.map((att) => {
+                  const isChecked = selectedAttachmentNames.includes(att.filename);
+                  return (
+                    <label key={att.id} className="flex items-center gap-2 cursor-pointer text-xs">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          if (isChecked) {
+                            setSelectedAttachmentNames(prev => prev.filter(f => f !== att.filename));
+                          } else {
+                            setSelectedAttachmentNames(prev => [...prev, att.filename]);
+                          }
+                        }}
+                        className="w-4.5 h-4.5 rounded text-gold-600 border-primary-300 focus:ring-gold-500 cursor-pointer"
+                      />
+                      <span className="text-primary-700 truncate font-semibold">{att.filename}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
           )}
 
-          {/* Attachments */}
+          {/* RSVP Status / Confirmations List */}
+          {selectedAttendees.length > 0 && (
+            <div className="bg-[#faf9f6] border border-gold-200/40 rounded-xl p-3 space-y-2 border-dashed">
+              <span className="block text-[10px] font-extrabold text-gold-700 uppercase tracking-wider">
+                Confirmaciones de Invitados (RSVP)
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {selectedAttendees.map((email, idx) => {
+                  const isConfirmed = meetingConfirmations.includes(email);
+                  return (
+                    <span
+                      key={idx}
+                      className={`inline-flex items-center gap-1.5 text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+                        isConfirmed
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-250'
+                          : 'bg-amber-50 text-amber-700 border-amber-250'
+                      }`}
+                    >
+                      <span>{isConfirmed ? '✓' : '⌛'}</span>
+                      <span>{email}</span>
+                      <span className="text-[7.5px] font-black uppercase opacity-75">
+                        ({isConfirmed ? 'Confirmado' : 'Pendiente'})
+                      </span>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Availability Conflicts Banner */}
+          {selectedAttendees.length > 0 && (() => {
+            const conflicts = checkAttendeeConflicts();
+            if (conflicts.length === 0) return null;
+            return (
+              <div className="bg-amber-50 border border-amber-300 rounded-xl p-3 text-xs text-amber-800 space-y-1 shadow-xs my-3">
+                <div className="font-extrabold flex items-center gap-1.5 text-amber-900">
+                  <span>⚠️</span> Conflicto de Disponibilidad:
+                </div>
+                <ul className="list-disc pl-4 space-y-0.5 font-semibold">
+                  {conflicts.map((c, i) => (
+                    <li key={i}>{c}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* Meeting actions footer */}
+        <div className="border-t pt-4 mt-6 space-y-3 shrink-0">
+          <button
+            type="button"
+            onClick={handleSendMeetingInvite}
+            disabled={sendingMeeting || !meetingTime || selectedAttendees.length === 0}
+            className="w-full py-2 bg-gradient-to-r from-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white rounded-lg font-bold text-xs transition uppercase tracking-wider flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {sendingMeeting ? 'Actualizando Invitaciones...' : '✉️ Enviar/Actualizar Invitaciones (SMTP)'}
+          </button>
+          
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => handleCancelMeeting('convert')}
+              className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-semibold text-xs uppercase tracking-wider transition"
+            >
+              🔓 Quitar Reunión
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCancelMeeting('delete')}
+              className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-xs uppercase tracking-wider transition"
+            >
+              🗑️ Borrar Reunión
+            </button>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={handleSaveTask}
+              className="flex-1 py-2 bg-gold-600 hover:bg-gold-700 text-white rounded-lg font-semibold text-xs uppercase tracking-wider transition"
+            >
+              💾 Guardar
+            </button>
+            <button
+              type="button"
+              onClick={() => setDrawerTab('view')}
+              className="flex-1 py-2 bg-primary-100 hover:bg-primary-200 text-primary-750 rounded-lg font-semibold text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5"
+            >
+              💬 Ver Tarea
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderAttachmentsTab = () => {
+    return (
+      <div className="flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 space-y-6 overflow-y-auto pr-1 md:pr-2 pb-4">
           <div>
             <label className="block text-xs font-bold text-primary-500 mb-1">Attachments</label>
             <input
@@ -1910,13 +2094,15 @@ Hermes Task Hub`;
                       Download
                     </a>
                     <button
+                      type="button"
                       data-testid={`preview-attachment-${idx}`}
                       onClick={() => handlePreviewAttachment(att.filename)}
-                      className="text-primary-600 hover:text-primary-750 font-semibold"
+                      className="text-primary-600 hover:text-primary-755 font-semibold"
                     >
                       Preview
                     </button>
                     <button
+                      type="button"
                       data-testid={`delete-attachment-${idx}`}
                       onClick={() => {
                         setAttachments(prev => prev.filter((_, i) => i !== idx));
@@ -1930,13 +2116,31 @@ Hermes Task Hub`;
               ))}
             </div>
           </div>
+        </div>
 
-          {/* Activity Log */}
+        {/* Footer for saving attachments */}
+        <div className="border-t pt-4 mt-6 shrink-0">
+          <button
+            data-testid="save-task-btn"
+            onClick={handleSaveTask}
+            className="w-full py-2 bg-gold-600 hover:bg-gold-700 text-white rounded-lg font-semibold text-sm transition"
+          >
+            Save Task
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderActivityTab = () => {
+    return (
+      <div className="flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 space-y-6 overflow-y-auto pr-1 md:pr-2 pb-4">
           <div>
             <label className="block text-xs font-bold text-primary-500 mb-1">Activity Log</label>
             <div
               id="activity-log"
-              className="space-y-2 max-h-48 overflow-y-auto border border-primary-200 rounded-lg p-3 bg-primary-50/50"
+              className="space-y-2 max-h-96 overflow-y-auto border border-primary-200 rounded-lg p-3 bg-primary-50/50"
             >
               {activityLog.map((log, index) => (
                 <div
@@ -1955,80 +2159,58 @@ Hermes Task Hub`;
             </div>
           </div>
         </div>
+      </div>
+    );
+  };
 
-        {/* Drawer Buttons Footer */}
-        <div className="border-t pt-4 mt-6 space-y-3">
-          {taskId && (
-            <button
-              type="button"
-              onClick={handlePingHermes}
-              className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold text-xs transition uppercase tracking-wider flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              Ping Hermes AI
-            </button>
-          )}
-          {taskId && (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShareMenuOpen(!shareMenuOpen)}
-                className="w-full py-2 bg-[#faf9f6] border border-primary-200 hover:border-gold-500 text-primary-700 rounded-lg font-bold text-xs transition uppercase tracking-wider flex items-center justify-center gap-2"
-              >
-                <span>📤</span> Compartir Tarea
-              </button>
-              {shareMenuOpen && (
-                <div className="absolute left-0 right-0 bottom-10 z-50 bg-white border border-gold-200/55 rounded-lg shadow-lg py-1.5 text-xs text-primary-800 animate-fade-in flex flex-col">
-                  <button
-                    type="button"
-                    onClick={handleShareTelegram}
-                    className="w-full text-left px-4 py-2 hover:bg-gold-50 flex items-center gap-2"
-                  >
-                    <span>✈️</span> Compartir en Telegram
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleShareWhatsApp}
-                    className="w-full text-left px-4 py-2 hover:bg-gold-50 flex items-center gap-2"
-                  >
-                    <span>💬</span> Compartir en WhatsApp
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleShareEmail}
-                    className="w-full text-left px-4 py-2 hover:bg-gold-50 flex items-center gap-2"
-                  >
-                    <span>✉️</span> Enviar por Correo (SMTP)
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+  if (!isOpen) return null;
 
-          <div className="flex gap-3">
-            {taskId && (
-              <button
-                data-testid="delete-task-btn"
-                onClick={handleDeleteTask}
-                className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-sm transition"
-              >
-                Delete Task
-              </button>
-            )}
-            <button
-              data-testid="save-task-btn"
-              onClick={handleSaveTask}
-              className="flex-1 py-2 bg-gold-600 hover:bg-gold-700 text-white rounded-lg font-semibold text-sm transition"
-            >
-              Save Task
-            </button>
+  return (
+    <div
+      id="task-details-drawer"
+      data-testid={dataTestId || "task-details-drawer"}
+      className="fixed inset-0 z-50 overflow-hidden flex flex-col justify-end md:flex-row md:justify-end bg-primary-950/40 backdrop-blur-xs animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        data-testid="task-detail-pane"
+        className="w-full md:max-w-lg bg-white h-[92vh] md:h-full rounded-t-2xl md:rounded-t-none shadow-2xl flex flex-col justify-between p-6 md:p-8 transform transition-all duration-300 translate-y-0 md:translate-y-0 cursor-default overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Drawer Header */}
+        <div className="flex items-center justify-between border-b pb-4 mb-4 shrink-0">
+          <div>
+            <h3 className="text-xl font-black text-primary-900 tracking-tight">
+              {taskId ? 'Edit Task Details' : 'Create New Task'}
+            </h3>
+            <p className="text-xs text-primary-400 font-medium">
+              {taskId ? `Task Reference ID: ${taskId}` : 'Setup task workflow values'}
+            </p>
           </div>
+          <button
+            onClick={onClose}
+            className="text-primary-400 hover:text-primary-600 transition p-1 rounded-full hover:bg-primary-100"
+            title="Close Drawer"
+          >
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-      </>
-    )}
-  </div>
+
+        {/* Tab Selection */}
+        {renderTabsBar()}
+
+        {/* Render Active Tab Content */}
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+          {drawerTab === 'view' && renderViewTab()}
+          {drawerTab === 'edit' && renderEditTab()}
+          {drawerTab === 'steps' && renderStepsTab()}
+          {drawerTab === 'meeting' && renderMeetingTab()}
+          {drawerTab === 'attachments' && renderAttachmentsTab()}
+          {drawerTab === 'activity' && renderActivityTab()}
+        </div>
+      </div>
 
       {/* Toast popup */}
       {showToast && (
@@ -2135,7 +2317,7 @@ Hermes Task Hub`;
                         key={p.id}
                         type="button"
                         onClick={() => setEmailTo(email)}
-                        className="px-2 py-0.5 bg-primary-100 hover:bg-gold-100 text-primary-750 hover:text-gold-800 rounded text-[10px] font-bold transition border border-transparent hover:border-gold-300"
+                        className="px-2 py-0.5 bg-primary-100 hover:bg-gold-100 text-primary-755 hover:text-gold-800 rounded text-[10px] font-bold transition border border-transparent hover:border-gold-300"
                       >
                         {p.name}
                       </button>

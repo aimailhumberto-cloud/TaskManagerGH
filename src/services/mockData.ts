@@ -40,6 +40,15 @@ export interface LogEntry {
   type: 'User' | 'AI';
 }
 
+export interface Comment {
+  id: string;
+  timestamp: string;
+  user: string;
+  personId: string;
+  avatar?: string;
+  text: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -61,6 +70,7 @@ export interface Task {
   meetingAttendees?: string[];
   meetingConfirmations?: string[];
   meetingLink?: string;
+  comments?: Comment[];
 }
 
 export interface EmailTemplate {

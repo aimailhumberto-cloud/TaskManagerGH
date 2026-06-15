@@ -79,9 +79,10 @@ export const mapDbToApi = (task: any) => {
     priority: priorityMap[task.priority] || task.priority,
     origin: originMap[task.origin] || task.origin,
     type: typeMap[task.type] || task.type,
-    // ensure steps and attachments are arrays
+    // ensure steps, attachments, and comments are arrays
     steps: Array.isArray(task.steps) ? task.steps : [],
     attachments: Array.isArray(task.attachments) ? task.attachments : [],
     activityLog: Array.isArray(task.activityLog) ? task.activityLog : [],
+    comments: Array.isArray(task.comments) ? task.comments : [],
   };
 };

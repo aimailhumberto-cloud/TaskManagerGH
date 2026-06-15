@@ -91,6 +91,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (body.origin !== undefined) updates.origin = mapApiToDb.origin(body.origin);
     if (body.dueDate !== undefined) updates.dueDate = body.dueDate;
     if (body.attachments !== undefined) updates.attachments = body.attachments;
+    if (body.comments !== undefined) updates.comments = body.comments;
 
     const task = await dbService.updateTask(params.id, updates);
     return NextResponse.json(mapDbToApi(task));
