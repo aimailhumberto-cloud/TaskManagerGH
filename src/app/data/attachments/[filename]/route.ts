@@ -3,14 +3,14 @@ import fs from 'fs';
 import path from 'path';
 import { validateApiKey } from '@/lib/auth';
 
-export async function GET(req: NextRequest, { params }: { params: { filename: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ filename: string }> }) {
   const auth = await validateApiKey(req);
   if (!auth.valid) {
     return new NextResponse(auth.error || 'Unauthorized', { status: 401 });
   }
 
   try {
-    const { filename } = params;
+    const { filename } = await params;
     const sanitizedFilename = path.basename(filename);
     const filePath = path.join(process.cwd(), 'data', 'attachments', sanitizedFilename);
 

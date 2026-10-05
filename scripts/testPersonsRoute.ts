@@ -35,7 +35,7 @@ async function runRouteTests() {
     body: JSON.stringify({ role: 'Operaciones' })
   });
   
-  const resNoKey = await PUT(reqNoKey, { params: { id: 'p1' } });
+  const resNoKey = await PUT(reqNoKey, { params: Promise.resolve({ id: 'p1' }) });
   assert.strictEqual(resNoKey.status, 401, 'Should return 401 for missing key');
   const bodyNoKey = await resNoKey.json();
   assert.strictEqual(bodyNoKey.error, 'x-api-key header must be provided');
@@ -47,7 +47,7 @@ async function runRouteTests() {
     body: JSON.stringify({ role: 'Operaciones' })
   });
   
-  const resBadKey = await PUT(reqBadKey, { params: { id: 'p1' } });
+  const resBadKey = await PUT(reqBadKey, { params: Promise.resolve({ id: 'p1' }) });
   assert.strictEqual(resBadKey.status, 401, 'Should return 401 for invalid key');
   const bodyBadKey = await resBadKey.json();
   assert.strictEqual(bodyBadKey.error, 'Invalid x-api-key credentials');
@@ -59,7 +59,7 @@ async function runRouteTests() {
     body: JSON.stringify({ role: 'Gerente', companyId: 'comp-1' })
   });
   
-  const resValid = await PUT(reqValid, { params: { id: 'p1' } });
+  const resValid = await PUT(reqValid, { params: Promise.resolve({ id: 'p1' }) });
   assert.strictEqual(resValid.status, 200, 'Should return 200 for successful update');
   const bodyValid = await resValid.json();
   assert.strictEqual(bodyValid.id, 'p1');
@@ -73,7 +73,7 @@ async function runRouteTests() {
     body: JSON.stringify({ role: 'CEO' })
   });
   
-  const resNonExistent = await PUT(reqNonExistent, { params: { id: 'non-existent' } });
+  const resNonExistent = await PUT(reqNonExistent, { params: Promise.resolve({ id: 'non-existent' }) });
   assert.strictEqual(resNonExistent.status, 404, 'Should return 404 for non-existent person');
   const bodyNonExistent = await resNonExistent.json();
   assert.ok(bodyNonExistent.error.includes('not found'), 'Error message should indicate not found');

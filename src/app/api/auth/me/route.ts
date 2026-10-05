@@ -5,7 +5,7 @@ import { decryptSession } from '@/lib/session';
 
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('hermes_session');
 
     if (!sessionCookie || !sessionCookie.value) {

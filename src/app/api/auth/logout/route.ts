@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     if (!sameRequestOrigin(request)) return NextResponse.json({ error: 'Origen no permitido.' }, { status: 403 });
     // Clear session cookie
-    cookies().set('hermes_session', '', {
+    (await cookies()).set('hermes_session', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 0, // Immediately delete the cookie

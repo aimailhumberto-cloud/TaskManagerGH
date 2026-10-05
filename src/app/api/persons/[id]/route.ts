@@ -2,24 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { dbService } from '@/services/dbService';
 import { validateApiKey } from '@/lib/auth';
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   try {
-    const success = await dbService.deletePerson(params.id);
+    const success = await dbService.deletePerson((await params).id);
     if (!success) {
       return NextResponse.json({ error: 'Person not found' }, { status: 404 });
     }
-    return NextResponse.json({ success: true, deletedId: params.id });
+    return NextResponse.json({ success: true, deletedId: (await params).id });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -27,7 +27,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
   try {
     const body = await request.json();
-    const updatedPerson = await dbService.updatePerson(params.id, body);
+    const updatedPerson = await dbService.updatePerson((await params).id, body);
     return NextResponse.json(updatedPerson);
   } catch (error: any) {
     if (error.message && error.message.includes('not found')) {

@@ -28,7 +28,7 @@ for (const key of Object.keys(environment)) {
 const port = testing ? '47915' : '3011';
 if (process.argv.includes('--prepare-only')) process.exit(0);
 console.log(`Isolated preview: http://127.0.0.1:${port}; account humberto@local.test / preview-local-only`);
-const command = process.argv.includes('--build') ? ['build'] : ['dev', '-H', '127.0.0.1', '-p', port];
+const command = process.argv.includes('--build') ? ['build'] : [process.argv.includes('--start') ? 'start' : 'dev', '-H', '127.0.0.1', '-p', port];
 const child = spawn(process.execPath, ['node_modules/next/dist/bin/next', ...command], { env: environment, stdio: 'inherit' });
 child.on('exit', code => process.exit(code ?? 1));
 if (process.platform !== 'win32') {

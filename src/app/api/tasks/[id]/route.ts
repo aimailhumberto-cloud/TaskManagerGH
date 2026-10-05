@@ -7,14 +7,14 @@ import { personalFields } from '@/lib/personalTasks';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   try {
-    const task = await dbService.getTaskById(params.id);
+    const task = await dbService.getTaskById((await params).id);
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -32,7 +32,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
   try {
     const body = await request.json();
-    const taskExists = await dbService.getTaskById(params.id);
+    const taskExists = await dbService.getTaskById((await params).id);
     if (!taskExists) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
@@ -104,7 +104,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (body.meetingLink !== undefined) updates.meetingLink = body.meetingLink;
     if (body.activityLog !== undefined) updates.activityLog = body.activityLog;
 
-    const task = await dbService.updateTask(params.id, updates);
+    const task = await dbService.updateTask((await params).id, updates);
     return NextResponse.json(mapDbToApi(task));
   } catch (error: any) {
     if (error.message.includes('Foreign key constraint failed')) {
@@ -117,18 +117,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   try {
-    const success = await dbService.deleteTask(params.id);
+    const success = await dbService.deleteTask((await params).id);
     if (!success) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
-    return NextResponse.json({ success: true, deletedId: params.id });
+    return NextResponse.json({ success: true, deletedId: (await params).id });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

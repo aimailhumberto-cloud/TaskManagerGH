@@ -7,7 +7,9 @@ const attempts = new Map<string, { count: number; until: number }>();
 
 export async function POST(request: NextRequest) {
   try {
-    const key = request.ip || 'local';
+    // Next 15 removed request.ip. Keep the shared self-hosted bucket;
+    // unverified forwarded headers must not let a client evade the limit.
+    const key = 'local';
     const now = Date.now();
     const bucket = attempts.get(key);
     if (bucket && bucket.until > now && bucket.count >= 10) return NextResponse.json({ error: 'Demasiados intentos. Reintenta más tarde.' }, { status: 429 });
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
     });
 
     // 6. Set HTTP-Only Cookie
-    cookies().set('hermes_session', token, {
+    (await cookies()).set('hermes_session', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 24 * 7,
