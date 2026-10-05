@@ -13,7 +13,7 @@ export function auditExistingService(facts: ExistingServiceFacts = {}) {
   const vars = facts.variablesPresent || {};
   if (!!vars.SUPABASE_URL !== !!vars.SUPABASE_SERVICE_ROLE_KEY) blockers.push('Configuración Supabase parcial: impedir cambio accidental al backend JSON.');
   if (!facts.storage || facts.storage === 'Unknown') blockers.push('Confirmar almacenamiento real y respaldo original.');
-  if (facts.storage === 'Supabase') blockers.push('Adaptar transacciones y persistencia de todas las colecciones nuevas antes de reemplazar.');
+  if (facts.storage === 'Supabase') blockers.push('Validar adaptador Supabase, transacciones y migración de todas las colecciones sobre respaldo y esquema reales; pruebas aisladas no validan producción.');
   if (facts.storage === 'JSON' && !facts.jsonMountVerified) blockers.push('Verificar ruta JSON dentro del montaje persistente existente.');
   if (!facts.attachmentsMountVerified) blockers.push('Verificar persistencia y respaldo de adjuntos.');
   if (!facts.realIdentityVerified) blockers.push('Verificar usuarios reales y mapeo de propietarios; no importar cuentas DEMO.');

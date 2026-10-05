@@ -1,0 +1,6 @@
+-- No destructive DOWN migration. The original tables remain intact but become stale after cutover.
+-- App rollback requires freeze/export/reconciliation of every post-cutover change first.
+-- For DATA rollback while retaining the new adapter, reviewed operator command:
+-- SELECT public.tm_workspace_restore_v1(:expected_current_revision, :historical_revision);
+-- This performs CAS and appends a compensating revision; concurrent changes reject the restore.
+-- Never drop either workspace table or silently resume the old app against stale legacy tables.
