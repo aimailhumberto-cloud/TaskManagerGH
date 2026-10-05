@@ -3,24 +3,24 @@ import { dbService } from '@/services/dbService';
 import { validateApiKey } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
-  const auth = validateApiKey(req);
+  const auth = await validateApiKey(req);
   if (!auth.valid) {
-    return NextResponse.json({ error: auth.error }, { status: 401 });
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   try {
     const smtpConfig = await dbService.getSMTPConfig();
     const aiConfig = await dbService.getAIConfig();
-    return NextResponse.json({ smtpConfig, aiConfig });
+    return NextResponse.json({ smtpConfig: { ...smtpConfig, pass: '', hasPassword: !!smtpConfig.pass }, aiConfig: { ...aiConfig, apiKey: '', hasApiKey: !!aiConfig.apiKey } });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
-  const auth = validateApiKey(req);
+  const auth = await validateApiKey(req);
   if (!auth.valid) {
-    return NextResponse.json({ error: auth.error }, { status: 401 });
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   try {
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
         pass: pass !== undefined ? String(pass) : current.pass,
       };
       await dbService.updateSMTPConfig(updated);
-      return NextResponse.json({ success: true, smtpConfig: updated });
+      return NextResponse.json({ success: true, smtpConfig: { ...updated, pass: '', hasPassword: !!updated.pass } });
     } else if (endpoint !== undefined) {
       const updated = {
         endpoint: String(endpoint).trim(),
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
         activeModel: String(activeModel || '').trim()
       };
       await dbService.updateAIConfig(updated);
-      return NextResponse.json({ success: true, aiConfig: updated });
+      return NextResponse.json({ success: true, aiConfig: { ...updated, apiKey: '', hasApiKey: !!updated.apiKey } });
     }
 
     return NextResponse.json({ error: 'Invalid config payload' }, { status: 400 });

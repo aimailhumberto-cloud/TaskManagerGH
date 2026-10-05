@@ -3,7 +3,7 @@ import { dbService } from '@/services/dbService';
 import { validateApiKey } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
-  const auth = validateApiKey(req);
+  const auth = await validateApiKey(req);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: 401 });
   }

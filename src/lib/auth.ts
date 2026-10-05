@@ -1,55 +1,39 @@
 import { NextRequest } from 'next/server';
+import { decryptSession, SessionData } from './session';
+import { dbService } from '@/services/dbService';
+import { validCsrf } from './csrf';
 
 export interface AuthValidationResult {
   valid: boolean;
   status?: number;
   error?: string;
+  session?: SessionData;
 }
-
-export function validateApiKey(request: NextRequest): AuthValidationResult {
-  const apiKey = request.headers.get('x-api-key');
-  const expectedKey = process.env.HERMES_API_KEY || process.env.API_KEY || 'hermes-master-secret-key';
-
-  if (!apiKey) {
-    const referer = request.headers.get('referer') || '';
-    const origin = request.headers.get('origin') || '';
-    const host = request.headers.get('host') || '';
-
-    // Robustly allow local and same-origin requests from the browser
-    if (
-      (host && referer.includes(host)) ||
-      (host && origin.includes(host)) ||
-      referer.includes('localhost') ||
-      referer.includes('127.0.0.1') ||
-      origin.includes('localhost') ||
-      origin.includes('127.0.0.1')
-    ) {
-      return {
-        valid: true,
-      };
-    }
-    return {
-      valid: false,
-      status: 401,
-      error: 'x-api-key header must be provided',
-    };
+export function sameRequestOrigin(request: NextRequest): boolean {
+  try {
+    const origin = new URL(request.headers.get('origin') || '');
+    // Next's internal URL can use localhost behind the local server or a proxy.
+    // Compare the browser's origin with the actual HTTP Host, never Referer.
+    const host = request.headers.get('host') || request.nextUrl.host;
+    return ['http:', 'https:'].includes(origin.protocol) && origin.host === host;
+  } catch { return false; }
+}
+export async function validateApiKey(request: NextRequest): Promise<AuthValidationResult> {
+  const session = decryptSession(request.cookies.get('hermes_session')?.value || '');
+  if (!session) return { valid: false, status: 401, error: 'Inicia sesión para continuar.' };
+  try {
+    const user = await dbService.getUserById(session.userId);
+    if (!user?.isActive || user.personId !== session.personId) return { valid: false, status: 401, error: 'Sesión revocada.' };
+    const person = (await dbService.getPeople()).find(p => p.id === session.personId);
+    if (!person) return { valid: false, status: 401, error: 'Perfil no disponible.' };
+    const adminOnly = request.nextUrl.pathname.startsWith('/api/settings') || request.nextUrl.pathname.startsWith('/api/users');
+    const writing = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);
+    if ((writing || adminOnly) && person.role !== 'Admin') return { valid: false, status: 403, error: 'Esta acción requiere al administrador.' };
+    if (writing && !sameRequestOrigin(request)) return { valid: false, status: 403, error: 'Origen de la solicitud no permitido.' };
+    if (writing && /^\/api\/(workspace|reminders|integrations)(\/|$)/.test(request.nextUrl.pathname) && !validCsrf(request.cookies.get('hermes_session')!.value, request.headers.get('x-csrf-token'))) return { valid: false, status: 403, error: 'Verificación CSRF requerida. Recarga y reintenta.' };
+    if (writing && process.env.TASKMANAGER_LOCAL_ONLY === '1' && /^\/api\/(tasks|companies|persons)(\/|$)/.test(request.nextUrl.pathname)) return { valid: false, status: 409, error: 'Usa el flujo de trabajo actual para conservar referencias, revisiones y aceptación.' };
+    return { valid: true, session: { ...session, role: person.role } };
+  } catch {
+    return { valid: false, status: 503, error: 'No se pudo verificar el acceso. No se realizaron cambios.' };
   }
-
-  // Accept any of the standard keys used for testing or deployment
-  if (
-    apiKey !== expectedKey &&
-    apiKey !== 'valid-key' &&
-    apiKey !== 'mock-api-key-12345' &&
-    apiKey !== 'hermes-master-secret-key'
-  ) {
-    return {
-      valid: false,
-      status: 401,
-      error: 'Invalid x-api-key credentials',
-    };
-  }
-
-  return {
-    valid: true,
-  };
 }

@@ -6,7 +6,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const auth = validateApiKey(request);
+  const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
@@ -39,7 +39,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const auth = validateApiKey(request);
+  const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }

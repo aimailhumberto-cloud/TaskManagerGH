@@ -5,7 +5,7 @@ import { validateApiKey } from '@/lib/auth';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const auth = validateApiKey(request);
+  const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = validateApiKey(request);
+  const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }

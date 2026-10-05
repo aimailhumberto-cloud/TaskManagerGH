@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { sameRequestOrigin } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    if (!sameRequestOrigin(request)) return NextResponse.json({ error: 'Origen no permitido.' }, { status: 403 });
     // Clear session cookie
     cookies().set('hermes_session', '', {
       httpOnly: true,

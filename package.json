@@ -11,7 +11,12 @@
     "test:db": "npx tsx scripts/testDbService.ts",
     "test:persons": "npx tsx scripts/testPersonsRoute.ts",
     "test:e2e": "node run-e2e.js",
-    "test:playwright": "playwright test"
+    "test:playwright": "playwright test",
+    "preview:local": "node scripts/local-preview.mjs",
+    "test:personal": "tsx scripts/testPersonalTasks.ts",
+    "test:personal:ui": "node scripts/test-personal-ui.mjs",
+    "typecheck": "tsc --noEmit",
+    "test:roadmap": "tsx scripts/testRoadmap.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
@@ -29,6 +34,8 @@
   "devDependencies": {
     "@playwright/test": "^1.40.0",
     "autoprefixer": "^10.4.17",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.35",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "tsx": "^4.7.1"

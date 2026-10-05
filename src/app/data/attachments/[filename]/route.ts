@@ -4,7 +4,7 @@ import path from 'path';
 import { validateApiKey } from '@/lib/auth';
 
 export async function GET(req: NextRequest, { params }: { params: { filename: string } }) {
-  const auth = validateApiKey(req);
+  const auth = await validateApiKey(req);
   if (!auth.valid) {
     return new NextResponse(auth.error || 'Unauthorized', { status: 401 });
   }

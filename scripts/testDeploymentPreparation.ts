@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { auditExistingService, auditUpgradeDatabase } from '../src/lib/deploymentPreparation';
+const original = { companies: [{ id: 'c' }], people: [{ id: 'p' }], tasks: [{ id: 't', title: 'Historical', activityLog: [{ action: 'Original history' }] }], smtpConfig: { pass: 'private-fixture-not-a-real-key' } };
+const bytes = JSON.stringify(original); const report = auditUpgradeDatabase(original);
+assert.equal(report.tasksWithoutOwner, 1); assert(report.issues.some(x => x.includes('usuarios'))); assert.equal(JSON.stringify(original), bytes); assert(!JSON.stringify(report).includes('private-fixture'));
+assert(auditExistingService({ variablesPresent: { SUPABASE_URL: true } }).blockers.some(x => x.includes('parcial')));
+assert(auditExistingService({ storage: 'Supabase' }).blockers.some(x => x.includes('transacciones')));
+assert(auditExistingService({ storage: 'JSON' }).blockers.some(x => x.includes('montaje')));
+const readyMetadata = auditExistingService({ serviceId: 'existing-test', storage: 'JSON', jsonMountVerified: true, attachmentsMountVerified: true, realIdentityVerified: true });
+assert.equal(readyMetadata.readyToDeploy, false); assert(readyMetadata.blockers.some(x => x.includes('rollback')));
+assert(auditUpgradeDatabase({ ...original, users: [{ id: 'u', personId: 'missing' }] }).orphanUsers === 1);
+assert(auditUpgradeDatabase({ ...original, tasks: [{ id: 't' }, { id: 't' }] }).issues.some(x => x.includes('integridad')));
+const operation = { actorId: 'p', requestId: 'r', fingerprint: 'fixture', result: {} };
+assert(!auditUpgradeDatabase({ ...original, appliedOperations: [operation, { ...operation, actorId: 'other' }] }).issues.some(x => x.includes('appliedOperations')));
+assert(auditUpgradeDatabase({ ...original, appliedOperations: [operation, operation] }).issues.some(x => x.includes('appliedOperations')));
+console.log('PASS deployment preparation: read-only, secrets omitted, incomplete backend configuration, ownership/integrity checks and no false readiness. No external calls.');

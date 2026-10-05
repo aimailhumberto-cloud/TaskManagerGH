@@ -4,7 +4,7 @@ import { validateApiKey } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   // Allow optional authentication check to keep it flexible
-  const auth = validateApiKey(req);
+  const auth = await validateApiKey(req);
   if (!auth.valid) {
     // We can allow internal requests without apiKey, but if it is configured we check it
     console.warn("API Key validation failed or missing. Proceeding for UI context.");

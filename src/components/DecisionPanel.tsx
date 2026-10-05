@@ -1,0 +1,30 @@
+'use client';
+import { useState } from 'react';
+import type { Company } from '@/services/mockData';
+import type { Project } from '@/lib/projects';
+import { decisionLabels, type Decision } from '@/lib/executive';
+export default function DecisionPanel({ decisions, companies, projects, companyId = '', canEdit, busy, command }: { decisions: Decision[]; companies: Company[]; projects: Project[]; companyId?: string; canEdit: boolean; busy: boolean; command: (action: string, fields: Record<string, unknown>, reason: string, id?: string, revision?: number) => Promise<boolean> }) {
+  const [editing, setEditing] = useState<Decision | 'new' | null>(null);
+  const [draftCompany, setDraftCompany] = useState(companyId);
+  const list = decisions.filter(d => !companyId || d.companyId === companyId);
+  const current = editing && editing !== 'new' ? editing : null;
+  return <section aria-label="Decisiones respaldadas" className="hb-panel my-5"><div className="hb-section-heading"><h2>Decisiones respaldadas</h2>{canEdit && <button className="hb-primary" disabled={busy} onClick={() => { setDraftCompany(companyId); setEditing('new'); }}>Preparar decisión</button>}</div><p className="hb-muted mt-2 text-sm">Alternativas, evidencia y resultado. Una decisión no envía mensajes ni aprueba contratos externos.</p>
+    {!list.length && <p className="hb-empty">Sin decisiones registradas. Ninguna propuesta se acepta automáticamente.</p>}
+    <div className="mt-4 grid gap-3 lg:grid-cols-2">{list.map(d => <article key={d.id} className="hb-task-card"><span className="hb-eyebrow">{companies.find(c => c.id === d.companyId)?.name} · {decisionLabels[d.state]}</span><h3 className="font-bold">{d.question}</h3><p className="text-sm">{d.state === 'Decided' ? d.outcome : d.missing ? `Falta: ${d.missing}` : d.recommendation || 'Revisa las alternativas y el respaldo.'}</p>{d.projectId && <a className="underline text-sm" href={`/empresas?company=${d.companyId}&project=${d.projectId}`}>Abrir proyecto relacionado</a>}{d.sourceUrl && <a className="underline text-sm" href={d.sourceUrl} target="_blank" rel="noopener noreferrer">Abrir fuente de decisión</a>}<details><summary>Alternativas, evidencia e historial</summary><ul className="list-disc pl-5 text-sm">{d.alternatives.map(a => <li key={a}>{a}</li>)}</ul><p className="my-2 text-sm">{d.evidence || 'Evidencia por incorporar.'}</p>{d.history.map(h => <div key={h.snapshot.revision} className="mt-2 text-xs hb-muted">Revisión {h.snapshot.revision} · {h.reason}{canEdit && h.snapshot.revision !== d.revision && <button className="ml-2 underline" disabled={busy} onClick={() => { const reason = window.prompt('Motivo para restaurar esta revisión de decisión'); if (reason?.trim()) command('restoreDecision', { revision: h.snapshot.revision }, reason, d.id, d.revision); }}>Restaurar decisión a revisión {h.snapshot.revision}</button>}</div>)}</details>{canEdit && <button className="hb-secondary mt-2" disabled={busy} onClick={() => { setEditing(d); setDraftCompany(d.companyId); }}>Revisar decisión</button>}</article>)}</div>
+    {editing && <form key={current?.id || 'new'} aria-label="Editar decisión" className="hb-decision-form mt-5 grid gap-3 md:grid-cols-2" onSubmit={async e => { e.preventDefault(); const f = Object.fromEntries(new FormData(e.currentTarget)); const { reason, ...fields } = f; if (await command(current ? 'updateDecision' : 'createDecision', { ...fields, alternatives: String(f.alternatives).split('\n').map(v => v.trim()).filter(Boolean) }, String(reason), current?.id, current?.revision)) setEditing(null); }}>
+      <label>Empresa de la decisión<select name="companyId" required className="hb-input" value={draftCompany} onChange={e => setDraftCompany(e.target.value)}><option value="">Elegir empresa</option>{companies.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label>
+      <label>Proyecto relacionado<select name="projectId" className="hb-input" defaultValue={current?.projectId || ''}><option value="">Sin proyecto</option>{projects.filter(p => p.companyId === draftCompany).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}</select></label>
+      <label className="md:col-span-2">Pregunta para decidir<input name="question" required maxLength={240} className="hb-input" defaultValue={current?.question || ''} /></label>
+      <label>Alternativas, una por línea<textarea name="alternatives" className="hb-input" defaultValue={current?.alternatives.join('\n') || ''} /></label>
+      <label>Evidencia y contexto<textarea name="evidence" className="hb-input" defaultValue={current?.evidence || ''} /></label>
+      <label>Información faltante<textarea name="missing" className="hb-input" defaultValue={current?.missing || ''} /></label>
+      <label>Recomendación explicada<textarea name="recommendation" className="hb-input" defaultValue={current?.recommendation || ''} /></label>
+      <label>Fuente de la decisión<input name="sourceUrl" type="url" className="hb-input" defaultValue={current?.sourceUrl || ''} /></label>
+      <label>Estado de decisión<select name="state" className="hb-input" defaultValue={current?.state || 'Preparing'}>{Object.entries(decisionLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+      <label className="md:col-span-2">Resultado aprobado por Humberto<textarea name="outcome" className="hb-input" defaultValue={current?.outcome || ''} /></label>
+      <label className="md:col-span-2">Motivo de decisión o cambio<input name="reason" required className="hb-input" /></label>
+      <p className="hb-muted text-xs md:col-span-2">Lista para revisar requiere dos alternativas, evidencia y faltantes resueltos. Para decidir, registra el resultado. Reabrir se hace volviendo a Por preparar y conserva el historial.</p>
+      <div className="flex flex-wrap gap-3 md:col-span-2"><button className="hb-primary" disabled={busy}>Guardar decisión</button><button className="hb-secondary" type="button" disabled={busy} onClick={() => setEditing(null)}>Cancelar edición de decisión</button></div>
+    </form>}
+  </section>;
+}

@@ -3,12 +3,18 @@ import { cookies } from 'next/headers';
 import dbService from '@/services/dbService';
 import { hashPassword } from '@/services/dbService';
 import { encryptSession } from '@/lib/session';
+const attempts = new Map<string, { count: number; until: number }>();
 
 export async function POST(request: NextRequest) {
   try {
+    const key = request.ip || 'local';
+    const now = Date.now();
+    const bucket = attempts.get(key);
+    if (bucket && bucket.until > now && bucket.count >= 10) return NextResponse.json({ error: 'Demasiados intentos. Reintenta más tarde.' }, { status: 429 });
+    attempts.set(key, bucket && bucket.until > now ? { ...bucket, count: bucket.count + 1 } : { count: 1, until: now + 300000 });
     const { email, password } = await request.json();
 
-    if (!email || !password) {
+    if (typeof email !== 'string' || typeof password !== 'string' || !email || !password || email.length > 320 || password.length > 1024) {
       return NextResponse.json(
         { error: 'Email and password are required' },
         { status: 400 }
@@ -65,11 +71,12 @@ export async function POST(request: NextRequest) {
     cookies().set('hermes_session', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
+      maxAge: 60 * 60 * 24 * 7,
       path: '/',
       sameSite: 'lax',
     });
 
+    attempts.delete(key);
     return NextResponse.json({
       success: true,
       user: {

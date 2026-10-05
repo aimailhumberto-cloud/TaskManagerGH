@@ -30,3 +30,6 @@ playwright-report/
 *.log
 *.log.*
 /scratch/
+.local-data/
+.env.local
+artifacts/

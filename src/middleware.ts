@@ -1,41 +1,13 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-
-export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  // 1. Let public assets, API routes, and standard public paths pass
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/api') ||
-    pathname.startsWith('/data') ||
-    pathname.startsWith('/favicon.ico') ||
-    pathname.startsWith('/avatars')
-  ) {
-    return NextResponse.next();
-  }
-
-  const hasSession = request.cookies.has('hermes_session');
-
-  // 2. If requesting the login page while having an active session, redirect to the main Dashboard
-  if (pathname === '/login') {
-    if (hasSession) {
-      return NextResponse.redirect(new URL('/', request.url));
-    }
-    return NextResponse.next();
-  }
-
-  // 3. Redirect to login if no session is active
-  if (!hasSession) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
+import { NextResponse, NextRequest } from 'next/server';
+import { validEdgeSession } from '@/lib/sessionPayload';
+export async function middleware(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+  if (process.env.TASKMANAGER_LOCAL_ONLY === '1' && /^\/api\/(ai|telegram|agent|meetings|tasks\/share-email)(\/|$)/.test(path)) return NextResponse.json({ error: 'Integración externa deshabilitada en este preview.' }, { status: 503 });
+  if (path.startsWith('/api/')) return NextResponse.next(); // Routes validate active users and permissions.
+  const valid = await validEdgeSession(request.cookies.get('hermes_session')?.value || '', process.env.SESSION_SECRET);
+  if (path === '/login' && request.nextUrl.searchParams.get('expired') === '1') { const response = NextResponse.next(); response.cookies.delete('hermes_session'); return response; }
+  if (path === '/login') return valid ? NextResponse.redirect(new URL('/', request.url)) : NextResponse.next();
+  if (!valid) return NextResponse.redirect(new URL('/login', request.url));
   return NextResponse.next();
 }
-
-export const config = {
-  matcher: [
-    // Protect all views, except login, API routes, and static assets
-    '/((?!api|data|_next/static|_next/image|favicon.ico|avatars).*)',
-  ],
-};
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|avatars).*)'] };

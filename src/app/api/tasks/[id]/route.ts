@@ -3,11 +3,12 @@ import { dbService } from '@/services/dbService';
 import { validateApiKey } from '@/lib/auth';
 import { mapApiToDb, mapDbToApi } from '@/lib/mappings';
 import { resolveOrCreateCompany, resolveOrCreateAssignee } from '@/lib/resolveEntities';
+import { personalFields } from '@/lib/personalTasks';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-  const auth = validateApiKey(request);
+  const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-  const auth = validateApiKey(request);
+  const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
@@ -62,7 +63,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       return NextResponse.json({ error: `Invalid origin: ${body.origin}` }, { status: 400 });
     }
 
-    const updates: any = {};
+    let updates: any;
+    try { updates = personalFields(body); } catch (error: any) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     if (body.title !== undefined) updates.title = body.title;
     if (body.description !== undefined) updates.description = body.description;
     if (body.type !== undefined) updates.type = mapApiToDb.type(body.type);
@@ -114,7 +118,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  const auth = validateApiKey(request);
+  const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }

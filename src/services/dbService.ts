@@ -2,6 +2,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { supabase } from './supabaseClient';
+import { validateDatabase, createBackup } from '@/lib/localBackup';
+import { pickPersonalFields, PersonalTaskFields } from '@/lib/personalTasks';
 import {
   Company,
   Person,
@@ -45,7 +47,7 @@ export function generateSalt(): string {
   return crypto.randomBytes(16).toString('hex');
 }
 
-export interface MeetingMetadata {
+export interface MeetingMetadata extends PersonalTaskFields {
   isMeeting?: boolean;
   meetingTime?: string;
   meetingAttendees?: string[];
@@ -75,6 +77,7 @@ export function extractMeetingMetadata(description: string): { cleanDescription:
 export function injectMeetingMetadata(description: string, metadata: MeetingMetadata): string {
   const { cleanDescription } = extractMeetingMetadata(description);
   if (
+    Object.keys(pickPersonalFields(metadata)).length > 0 ||
     metadata.isMeeting ||
     metadata.meetingTime ||
     (metadata.meetingAttendees && metadata.meetingAttendees.length > 0) ||
@@ -156,6 +159,7 @@ export interface IDBService {
 
 export class AsyncMutex {
   private promise: Promise<void> = Promise.resolve();
+  constructor(private lockPath?: string) {}
   
   async acquire(): Promise<() => void> {
     let release: () => void;
@@ -165,7 +169,22 @@ export class AsyncMutex {
     const currentPromise = this.promise;
     this.promise = nextPromise;
     await currentPromise;
-    return release!;
+    if (!this.lockPath) return release!;
+    const started = Date.now();
+    let descriptor: number;
+    try {
+      while (true) {
+        try { descriptor = fs.openSync(this.lockPath, 'wx', 0o600); break; }
+        catch (error: any) {
+          if (error.code !== 'EEXIST' || Date.now() - started > 5000) throw new Error('Base ocupada o no disponible. Reintenta; no se modificaron datos.');
+          await new Promise(resolve => setTimeout(resolve, 25));
+        }
+      }
+    } catch (error) { release!(); throw error; }
+    return () => {
+      try { fs.closeSync(descriptor); fs.unlinkSync(this.lockPath!); }
+      finally { release!(); }
+    };
   }
 }
 
@@ -175,177 +194,35 @@ export class DBService implements IDBService {
 
   constructor() {
     this.dbPath = process.env.DATABASE_PATH || 'data/db.json';
-    this.mutex = new AsyncMutex();
+    this.mutex = new AsyncMutex(supabase ? undefined : this.dbPath + '.lock');
   }
 
   /**
-   * Helper to ensure the parent folder exists and the database file is seeded/recovered.
-   * Also seeds Supabase dynamically if the connection is active and Supabase is empty.
+   * Validate existing storage. Initialization and restore are explicit operations.
    */
   private async ensureDatabase(): Promise<void> {
-    if (supabase) {
-      try {
-        // Query companies to check if data is seeded in Supabase
-        const { count, error } = await supabase
-          .from('companies')
-          .select('*', { count: 'exact', head: true });
+    if (supabase) return; // Initialization/migrations are never triggered by a read.
+    const content = await fs.promises.readFile(this.dbPath, 'utf-8');
+    validateDatabase(JSON.parse(content)); // Fail closed; preserve missing/corrupt data.
+  }
 
-        if (error) {
-          console.error("Error checking Supabase companies:", error);
-          return;
-        }
-
-        if (count === 0) {
-          console.log("Supabase database is empty. Initiating automatic seeding from data/db.json...");
-          
-          let localData: DatabaseSchema;
-          try {
-            const content = await fs.promises.readFile(path.resolve('data/db.json'), 'utf-8');
-            localData = JSON.parse(content);
-          } catch (readErr) {
-            console.warn("Could not load local data/db.json for seeding, using fallback initialData:", readErr);
-            localData = initialData;
-          }
-
-          // 1. Seed companies
-          if (localData.companies && localData.companies.length > 0) {
-            const { error: err } = await supabase.from('companies').insert(localData.companies);
-            if (err) console.error("Error seeding companies:", err);
-          }
-
-          // 2. Seed people
-          if (localData.people && localData.people.length > 0) {
-            const records = localData.people.map(p => ({
-              id: p.id,
-              name: p.name,
-              role: p.role,
-              avatar: p.avatar,
-              company_id: p.companyId || null
-            }));
-            const { error: err } = await supabase.from('people').insert(records);
-            if (err) console.error("Error seeding people:", err);
-          }
-
-          // 3. Seed tasks
-          if (localData.tasks && localData.tasks.length > 0) {
-            const records = localData.tasks.map(t => {
-              const finalDescription = injectMeetingMetadata(t.description || '', {
-                isMeeting: t.isMeeting,
-                meetingTime: t.meetingTime,
-                meetingAttendees: t.meetingAttendees,
-                meetingConfirmations: t.meetingConfirmations
-              });
-              return {
-                id: t.id,
-                title: t.title,
-                description: finalDescription,
-                type: t.type,
-                repeat_pattern: t.repeatPattern || null,
-                steps: t.steps || [],
-                company_id: t.companyId || null,
-                assignee_id: t.assigneeId || null,
-                assignee_ids: t.assigneeIds || [],
-                status: t.status,
-                priority: t.priority,
-                origin: t.origin,
-                due_date: t.dueDate,
-                attachments: t.attachments || [],
-                activity_log: t.activityLog || []
-              };
-            });
-            const { error: err } = await supabase.from('tasks').insert(records);
-            if (err) console.error("Error seeding tasks:", err);
-          }
-
-          // 4. Seed users
-          if (localData.users && localData.users.length > 0) {
-            const records = localData.users.map(u => ({
-              id: u.id,
-              person_id: u.personId,
-              email: u.email,
-              password_hash: u.passwordHash,
-              salt: u.salt,
-              is_active: u.isActive
-            }));
-            const { error: err } = await supabase.from('users').insert(records);
-            if (err) console.error("Error seeding users:", err);
-          }
-
-          // 5. Seed templates
-          if (localData.templates && localData.templates.length > 0) {
-            const records = localData.templates.map(temp => ({
-              id: temp.id,
-              name: temp.name,
-              subject: temp.subject,
-              body: temp.body
-            }));
-            const { error: err } = await supabase.from('email_templates').insert(records);
-            if (err) console.error("Error seeding email templates:", err);
-          }
-
-          // 6. Seed smtp config
-          if (localData.smtpConfig) {
-            const record = {
-              id: 'default',
-              host: localData.smtpConfig.host,
-              port: localData.smtpConfig.port,
-              secure: localData.smtpConfig.secure,
-              auth_user: localData.smtpConfig.user,
-              auth_pass: localData.smtpConfig.pass
-            };
-            const { error: err } = await supabase.from('smtp_config').insert(record);
-            if (err) console.error("Error seeding SMTP configuration:", err);
-          }
-
-          // 7. Seed agent queue
-          if (localData.agentQueue && localData.agentQueue.length > 0) {
-            const records = localData.agentQueue.map(q => ({
-              id: q.id,
-              task_id: q.taskId,
-              command: q.command,
-              payload: q.payload,
-              status: q.status,
-              timestamp: q.timestamp
-            }));
-            const { error: err } = await supabase.from('agent_queue').insert(records);
-            if (err) console.error("Error seeding agent queue:", err);
-          }
-
-          console.log("Supabase seeding completed successfully!");
-        }
-      } catch (seedErr) {
-        console.error("Auto-seeding check failed for Supabase:", seedErr);
-      }
-      return;
-    }
-
-    // Fallback: Local file system implementation
-    const dir = path.dirname(this.dbPath);
-    if (!fs.existsSync(dir)) {
-      await fs.promises.mkdir(dir, { recursive: true });
-    }
-
-    if (!fs.existsSync(this.dbPath)) {
-      await this.atomicWrite(initialData);
-      return;
-    }
-
+  async transaction<T>(change: (data: DatabaseSchema) => T | Promise<T>): Promise<T> {
+    if (supabase) throw new Error('El bloque local de proyectos requiere backend JSON. No se escribió en Supabase.');
+    const release = await this.mutex.acquire();
     try {
-      const content = await fs.promises.readFile(this.dbPath, 'utf-8');
-      JSON.parse(content);
-    } catch (e) {
-      const timestamp = Date.now();
-      const corruptPath = `${this.dbPath}.corrupt_${timestamp}`;
-      try {
-        await fs.promises.rename(this.dbPath, corruptPath);
-      } catch (renameErr) {
-        await fs.promises.writeFile(corruptPath, await fs.promises.readFile(this.dbPath, 'utf-8'));
-      }
-      await this.atomicWrite(initialData);
-    }
+      await this.ensureDatabase();
+      const data = JSON.parse(await fs.promises.readFile(this.dbPath, 'utf-8')) as DatabaseSchema;
+      const original = JSON.stringify(data);
+      const result = await change(data);
+      if (JSON.stringify(data) !== original) await this.atomicWrite(data);
+      return result;
+    } finally { release(); }
   }
 
   private async atomicWrite(data: DatabaseSchema): Promise<void> {
+    validateDatabase(data);
+    if (fs.existsSync(this.dbPath)) await createBackup(this.dbPath);
+
     const uniqueId = Math.random().toString(36).substring(2, 15) + '_' + Date.now();
     const tempPath = `${this.dbPath}.${uniqueId}.tmp`;
     const dir = path.dirname(this.dbPath);
@@ -397,7 +274,8 @@ export class DBService implements IDBService {
       const tasks: Task[] = (tasksRes.data || []).map(t => ({
         id: t.id,
         title: t.title,
-        description: t.description,
+        description: extractMeetingMetadata(t.description || '').cleanDescription,
+        ...extractMeetingMetadata(t.description || '').metadata,
         type: t.type as any,
         repeatPattern: t.repeat_pattern as any,
         steps: t.steps || [],
@@ -452,55 +330,6 @@ export class DBService implements IDBService {
       const content = await fs.promises.readFile(this.dbPath, 'utf-8');
       const data = JSON.parse(content) as DatabaseSchema;
       
-      let changed = false;
-      if (!data.users) {
-        data.users = [
-          {
-            "id": "auth-admin",
-            "personId": "usr-daniel",
-            "email": "admin@hermes.com",
-            "passwordHash": "77049f4b461e4cdc50cabdc6b4d3855f0f0e75ce8d68906c22204865ff0b8c9e7980c429b3d2e24d4369397265e84251216e3a94c694cc62fa55990dfeac59ac",
-            "salt": "13397276ec2950ce2da61a7937d13dc8",
-            "isActive": true
-          }
-        ];
-        changed = true;
-      }
-
-      const hasDaniel = data.people.some(p => p.id === 'usr-daniel');
-      if (!hasDaniel) {
-        data.people.push({
-          id: 'usr-daniel',
-          name: 'Daniel',
-          role: 'CEO',
-          avatar: '/avatars/daniel.png'
-        });
-        changed = true;
-      }
-
-      if (changed) {
-        const uniqueId = Math.random().toString(36).substring(2, 15) + '_' + Date.now();
-        const tempPath = `${this.dbPath}.${uniqueId}.tmp`;
-        await fs.promises.writeFile(tempPath, JSON.stringify(data, null, 2), 'utf-8');
-        
-        let retries = 5;
-        while (retries > 0) {
-          try {
-            await fs.promises.rename(tempPath, this.dbPath);
-            break;
-          } catch (err) {
-            retries--;
-            if (retries === 0) {
-              try {
-                await fs.promises.unlink(tempPath);
-              } catch (_) {}
-              throw err;
-            }
-            await new Promise(resolve => setTimeout(resolve, 50));
-          }
-        }
-      }
-      
       return data;
     } finally {
       release();
@@ -528,7 +357,7 @@ export class DBService implements IDBService {
         const records = data.tasks.map(t => ({
           id: t.id,
           title: t.title,
-          description: t.description,
+          description: injectMeetingMetadata(t.description || '', { ...extractMeetingMetadata(t.description || '').metadata, ...pickPersonalFields(t), isMeeting: t.isMeeting, meetingTime: t.meetingTime, meetingAttendees: t.meetingAttendees, meetingConfirmations: t.meetingConfirmations, meetingLink: t.meetingLink, comments: t.comments, completedDays: t.completedDays }),
           type: t.type,
           repeat_pattern: t.repeatPattern || null,
           steps: t.steps || [],
@@ -622,6 +451,7 @@ export class DBService implements IDBService {
           dueDate: t.due_date,
           attachments: t.attachments || [],
           activityLog: t.activity_log || [],
+          ...pickPersonalFields(metadata),
           isMeeting: metadata.isMeeting || false,
           meetingTime: metadata.meetingTime || '',
           meetingAttendees: metadata.meetingAttendees || [],
@@ -660,6 +490,7 @@ export class DBService implements IDBService {
         dueDate: data.due_date,
         attachments: data.attachments || [],
         activityLog: data.activity_log || [],
+        ...pickPersonalFields(metadata),
         isMeeting: metadata.isMeeting || false,
         meetingTime: metadata.meetingTime || '',
         meetingAttendees: metadata.meetingAttendees || [],
@@ -685,6 +516,7 @@ export class DBService implements IDBService {
         type: 'User' as const
       }];
       const finalDescription = injectMeetingMetadata(task.description, {
+        ...pickPersonalFields(task),
         isMeeting: task.isMeeting,
         meetingTime: task.meetingTime,
         meetingAttendees: task.meetingAttendees,
@@ -838,6 +670,8 @@ export class DBService implements IDBService {
 
       // Merge meeting metadata
       const currentMetadata: MeetingMetadata = {
+        ...pickPersonalFields(existing),
+        ...pickPersonalFields(taskUpdates),
         isMeeting: taskUpdates.isMeeting !== undefined ? taskUpdates.isMeeting : existing.isMeeting,
         meetingTime: taskUpdates.meetingTime !== undefined ? taskUpdates.meetingTime : existing.meetingTime,
         meetingAttendees: taskUpdates.meetingAttendees !== undefined ? taskUpdates.meetingAttendees : existing.meetingAttendees,

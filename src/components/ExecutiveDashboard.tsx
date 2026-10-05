@@ -1,0 +1,40 @@
+'use client';
+import { useEffect, useState } from 'react';
+import type { Task, Company, Person } from '@/services/mockData';
+import type { Project } from '@/lib/projects';
+import { belongsTo, taskInView } from '@/lib/personalTasks';
+import { capacity, isActionable, type DayPlan } from '@/lib/executive';
+export default function ExecutiveDashboard({ tasks, companies, people, projects, actorId, date, plans, companyId, selectCompany, canEdit, busy, command }: { tasks: Task[]; companies: Company[]; people: Person[]; projects: Project[]; actorId: string; date: string; plans: DayPlan[]; companyId: string; selectCompany: (id: string) => void; canEdit: boolean; busy: boolean; command: (action: string, fields: Record<string, unknown>, reason: string, id?: string, revision?: number) => Promise<boolean> }) {
+  const plan = plans.find(p => p.date === date && p.ownerId === actorId);
+  const [minutes, setMinutes] = useState(''); const [focus, setFocus] = useState<string[]>([]);
+  useEffect(() => { setMinutes(plan?.availableMinutes === null || plan?.availableMinutes === undefined ? '' : String(plan.availableMinutes)); setFocus(plan?.focusTaskIds || []); }, [plan, date]);
+  const mine = tasks.filter(t => belongsTo(t, actorId) && (!companyId || t.companyId === companyId) && !projects.some(p => p.id === t.projectId && p.state === 'Cancelled'));
+  const actionable = mine.filter(t => isActionable(t, tasks) && !projects.some(p => p.id === t.projectId && p.state !== 'Active'));
+  const candidates = actionable.filter(t => taskInView(t, 'today', date) || focus.includes(t.id)).sort((a, b) => ({ High: 0, Medium: 1, Low: 2 }[a.priority] - { High: 0, Medium: 1, Low: 2 }[b.priority]));
+  const waiting = mine.filter(t => !t.cancelledAt && t.status !== 'Completed' && t.validationStatus !== 'NeedsConfirmation' && !isActionable(t, tasks));
+  const unconfirmed = mine.filter(t => t.validationStatus === 'NeedsConfirmation' && !t.cancelledAt);
+  const budget = capacity(tasks.filter(t => !projects.some(p => p.id === t.projectId && p.state !== 'Active')), actorId, date, plan);
+  const link = (t: Task) => `/empresas?company=${t.companyId}&task=${t.id}`;
+  const savedFocus = mine.filter(t => plan?.focusTaskIds.includes(t.id));
+  return <section aria-label="Plan personal y bloqueos" className="hb-executive space-y-5">
+    <nav aria-label="Filtrar empresas del resumen" className="hb-company-filters">{[{ id: '', name: 'Todas las empresas' }, ...companies].map(c => <button key={c.id} aria-pressed={companyId === c.id} onClick={() => selectCompany(c.id)}>{c.name}</button>)}</nav>
+    <div className="grid gap-4 xl:grid-cols-[1.5fr_1fr]">
+      <section className="hb-panel"><div className="hb-section-heading"><h2>Focos elegidos</h2><span className="hb-badge">{savedFocus.length} / 3</span></div><p className="hb-muted mb-4 text-sm">Elige qué atender. Una prioridad alta no mueve fechas ni confirma compromisos.</p>
+        {savedFocus.map(t => <a key={t.id} href={link(t)} className="hb-task-card"><span className="hb-eyebrow">{companies.find(c => c.id === t.companyId)?.name}</span><strong>{t.title}</strong><span>{isActionable(t, tasks) ? t.nextAction || 'Siguiente acción por definir' : 'Su disponibilidad cambió: revisa el bloqueo o estado.'}</span><small>Responsable: {people.find(p => p.id === t.ownerId)?.name || 'Por definir'} · Ejecuta: {people.find(p => p.id === t.assigneeId)?.name || 'Por definir'}</small></a>)}
+        {!savedFocus.length && <p className="hb-empty">No has elegido focos para hoy. Tus tareas permanecen en la lista completa.</p>}
+        {canEdit && <details className="mt-4"><summary>Elegir focos y capacidad</summary><form aria-label="Plan del día" className="mt-4 space-y-3" onSubmit={async e => { e.preventDefault(); await command('saveDayPlan', { date, focusTaskIds: focus, availableMinutes: minutes === '' ? null : Number(minutes) }, 'Humberto revisó los focos y la capacidad del día.', undefined, plan?.revision || 0); }}>
+          <label className="block text-sm">Minutos disponibles para tareas, después de reuniones<input type="number" min="0" max="1440" value={minutes} onChange={e => setMinutes(e.target.value)} placeholder="Sin definir" className="hb-input mt-2" /></label>
+          <p className="hb-muted text-xs">Capacidad global del día, incluso al filtrar una empresa. Sin estimaciones completas, no se conoce la carga total.</p>
+          {candidates.map(t => <label key={t.id} className="flex items-start gap-3 rounded-lg border p-3 text-sm"><input type="checkbox" checked={focus.includes(t.id)} disabled={busy || (!focus.includes(t.id) && focus.length >= 3)} onChange={e => setFocus(current => e.target.checked ? [...current, t.id] : current.filter(id => id !== t.id))} /><span>{t.title}<small className="block hb-muted">Prioridad: {{ High: 'Alta', Medium: 'Media', Low: 'Baja' }[t.priority]} · {t.dueDate ? 'Compromiso fechado' : 'Sin vencimiento'}{t.estimatedMinutes ? ` · ${t.estimatedMinutes} min estimados` : ' · Sin estimación'}</small></span></label>)}
+          {focus.filter(id => !candidates.some(t => t.id === id)).map(id => <label key={id} className="flex gap-2 text-sm"><input type="checkbox" checked onChange={() => setFocus(current => current.filter(f => f !== id))} />{tasks.find(t => t.id === id)?.title || 'Foco anterior'} · fuera de este filtro o con disponibilidad cambiada</label>)}
+          {!candidates.length && <p className="hb-muted text-sm">No hay trabajo ejecutable programado para hoy en este filtro. Puedes definirlo desde la lista de tareas.</p>}
+          <button className="hb-primary" disabled={busy}>Guardar plan del día</button>
+        </form></details>}
+        {!!plan?.history.length && <details className="mt-3"><summary>Historial del plan</summary>{plan.history.map(h => <p key={h.revision} className="mt-2 text-xs hb-muted">Revisión {h.revision} · {new Date(h.at).toLocaleString('es', { timeZone: 'America/Panama' })} · {h.reason}</p>)}</details>}
+      </section>
+      <div className="space-y-4"><section className="hb-panel hb-panel-navy" aria-label="Capacidad del día"><h2>Capacidad del día</h2><p className="hb-metric mt-3">{budget.available === null ? 'Por definir' : `${budget.available} min`}</p><p className="hb-muted text-sm">{budget.planned} min estimados de trabajo ejecutable · {budget.unknown} tareas sin estimación</p><p className="mt-3 text-sm">{budget.remaining === null ? 'Define tu disponibilidad; no se infiere de la agenda externa.' : budget.remaining < 0 ? `Sobrecarga conocida: ${-budget.remaining} min. Revisa el plan sin mover el vencimiento.` : `${budget.remaining} min de margen respecto a las estimaciones conocidas.`}</p>{budget.unknown > 0 && <p className="mt-2 text-sm hb-amber">La carga es incompleta; este margen no garantiza tiempo libre.</p>}</section>
+      <section className="hb-panel hb-panel-stone"><h2>Por confirmar <span className="hb-badge">{unconfirmed.length}</span></h2><p className="text-sm mb-3">Fuera de prioridades activas; verificar vigencia antes de planificar.</p>{unconfirmed.slice(0, 3).map(t => <a key={t.id} className="block py-2 text-sm underline" href={link(t)}>{t.title}</a>)}{unconfirmed.length > 3 && <p className="text-sm">{unconfirmed.length - 3} más en la vista Por confirmar de la lista.</p>}</section></div>
+    </div>
+    <section className="hb-panel"><div className="hb-section-heading"><h2>Bloqueos y esperas</h2><span className="hb-badge">{waiting.length}</span></div><div className="mt-3 grid gap-3 md:grid-cols-2">{waiting.map(t => <a href={link(t)} key={t.id} className="hb-task-card"><span className="hb-eyebrow">{companies.find(c => c.id === t.companyId)?.name}</span><strong>{t.title}</strong><span>{t.waitingOn ? `Esperando a: ${t.waitingOn}` : t.dependencyIds?.length ? 'Depende de tareas todavía no completadas.' : 'Bloqueo registrado; revisa el contexto.'}</span><small>{t.followUpDate ? `Seguimiento: ${t.followUpDate}` : 'Seguimiento sin fecha'} · {t.nextAction || 'Siguiente acción por definir'}</small></a>)}</div>{!waiting.length && <p className="hb-empty">Sin bloqueos o esperas registrados en este filtro.</p>}</section>
+  </section>;
+}

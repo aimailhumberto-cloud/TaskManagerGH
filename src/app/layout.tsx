@@ -3,11 +3,12 @@ import React from 'react';
 import { cookies } from 'next/headers';
 import { decryptSession } from '@/lib/session';
 import FooterProfile from '@/components/FooterProfile';
+import WorkspaceNavigation from '@/components/WorkspaceNavigation';
 import dbService from '@/services/dbService';
 
 export const metadata = {
-  title: 'Hermes Hub - Dashboard',
-  description: 'Enterprise task dashboard',
+  title: 'TaskManager · Mi trabajo',
+  description: 'Tareas, negocios y compromisos en un solo lugar',
 };
 
 export default async function RootLayout({
@@ -72,10 +73,10 @@ export default async function RootLayout({
                 </div>
                 <div className="flex flex-col">
                   <span className="text-lg font-extrabold tracking-wide bg-gradient-to-r from-gold-300 via-gold-400 to-gold-200 bg-clip-text text-transparent">
-                    HERMES
+                    TASKMANAGER
                   </span>
                   <span className="text-[10px] font-semibold text-gold-500/80 tracking-widest uppercase -mt-1">
-                    Task Dashboard
+                    Mi centro de trabajo
                   </span>
                 </div>
               </div>
@@ -89,132 +90,7 @@ export default async function RootLayout({
             </div>
 
             {/* Navigation Menu Links */}
-            <nav className="flex-1 space-y-1.5 px-4 py-6 overflow-y-auto">
-              <p className="px-3 text-[10px] font-bold text-primary-500 uppercase tracking-widest mb-3">
-                Main Console
-              </p>
-
-              {/* Link: Dashboard */}
-              <a 
-                href="/" 
-                data-testid="nav-dashboard"
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-300 hover:text-white hover:bg-primary-800/60 border-l-2 border-transparent hover:border-gold-500/85 transition-all duration-150"
-              >
-                <svg className="w-5 h-5 text-primary-400 group-hover:text-gold-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z" />
-                </svg>
-                Dashboard
-              </a>
-
-              {/* Link: Tasks */}
-              <a 
-                href="/tasks" 
-                data-testid="nav-tasks"
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-300 hover:text-white hover:bg-primary-800/60 border-l-2 border-transparent hover:border-gold-500/85 transition-all duration-150"
-              >
-                <svg className="w-5 h-5 text-primary-400 group-hover:text-gold-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                </svg>
-                Tasks Board
-              </a>
-
-              {/* Link: Projects */}
-              <a 
-                href="/projects" 
-                data-testid="nav-projects"
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-300 hover:text-white hover:bg-primary-800/60 border-l-2 border-transparent hover:border-gold-500/85 transition-all duration-150"
-              >
-                <svg className="w-5 h-5 text-primary-400 group-hover:text-gold-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-                Projects Console
-              </a>
-
-              {/* Link: Company Dashboard */}
-              <a 
-                href="/company-dashboard" 
-                data-testid="nav-company-dashboard"
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-300 hover:text-white hover:bg-primary-800/60 border-l-2 border-transparent hover:border-gold-500/85 transition-all duration-150"
-              >
-                <svg className="w-5 h-5 text-primary-400 group-hover:text-gold-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 8v8m-4-5v5m-4-2v2M2 4h20v16H2V4z" />
-                </svg>
-                Company Dashboard
-              </a>
-
-              {/* Link: User Dashboard */}
-              <a 
-                href="/user-dashboard" 
-                data-testid="nav-user-dashboard"
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-300 hover:text-white hover:bg-primary-800/60 border-l-2 border-transparent hover:border-gold-500/85 transition-all duration-150"
-              >
-                <svg className="w-5 h-5 text-primary-400 group-hover:text-gold-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                User Dashboard
-              </a>
-
-              {/* Link: Companies & Persons (Required for full E2E Coverage) */}
-              <a 
-                href="/companies" 
-                data-testid="nav-companies"
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-300 hover:text-white hover:bg-primary-800/60 border-l-2 border-transparent hover:border-gold-500/85 transition-all duration-150"
-              >
-                <svg className="w-5 h-5 text-primary-400 group-hover:text-gold-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-                Companies
-              </a>
-
-              {/* Link: Categories */}
-              <a 
-                href="/categories" 
-                data-testid="nav-categories"
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-300 hover:text-white hover:bg-primary-800/60 border-l-2 border-transparent hover:border-gold-500/85 transition-all duration-150"
-              >
-                <svg className="w-5 h-5 text-primary-400 group-hover:text-gold-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                </svg>
-                Categories
-              </a>
-
-              {/* Link: Calendar */}
-              <a 
-                href="/calendar" 
-                data-testid="nav-calendar"
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-300 hover:text-white hover:bg-primary-800/60 border-l-2 border-transparent hover:border-gold-500/85 transition-all duration-150"
-              >
-                <svg className="w-5 h-5 text-primary-400 group-hover:text-gold-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                Calendar
-              </a>
-
-              {/* Link: Meeting Parser */}
-              <a 
-                href="/meeting-parser" 
-                data-testid="nav-meeting-parser"
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-300 hover:text-white hover:bg-primary-800/60 border-l-2 border-transparent hover:border-gold-500/85 transition-all duration-150"
-              >
-                <svg className="w-5 h-5 text-primary-400 group-hover:text-gold-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Meeting Parser
-              </a>
-
-              {/* Link: Settings */}
-              <a 
-                href="/settings" 
-                data-testid="nav-settings"
-                className="group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-primary-300 hover:text-white hover:bg-primary-800/60 border-l-2 border-transparent hover:border-gold-500/85 transition-all duration-150"
-              >
-                <svg className="w-5 h-5 text-primary-400 group-hover:text-gold-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Settings Hub
-              </a>
-            </nav>
+            <WorkspaceNavigation />
 
             {/* Footer Profile Container */}
             <FooterProfile session={sessionData} />
@@ -227,7 +103,7 @@ export default async function RootLayout({
           />
 
           {/* Core Page Content Shell */}
-          <div className="flex flex-col flex-1 min-h-screen overflow-hidden">
+          <div className="flex min-w-0 flex-col flex-1 min-h-screen overflow-hidden">
             {/* Header for Mobile (lg:hidden) */}
             <header className="lg:hidden flex h-16 shrink-0 items-center justify-between px-6 bg-primary-900 border-b border-primary-850 shadow-md">
               <div className="flex items-center gap-3">
@@ -240,55 +116,24 @@ export default async function RootLayout({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
                 </label>
-                <span className="text-md font-bold tracking-wider text-gold-400">HERMES HUB</span>
+                <span className="text-md font-bold tracking-wider text-gold-400">TASKMANAGER</span>
               </div>
 
               {/* Mini avatar */}
               <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-gold-500 to-gold-400 p-[1px]">
                 <div className="h-full w-full rounded-full bg-primary-850 flex items-center justify-center">
-                  <span className="text-[10px] font-bold text-gold-400">AS</span>
+                  <span className="text-[10px] font-bold text-gold-400">{sessionData?.email.slice(0, 2).toUpperCase() || 'TM'}</span>
                 </div>
               </div>
             </header>
 
             {/* Scrollable Main Area containing page components */}
-            <main className="flex-1 overflow-y-auto bg-primary-50 focus:outline-none pb-20 lg:pb-0">
+            <main className="min-w-0 flex-1 overflow-y-auto bg-primary-50 focus:outline-none pb-20 lg:pb-0">
               {children}
             </main>
 
             {/* Mobile Bottom Navigation Bar */}
-            <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-primary-900 border-t border-primary-850 flex justify-around items-center h-16 px-2 shadow-lg">
-              <a href="/" className="flex flex-col items-center justify-center text-primary-300 hover:text-gold-450 py-1 flex-1">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6z" />
-                </svg>
-                <span className="text-[9px] font-semibold mt-1">Dashboard</span>
-              </a>
-              <a href="/tasks" className="flex flex-col items-center justify-center text-primary-300 hover:text-gold-455 py-1 flex-1">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
-                </svg>
-                <span className="text-[9px] font-semibold mt-1">Tasks</span>
-              </a>
-              <a href="/projects" className="flex flex-col items-center justify-center text-primary-300 hover:text-gold-455 py-1 flex-1">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13" />
-                </svg>
-                <span className="text-[9px] font-semibold mt-1">Projects</span>
-              </a>
-              <a href="/user-dashboard" className="flex flex-col items-center justify-center text-primary-300 hover:text-gold-455 py-1 flex-1">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14" />
-                </svg>
-                <span className="text-[9px] font-semibold mt-1">User DB</span>
-              </a>
-              <a href="/calendar" className="flex flex-col items-center justify-center text-primary-300 hover:text-gold-455 py-1 flex-1">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14" />
-                </svg>
-                <span className="text-[9px] font-semibold mt-1">Calendar</span>
-              </a>
-            </nav>
+            <WorkspaceNavigation mobile />
           </div>
         </div>
       </body>

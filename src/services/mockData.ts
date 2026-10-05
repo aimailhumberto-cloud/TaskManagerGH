@@ -1,3 +1,7 @@
+import type { PersonalTaskFields } from '@/lib/personalTasks';
+import type { Project, AppliedOperation } from '@/lib/projects';
+import type { CalendarSnapshot, Reminder } from '@/lib/planning';
+
 export interface Company {
   id: string;
   name: string;
@@ -24,6 +28,13 @@ export interface Step {
   dueDate?: string;
   status?: 'Pending' | 'In Progress' | 'Completed' | 'Blocked';
   assigneeId?: string;
+  workDate?: string;
+  nextAction?: string;
+  waitingOn?: string;
+  dependencyIds?: string[];
+  evidence?: string;
+  sourceUrl?: string;
+  cancelled?: boolean;
 }
 
 export interface Attachment {
@@ -34,6 +45,10 @@ export interface Attachment {
 }
 
 export interface LogEntry {
+  provenance?: { channel: 'chat' | 'voice'; instruction: string; sourceKind: string; sourceUrl: string; observedAt: string };
+  revision?: number;
+  snapshot?: Omit<Task, 'activityLog'>;
+  changes?: { field: string; before: unknown; after: unknown }[];
   timestamp: string;
   user: string;
   action: string;
@@ -49,7 +64,7 @@ export interface Comment {
   text: string;
 }
 
-export interface Task {
+export interface Task extends PersonalTaskFields {
   id: string;
   title: string;
   description: string;
@@ -114,6 +129,14 @@ export interface User {
 }
 
 export interface DatabaseSchema {
+  automations?: import('@/lib/workspaceLayers').AutomationRecord[];
+  heroPreferences?: import('@/lib/workspaceLayers').HeroPreference[];
+  decisions?: import('@/lib/executive').Decision[];
+  dayPlans?: import('@/lib/executive').DayPlan[];
+  calendarSnapshot?: CalendarSnapshot;
+  reminders?: Reminder[];
+  projects?: Project[];
+  appliedOperations?: AppliedOperation[];
   companies: Company[];
   people: Person[];
   tasks: Task[];

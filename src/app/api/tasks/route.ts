@@ -3,11 +3,12 @@ import { dbService } from '@/services/dbService';
 import { validateApiKey } from '@/lib/auth';
 import { mapApiToDb, mapDbToApi } from '@/lib/mappings';
 import { resolveOrCreateCompany, resolveOrCreateAssignee } from '@/lib/resolveEntities';
+import { personalFields } from '@/lib/personalTasks';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const auth = validateApiKey(request);
+  const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = validateApiKey(request);
+  const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
@@ -56,10 +57,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Invalid repeatPattern: ${body.repeatPattern}` }, { status: 400 });
     }
 
+    let personal;
+    try { personal = personalFields(body); } catch (error: any) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     const companyId = await resolveOrCreateCompany(body.companyId || body.companyName || '');
     const assigneeId = await resolveOrCreateAssignee(body.assigneeId || body.assigneeName || '');
 
     const payload = {
+      ...personal,
       title: body.title,
       description: body.description || '',
       type: mapApiToDb.type(body.type) || 'One-shot',
@@ -71,7 +77,7 @@ export async function POST(request: NextRequest) {
       status: mapApiToDb.status(body.status) || 'Pending',
       priority: mapApiToDb.priority(body.priority) || 'Medium',
       origin: mapApiToDb.origin(body.origin) || 'Manual',
-      dueDate: body.dueDate || new Date().toISOString(),
+      dueDate: body.dueDate === '' ? '' : (body.dueDate || new Date().toISOString()),
       attachments: Array.isArray(body.attachments) ? body.attachments : [],
       isMeeting: body.isMeeting || false,
       meetingTime: body.meetingTime || '',
@@ -93,7 +99,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const auth = validateApiKey(request);
+  const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }

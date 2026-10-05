@@ -5,7 +5,7 @@ import { mapApiToDb, mapDbToApi } from '@/lib/mappings';
 import { resolveOrCreateCompany, resolveOrCreateAssignee } from '@/lib/resolveEntities';
 
 export async function POST(request: NextRequest) {
-  const auth = validateApiKey(request);
+  const auth = await validateApiKey(request);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
