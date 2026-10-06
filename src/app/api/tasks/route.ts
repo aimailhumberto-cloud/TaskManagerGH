@@ -1,3 +1,4 @@
+import { workspaceDTO, taskDTO } from '@/lib/publicWorkspace';
 import { NextRequest, NextResponse } from 'next/server';
 import { dbService } from '@/services/dbService';
 import { validateApiKey } from '@/lib/auth';
@@ -14,10 +15,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const tasks = await dbService.getTasks();
+    const tasks = workspaceDTO(await dbService.readData(),auth.session!).tasks;
     return NextResponse.json(tasks.map(mapDbToApi));
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Datos no disponibles; reintenta sin modificar la base.' }, { status: 503 });
   }
 }
 
@@ -89,12 +90,12 @@ export async function POST(request: NextRequest) {
     };
 
     const task = await dbService.createTask(payload);
-    return NextResponse.json(mapDbToApi(task), { status: 201 });
+    return NextResponse.json(mapDbToApi(taskDTO(task)), { status: 201 });
   } catch (error: any) {
     if (error.message.includes('Foreign key constraint failed')) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Datos no disponibles; reintenta sin modificar la base.' }, { status: 503 });
   }
 }
 
@@ -108,6 +109,6 @@ export async function DELETE(request: NextRequest) {
     await dbService.clearAllTasks();
     return NextResponse.json({ success: true, message: 'All tasks cleared successfully' });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Datos no disponibles; reintenta sin modificar la base.' }, { status: 503 });
   }
 }

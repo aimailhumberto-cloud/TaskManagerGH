@@ -68,6 +68,7 @@ function mutate(data: DatabaseSchema, actor: SessionData, body: any): unknown {
   if (body.action === 'restoreTask') {
     const existing = data.tasks.find(t => t.id === body.id);
     if (!existing) throw new WorkspaceError('Tarea no encontrada.', 404);
+    if (!data.people.some(p=>p.id===existing.ownerId)) throw new WorkspaceError('La propiedad de esta tarea requiere validación antes de modificarla.',403);
     requireRevision(existing.revision || 0, body.expectedRevision);
     const saved = existing.activityLog.find(log => log.revision === input.revision)?.snapshot;
     if (!saved || !reason) throw new WorkspaceError('Elige una revisión y explica la restauración.');
@@ -95,6 +96,7 @@ function mutate(data: DatabaseSchema, actor: SessionData, body: any): unknown {
     } else {
       previous = data.tasks.find(t => t.id === body.id);
       if (!previous) throw new WorkspaceError('Tarea no encontrada.', 404);
+      if (!data.people.some(p=>p.id===previous!.ownerId)) throw new WorkspaceError('La propiedad de esta tarea requiere validación antes de modificarla.',403);
       requireRevision(previous.revision || 0, body.expectedRevision);
       task = structuredClone(previous); Object.assign(task, personal); task.revision = (previous.revision || 0) + 1;
     }
@@ -170,6 +172,7 @@ function mutate(data: DatabaseSchema, actor: SessionData, body: any): unknown {
     return task;
   }
   const project = projectFor(data, body.id);
+  if (!data.people.some(p=>p.id===project.ownerId)) throw new WorkspaceError('La propiedad de este proyecto requiere validación.',403);
   requireRevision(project.revision, body.expectedRevision);
   if (project.state === 'Cancelled' && !['updateProject', 'restoreProject'].includes(body.action)) throw new WorkspaceError('Reactiva el proyecto antes de añadir trabajo.');
   if (project.state === 'Completed' && body.action === 'addDeliverable') throw new WorkspaceError('Reabre el proyecto antes de ampliar sus entregables.');

@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
 
     // 2. Fetch fresh user & person details from local DB
     const user = await dbService.getUserById(sessionData.userId);
-    if (!user || !user.isActive) {
+    if (!user || !user.isActive || user.personId !== sessionData.personId) {
       return NextResponse.json(
         { error: 'User is inactive or deleted', authenticated: false },
         { status: 401 }
@@ -56,7 +56,6 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (err: any) {
-    console.error('Error fetching current session:', err);
     return NextResponse.json(
       { error: 'Internal server error', authenticated: false },
       { status: 500 }

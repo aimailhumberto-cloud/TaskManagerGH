@@ -1,3 +1,4 @@
+import { canReadTask, taskDTO } from '@/lib/publicWorkspace';
 import { NextRequest, NextResponse } from 'next/server';
 import { dbService } from '@/services/dbService';
 import { validateApiKey } from '@/lib/auth';
@@ -15,12 +16,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   try {
     const task = await dbService.getTaskById((await params).id);
-    if (!task) {
+    if (!task || !canReadTask(await dbService.readData(),auth.session!,task)) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
-    return NextResponse.json(mapDbToApi(task));
+    return NextResponse.json(mapDbToApi(taskDTO(task)));
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Datos no disponibles; reintenta sin modificar la base.' }, { status: 503 });
   }
 }
 
@@ -105,7 +106,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (body.activityLog !== undefined) updates.activityLog = body.activityLog;
 
     const task = await dbService.updateTask((await params).id, updates);
-    return NextResponse.json(mapDbToApi(task));
+    return NextResponse.json(mapDbToApi(taskDTO(task)));
   } catch (error: any) {
     if (error.message.includes('Foreign key constraint failed')) {
       return NextResponse.json({ error: error.message }, { status: 400 });
@@ -113,7 +114,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (error.message.includes('not found')) {
       return NextResponse.json({ error: error.message }, { status: 404 });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Datos no disponibles; reintenta sin modificar la base.' }, { status: 503 });
   }
 }
 
@@ -130,6 +131,6 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     }
     return NextResponse.json({ success: true, deletedId: (await params).id });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Datos no disponibles; reintenta sin modificar la base.' }, { status: 503 });
   }
 }

@@ -1,4 +1,5 @@
 import {whatsappOwnerAllowed} from '@/lib/whatsappOwner';
+import {workspaceDTO} from '@/lib/publicWorkspace';
 import {applyWorkspaceCommand} from './workspaceService';
 import {readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
@@ -15,7 +16,7 @@ export async function analyticsSource(ownerId:string):Promise<WAEnvelope>{
  }
  return {version:1,ownerId,synthetic:false,available:false,reason:'Pendiente de autorizar lectura y análisis de contenido en este entorno. La conexión de metadatos sigue disponible.',permissionExpiresAt:null,coverage:[],events:[]};
 }
-export async function analyticsView(actor:SessionData,account:'all'|'personal'|'bee-smart',days:1|7,query:string){const db=await dbService.readData();if(!whatsappOwnerAllowed(actor,db))throw new WorkspaceError('Contenido reservado al propietario verificado.',403);const source=await analyticsSource(actor.personId);return {...buildWAView(source,db.whatsappReviews||[],{account,days,query}),companies:db.companies,projects:(db.projects||[]).filter(p=>p.ownerId===actor.personId),tasks:db.tasks.filter(t=>t.ownerId===actor.personId&&!t.cancelledAt).map(t=>({id:t.id,title:t.title,companyId:t.companyId,isMeeting:t.isMeeting}))};}
+export async function analyticsView(actor:SessionData,account:'all'|'personal'|'bee-smart',days:1|7,query:string){const db=await dbService.readData();if(!whatsappOwnerAllowed(actor,db))throw new WorkspaceError('Contenido reservado al propietario verificado.',403);const source=await analyticsSource(actor.personId);return {...buildWAView(source,db.whatsappReviews||[],{account,days,query}),companies:workspaceDTO(db,actor).companies,projects:workspaceDTO(db,actor).projects.filter(p=>p.ownerId===actor.personId),tasks:db.tasks.filter(t=>t.ownerId===actor.personId&&!t.cancelledAt).map(t=>({id:t.id,title:t.title,companyId:t.companyId,isMeeting:t.isMeeting}))};}
 export async function reviewAnalytics(actor:SessionData,body:any){
  if(!whatsappOwnerAllowed(actor,await dbService.readData()))throw new WorkspaceError('Contenido reservado al propietario verificado.',403);
  const source=await analyticsSource(actor.personId);if(!source.available)throw new WorkspaceError('Lectura de contenido no autorizada; no se guardó nada.',403);

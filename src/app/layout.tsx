@@ -5,6 +5,7 @@ import { decryptSession } from '@/lib/session';
 import FooterProfile from '@/components/FooterProfile';
 import WorkspaceNavigation from '@/components/WorkspaceNavigation';
 import dbService from '@/services/dbService';
+import {verifiedProfile} from '@/lib/publicWorkspace';
 
 export const metadata = {
   title: 'TaskManager · Mi trabajo',
@@ -24,19 +25,12 @@ export default async function RootLayout({
     const parsed = decryptSession(sessionCookie.value);
     if (parsed) {
       try {
-        const people = await dbService.getPeople();
-        const person = people.find(p => p.id === parsed.personId);
-        if (person) {
-          sessionData = {
-            ...parsed,
-            name: person.name,
-            role: person.role
-          };
-        } else {
-          sessionData = parsed;
-        }
+        const data=await dbService.readData();
+        const person=verifiedProfile(data,parsed);
+        const user=data.users.find(u=>u.id===parsed.userId)!;
+        sessionData={userId:user.id,personId:person.id,email:user.email,name:person.name,role:person.role};
       } catch (e) {
-        sessionData = parsed;
+        sessionData = null;
       }
     }
   }

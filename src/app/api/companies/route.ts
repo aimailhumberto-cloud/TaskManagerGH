@@ -1,3 +1,4 @@
+import { workspaceDTO } from '@/lib/publicWorkspace';
 import { NextRequest, NextResponse } from 'next/server';
 import { dbService } from '@/services/dbService';
 import { validateApiKey } from '@/lib/auth';
@@ -11,10 +12,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const companies = await dbService.getCompanies();
+    const companies = workspaceDTO(await dbService.readData(),auth.session!).companies;
     return NextResponse.json(companies);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Datos no disponibles; reintenta sin modificar la base.' }, { status: 503 });
   }
 }
 
@@ -36,6 +37,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(newCompany, { status: 201 });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Datos no disponibles; reintenta sin modificar la base.' }, { status: 503 });
   }
 }

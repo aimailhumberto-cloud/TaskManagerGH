@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { dbService } from '@/services/dbService';
 import { validateApiKey } from '@/lib/auth';
+import {canWriteTask} from '@/lib/publicWorkspace';
 
 export async function POST(req: NextRequest) {
   const auth = await validateApiKey(req);
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
 
     const task = await dbService.getTaskById(taskId);
     if (!task) return NextResponse.json({ error: `Task with ID "${taskId}" not found` }, { status: 404 });
+    if(!canWriteTask(await dbService.readData(),auth.session!,task))return NextResponse.json({error:'Adjunto no disponible para esta identidad.'},{status:403});
 
     const targetDir = attachmentDirectory();
     if (!fs.existsSync(targetDir)) {

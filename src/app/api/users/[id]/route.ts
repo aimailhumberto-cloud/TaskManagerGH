@@ -31,7 +31,7 @@ export async function PUT(
     });
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'No se pudo completar la operación de usuarios.' }, { status: 503 });
   }
 }
 
@@ -53,6 +53,6 @@ export async function DELETE(
     }
     return NextResponse.json({ success: true, message: 'User credentials deleted successfully' });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'No se pudo completar la operación de usuarios.' }, { status: 503 });
   }
 }

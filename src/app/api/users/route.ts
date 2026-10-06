@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     }));
     return NextResponse.json(sanitizedUsers);
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'No se pudo completar la operación de usuarios.' }, { status: 503 });
   }
 }
 
@@ -57,6 +57,6 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'No se pudo completar la operación de usuarios.' }, { status: 503 });
   }
 }

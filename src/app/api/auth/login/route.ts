@@ -92,9 +92,8 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (err: any) {
-    console.error('Error logging in:', err);
     return NextResponse.json(
-      { error: err.message || 'Internal server error' },
+      { error: 'No se pudo iniciar sesión.' },
       { status: 500 }
     );
   }
