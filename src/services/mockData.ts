@@ -129,6 +129,7 @@ export interface User {
 }
 
 export interface DatabaseSchema {
+  whatsappReviews?: import('@/lib/whatsappAnalytics').WAReview[];
   automations?: import('@/lib/workspaceLayers').AutomationRecord[];
   heroPreferences?: import('@/lib/workspaceLayers').HeroPreference[];
   decisions?: import('@/lib/executive').Decision[];

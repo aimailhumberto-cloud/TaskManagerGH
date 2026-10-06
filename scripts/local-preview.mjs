@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdirSync, existsSync, writeFileSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pbkdf2Sync, randomBytes } from 'node:crypto';
@@ -8,6 +8,8 @@ if (['.env', '.env.local', '.env.development', '.env.development.local', '.env.p
   throw new Error('Isolated preview requires a checkout without service .env files.');
 }
 const testing = process.argv.includes('--test');
+const analyticsDemo = process.argv.includes('--analytics-demo');
+if (analyticsDemo && !testing) throw new Error('Analytics demo requires isolated --test database.');
 const database = resolve('.local-data', testing ? 'ui-test.json' : 'preview.json');
 mkdirSync(resolve('.local-data'), { recursive: true });
 if (testing || !existsSync(database)) {
@@ -25,8 +27,10 @@ const environment = { ...process.env, DATABASE_PATH: database, SESSION_SECRET: r
 for (const key of Object.keys(environment)) {
   if (/SUPABASE|SMTP|TELEGRAM|API_KEY|SERVICE_ROLE|OPENAI|ANTHROPIC/i.test(key)) delete environment[key];
 }
-if (testing) { delete environment.TASKMANAGER_WHATSAPP_DIRECTORY; environment.TASKMANAGER_ATTACHMENTS_DIRECTORY = resolve('.local-data/ui-test-attachments'); }
+if (testing) { delete environment.TASKMANAGER_WHATSAPP_OWNER_ID; delete environment.TASKMANAGER_WHATSAPP_DIRECTORY; environment.TASKMANAGER_ATTACHMENTS_DIRECTORY = resolve('.local-data/ui-test-attachments'); }
 else environment.TASKMANAGER_WHATSAPP_DIRECTORY ||= 'C:\\Users\\Usuario\\Documents\\Codex\\2026-10-04\\task-2\\local-whatsapp';
+delete environment.TASKMANAGER_WHATSAPP_ANALYTICS_FIXTURE;
+if (analyticsDemo) { const fixture = spawnSync(process.execPath, ['node_modules/tsx/dist/cli.mjs', 'scripts/write-whatsapp-fixture.ts', 'synthetic-only'], {stdio:'inherit'}); if(fixture.status !== 0) throw new Error('Isolated fixture failed'); environment.TASKMANAGER_WHATSAPP_ANALYTICS_FIXTURE=resolve('.local-data/whatsapp-analytics-fixture.json'); }
 const port = testing ? '47915' : '3011';
 if (process.argv.includes('--prepare-only')) process.exit(0);
 console.log(`Isolated preview: http://127.0.0.1:${port}; account humberto@local.test / preview-local-only`);

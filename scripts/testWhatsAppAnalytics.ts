@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';import {analyticsFixture} from './whatsappAnalyticsFixture';import {buildWAView,validEvents,suggestion,eventKey} from '../src/lib/whatsappAnalytics';
+const now=new Date('2026-10-06T16:00:00Z'),source=analyticsFixture('test-owner',now);const view=buildWAView(source,[],{account:'all',days:7,query:''},now);
+assert.deepEqual(view.metrics,{attention:2,contacts:3,events:6,media:2});assert.equal(suggestion(source.events.find(e=>e.id==='thanks')!),null);assert.equal(view.attention.find(v=>v.event.id==='request')!.suggestion!.certainty,'confirm');assert.equal(view.contacts.find(c=>c.key==='personal:contact-c')!.unansweredObserved,false);
+assert.equal(buildWAView({...source,events:[...source.events,source.events[0]]},[],{account:'all',days:7,query:''},now).metrics.events,6);
+assert.equal(buildWAView(source,[],{account:'bee-smart',days:7,query:''},now).metrics.events,2);
+assert.equal(buildWAView({...source,available:false},[],{account:'all',days:7,query:''},now).metrics.events,null);
+assert.equal(validEvents({...source,permissionExpiresAt:now.toISOString()},now).length,0);
+assert.equal(validEvents({...source,events:source.events.map(e=>({...e,expiresAt:now.toISOString()}))},now).length,0);
+assert.equal(validEvents({...source,events:[{...source.events[0],private:false} as any]},now).length,0);
+assert.equal(suggestion({...source.events[0],text:'Confirma 2026-99-99'})!.certainty,'confirm');
+const sameName={...source.events[0],id:'other',contactId:'different',contactName:source.events[0].contactName};assert.equal(buildWAView({...source,events:[...source.events,sameName]},[],{account:'all',days:7,query:''},now).metrics.contacts,4);
+assert.equal(buildWAView(source,[],{account:'all',days:7,query:'gracias'},now).metrics.events,1);
+const review={id:eventKey(source.events[0]),ownerId:'test-owner',eventId:'request',account:'personal' as const,contactId:'contact-a',expiresAt:source.events[0].expiresAt,state:'reviewed' as const,revision:1,at:now.toISOString(),history:[]};assert.equal(buildWAView(source,[review],{account:'all',days:7,query:''},now).metrics.attention,1);assert.equal(buildWAView(source,[{...review,ownerId:'other'}],{account:'all',days:7,query:''},now).metrics.attention,2);
+console.log('PASS analytics: exact counts/dedup, separate identities/accounts, explicit requests/ambiguous dates/no thanks, accepted-not-delivered, revoked/expired, search and owner reviews');
+const boundary=analyticsFixture('test-owner',new Date('2026-10-07T05:01:00Z'));assert.equal(buildWAView(boundary,[],{account:'all',days:1,query:''},new Date('2026-10-07T05:01:00Z')).metrics.events,0);assert.equal(buildWAView(boundary,[],{account:'all',days:7,query:''},new Date('2026-10-07T05:01:00Z')).metrics.events,6);
+assert(!JSON.stringify(validEvents({...source,events:[{...source.events[0],unapprovedSecret:'NEVER_RETURN'} as any]},now)).includes('NEVER_RETURN'));

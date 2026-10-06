@@ -5,9 +5,9 @@ import type { DatabaseSchema } from '@/services/mockData';
 
 export function validateDatabase(value: any): asserts value is DatabaseSchema {
   if (!value || typeof value !== 'object' || !['companies', 'people', 'tasks'].every(key => Array.isArray(value[key]))) throw new Error('Base inválida: se conserva el archivo original.');
-  for (const key of ['companies', 'people', 'tasks', 'users', 'projects', 'reminders', 'decisions', 'dayPlans', 'automations', 'heroPreferences']) {
+  for (const key of ['companies', 'people', 'tasks', 'users', 'projects', 'reminders', 'decisions', 'dayPlans', 'automations', 'heroPreferences', 'whatsappReviews']) {
     const records = value[key];
-    if (records === undefined && ['users', 'projects', 'reminders', 'decisions', 'dayPlans', 'automations', 'heroPreferences'].includes(key)) continue;
+    if (records === undefined && ['users', 'projects', 'reminders', 'decisions', 'dayPlans', 'automations', 'heroPreferences', 'whatsappReviews'].includes(key)) continue;
     if (!Array.isArray(records) || records.some(item => !item || typeof item.id !== 'string') || new Set(records.map(item => item.id)).size !== records.length) throw new Error(`Colección inválida: ${key}`);
   }
 }
