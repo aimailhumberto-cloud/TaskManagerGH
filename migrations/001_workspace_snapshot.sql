@@ -15,7 +15,7 @@ CREATE TABLE public.tm_workspace_history_v1 (
 );
 ALTER TABLE public.tm_workspace_v1 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tm_workspace_history_v1 ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.tm_workspace_v1, public.tm_workspace_history_v1 FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.tm_workspace_v1, public.tm_workspace_history_v1 FROM PUBLIC, anon, authenticated, service_role;
 GRANT SELECT, INSERT, UPDATE ON public.tm_workspace_v1 TO service_role;
 GRANT SELECT, INSERT ON public.tm_workspace_history_v1 TO service_role;
 

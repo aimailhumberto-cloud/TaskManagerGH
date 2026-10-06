@@ -1,3 +1,4 @@
+import { hasAdministrationCapability } from '../src/lib/capabilities';
 import { readFile, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -15,7 +16,7 @@ async function main() {
   const before = await dbService.readData();
   const ownerIndex = process.argv.indexOf('--owner');
   const requestedOwner = ownerIndex >= 0 ? process.argv[ownerIndex + 1] : undefined;
-  const admins = before.users.filter(u => u.isActive && before.people.some(p => p.id === u.personId && p.role === 'Admin'));
+  const admins = before.users.filter(u => u.isActive && before.people.some(p => p.id === u.personId && hasAdministrationCapability(p.role)));
   const ownerId = requestedOwner || (admins.length === 1 ? admins[0].personId : undefined);
   if (!ownerId || !admins.some(u => u.personId === ownerId)) throw new Error('Indica --owner con el identificador de un administrador activo verificado.');
   let grant = await credentialVault.read();

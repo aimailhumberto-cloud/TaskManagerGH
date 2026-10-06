@@ -28,4 +28,12 @@ Formato requerido al worker: `{format:"taskmanager-legacy-export-v1",tables:{com
 
 ## Bloqueo y ruta de resolución
 
-Este hilo no puede producir todavía un dump completo: faltan herramienta y conexión legítima disponibles. El padre/worker debe comprobar acceso a backups del proyecto reactivado o posibilidades del soporte/dashboard conectado antes de pedir credenciales a Humberto. No se requiere repetir la aprobación de la implementación o de la publicación existentes. Si cualquier alternativa exige pago, nuevas credenciales o permisos, se informa el requisito concreto antes de actuar.
+Actualización delegada: el worker cloud completó el backup lógico real de siete tablas/100 filas y dos restauraciones aisladas; conserva credenciales exclusivamente allí. La migración corregida también pasó contra esa copia real. Se añadió service_role al REVOKE ALL de ambas tablas antes de los GRANT mínimos para eliminar permisos de default ACL. No se ejecutó DDL aquí ni en producción. No es un backup físico completo de Supabase ni de adjuntos Render.
+
+Identidad verificada por el padre: usr-5ry71br → p1wq05qf, Owner, active=true. El código conserva Owner y mapea explícitamente Admin/Owner a capacidades administrativas; otros roles quedan sin esas capacidades. Autorización toma el rol actual de la base, no el declarado en una sesión. Pruebas aisladas y build compilado confirmaron Owner conservado, restricciones de otros roles y ACL mínimos incluso con default privileges amplios.
+
+Propuesta local privada en .local-data/proposed-local-additions.json: 13 tareas reales (8 Confirmed/5 NeedsConfirmation), siete empresas candidatas, ninguna cuenta/SMTP/grant de preview. Mantiene originales locales e indica mapping/revisión pendientes; readyForProduction:false. La tarea/proyecto DEMO no se incluye. El original debe mantener sus 74 tareas sin autocancelar, completar o sobrescribirlas.
+
+Transferencia de tareas: no usar texto truncado ni base64 transcrito sin verificación. El decoder scripts/decode-private-task-transfer.mjs exige tres archivos completos, gzip íntegro, hash suministrado 86a8c1f5bf18dc31a625354eb71ad437d69c070f8c4abf7f4ab1d848b99f7ee2, 74 IDs únicos y destino privado nuevo. Hasta materializar ese archivo no se afirma conciliación completa. Alternativamente el worker puede conciliar en cloud con las adiciones locales privadas, sin mover secretos a Windows.
+
+Este hilo no puede producir un pg_dump completo directamente: faltan herramienta y conexión legítima disponibles. El backup lógico real permanece en cloud. No se requiere repetir la aprobación de la implementación o de la publicación existentes. Si cualquier alternativa exige pago, nuevas credenciales o permisos, se informa el requisito concreto antes de actuar.

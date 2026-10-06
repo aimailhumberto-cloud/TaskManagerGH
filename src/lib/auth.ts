@@ -1,3 +1,4 @@
+import { hasAdministrationCapability } from '@/lib/capabilities';
 import { legacyWriteBlocked } from './runtimePolicy';
 import { NextRequest } from 'next/server';
 import { decryptSession, SessionData } from './session';
@@ -29,7 +30,7 @@ export async function validateApiKey(request: NextRequest): Promise<AuthValidati
     if (!person) return { valid: false, status: 401, error: 'Perfil no disponible.' };
     const adminOnly = request.nextUrl.pathname.startsWith('/api/settings') || request.nextUrl.pathname.startsWith('/api/users');
     const writing = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);
-    if ((writing || adminOnly) && person.role !== 'Admin') return { valid: false, status: 403, error: 'Esta acción requiere al administrador.' };
+    if ((writing || adminOnly) && !hasAdministrationCapability(person.role)) return { valid: false, status: 403, error: 'Esta acción requiere al administrador.' };
     if (writing && !sameRequestOrigin(request)) return { valid: false, status: 403, error: 'Origen de la solicitud no permitido.' };
     if (writing && /^\/api\/(workspace|reminders|integrations)(\/|$)/.test(request.nextUrl.pathname) && !validCsrf(request.cookies.get('hermes_session')!.value, request.headers.get('x-csrf-token'))) return { valid: false, status: 403, error: 'Verificación CSRF requerida. Recarga y reintenta.' };
     if (writing && legacyWriteBlocked(request.nextUrl.pathname)) return { valid: false, status: 409, error: 'Usa el flujo de trabajo actual para conservar referencias, revisiones y aceptación.' };

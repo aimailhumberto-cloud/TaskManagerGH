@@ -34,6 +34,16 @@ async function main() {
   assert((await validateApiKey(request('POST', token, 'http://local.test'))).valid);
   const memberToken = encryptSession({ ...actor, userId: 'reader', personId: 'member', role: 'Admin' });
   assert.equal((await validateApiKey(request('POST', memberToken, 'http://local.test'))).status, 403); // Current database role wins.
+  const { hasAdministrationCapability } = await import('../src/lib/capabilities');
+  assert(hasAdministrationCapability('Owner')); assert(hasAdministrationCapability('Admin'));
+  for (const role of ['Gerente','Member','AIAgent','owner',undefined]) assert(!hasAdministrationCapability(role));
+  await dbService.transaction(data => { data.people.find(p => p.id === 'central')!.role = 'Owner'; });
+  const ownerAuth = await validateApiKey(request('POST', token, 'http://local.test'));
+  assert(ownerAuth.valid); assert.equal(ownerAuth.session?.role, 'Owner');
+  const { whatsappOwnerAllowed } = await import('../src/lib/whatsappOwner');
+  assert(whatsappOwnerAllowed(ownerAuth.session!,await dbService.readData(),{TASKMANAGER_WHATSAPP_OWNER_ID:'central'}));
+  assert(!whatsappOwnerAllowed({...ownerAuth.session!,personId:'member'},await dbService.readData(),{TASKMANAGER_WHATSAPP_OWNER_ID:'central'}));
+  await dbService.transaction(data => { data.people.find(p => p.id === 'central')!.role = 'Admin'; });
   const original = await readFile(process.env.DATABASE_PATH, 'utf8'); await dbService.getTasks(); await dbService.getPeople(); assert.equal(await readFile(process.env.DATABASE_PATH, 'utf8'), original);
   async function command(action: string, id: string | undefined, fields: Record<string, unknown>, reason = 'Isolated test') {
     const data = await dbService.readData();

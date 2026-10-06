@@ -14,6 +14,10 @@ try {
     await new Promise(resolve => setTimeout(resolve, 250));
   }
   assert(ready, 'Production build must become ready');
+  // Only isolated fixture: exercise verified legacy Owner role without changing it to Admin.
+  const fixture=JSON.parse(readFileSync('.local-data/ui-test.json','utf8'));
+  fixture.people.find(p=>p.id==='local-humberto').role='Owner';
+  writeFileSync('.local-data/ui-test.json',JSON.stringify(fixture));
   assert.equal((await fetch(origin + '/api/workspace')).status, 401);
   const login = await fetch(origin + '/api/auth/login', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'humberto@local.test', password: 'preview-local-only' }) });
   assert.equal(login.status, 200);
@@ -32,6 +36,7 @@ try {
     assert((await response.text()).includes('TASKMANAGER'));
   }
   const gateway = await fetch(origin + '/api/integrations/whatsapp/status', { headers }); assert.equal(gateway.status, 200); assert((await gateway.json()).accounts.every(a => a.state === 'unavailable' && a.integration === null));
+  const analytics=await fetch(origin+'/api/integrations/whatsapp/analytics',{headers});assert.equal(analytics.status,200);const analyticsData=await analytics.json();assert.equal(analyticsData.available,false);assert(Object.values(analyticsData.metrics).every(v=>v===null));
   assert.equal((await fetch(origin + '/api/tasks', { method: 'POST', headers: { ...headers, origin, 'content-type': 'application/json' }, body: '{}' })).status, 409);
   assert.equal((await fetch(origin + '/api/meetings/send', { method: 'POST', headers: { ...headers, origin, 'content-type': 'application/json' }, body: '{}' })).status, 503);
   const image = await fetch(origin + '/workspace/hb-lake-hero.png', { headers }); assert.equal(image.status, 200); assert(image.headers.get('content-type')?.startsWith('image/'));
@@ -41,7 +46,7 @@ try {
   assert.equal((await fetch(origin + '/api/auth/logout', { method: 'POST', headers })).status, 403);
   assert.equal((await fetch(origin + '/api/auth/logout', { method: 'POST', headers: { ...headers, origin } })).status, 200);
   assert.deepEqual(readFileSync('.local-data/preview.json'), previewBefore);
-  const report = { checkedAt: new Date().toISOString(), compiledProductionBuild: true, isolatedFixture: true, secureHttpOnlyCookie: true, asynchronousParams: true, fourEntries: true, whatsappEntry: true, disabledGatewayWithoutConfig: true, permanentLegacyGuard: true, externalActionGuard: true, directHeroPNG: true, protectedSourceOptimizerRejected: true, logoutOriginGuard: true, previewUnchanged: true, hostedHTTPSVerified: false, actualSMTPUsed: false };
+  const report = { checkedAt: new Date().toISOString(), compiledProductionBuild: true, isolatedFixture: true, originalOwnerRolePreservedAndAuthorized: true, analyticsNoContentNoInventedCounts: true, secureHttpOnlyCookie: true, asynchronousParams: true, fourEntries: true, whatsappEntry: true, disabledGatewayWithoutConfig: true, permanentLegacyGuard: true, externalActionGuard: true, directHeroPNG: true, protectedSourceOptimizerRejected: true, logoutOriginGuard: true, previewUnchanged: true, hostedHTTPSVerified: false, actualSMTPUsed: false };
   writeFileSync('.local-data/production-upgrade-smoke.json', JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report));
 } finally {
