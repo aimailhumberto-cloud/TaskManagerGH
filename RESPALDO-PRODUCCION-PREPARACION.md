@@ -1,6 +1,6 @@
 # Preparación de respaldo del proyecto original
 
-Estado verificado el 6 de octubre de 2026: este entorno no tiene pg_dump, pg_restore, psql, Supabase CLI ni Docker en PATH; tampoco PostgreSQL 15–18 en las rutas habituales. No hay DATABASE_URL, DIRECT_URL, SUPABASE_DB_URL, variables PG*, claves Supabase, archivos .env de la copia ni configuración pgpass disponible. No se generaron credenciales ni se inició una conexión. El padre informó INACTIVE → COMING_UP; falta confirmación ACTIVE_HEALTHY.
+Estado verificado el 6 de octubre de 2026: este entorno no tiene pg_dump, pg_restore, psql, Supabase CLI ni Docker en PATH; tampoco PostgreSQL 15–18 en las rutas habituales. No hay DATABASE_URL, DIRECT_URL, SUPABASE_DB_URL, variables de conexión PG consultadas, claves Supabase, archivos .env de la copia ni configuración pgpass disponible. No se generaron credenciales ni se inició una conexión. El padre confirmó ACTIVE_HEALTHY a las 12:18:56 UTC; recuperación no equivale a respaldo.
 
 Destino único: proyecto original sitaivletjymybozpsdn. Nunca usar Ingredienta ni inicializar una base vacía. La preview y sus usuarios de ensayo no son una fuente para reemplazar producción.
 
@@ -19,6 +19,12 @@ Destino único: proyecto original sitaivletjymybozpsdn. Nunca usar Ingredienta n
 Si no existe conexión PostgreSQL legítima utilizable, el worker puede exportar schema y filas mediante la integración autorizada. Para datos: archivo privado con paginación completa y orden estable, counts antes/después, snapshot/corte documentado, hashes y referencias. Exportar todas las tablas pertinentes y metadatos del schema, sin secretos en chat. Marcar explícitamente que es una exportación lógica de alcance limitado, no un pg_dump completo, hasta verificar funciones, permisos, roles, extensiones, auth, Storage y restauración.
 
 El importador existente `scripts/prepare-supabase-import.ts` exige archivo y hash verificados, crea un destino nuevo y declara readyForProduction:false. Sus pruebas aisladas no sustituyen una restauración del proyecto real.
+
+La conciliación offline está preparada en `scripts/prepare-production-reconciliation.ts`: recibe export v1, SHA-256 independiente, base local y destino nuevo dentro de .local-data. Emite candidatos por ID/nombre/fuente sin ejecutar fusiones; excluye importación de usuarios de preview y señala DEMO por título para revisión. La detección DEMO por título no es un filtro completo: todas las colecciones/local IDs deben revisarse. Conserva originales y solo reporta counts en consola. No correr hasta tener el export privado real.
+
+`scripts/testOriginalSchemaCompatibility.ts` pasó sobre PostgreSQL aislado con DDL reconstruido de la metadata suministrada: las siete tablas, columnas, FK, unicidad, RLS y un event trigger equivalente de prueba. La migración 001 conserva íntegramente las filas ficticias, no siembra el workspace, deniega anon y permite lectura service-role. La transformación conserva SMTP, hashes y cola de prueba; no infiere dueño de tareas. No valida bindings reales del event trigger, extensiones hospedadas, API Supabase ni restauración de filas originales. También pasaron tipos y la suite Supabase aislada existente.
+
+Formato requerido al worker: `{format:"taskmanager-legacy-export-v1",tables:{companies:[...],people:[...],tasks:[...],email_templates:[...],smtp_config:[...],agent_queue:[...],users:[...]},rowCounts:{...}}`. Guardar filas incluyendo secretos SMTP/hashes solo en un archivo privado protegido, nunca en chat. El inventario confirmado ACTIVE_HEALTHY a las 12:18:56 UTC contiene 74 tasks, 7 companies, 8 people, 5 users, 4 email_templates, 1 smtp_config y 1 agent_queue; auth users y Storage objects/buckets cero. Revalidar counts al corte y export, no fijarlos como condición si hubo cambios legítimos.
 
 ## Bloqueo y ruta de resolución
 
