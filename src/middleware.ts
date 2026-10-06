@@ -1,8 +1,9 @@
+import { externalRouteBlocked } from '@/lib/runtimePolicy';
 import { NextResponse, NextRequest } from 'next/server';
 import { validEdgeSession } from '@/lib/sessionPayload';
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
-  if (process.env.TASKMANAGER_LOCAL_ONLY === '1' && /^\/api\/(ai|telegram|agent|meetings|tasks\/share-email)(\/|$)/.test(path)) return NextResponse.json({ error: 'Integración externa deshabilitada en este preview.' }, { status: 503 });
+  if (externalRouteBlocked(path, { TASKMANAGER_LOCAL_ONLY: process.env.TASKMANAGER_LOCAL_ONLY, TASKMANAGER_EXTERNAL_ACTIONS_ENABLED: process.env.TASKMANAGER_EXTERNAL_ACTIONS_ENABLED })) return NextResponse.json({ error: 'Acción externa deshabilitada en esta instalación.' }, { status: 503 });
   if (path.startsWith('/api/')) return NextResponse.next(); // Routes validate active users and permissions.
   const valid = await validEdgeSession(request.cookies.get('hermes_session')?.value || '', process.env.SESSION_SECRET);
   if (path === '/login' && request.nextUrl.searchParams.get('expired') === '1') { const response = NextResponse.next(); response.cookies.delete('hermes_session'); return response; }

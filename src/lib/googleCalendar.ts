@@ -33,10 +33,11 @@ export async function windowsVault(action: 'read' | 'write' | 'delete', value?: 
   });
 }
 export const credentialVault: GrantVault = { read: () => windowsVault('read'), write: async value => { await windowsVault('write', value); } };
-export function parseDesktopClient(input: any): CalendarGrant {
+export function parseDesktopClient(input: any, ownerId: string): CalendarGrant {
+  if (!ownerId?.trim()) throw new Error('Propietario verificado requerido.');
   const c = input?.installed;
   if (!c || typeof c.client_id !== 'string' || !/^[a-zA-Z0-9._-]+\.apps\.googleusercontent\.com$/.test(c.client_id) || typeof c.client_secret !== 'string' || !c.client_secret || c.client_secret.length > 500) throw new Error('Descarga un cliente OAuth de tipo Escritorio de Google Cloud. No pegues credenciales en el chat.');
-  return { clientId: c.client_id, clientSecret: c.client_secret, ownerId: 'local-humberto' };
+  return { clientId: c.client_id, clientSecret: c.client_secret, ownerId };
 }
 export function oauthRequest(clientId: string, redirect: string) {
   const uri = new URL(redirect);
@@ -91,14 +92,14 @@ export async function authorizeDesktop(grant: CalendarGrant, onReady: (url: stri
   });
 }
 export async function readPrimaryCalendar(grant: CalendarGrant, vault: GrantVault = credentialVault, fetcher: Fetcher = fetch, now = new Date()): Promise<CalendarSnapshot> {
-  if (!grant.refreshToken || !exactScope(grant.scope) || grant.ownerId !== 'local-humberto') throw new Error('TaskManager no tiene autorización propia de lectura persistente. Configura el cliente de escritorio y confirma el permiso en Google.');
+  if (!grant.refreshToken || !exactScope(grant.scope) || !grant.ownerId?.trim()) throw new Error('TaskManager no tiene autorización propia de lectura persistente. Configura el cliente de escritorio y confirma el permiso en Google.');
   const token = await googleJson('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: grant.clientId, client_secret: grant.clientSecret, refresh_token: grant.refreshToken, grant_type: 'refresh_token' }) }, fetcher);
   if (typeof token.access_token !== 'string' || !token.access_token || (token.scope !== undefined && !exactScope(token.scope))) throw new Error('Google devolvió un acceso inesperado. No se lee ningún calendario.');
   if (token.refresh_token && token.refresh_token !== grant.refreshToken) await vault.write({ ...grant, refreshToken: token.refresh_token });
   const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Panama', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
   const start = new Date(`${day}T00:00:00-05:00`); start.setUTCDate(start.getUTCDate() - 7);
   const end = new Date(`${day}T00:00:00-05:00`); end.setUTCDate(end.getUTCDate() + 30);
-  const snapshot: CalendarSnapshot = { provider: 'google', calendarId: 'primary', connection: 'oauth-readonly', verifiedAt: now.toISOString(), windowStart: start.toISOString(), windowEnd: end.toISOString(), events: [] };
+  const snapshot: CalendarSnapshot = { ownerId: grant.ownerId, provider: 'google', calendarId: 'primary', connection: 'oauth-readonly', verifiedAt: now.toISOString(), windowStart: start.toISOString(), windowEnd: end.toISOString(), events: [] };
   let page = ''; const pages = new Set<string>();
   do {
     const url = new URL('https://www.googleapis.com/calendar/v3/calendars/primary/events');

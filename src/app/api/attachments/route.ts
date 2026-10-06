@@ -1,3 +1,4 @@
+import { attachmentDirectory, attachmentFile } from '@/lib/attachmentStorage';
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
@@ -31,17 +32,17 @@ export async function POST(req: NextRequest) {
     const task = await dbService.getTaskById(taskId);
     if (!task) return NextResponse.json({ error: `Task with ID "${taskId}" not found` }, { status: 404 });
 
-    const targetDir = path.join(process.cwd(), 'data', 'attachments');
+    const targetDir = attachmentDirectory();
     if (!fs.existsSync(targetDir)) {
       await fs.promises.mkdir(targetDir, { recursive: true });
     }
 
-    const sanitizedFilename = path.basename(file.name);
-    const filePath = path.join(targetDir, sanitizedFilename);
+    const sanitizedFilename = file.name;
+    const filePath = attachmentFile(sanitizedFilename);
 
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    await fs.promises.writeFile(filePath, buffer);
+    await fs.promises.writeFile(filePath, buffer, { flag: 'wx' });
 
     const attachmentId = `att-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const newAttachment = {
@@ -72,6 +73,6 @@ export async function POST(req: NextRequest) {
       attachment: newAttachment,
     }, { status: 201 });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error?.code === 'EEXIST' ? 'Ya existe un adjunto con ese nombre; no se sobrescribió.' : 'No se completó el guardado del adjunto.' }, { status: error?.code === 'EEXIST' ? 409 : 500 });
   }
 }

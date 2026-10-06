@@ -27,10 +27,13 @@ try {
   const json = await workspace.json(); assert.equal(json.localOnly, true); assert.equal(json.tasks.length, 0);
   assert.equal((await fetch(origin + '/api/tasks/missing', { headers })).status, 404); // Promise params in compiled route.
   assert.equal((await fetch(origin + '/data/attachments/missing.txt', { headers })).status, 404);
-  for (const path of ['/', '/empresas', '/agenda', '/buscar']) {
+  for (const path of ['/', '/empresas', '/agenda', '/buscar', '/whatsapp']) {
     const response = await fetch(origin + path, { headers }); assert.equal(response.status, 200);
     assert((await response.text()).includes('TASKMANAGER'));
   }
+  const gateway = await fetch(origin + '/api/integrations/whatsapp/status', { headers }); assert.equal(gateway.status, 200); assert((await gateway.json()).accounts.every(a => a.state === 'unavailable' && a.integration === null));
+  assert.equal((await fetch(origin + '/api/tasks', { method: 'POST', headers: { ...headers, origin, 'content-type': 'application/json' }, body: '{}' })).status, 409);
+  assert.equal((await fetch(origin + '/api/meetings/send', { method: 'POST', headers: { ...headers, origin, 'content-type': 'application/json' }, body: '{}' })).status, 503);
   const image = await fetch(origin + '/workspace/hb-lake-hero.png', { headers }); assert.equal(image.status, 200); assert(image.headers.get('content-type')?.startsWith('image/'));
   assert.equal(Buffer.from(await image.arrayBuffer()).subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
   // Next internal image requests omit cookies. The app uses this protected PNG directly (CSS), not next/image.
@@ -38,7 +41,7 @@ try {
   assert.equal((await fetch(origin + '/api/auth/logout', { method: 'POST', headers })).status, 403);
   assert.equal((await fetch(origin + '/api/auth/logout', { method: 'POST', headers: { ...headers, origin } })).status, 200);
   assert.deepEqual(readFileSync('.local-data/preview.json'), previewBefore);
-  const report = { checkedAt: new Date().toISOString(), compiledProductionBuild: true, isolatedFixture: true, secureHttpOnlyCookie: true, asynchronousParams: true, fourEntries: true, directHeroPNG: true, protectedSourceOptimizerRejected: true, logoutOriginGuard: true, previewUnchanged: true, hostedHTTPSVerified: false, actualSMTPUsed: false };
+  const report = { checkedAt: new Date().toISOString(), compiledProductionBuild: true, isolatedFixture: true, secureHttpOnlyCookie: true, asynchronousParams: true, fourEntries: true, whatsappEntry: true, disabledGatewayWithoutConfig: true, permanentLegacyGuard: true, externalActionGuard: true, directHeroPNG: true, protectedSourceOptimizerRejected: true, logoutOriginGuard: true, previewUnchanged: true, hostedHTTPSVerified: false, actualSMTPUsed: false };
   writeFileSync('.local-data/production-upgrade-smoke.json', JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report));
 } finally {
@@ -48,4 +51,5 @@ try {
     await new Promise(resolve => stop.once('exit', resolve));
   } else server.kill('SIGTERM');
 }
+
 

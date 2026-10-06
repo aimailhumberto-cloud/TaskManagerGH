@@ -25,7 +25,7 @@ const environment = { ...process.env, DATABASE_PATH: database, SESSION_SECRET: r
 for (const key of Object.keys(environment)) {
   if (/SUPABASE|SMTP|TELEGRAM|API_KEY|SERVICE_ROLE|OPENAI|ANTHROPIC/i.test(key)) delete environment[key];
 }
-if (testing) delete environment.TASKMANAGER_WHATSAPP_DIRECTORY;
+if (testing) { delete environment.TASKMANAGER_WHATSAPP_DIRECTORY; environment.TASKMANAGER_ATTACHMENTS_DIRECTORY = resolve('.local-data/ui-test-attachments'); }
 else environment.TASKMANAGER_WHATSAPP_DIRECTORY ||= 'C:\\Users\\Usuario\\Documents\\Codex\\2026-10-04\\task-2\\local-whatsapp';
 const port = testing ? '47915' : '3011';
 if (process.argv.includes('--prepare-only')) process.exit(0);

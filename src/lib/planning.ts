@@ -7,7 +7,7 @@ export interface CalendarEvent {
   location?: string;
 }
 export interface CalendarSnapshot {
-  provider: 'google'; calendarId: string; verifiedAt: string; windowStart: string; windowEnd: string;
+  ownerId?: string; provider: 'google'; calendarId: string; verifiedAt: string; windowStart: string; windowEnd: string;
   connection: 'snapshot-only' | 'oauth-readonly'; events: CalendarEvent[];
 }
 export interface Reminder {

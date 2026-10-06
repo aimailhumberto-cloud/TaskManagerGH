@@ -1,3 +1,4 @@
+import { attachmentFile } from '@/lib/attachmentStorage';
 import { NextRequest, NextResponse } from 'next/server';
 import { dbService, LogEntry } from '@/services/dbService';
 import { validateApiKey } from '@/lib/auth';
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
         for (const attName of selectedAttachments) {
           const att = task.attachments.find((a) => a.filename === attName || a.id === attName);
           if (att) {
-            const fullPath = path.join(process.cwd(), att.filepath);
+            const fullPath = attachmentFile(att.filename);
             if (fs.existsSync(fullPath)) {
               attachmentsList.push({
                 filename: att.filename,

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { CALENDAR_SCOPE, windowsVault, oauthRequest, exchangeCode, authorizeDesktop, readPrimaryCalendar, parseDesktopClient, type CalendarGrant, type GrantVault } from '../src/lib/googleCalendar';
 
 const client = { installed: { client_id: 'test.apps.googleusercontent.com', client_secret: 'FAKE-CLIENT-NO-REAL-SECRET' } };
-const configured = parseDesktopClient(client);
+const configured = parseDesktopClient(client, 'local-humberto');
 const grant: CalendarGrant = { ...configured, scope: CALENDAR_SCOPE, refreshToken: 'FAKE-REFRESH-NO-REAL-SECRET' };
 let stored: CalendarGrant | null = grant;
 const vault: GrantVault = { read: async () => structuredClone(stored), write: async value => { stored = structuredClone(value); } };
@@ -18,7 +18,7 @@ async function main() {
   process.env.DATABASE_PATH = join(dir, 'db.json');
   await writeFile(process.env.DATABASE_PATH, JSON.stringify({ companies: [{ id: 'personal', name: 'Test' }], people: [{ id: 'local-humberto', name: 'Test', role: 'Admin' }], users: [], tasks: [{ id: 'fake-task', title: 'Untouched task' }], projects: [], templates: [], agentQueue: [], reminders: [{ id: 'fake-linked', externalId: 'FAKE-CHATGPT', channel: 'chatgpt', state: 'ExternalLinked' }] }));
   const before = JSON.parse(await readFile(process.env.DATABASE_PATH, 'utf8'));
-  assert.throws(() => parseDesktopClient({ web: client.installed }), /Escritorio/);
+  assert.throws(() => parseDesktopClient({ web: client.installed }, 'local-humberto'), /Escritorio/);
   assert.throws(() => oauthRequest(configured.clientId, 'http://example.org:3011/'), /loopback/);
   const auth = oauthRequest(configured.clientId, 'http://127.0.0.1:43821/'); const authUrl = new URL(auth.url);
   assert.equal(authUrl.searchParams.get('scope'), CALENDAR_SCOPE);
@@ -58,7 +58,7 @@ async function main() {
   await importCalendarSnapshot(snapshot);
   const previous = await readFile(process.env.DATABASE_PATH, 'utf8');
   await assert.rejects(importCalendarSnapshot({ ...snapshot, calendarId: 'other' }), /inválida/); assert.equal(await readFile(process.env.DATABASE_PATH, 'utf8'), previous);
-  await assert.rejects(synchronizeCalendar('someone-else', vault, remote), /Humberto/);
+  await assert.rejects(synchronizeCalendar('someone-else', vault, remote), /otra identidad/);
   const first = calls; await Promise.all([synchronizeCalendar('local-humberto', vault, remote), synchronizeCalendar('local-humberto', vault, remote)]); assert.equal(calls - first, 3);
   const afterSuccess = await readFile(process.env.DATABASE_PATH, 'utf8'); await synchronizeCalendar('local-humberto', vault, remote); assert.equal(await readFile(process.env.DATABASE_PATH, 'utf8'), afterSuccess);
   stored = null; await assert.rejects(synchronizeCalendar('local-humberto', vault, remote), /no tiene autorización/); stored = grant;

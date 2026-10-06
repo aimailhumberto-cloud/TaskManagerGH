@@ -1,3 +1,4 @@
+import { attachmentFile } from '@/lib/attachmentStorage';
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
@@ -6,13 +7,13 @@ import { validateApiKey } from '@/lib/auth';
 export async function GET(req: NextRequest, { params }: { params: Promise<{ filename: string }> }) {
   const auth = await validateApiKey(req);
   if (!auth.valid) {
-    return new NextResponse(auth.error || 'Unauthorized', { status: 401 });
+    return new NextResponse(auth.error || 'Unauthorized', { status: auth.status });
   }
 
   try {
     const { filename } = await params;
-    const sanitizedFilename = path.basename(filename);
-    const filePath = path.join(process.cwd(), 'data', 'attachments', sanitizedFilename);
+    const sanitizedFilename = filename;
+    const filePath = attachmentFile(sanitizedFilename);
 
     if (!fs.existsSync(filePath)) {
       return new NextResponse('File not found', { status: 404 });
@@ -36,10 +37,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ file
       headers: {
         'Content-Type': contentType,
         'Content-Disposition': `inline; filename="${sanitizedFilename}"`,
-        'Cache-Control': 'public, max-age=3600',
+        'Cache-Control': 'private, no-store',
       },
     });
   } catch (error: any) {
-    return new NextResponse(`Internal Server Error: ${error.message}`, { status: 500 });
+    return new NextResponse('Adjunto no disponible.', { status: 500 });
   }
 }

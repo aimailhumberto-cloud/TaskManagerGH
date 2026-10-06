@@ -11,23 +11,28 @@ async function main() {
   process.env.DATABASE_PATH = resolve('.local-data/preview.json'); process.env.TASKMANAGER_LOCAL_ONLY = '1';
   // Removing this exact application credential does not revoke the Google grant.
   if (process.argv.includes('--forget-local-access')) { await windowsVault('delete'); console.log('Acceso local eliminado. Revoca además TaskManager HB en tu cuenta Google si deseas cerrar el grant. Tareas y avisos intactos.'); return; }
+  const { dbService } = await import('../src/services/dbService');
+  const before = await dbService.readData();
+  const ownerIndex = process.argv.indexOf('--owner');
+  const requestedOwner = ownerIndex >= 0 ? process.argv[ownerIndex + 1] : undefined;
+  const admins = before.users.filter(u => u.isActive && before.people.some(p => p.id === u.personId && p.role === 'Admin'));
+  const ownerId = requestedOwner || (admins.length === 1 ? admins[0].personId : undefined);
+  if (!ownerId || !admins.some(u => u.personId === ownerId)) throw new Error('Indica --owner con el identificador de un administrador activo verificado.');
   let grant = await credentialVault.read();
+  if (grant && grant.ownerId !== ownerId) throw new Error('El acceso existente pertenece a otra identidad; no se reasigna.');
   const clientIndex = process.argv.indexOf('--client');
   if (clientIndex >= 0) {
     const filename = process.argv[clientIndex + 1]; if (!filename) throw new Error('Indica el archivo JSON descargado de Google; no pegues su contenido en chat.');
     const bytes = await readFile(resolve(filename)); if (bytes.length > 64000) throw new Error('Archivo de cliente inesperadamente grande.');
     let payload: unknown; try { payload = JSON.parse(bytes.toString('utf8')); } catch { throw new Error('El archivo de cliente no es JSON válido. No se muestra su contenido.'); }
-    const configured = parseDesktopClient(payload);
+    const configured = parseDesktopClient(payload, ownerId);
     if (grant?.refreshToken && grant.clientId !== configured.clientId) throw new Error('Ya existe otro cliente autorizado. No se reemplaza automáticamente.');
     if (!grant?.refreshToken) { grant = configured; await credentialVault.write(grant); }
     console.log('Cliente de escritorio preparado en Windows Credential Manager. No se muestra ni copia ningún secreto al repositorio.');
   }
   if (!grant) throw new Error('BLOQUEO: falta cliente OAuth propio. HB: crea/selecciona TaskManager HB (local), tipo Escritorio, en tu proyecto Google Cloud sin facturación; descarga su JSON en esta computadora y ejecuta este comando con --client y la ruta. No envíes el JSON por chat.');
   if (process.argv.includes('--configure-only')) { console.log('Configuración local preparada; no se inició consentimiento ni se leyó el calendario.'); return; }
-  const { dbService } = await import('../src/services/dbService');
   const { importCalendarSnapshot } = await import('../src/services/planningService');
-  const before = await dbService.readData();
-  if (!before.users.find(u => u.isActive && u.personId === 'local-humberto')) throw new Error('No es el espacio local autorizado de Humberto.');
   if (!grant.refreshToken || process.argv.includes('--reauthorize')) {
     if (process.argv.includes('--sync-only')) throw new Error('Falta consentimiento persistente. Ejecuta el comando sin --sync-only y confirma en Google.');
     grant = await authorizeDesktop(grant, url => {
