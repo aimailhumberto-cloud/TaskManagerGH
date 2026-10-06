@@ -25,6 +25,8 @@ const environment = { ...process.env, DATABASE_PATH: database, SESSION_SECRET: r
 for (const key of Object.keys(environment)) {
   if (/SUPABASE|SMTP|TELEGRAM|API_KEY|SERVICE_ROLE|OPENAI|ANTHROPIC/i.test(key)) delete environment[key];
 }
+if (testing) delete environment.TASKMANAGER_WHATSAPP_DIRECTORY;
+else environment.TASKMANAGER_WHATSAPP_DIRECTORY ||= 'C:\\Users\\Usuario\\Documents\\Codex\\2026-10-04\\task-2\\local-whatsapp';
 const port = testing ? '47915' : '3011';
 if (process.argv.includes('--prepare-only')) process.exit(0);
 console.log(`Isolated preview: http://127.0.0.1:${port}; account humberto@local.test / preview-local-only`);
