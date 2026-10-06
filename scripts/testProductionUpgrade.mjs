@@ -51,5 +51,3 @@ try {
     await new Promise(resolve => stop.once('exit', resolve));
   } else server.kill('SIGTERM');
 }
-
-

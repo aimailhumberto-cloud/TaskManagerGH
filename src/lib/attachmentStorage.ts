@@ -9,4 +9,3 @@ export function attachmentFile(filename:string, env:Record<string,string|undefin
  if(!filename || filename==='.' || filename==='..' || /[\\/\x00-\x1f:"<>|?*]/.test(filename) || filename!==path.basename(filename) || filename!==path.win32.basename(filename))throw Error('Nombre de adjunto inválido.');
  return path.join(attachmentDirectory(env),filename);
 }
-
