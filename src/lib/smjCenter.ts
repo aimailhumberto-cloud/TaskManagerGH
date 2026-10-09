@@ -44,7 +44,7 @@ export function smjTaskSources(tasks: Task[]) {
   return [...sources].map(([url, linkedTasks]) => ({ url, tasks: linkedTasks }));
 }
 export function attachmentLink(filepath: string): string | null {
-  const match = filepath.match(/^\/data\/attachments\/([^/\\?#]+)$/);
+  const match = filepath.match(/^\/?data\/attachments\/([^/\\?#]+)$/);
   if (!match) return null;
   try { const filename = decodeURIComponent(match[1]); return filename && !/[\/\\\x00-\x1f]/.test(filename) && !['.', '..'].includes(filename) ? '/data/attachments/' + encodeURIComponent(filename) : null; }
   catch { return null; }

@@ -2,6 +2,7 @@ import type {DatabaseSchema,Task} from '@/services/mockData';
 import type {SessionData} from './session';
 import {hasAdministrationCapability} from './capabilities';
 import {WorkspaceError} from './projects';
+import {canAdministerLegacyTask} from './legacyAdministration';
 
 const taskKeys='id title description type repeatPattern steps companyId assigneeId assigneeIds ownerId status priority origin dueDate attachments activityLog isMeeting meetingTime meetingAttendees meetingConfirmations meetingLink comments completedDays category subcategories estimatedMinutes workSlot workTime validationStatus sourceUrl contextNotes projectId deliverableId dependencyIds cancelledAt revision cancellationReason projectName nextAction workDate waitingOn commitment followUpDate approvalStatus'.split(' ');
 const projectKeys='id companyId title objective scope ownerId acceptancePersonId state revision stages deliverables milestones evidence history'.split(' ');
@@ -38,7 +39,7 @@ export function canReadTask(db:DatabaseSchema,actor:SessionData,task:Task):boole
  const admin=isWorkspaceAdministrator(db,actor);
  return admin||task.ownerId===actor.personId||task.assigneeId===actor.personId||Array.isArray(task.assigneeIds)&&task.assigneeIds.includes(actor.personId);
 }
-export function canWriteTask(db:DatabaseSchema,actor:SessionData,task:Task):boolean{return isWorkspaceAdministrator(db,actor)&&db.people.some(p=>p.id===task.ownerId);}
+export function canWriteTask(db:DatabaseSchema,actor:SessionData,task:Task):boolean{return isWorkspaceAdministrator(db,actor)&&(db.people.some(p=>p.id===task.ownerId)||canAdministerLegacyTask(db,actor,task));}
 export function workspaceDTO(db:DatabaseSchema,actor:SessionData){
  const profile=verifiedProfile(db,actor),admin=hasAdministrationCapability(profile.role);
  const tasks=db.tasks.filter(t=>canReadTask(db,actor,t));
@@ -46,6 +47,7 @@ export function workspaceDTO(db:DatabaseSchema,actor:SessionData){
  const companyIds=new Set([...tasks.map(t=>t.companyId),...projects.map(p=>p.companyId),profile.companyId].filter(Boolean));
  const peopleIds=new Set([actor.personId,...tasks.flatMap(t=>[t.ownerId,t.assigneeId,...(t.assigneeIds||[]),...(t.steps||[]).map(s=>s.assigneeId)]),...projects.flatMap(p=>[p.ownerId,p.acceptancePersonId])].filter(Boolean));
  return {
+ managedLegacyTaskIds:tasks.filter(t=>canAdministerLegacyTask(db,actor,t)).map(t=>t.id),
  tasks:tasks.map(taskDTO),projects:projects.map(p=>pick(p,projectKeys)),
  companies:db.companies.filter(c=>admin||companyIds.has(c.id)).map(companyDTO),
  people:db.people.filter(p=>admin||peopleIds.has(p.id)).map(personDTO),

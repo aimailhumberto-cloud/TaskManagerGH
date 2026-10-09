@@ -5,6 +5,7 @@ import path from 'path';
 import { dbService } from '@/services/dbService';
 import { validateApiKey } from '@/lib/auth';
 import {canWriteTask} from '@/lib/publicWorkspace';
+import {WorkspaceError} from '@/lib/projects';
 
 export async function POST(req: NextRequest) {
   const auth = await validateApiKey(req);
@@ -54,18 +55,15 @@ export async function POST(req: NextRequest) {
       uploadedAt: new Date().toISOString(),
     };
 
-    const updatedTask = await dbService.updateTask(taskId, {
-      attachments: [...(task.attachments || []), newAttachment],
+    await dbService.transaction(data => {
+      const current = data.tasks.find(t => t.id === taskId);
+      if (!current || !canWriteTask(data,auth.session!,current)) throw new WorkspaceError('El acceso cambió antes de vincular el adjunto.',403);
+      if ((current.revision || 0) !== (task.revision || 0)) throw new WorkspaceError('La tarea cambió antes de vincular el adjunto; revisa la versión guardada.',409);
+      current.attachments = [...current.attachments,newAttachment];
+      current.revision = (current.revision || 0) + 1;
+      const {activityLog: _log,...snapshot} = current;
+      current.activityLog.push({ timestamp: new Date().toISOString(), user: auth.session!.personId, action: `Archivo adjunto añadido: ${sanitizedFilename}`, type: 'User', revision: current.revision, snapshot: structuredClone(snapshot) });
     });
-
-    const activityLog = updatedTask.activityLog || [];
-    activityLog.push({
-      timestamp: new Date().toISOString(),
-      user: 'System',
-      action: `Archivo adjunto añadido: ${sanitizedFilename}`,
-      type: 'User',
-    });
-    await dbService.updateTask(taskId, { activityLog });
 
     return NextResponse.json({
       success: true,
@@ -75,6 +73,6 @@ export async function POST(req: NextRequest) {
       attachment: newAttachment,
     }, { status: 201 });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.code === 'EEXIST' ? 'Ya existe un adjunto con ese nombre; no se sobrescribió.' : 'No se completó el guardado del adjunto.' }, { status: error?.code === 'EEXIST' ? 409 : 500 });
+    return NextResponse.json({ error: error?.code === 'EEXIST' ? 'Ya existe un adjunto con ese nombre; no se sobrescribió.' : error instanceof WorkspaceError ? error.message : 'No se completó el guardado del adjunto.' }, { status: error?.code === 'EEXIST' ? 409 : error instanceof WorkspaceError ? error.status : 500 });
   }
 }

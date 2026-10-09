@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ file
   try {
     const { filename } = await params;
     const data=await dbService.readData();
-    const accessible=data.tasks.some(task=>canReadTask(data,auth.session!,task)&&task.attachments?.some(a=>
+    const accessible=data.tasks.some(task=>canReadTask(data,auth.session!,task)&&[...(task.attachments||[]),...task.activityLog.flatMap(log=>log.snapshot?.attachments||[])].some(a=>
       typeof a.filepath==='string'&&path.posix.basename(a.filepath.replace(/\\/g,'/'))===filename));
     if(!accessible)return new NextResponse('File not found',{status:404,headers:{'Cache-Control':'private, no-store'}});
     const sanitizedFilename = filename;

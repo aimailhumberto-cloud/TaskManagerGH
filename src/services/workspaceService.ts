@@ -7,6 +7,8 @@ import { WorkspaceError, Project, ProjectSnapshot, assertNoCycles, nextOccurrenc
 import { executiveCommand } from './executiveCommands';
 import { responsiblePeople } from '@/lib/workspaceLayers';
 import { layerActions, layerCommand } from './workspaceLayerCommands';
+import { canWriteTask } from '@/lib/publicWorkspace';
+import { canAdministerLegacyTask } from '@/lib/legacyAdministration';
 
 function text(value: unknown, label: string, required = false, limit = 2000): string {
   if (typeof value !== 'string' || value.length > limit || (required && !value.trim())) throw new WorkspaceError(`Revisa ${label}.`);
@@ -36,8 +38,11 @@ function projectFor(data: DatabaseSchema, id: unknown): Project {
 function requireRevision(actual: number, requested: unknown) {
   if (actual !== requested) throw new WorkspaceError('Otra actualización cambió este registro. Recarga antes de guardar.', 409);
 }
-function assertTaskLinks(data: DatabaseSchema, task: Task) {
-  if (!data.companies.some(c => c.id === task.companyId) || !responsiblePeople(data).some(p => p.id === task.assigneeId) || !data.people.some(p => p.id === task.ownerId)) throw new WorkspaceError('Negocio o responsable no disponible.');
+function assertTaskLinks(data: DatabaseSchema, task: Task, legacyPrevious?: Task) {
+  const preservedEmptyCompany = !!legacyPrevious && !legacyPrevious.companyId && !task.companyId;
+  const preservedEmptyAssignee = !!legacyPrevious && !legacyPrevious.assigneeId && !task.assigneeId;
+  const preservedOwner = !!legacyPrevious && !legacyPrevious.ownerId && !task.ownerId;
+  if ((!preservedEmptyCompany && !data.companies.some(c => c.id === task.companyId)) || (!preservedEmptyAssignee && !responsiblePeople(data).some(p => p.id === task.assigneeId)) || (!preservedOwner && !data.people.some(p => p.id === task.ownerId))) throw new WorkspaceError('Negocio o responsable no disponible.');
   if (task.projectId) {
     const project = projectFor(data, task.projectId);
     if (project.companyId !== task.companyId) throw new WorkspaceError('La tarea y el proyecto deben pertenecer al mismo negocio.');
@@ -68,12 +73,12 @@ function mutate(data: DatabaseSchema, actor: SessionData, body: any): unknown {
   if (body.action === 'restoreTask') {
     const existing = data.tasks.find(t => t.id === body.id);
     if (!existing) throw new WorkspaceError('Tarea no encontrada.', 404);
-    if (!data.people.some(p=>p.id===existing.ownerId)) throw new WorkspaceError('La propiedad de esta tarea requiere validación antes de modificarla.',403);
+    if (!canWriteTask(data,actor,existing)) throw new WorkspaceError('La propiedad o administración de esta tarea requiere validación antes de modificarla.',403);
     requireRevision(existing.revision || 0, body.expectedRevision);
     const saved = existing.activityLog.find(log => log.revision === input.revision)?.snapshot;
     if (!saved || !reason) throw new WorkspaceError('Elige una revisión y explica la restauración.');
-    const restored: Task = { ...structuredClone(saved), id: existing.id, activityLog: [...existing.activityLog], revision: (existing.revision || 0) + 1 };
-    assertTaskLinks(data, restored);
+    const restored: Task = { ...structuredClone(saved), id: existing.id, ownerId: existing.ownerId, activityLog: [...existing.activityLog], revision: (existing.revision || 0) + 1 };
+    assertTaskLinks(data, restored, canAdministerLegacyTask(data,actor,existing) ? restored : undefined);
     if (restored.status === 'Completed' && (restored.dependencyIds || []).some(id => data.tasks.find(t => t.id === id)?.status !== 'Completed')) throw new WorkspaceError('La revisión tiene dependencias actualmente pendientes.', 409);
     const { activityLog: _log, ...savedAgain } = restored;
     restored.activityLog.push({ timestamp: new Date().toISOString(), user: actor.personId, type: 'User', action: `Restaurada revisión ${input.revision} · ${reason}`, revision: restored.revision, snapshot: savedAgain, ...(provenance ? { provenance } : {}) });
@@ -96,7 +101,7 @@ function mutate(data: DatabaseSchema, actor: SessionData, body: any): unknown {
     } else {
       previous = data.tasks.find(t => t.id === body.id);
       if (!previous) throw new WorkspaceError('Tarea no encontrada.', 404);
-      if (!data.people.some(p=>p.id===previous!.ownerId)) throw new WorkspaceError('La propiedad de esta tarea requiere validación antes de modificarla.',403);
+      if (!canWriteTask(data,actor,previous)) throw new WorkspaceError('La propiedad o administración de esta tarea requiere validación antes de modificarla.',403);
       requireRevision(previous.revision || 0, body.expectedRevision);
       task = structuredClone(previous); Object.assign(task, personal); task.revision = (previous.revision || 0) + 1;
     }
@@ -109,24 +114,29 @@ function mutate(data: DatabaseSchema, actor: SessionData, body: any): unknown {
       if (new Set(task.subcategories).size !== task.subcategories!.length) throw new WorkspaceError('Subcategorías duplicadas.');
     }
     if (input.type !== undefined) { if (!['One-shot', 'Project', 'Repetitive'].includes(input.type)) throw new WorkspaceError('Tipo de trabajo inválido.'); if (input.type === 'Project' && task.repeatPattern) throw new WorkspaceError('Quita la repetición antes de convertir en proyecto.'); task.type = input.type; }
-    if (input.companyId !== undefined) task.companyId = text(input.companyId, 'negocio', true);
-    if (input.assigneeId !== undefined) { task.assigneeId = text(input.assigneeId, 'ejecutor', true); task.assigneeIds = [task.assigneeId]; }
+    if (input.companyId !== undefined) task.companyId = text(input.companyId, 'negocio', !(previous && canAdministerLegacyTask(data,actor,previous) && !previous.companyId && input.companyId === ''));
+    if (input.assigneeId !== undefined) {
+      const nextAssignee = text(input.assigneeId, 'ejecutor', !(previous && canAdministerLegacyTask(data,actor,previous) && !previous.assigneeId && input.assigneeId === ''));
+      if (task.assigneeId !== nextAssignee) task.assigneeIds = nextAssignee ? [nextAssignee] : [];
+      task.assigneeId = nextAssignee;
+    }
     if (input.estimatedMinutes !== undefined) { if (input.estimatedMinutes !== null && (!Number.isInteger(input.estimatedMinutes) || input.estimatedMinutes < 1 || input.estimatedMinutes > 1440)) throw new WorkspaceError('Estimación: minutos entre 1 y 1440, o sin definir.'); task.estimatedMinutes = input.estimatedMinutes === null ? undefined : input.estimatedMinutes; }
     if (input.priority !== undefined) { if (!['High', 'Medium', 'Low'].includes(input.priority)) throw new WorkspaceError('Prioridad inválida.'); task.priority = input.priority; }
     if (input.projectId !== undefined) task.projectId = text(input.projectId, 'proyecto');
     if (input.deliverableId !== undefined) task.deliverableId = text(input.deliverableId, 'entregable');
     if (input.dependencyIds !== undefined) task.dependencyIds = ids(input.dependencyIds);
-    if (input.dueDate !== undefined) task.dueDate = input.dueDate === previous?.dueDate ? input.dueDate : date(input.dueDate);
+    if (input.dueDate !== undefined) task.dueDate = previous && (input.dueDate === previous.dueDate || input.dueDate === previous.dueDate.slice(0,10)) ? previous.dueDate : date(input.dueDate);
     if (input.steps !== undefined) {
       if (!Array.isArray(input.steps) || input.steps.length > 100 || input.steps.some((s: any) => typeof s.id !== 'string' || typeof s.text !== 'string' || !s.text.trim() || typeof s.completed !== 'boolean') || new Set(input.steps.map((s: any) => s.id)).size !== input.steps.length) throw new WorkspaceError('Subtareas inválidas.');
       if (previous && input.steps.some((s: any) => !!s.cancelled !== !!previous!.steps.find(p => p.id === s.id)?.cancelled) && !reason) throw new WorkspaceError('Explica la cancelación o reactivación del paso.');
       task.steps = input.steps.map((s: any) => {
+        const oldStep = previous?.steps.find(p => p.id === s.id);
         if (s.status !== undefined && !['Pending', 'In Progress', 'Completed', 'Blocked'].includes(s.status)) throw new WorkspaceError('Estado de paso inválido.');
         if (s.assigneeId && !responsiblePeople(data).some(p => p.id === s.assigneeId)) throw new WorkspaceError('Responsable del paso no disponible.');
         if (s.cancelled !== undefined && typeof s.cancelled !== 'boolean') throw new WorkspaceError('Cancelación del paso inválida.');
         const url = text(s.sourceUrl || '', 'fuente del paso');
         if (url) { try { if (!['http:', 'https:'].includes(new URL(url).protocol)) throw new Error(); } catch { throw new WorkspaceError('Fuente de paso inválida.'); } }
-        return { id: s.id, text: text(s.text, 'paso', true), completed: s.completed, status: s.completed && s.status === 'Blocked' ? 'Blocked' : s.completed ? 'Completed' : s.status === 'Completed' ? 'Pending' : s.status || 'Pending', assigneeId: s.assigneeId || '', workDate: date(s.workDate || ''), dueDate: date(s.dueDate || ''), nextAction: text(s.nextAction || '', 'siguiente acción de paso'), waitingOn: text(s.waitingOn || '', 'espera del paso'), dependencyIds: ids(s.dependencyIds || []), evidence: text(s.evidence || '', 'evidencia'), sourceUrl: url, cancelled: s.cancelled || false };
+        return { ...oldStep, id: s.id, text: text(s.text, 'paso', true), completed: s.completed, status: s.completed && s.status === 'Blocked' ? 'Blocked' : s.completed ? 'Completed' : s.status === 'Completed' ? 'Pending' : s.status || 'Pending', assigneeId: s.assigneeId || '', workDate: date(s.workDate || ''), dueDate: oldStep?.dueDate && (s.dueDate === oldStep.dueDate || s.dueDate === oldStep.dueDate.slice(0,10)) ? oldStep.dueDate : date(s.dueDate || ''), nextAction: text(s.nextAction || '', 'siguiente acción de paso'), waitingOn: text(s.waitingOn || '', 'espera del paso'), dependencyIds: ids(s.dependencyIds || []), evidence: text(s.evidence || '', 'evidencia'), sourceUrl: url, cancelled: s.cancelled || false };
       });
       assertNoCycles(task.steps);
       for (const step of task.steps) if (step.completed && !step.cancelled && (step.status === 'Blocked' || step.waitingOn || step.dependencyIds?.some(id => !task.steps.some(s => s.id === id && s.completed && !s.cancelled)))) throw new WorkspaceError('Resuelve los bloqueos y dependencias antes de completar el paso.');
@@ -145,8 +155,8 @@ function mutate(data: DatabaseSchema, actor: SessionData, body: any): unknown {
       if (!['Pending', 'In Progress', 'Completed', 'Blocked'].includes(input.status)) throw new WorkspaceError('Avance inválido.');
       task.status = input.status;
     }
-    task.ownerId = previous?.ownerId || actor.personId;
-    assertTaskLinks(data, task);
+    task.ownerId = previous ? previous.ownerId : actor.personId;
+    assertTaskLinks(data, task, previous && canAdministerLegacyTask(data,actor,previous) ? previous : undefined);
     if (task.projectId) task.projectName = projectFor(data, task.projectId).title;
     if (input.status === 'Completed' && previous?.status !== 'Completed') {
       if (task.projectId && projectFor(data, task.projectId).state !== 'Active') throw new WorkspaceError('Reactiva el proyecto antes de completar trabajo.');

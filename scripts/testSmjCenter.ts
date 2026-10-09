@@ -14,6 +14,7 @@ assert.equal(smjTaskSources([{ ...base, sourceUrl: 'javascript:alert(1)' }]).len
 assert.equal(safeSourceUrl('https://user:secret@example.com'), null);
 assert.equal(safeSourceUrl('javascript:alert(1)'), null);
 assert.equal(attachmentLink('/data/attachments/file.txt'), '/data/attachments/file.txt');
+assert.equal(attachmentLink('data/attachments/file.txt'), '/data/attachments/file.txt');
 for (const unsafe of ['/data/attachments/../secret', '/data/attachments/%2e%2e', '/data/attachments/%2fsecret', '/data/attachments/a%5cb', 'https://evil.example/file']) assert.equal(attachmentLink(unsafe), null);
 assert.equal(validSmjTab('communications'), true); assert.equal(validSmjTab('unexpected'), false);
 assert.equal(JSON.stringify(tasks), bytes, 'Views never mutate or duplicate original records');

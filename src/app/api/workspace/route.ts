@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     const day = request.nextUrl.searchParams.get('day') || localDay(new Date(), 'America/Panama');
     if (!validDate(day)) return NextResponse.json({ error: 'Día de trabajo inválido.' }, { status: 400 });
     const view=workspaceDTO(data,auth.session!);
-    const dayWork = dailyWork(view.tasks.filter(t => belongsTo(t, auth.session!.personId) && !view.projects.some(p => p.id === t.projectId && p.state === 'Cancelled')), day);
+    const dayWork = dailyWork(view.tasks.filter(t => (belongsTo(t, auth.session!.personId) || view.managedLegacyTaskIds.includes(t.id)) && !view.projects.some(p => p.id === t.projectId && p.state === 'Cancelled')), day);
     return NextResponse.json({ day, dayWork, observedAt: new Date().toISOString(), localOnly: process.env.TASKMANAGER_LOCAL_ONLY === '1', ...view, people: responsiblePeople(view) },{headers:{'Cache-Control':'private, no-store'}});
   } catch { return NextResponse.json({ error: 'Datos no disponibles; se conserva la base existente.' }, { status: 503 }); }
 }
