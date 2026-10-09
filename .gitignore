@@ -32,4 +32,8 @@ playwright-report/
 /scratch/
 .local-data/
 .env.local
+.env
+.env.*
+!.env.example
+data/*.json
 artifacts/
