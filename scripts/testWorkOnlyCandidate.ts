@@ -15,6 +15,11 @@ async function main(){
   assert(!/public\.(smtp_config)|password_hash|auth_pass|auth_user|\bsalt\b/.test(sql));
   const audit=(await pg.query<{audit:any}>(sql)).rows[0].audit;
   assert.equal(audit.tasks,87);assert.equal(audit.companies,14);assert.equal(audit.people,8);assert.equal(audit.originalAccounts,5);assert.equal(audit.originalTasksPreserved,74);assert.equal(audit.reminders,1);assert.equal(audit.duplicateTasks,0);assert.equal(audit.duplicateCompanies,0);assert.equal(audit.invalidTaskCompanies,0);assert.equal(audit.invalidTaskAssignees,0);assert.equal(audit.protectedCollectionsPresent,false);assert.equal(audit.originalOwnerActive,true);assert.deepEqual((await pg.query('SELECT count(*)::int AS tasks FROM tasks')).rows,before);
+  await pg.exec(await readFile('migrations/001_workspace_snapshot.sql','utf8'));await pg.exec(await readFile('migrations/002_workspace_work_data_only.sql','utf8'));
+  const pending=await readFile('.local-data/pending-work-only-import-after-live.sql','utf8');const insertSQL=pending.replace('249c7373d336ac08bb0ce0df0df0a8652b93bf08fc12a4fa21eb22a758b1f07e',audit.workSourceSha256).replace('89e133cfd0a9aa235fc3c4a786f4d467946e4915a1bd7b454c2129350d87fd64',audit.candidateSha256);
+  await pg.exec(insertSQL);const saved=(await pg.query<{document:any}>('SELECT document FROM tm_workspace_v1')).rows;assert.equal(saved.length,1);assert.equal(saved[0].document.tasks.length,87);assert.equal(saved[0].document.users,undefined);assert.equal(saved[0].document.smtpConfig,undefined);
+  await pg.exec(insertSQL);assert.equal((await pg.query('SELECT revision FROM tm_workspace_v1')).rows.length,1);assert.equal((await pg.query('SELECT revision FROM tm_workspace_history_v1')).rows.length,1);
+  await pg.query('SELECT tm_workspace_restore_v1($1,$2)',[1,0]);assert.equal((await pg.query<{revision:number}>('SELECT revision FROM tm_workspace_v1')).rows[0].revision,2);assert.deepEqual((await pg.query('SELECT count(*)::int AS tasks FROM tasks')).rows,before);
   console.log(JSON.stringify({isolatedPostgres:true,queryWorkOnly:true,accountsAndConfigurationNotSelected:true,originalTasksPreserved:74,candidateTasks:87,duplicateTasks:0,duplicateCompanies:0,existingReminderPreserved:true,productionTouched:false}));
  }finally{await pg.close();}
 }
