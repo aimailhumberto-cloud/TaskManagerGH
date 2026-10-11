@@ -29,6 +29,10 @@ Agenda de agentes: http://127.0.0.1:3011/agenda?agenda=agents
 6. Revisar decisiones y los registros por verificar como grupos distintos.
 7. Abrir Agenda de Lumen: desconocido significa sin lectura/evidencia, no una ejecución inventada.
 
+## Verificaciones
+
+Pasaron seis recorridos de navegador (incluidos escritorio y móvil), cuatro suites de lógica y tres suites sobre el runtime compilado: cuentas originales separadas/persistencia; administración limitada de 74 tareas históricas; aislamiento por cinco perfiles y revocación. El build final incluye lint y tipos, con advertencias preexistentes. La preview conserva exactamente el checksum anterior de sus datos. Estas pruebas usan fixtures aislados; no equivalen a login o persistencia verificados en producción.
+
 ## Publicación
 
 GitHub main y Render permanecen en d4b615664643dc17f8e09758f223295bf13c3ee1. No se importó el candidato de 87 tareas.
