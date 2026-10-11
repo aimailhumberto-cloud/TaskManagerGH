@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import dbService from '@/services/dbService';
-import { hashPassword } from '@/services/dbService';
 import { encryptSession } from '@/lib/session';
 const attempts = new Map<string, { count: number; until: number }>();
 
@@ -24,7 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 1. Fetch user by email
-    const user = await dbService.getUserByEmail(email);
+    const user = await dbService.authenticateUser(email,password);
     if (!user) {
       return NextResponse.json(
         { error: 'Invalid email or password' },
@@ -41,13 +40,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Verify password hash
-    const inputHash = hashPassword(password, user.salt);
-    if (inputHash !== user.passwordHash) {
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      );
-    }
+    // Credentials are verified against their own source, never copied to the workspace.
 
     // 4. Fetch person details for session metadata
     const people = await dbService.getPeople();

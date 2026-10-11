@@ -2,11 +2,12 @@ import { createHash } from 'node:crypto';
 import { validateDatabase } from './localBackup';
 import { auditUpgradeDatabase } from './deploymentPreparation';
 import type { DatabaseSchema } from '../services/mockData';
+import {workDataOnly} from '../services/originalAccounts';
 
-const requiredTables = ['companies', 'people', 'tasks', 'email_templates', 'smtp_config', 'agent_queue', 'users'] as const;
+const requiredTables = ['companies', 'people', 'tasks', 'email_templates', 'agent_queue', 'users'] as const;
 type Row = Record<string, any>;
 export interface VerifiedLegacyExport {
-  format: 'taskmanager-legacy-export-v1';
+  format: 'taskmanager-work-export-v2';
   tables: Record<string, Row[]>;
   rowCounts: Record<string, number>;
 }
@@ -16,13 +17,14 @@ export function prepareLegacyImport(bytes: Buffer, verifiedSha256: string) {
   const sha256 = createHash('sha256').update(bytes).digest('hex');
   if (!/^[a-f0-9]{64}$/.test(verifiedSha256) || sha256 !== verifiedSha256) throw new Error('Respaldo no verificado; importación rechazada.');
   const source = JSON.parse(bytes.toString('utf8')) as VerifiedLegacyExport;
-  if (source.format !== 'taskmanager-legacy-export-v1' || !source.tables || !source.rowCounts) throw new Error('Exportación completa requerida.');
+  if (source.format !== 'taskmanager-work-export-v2' || !source.tables || !source.rowCounts) throw new Error('Exportación exclusiva de datos de trabajo requerida.');
+  if((source.tables.smtp_config?.length||0)>0||source.tables.email_templates?.some(row=>row.id==='ollama_ai_config'))throw new Error('La configuración debe permanecer en sus tablas originales.');
+  if(JSON.stringify(source)!==JSON.stringify(workDataOnly({work:source}).work))throw new Error('El export contiene campos protegidos; no se preparó ninguna copia.');
   for (const table of requiredTables) {
     const rows = source.tables[table];
     if (!Array.isArray(rows) || !Number.isSafeInteger(source.rowCounts[table]) || rows.length !== source.rowCounts[table]) throw new Error(`Exportación incompleta: ${table}.`);
     if (rows.some(row => !row || typeof row.id !== 'string' || !row.id) || new Set(rows.map(row => row.id)).size !== rows.length) throw new Error(`Identificadores inválidos: ${table}.`);
   }
-  if (source.tables.smtp_config.length > 1) throw new Error('Resolver configuración SMTP múltiple antes de importar.');
   const metadata = (description: string) => {
     const match = description.match(/<!-- HERMES_MEETING_METADATA: (.*?) -->/);
     if (!match) return { cleanDescription: description, metadata: {} };
@@ -31,8 +33,6 @@ export function prepareLegacyImport(bytes: Buffer, verifiedSha256: string) {
     // Never allow metadata to override identity/company/status from the source row.
     return { cleanDescription: description.replace(match[0], '').trim(), metadata: value };
   };
-  const smtp = source.tables.smtp_config[0];
-  const ai = source.tables.email_templates.find(row => row.id === 'ollama_ai_config');
   const data: DatabaseSchema = {
     companies: source.tables.companies.map(row => ({ ...row, id: row.id, name: row.name })),
     people: source.tables.people.map(row => ({ ...row, id: row.id, name: row.name, role: row.role, avatar: row.avatar, companyId: row.company_id || undefined })),
@@ -44,16 +44,15 @@ export function prepareLegacyImport(bytes: Buffer, verifiedSha256: string) {
         status: row.status, priority: row.priority, origin: row.origin, dueDate: row.due_date || '',
         attachments: row.attachments || [], activityLog: row.activity_log || [] };
     }),
-    users: source.tables.users.map(row => ({ ...row, id: row.id, personId: row.person_id, email: row.email, passwordHash: row.password_hash, salt: row.salt, isActive: row.is_active })),
+    users: source.tables.users.map(row => ({id:row.id,personId:row.person_id,email:row.email,passwordHash:'',salt:'',isActive:row.is_active})),
     templates: source.tables.email_templates.filter(row => row.id !== 'ollama_ai_config').map(row => ({ ...row, id: row.id, name: row.name, subject: row.subject, body: row.body })),
-    smtpConfig: smtp ? { host: smtp.host, port: smtp.port, secure: smtp.secure, user: smtp.auth_user, pass: smtp.auth_pass } : { host: '', port: 587, secure: false, user: '', pass: '' },
+    smtpConfig: {host:'',port:587,secure:false,user:'',pass:''},
     agentQueue: source.tables.agent_queue.map(row => ({ ...row, id: row.id, taskId: row.task_id, command: row.command, payload: row.payload, status: row.status, timestamp: row.timestamp })),
-    ...(ai ? { aiConfig: { endpoint: ai.subject || '', ...JSON.parse(ai.body) } } : {}),
     projects: [], reminders: [], decisions: [], dayPlans: [], automations: [], heroPreferences: [], appliedOperations: [],
   };
   validateDatabase(data);
   const audit = auditUpgradeDatabase(data);
   return { format: 'taskmanager-workspace-import-v1', migrationVersion: 1, sourceSha256: sha256,
-    sourceRowCounts: source.rowCounts, data, legacySource: source, audit,
+    sourceRowCounts: source.rowCounts, data:workDataOnly(data), legacySource: source, audit,
     readyForProduction: false, requires: ['Real schema and complete backup validation', 'Explicit owner/user mapping', 'Isolated restore rehearsal', 'Freeze legacy writers before cutover'], externalActions: false };
 }

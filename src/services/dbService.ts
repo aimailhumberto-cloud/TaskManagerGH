@@ -3,6 +3,8 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { supabase } from './supabaseClient';
 import { SupabaseWorkspaceStore } from './supabaseWorkspaceStore';
+import {SupabaseOriginalAccounts,type OriginalAccounts} from './originalAccounts';
+import {WorkspaceError} from '@/lib/projects';
 import { validateDatabase, createBackup } from '@/lib/localBackup';
 import { pickPersonalFields, PersonalTaskFields } from '@/lib/personalTasks';
 import {
@@ -150,6 +152,7 @@ export interface IDBService {
   getUsers(): Promise<User[]>;
   getUserById(id: string): Promise<User | null>;
   getUserByEmail(email: string): Promise<User | null>;
+  authenticateUser(email: string,password: string): Promise<User | null>;
   createUser(user: Omit<User, 'id' | 'passwordHash' | 'salt'> & { passwordPlain: string }): Promise<User>;
   updateUser(id: string, userUpdates: Partial<User> & { passwordPlain?: string }): Promise<User>;
   deleteUser(id: string): Promise<boolean>;
@@ -191,11 +194,13 @@ export class DBService implements IDBService {
   private mutex: AsyncMutex;
 
   private remote: SupabaseWorkspaceStore | null;
+  private accounts: OriginalAccounts | null;
   private remoteRevision = 0;
   private readRevisions = new WeakMap<DatabaseSchema, number>();
 
-  constructor(remote?: SupabaseWorkspaceStore | null) {
-    this.remote = remote === undefined ? (supabase ? new SupabaseWorkspaceStore(supabase) : null) : remote;
+  constructor(remote?: SupabaseWorkspaceStore | null,accounts?: OriginalAccounts | null) {
+    this.accounts=accounts===undefined?(remote===undefined&&supabase?new SupabaseOriginalAccounts(supabase):null):accounts;
+    this.remote = remote === undefined ? (supabase ? new SupabaseWorkspaceStore(supabase,this.accounts || undefined) : null) : remote;
     this.dbPath = process.env.DATABASE_PATH || 'data/db.json';
     this.mutex = new AsyncMutex(this.remote ? undefined : this.dbPath + '.lock');
   }
@@ -678,12 +683,14 @@ export class DBService implements IDBService {
 
   // SMTP Config
   async getSMTPConfig(): Promise<SMTPConfig> {
+    if(this.accounts)throw new WorkspaceError('La configuración SMTP permanece en su tabla original; acceso externo no habilitado en este flujo.',503);
 
     const data = await this.readData();
     return data.smtpConfig;
   }
 
   async updateSMTPConfig(config: SMTPConfig): Promise<void> {
+    if(this.accounts)throw new WorkspaceError('La configuración original no se modifica desde el workspace.',409);
 
     const release = await this.mutex.acquire();
     try {
@@ -698,12 +705,14 @@ export class DBService implements IDBService {
 
   // AI Config (Ollama)
   async getAIConfig(): Promise<AIConfig> {
+    if(this.accounts)throw new WorkspaceError('La configuración original no se incorpora al workspace.',503);
 
     const data = await this.readData();
     return data.aiConfig || { endpoint: '', apiKey: '', activeModel: '' };
   }
 
   async updateAIConfig(config: AIConfig): Promise<void> {
+    if(this.accounts)throw new WorkspaceError('La configuración original no se modifica desde el workspace.',409);
 
     const release = await this.mutex.acquire();
     try {
@@ -792,7 +801,17 @@ export class DBService implements IDBService {
     return users.find(u => u.email.toLowerCase() === email.toLowerCase()) || null;
   }
 
+  async authenticateUser(email:string,password:string): Promise<User|null> {
+    if(this.accounts)return this.accounts.authenticate(email,password);
+    const user=await this.getUserByEmail(email);
+    if(!user?.isActive||!user.salt||!user.passwordHash)return null;
+    const expected=Buffer.from(user.passwordHash,'hex');
+    const actual=Buffer.from(hashPassword(password,user.salt),'hex');
+    return expected.length===actual.length&&crypto.timingSafeEqual(expected,actual)?user:null;
+  }
+
   async createUser(user: Omit<User, 'id' | 'passwordHash' | 'salt'> & { passwordPlain: string }): Promise<User> {
+    if(this.accounts)throw new WorkspaceError('Las cuentas originales no se crean ni modifican desde el workspace.',409);
 
     const release = await this.mutex.acquire();
     try {
@@ -842,6 +861,7 @@ export class DBService implements IDBService {
   }
 
   async updateUser(id: string, userUpdates: Partial<User> & { passwordPlain?: string }): Promise<User> {
+    if(this.accounts)throw new WorkspaceError('Las cuentas originales no se crean ni modifican desde el workspace.',409);
 
     const release = await this.mutex.acquire();
     try {
@@ -897,6 +917,7 @@ export class DBService implements IDBService {
   }
 
   async deleteUser(id: string): Promise<boolean> {
+    if(this.accounts)throw new WorkspaceError('Las cuentas originales no se eliminan desde el workspace.',409);
 
     const release = await this.mutex.acquire();
     try {

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {workDataOnly} from '../src/services/originalAccounts';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { PGlite } from '@electric-sql/pglite';
@@ -11,6 +12,7 @@ async function main() {
   try {
     await pg.exec("CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role BYPASSRLS; CREATE TABLE companies(id text PRIMARY KEY, name text); INSERT INTO companies VALUES('original','Preserved');");
     await pg.exec(await readFile('migrations/001_workspace_snapshot.sql', 'utf8'));
+    await pg.exec(await readFile('migrations/002_workspace_work_data_only.sql', 'utf8'));
     assert.equal((await pg.query<{ count: number }>('SELECT count(*)::int AS count FROM companies')).rows[0].count, 1);
     assert.equal((await pg.query<{ count: number }>('SELECT count(*)::int AS count FROM tm_workspace_v1')).rows[0].count, 0);
     for (const role of ['anon', 'authenticated']) {
@@ -31,7 +33,7 @@ async function main() {
     } };
     const remote = new SupabaseWorkspaceStore(client);
     await assert.rejects(remote.read(), /ausente/);
-    const seed: any = { companies: [{ id: 'business', name: 'Fictional' }], people: [{ id: 'owner', name: 'Owner', role: 'Admin', avatar: '' }], tasks: [], users: [{ id: 'user', personId: 'owner', email: 'owner@isolated.test', passwordHash: 'fixture-hash', salt: 'fixture-salt', isActive: true }], templates: [], agentQueue: [], smtpConfig: { host: '', port: 587, secure: false, user: '', pass: '' }, projects: [], reminders: [], automations: [], decisions: [], dayPlans: [], heroPreferences: [], appliedOperations: [] };
+    const seed: any = workDataOnly({ companies: [{ id: 'business', name: 'Fictional' }], people: [{ id: 'owner', name: 'Owner', role: 'Admin', avatar: '' }], tasks: [], users: [{ id: 'user', personId: 'owner', email: 'owner@isolated.test', passwordHash: 'fixture-hash', salt: 'fixture-salt', isActive: true }], templates: [], agentQueue: [], smtpConfig: { host: '', port: 587, secure: false, user: '', pass: '' }, projects: [], reminders: [], automations: [], decisions: [], dayPlans: [], heroPreferences: [], appliedOperations: [] });
     // Explicit fixture import only, never app initialization.
     await pg.query('INSERT INTO tm_workspace_v1(singleton, revision, document) VALUES(true,1,$1::jsonb)', [JSON.stringify(seed)]);
     const { DBService } = await import('../src/services/dbService');
@@ -82,16 +84,16 @@ async function main() {
     await pg.exec('RESET ROLE');
     assert.equal((await pg.query<{ name: string }>('SELECT name FROM companies WHERE id=$1', ['original'])).rows[0].name, 'Preserved');
 
-    const tables: any = { companies: [{ id: 'business', name: 'Fictional', extra_column: 'retained' }], people: [{ id: 'owner', name: 'Owner', role: 'Admin', avatar: '' }], tasks: [{ id: 'legacy-task', title: 'Pending validation', company_id: 'business', assignee_id: 'owner', status: 'Pending', type: 'OneOff', priority: 'Medium', origin: 'Manual', description: '<!-- HERMES_MEETING_METADATA: {"ownerId":"owner","workDate":"2026-10-05","id":"spoofed"} -->' }], email_templates: [], smtp_config: [], agent_queue: [], users: [{ id: 'user', person_id: 'owner', email: 'owner@isolated.test', password_hash: 'preserved', salt: 'preserved', is_active: true }] };
-    const source = { format: 'taskmanager-legacy-export-v1', tables, rowCounts: Object.fromEntries(Object.entries(tables).map(([k,v]) => [k,(v as any[]).length])) };
+    const tables: any = { companies: [{ id: 'business', name: 'Fictional', extra_column: 'retained' }], people: [{ id: 'owner', name: 'Owner', role: 'Admin', avatar: '' }], tasks: [{ id: 'legacy-task', title: 'Pending validation', company_id: 'business', assignee_id: 'owner', status: 'Pending', type: 'OneOff', priority: 'Medium', origin: 'Manual', description: '<!-- HERMES_MEETING_METADATA: {"ownerId":"owner","workDate":"2026-10-05","id":"spoofed"} -->' }], email_templates: [], smtp_config: [], agent_queue: [], users: [{ id: 'user', person_id: 'owner', email: 'owner@isolated.test', is_active: true }] };
+    const source = { format: 'taskmanager-work-export-v2', tables, rowCounts: Object.fromEntries(Object.entries(tables).map(([k,v]) => [k,(v as any[]).length])) };
     const bytes = Buffer.from(JSON.stringify(source)), hash = createHash('sha256').update(bytes).digest('hex');
     const bundle = prepareLegacyImport(bytes, hash);
     assert.deepEqual(bundle.legacySource, source); assert.equal(bundle.data.tasks[0].id, 'legacy-task'); assert.equal(bundle.data.tasks[0].ownerId, 'owner');
-    assert.equal(bundle.data.users[0].passwordHash, 'preserved'); assert.equal((bundle.data.companies[0] as any).extra_column, 'retained'); assert.equal(bundle.readyForProduction, false);
+    assert.equal(bundle.data.users, undefined); assert.equal((bundle.data.companies[0] as any).extra_column, 'retained'); assert.equal(bundle.readyForProduction, false);
     assert.throws(() => prepareLegacyImport(bytes, '0'.repeat(64)), /no verificado/);
     const incomplete = Buffer.from(JSON.stringify({ ...source, rowCounts: { ...source.rowCounts, tasks: 2 } }));
     assert.throws(() => prepareLegacyImport(incomplete, createHash('sha256').update(incomplete).digest('hex')), /incompleta/);
-    console.log('PASS isolated PostgreSQL SQL/ACL/CAS/history/restore; adapter CRUD/all collections/errors; lossless offline migration. NOT production/Supabase HTTP validation.');
+    console.log('PASS isolated PostgreSQL SQL/ACL/CAS/history/restore; adapter CRUD/all collections/errors; work-only offline migration. NOT production/Supabase HTTP validation.');
   } finally { await pg.close(); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });
