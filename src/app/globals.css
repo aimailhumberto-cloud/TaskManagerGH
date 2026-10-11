@@ -138,3 +138,16 @@ button.tm-work-card:hover { background:linear-gradient(115deg,#4b5b65b0,#2e4053)
 .tm-pane-stone .tm-location-card .tm-small,.tm-location-card > small { color:#d4e0e5; }
 .tm-location-card p { line-height:1.6; }
 .tm-location-card .tm-soft-button { background:#f0e3ce; color:#183044; border-color:#bba478; }
+/* Daily follow-through and compact agent schedule */
+.tm-quick-actions {display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 14px;}
+.tm-quick-actions .tm-soft-button {display:inline-flex;gap:6px;align-items:center;}
+.tm-quick-schedule {display:flex;gap:8px;align-items:end;flex-wrap:wrap;width:100%;}
+.tm-quick-schedule label {display:grid;gap:4px;font-size:12px;}
+.tm-quick-schedule input {color:#152c40;background:#fff;padding:8px;border-radius:7px;}
+.tm-carryover {display:block;margin:7px 0;color:#e9c991;font-size:11px;}
+.tm-agenda-timeline {max-height:370px;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;padding-top:4px;padding-right:8px;}
+.tm-agent-agenda-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:18px 0;}
+.tm-automation-summary {display:flex;gap:12px;flex-wrap:wrap;font-size:12px;margin:10px 0;}
+.tm-company-progress {transition:transform .15s,box-shadow .15s;}
+.tm-company-progress:hover {transform:translateY(-2px);box-shadow:0 5px 16px #142b4020;}
+@media(max-width:600px){.tm-agent-agenda-grid{grid-template-columns:1fr}.tm-quick-schedule{align-items:stretch}.tm-quick-schedule label{width:100%}}

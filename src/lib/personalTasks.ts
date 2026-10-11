@@ -63,7 +63,7 @@ export function taskInView(task: Task, view: PersonalView, today: string): boole
   if (task.status === 'Completed') return false;
   if (view === 'waiting') return task.status === 'Blocked' || !!task.waitingOn;
   const due = task.dueDate?.slice(0, 10);
-  if (view === 'today') return task.workDate === today || (!!due && due <= today) || (!!task.followUpDate && task.followUpDate <= today);
+  if (view === 'today') return (!!task.workDate && task.workDate <= today) || (!!due && due <= today) || (!!task.followUpDate && task.followUpDate <= today);
   const day = new Date(today + 'T12:00:00Z');
   const offset = (day.getUTCDay() + 6) % 7;
   day.setUTCDate(day.getUTCDate() - offset);

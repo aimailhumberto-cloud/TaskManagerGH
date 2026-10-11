@@ -37,3 +37,6 @@ playwright-report/
 !.env.example
 data/*.json
 artifacts/
+
+# Exact image reconstructed from the versioned asset parts at build time
+/public/workspace/hb-lake-hero.png

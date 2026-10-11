@@ -16,7 +16,8 @@
     "test:personal": "tsx scripts/testPersonalTasks.ts",
     "test:personal:ui": "node scripts/test-personal-ui.mjs",
     "typecheck": "tsc --noEmit",
-    "test:roadmap": "tsx scripts/testRoadmap.ts"
+    "test:roadmap": "tsx scripts/testRoadmap.ts",
+    "prebuild": "node scripts/restore-workspace-asset.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
