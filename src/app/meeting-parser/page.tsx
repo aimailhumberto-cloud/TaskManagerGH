@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import HslAvatar from '@/components/HslAvatar';
 
 interface Person {
@@ -188,12 +189,12 @@ export default function MeetingParserPage() {
           </div>
 
           <nav className="flex items-center gap-4">
-            <a href="/" className="px-3 py-2 text-sm font-medium text-primary-600 hover:text-gold-600 rounded-lg transition">
+            <Link href="/" className="px-3 py-2 text-sm font-medium text-primary-600 hover:text-gold-600 rounded-lg transition">
               Dashboard
-            </a>
-            <a href="/tasks" className="px-3 py-2 text-sm font-medium text-primary-600 hover:text-gold-600 rounded-lg transition">
+            </Link>
+            <Link href="/tasks" className="px-3 py-2 text-sm font-medium text-primary-600 hover:text-gold-600 rounded-lg transition">
               Tasks
-            </a>
+            </Link>
           </nav>
         </div>
       </header>
