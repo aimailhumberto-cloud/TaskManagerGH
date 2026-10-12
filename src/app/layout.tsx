@@ -84,7 +84,7 @@ export default async function RootLayout({
             </div>
 
             {/* Navigation Menu Links */}
-            <WorkspaceNavigation />
+            <WorkspaceNavigation publicOnly={!sessionData} />
 
             {/* Footer Profile Container */}
             <FooterProfile session={sessionData} />
@@ -127,7 +127,7 @@ export default async function RootLayout({
             </main>
 
             {/* Mobile Bottom Navigation Bar */}
-            <WorkspaceNavigation mobile />
+            <WorkspaceNavigation mobile publicOnly={!sessionData} />
           </div>
         </div>
       </body>
