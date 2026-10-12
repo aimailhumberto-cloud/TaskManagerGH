@@ -33,7 +33,7 @@ export default function FooterProfile({ session }: FooterProfileProps) {
     }
   };
 
-  if (!session) return <div className="px-6 py-5 text-sm text-primary-200"><strong>Espacio HB</strong><p>Consulta pública · Solo lectura</p></div>;
+  if (!session) return <div className="px-6 py-5 text-sm text-primary-200"><strong>Espacio HB</strong><p>Acceso público · Tareas editables</p></div>;
 
   // Fallback if session is somehow missing but middleware let it pass
   const name = session?.name || 'User Profile';

@@ -27,7 +27,7 @@ export function publicHbView(db: DatabaseSchema) {
  const companies = new Set([...tasks.map(t => t.companyId),...projects.map(p => p.companyId),hb.companyId].filter(Boolean));
  const people = new Set([hb.id,...tasks.flatMap(t => [t.ownerId,t.assigneeId,...(t.assigneeIds || []),...t.steps.map(s => s.assigneeId)]),...projects.map(p => p.acceptancePersonId)].filter(Boolean));
  return {
-  access: 'public-hb-readonly' as const, actorId: hb.id, managedLegacyTaskIds: tasks.filter(t => !t.ownerId && legacy.has(t.id)).map(t => t.id),
+  access: 'public-hb-tasks' as const, actorId: hb.id, publicEditableTaskIds:tasks.filter(t=>t.ownerId===hb.id||!t.ownerId&&legacy.has(t.id)).map(t=>t.id), managedLegacyTaskIds: tasks.filter(t => !t.ownerId && legacy.has(t.id)).map(t => t.id),
   tasks, projects, companies: db.companies.filter(c => companies.has(c.id)).map(companyDTO),
   people: db.people.filter(p => people.has(p.id)).map(p => ({id:p.id,name:p.name,avatar:p.avatar,role:p.role === 'AIAgent' ? 'AIAgent' : 'Member'})),
   decisions:(db.decisions || []).filter(d=>d.ownerId===hb.id).map(d=>({...display(d),history:[]})),

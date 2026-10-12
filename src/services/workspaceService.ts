@@ -1,4 +1,6 @@
 import { randomUUID, createHash } from 'crypto';
+import {isPublicTaskActor,publicTaskActor,publicTaskWritable,assertPublicTaskCommand,type PublicTaskActor} from '@/lib/publicTaskScope';
+type TaskActor=SessionData|PublicTaskActor;
 import { dbService } from './dbService';
 import type { DatabaseSchema, Task } from './mockData';
 import type { SessionData } from '@/lib/session';
@@ -27,8 +29,8 @@ function snapshot(project: Project): ProjectSnapshot {
   const { history: _history, ...current } = project;
   return structuredClone(current);
 }
-function record(project: Project, actor: SessionData, action: string, reason: string) {
-  project.history.push({ revision: project.revision, at: new Date().toISOString(), actorId: actor.personId, action, reason, snapshot: snapshot(project) });
+function record(project: Project, actor: {personId:string;access?:string}, action: string, reason: string) {
+  project.history.push({ revision: project.revision, at: new Date().toISOString(), actorId: actor.access==='public-hb-tasks'?'public-hb:'+actor.personId:actor.personId, action, reason, snapshot: snapshot(project) });
 }
 function projectFor(data: DatabaseSchema, id: unknown): Project {
   const project = data.projects?.find(p => p.id === id);
@@ -54,43 +56,8 @@ function assertTaskLinks(data: DatabaseSchema, task: Task, legacyPrevious?: Task
   }
   assertNoCycles(data.tasks.map(t => t.id === task.id ? task : t));
 }
-function mutate(data: DatabaseSchema, actor: SessionData, body: any): unknown {
-  data.projects ||= []; data.appliedOperations ||= [];
-  if (['saveDayPlan', 'createDecision', 'updateDecision', 'restoreDecision'].includes(body.action)) return executiveCommand(data, actor, body);
-  const reason = text(body.reason || '', 'motivo');
-  const input = body.fields || {};
-  let provenance: Task['activityLog'][number]['provenance'];
-  if (body.provenance !== undefined) {
-    const p = body.provenance;
-    if (!p || !['chat', 'voice'].includes(p.channel) || !['UserInstruction', 'Email', 'WhatsApp', 'Calendar', 'Document'].includes(p.sourceKind)) throw new WorkspaceError('Procedencia inválida.');
-    const sourceUrl = text(p.sourceUrl || '', 'fuente de instrucción');
-    if (sourceUrl) { try { if (!['http:', 'https:'].includes(new URL(sourceUrl).protocol)) throw new Error(); } catch { throw new WorkspaceError('Fuente de instrucción inválida.'); } }
-    const observedAt = text(p.observedAt || '', 'fecha de lectura');
-    if (observedAt && (!/(Z|[+-]\d{2}:\d{2})$/.test(observedAt) || !Number.isFinite(Date.parse(observedAt)))) throw new WorkspaceError('Fecha de lectura inválida.');
-    provenance = { channel: p.channel, instruction: text(p.instruction, 'instrucción de Humberto', true), sourceKind: p.sourceKind, sourceUrl, observedAt };
-  }
-  if (layerActions.includes(body.action)) return layerCommand(data, actor, body, provenance);
-  if (body.action === 'restoreTask') {
-    const existing = data.tasks.find(t => t.id === body.id);
-    if (!existing) throw new WorkspaceError('Tarea no encontrada.', 404);
-    if (!canWriteTask(data,actor,existing)) throw new WorkspaceError('La propiedad o administración de esta tarea requiere validación antes de modificarla.',403);
-    requireRevision(existing.revision || 0, body.expectedRevision);
-    const saved = existing.activityLog.find(log => log.revision === input.revision)?.snapshot;
-    if (!saved || !reason) throw new WorkspaceError('Elige una revisión y explica la restauración.');
-    const restored: Task = { ...structuredClone(saved), id: existing.id, ownerId: existing.ownerId, activityLog: [...existing.activityLog], revision: (existing.revision || 0) + 1 };
-    assertTaskLinks(data, restored, canAdministerLegacyTask(data,actor,existing) ? restored : undefined);
-    if (restored.status === 'Completed' && (restored.dependencyIds || []).some(id => data.tasks.find(t => t.id === id)?.status !== 'Completed')) throw new WorkspaceError('La revisión tiene dependencias actualmente pendientes.', 409);
-    const { activityLog: _log, ...savedAgain } = restored;
-    restored.activityLog.push({ timestamp: new Date().toISOString(), user: actor.personId, type: 'User', action: `Restaurada revisión ${input.revision} · ${reason}`, revision: restored.revision, snapshot: savedAgain, ...(provenance ? { provenance } : {}) });
-    data.tasks = data.tasks.map(t => t.id === restored.id ? restored : t);
-    reopenLinkedDeliverable(data, restored, actor);
-    return restored;
-  }
-  if (body.action === 'createProject') {
-    if (!data.companies.some(c => c.id === input.companyId)) throw new WorkspaceError('Elige un negocio válido.');
-    const project: Project = { id: randomUUID(), companyId: input.companyId, title: text(input.title, 'nombre', true, 240), objective: text(input.objective, 'objetivo', true), scope: text(input.scope || '', 'alcance'), ownerId: actor.personId, acceptancePersonId: actor.personId, state: 'Active', revision: 1, stages: [], deliverables: [], milestones: [], evidence: [], history: [] };
-    record(project, actor, 'Proyecto creado', reason); data.projects.push(project); return project;
-  }
+function mutateTask(data:DatabaseSchema,actor:TaskActor,body:any,provenance?:Task['activityLog'][number]['provenance']):unknown {
+ const reason=text(body.reason||'', 'motivo');const input=body.fields||{};
   if (body.action === 'createTask' || body.action === 'updateTask') {
     let task: Task;
     let previous: Task | undefined;
@@ -101,7 +68,7 @@ function mutate(data: DatabaseSchema, actor: SessionData, body: any): unknown {
     } else {
       previous = data.tasks.find(t => t.id === body.id);
       if (!previous) throw new WorkspaceError('Tarea no encontrada.', 404);
-      if (!canWriteTask(data,actor,previous)) throw new WorkspaceError('La propiedad o administración de esta tarea requiere validación antes de modificarla.',403);
+      if (!(isPublicTaskActor(actor)?publicTaskWritable(data,actor,previous):canWriteTask(data,actor,previous))) throw new WorkspaceError('La propiedad o administración de esta tarea requiere validación antes de modificarla.',403);
       requireRevision(previous.revision || 0, body.expectedRevision);
       task = structuredClone(previous); Object.assign(task, personal); task.revision = (previous.revision || 0) + 1;
     }
@@ -114,9 +81,9 @@ function mutate(data: DatabaseSchema, actor: SessionData, body: any): unknown {
       if (new Set(task.subcategories).size !== task.subcategories!.length) throw new WorkspaceError('Subcategorías duplicadas.');
     }
     if (input.type !== undefined) { if (!['One-shot', 'Project', 'Repetitive'].includes(input.type)) throw new WorkspaceError('Tipo de trabajo inválido.'); if (input.type === 'Project' && task.repeatPattern) throw new WorkspaceError('Quita la repetición antes de convertir en proyecto.'); task.type = input.type; }
-    if (input.companyId !== undefined) task.companyId = text(input.companyId, 'negocio', !(previous && canAdministerLegacyTask(data,actor,previous) && !previous.companyId && input.companyId === ''));
+    if (input.companyId !== undefined) task.companyId = text(input.companyId, 'negocio', !(previous && (isPublicTaskActor(actor)?publicTaskWritable(data,actor,previous):canAdministerLegacyTask(data,actor,previous)) && !previous.companyId && input.companyId === ''));
     if (input.assigneeId !== undefined) {
-      const nextAssignee = text(input.assigneeId, 'ejecutor', !(previous && canAdministerLegacyTask(data,actor,previous) && !previous.assigneeId && input.assigneeId === ''));
+      const nextAssignee = text(input.assigneeId, 'ejecutor', !(previous && (isPublicTaskActor(actor)?publicTaskWritable(data,actor,previous):canAdministerLegacyTask(data,actor,previous)) && !previous.assigneeId && input.assigneeId === ''));
       if (task.assigneeId !== nextAssignee) task.assigneeIds = nextAssignee ? [nextAssignee] : [];
       task.assigneeId = nextAssignee;
     }
@@ -156,7 +123,7 @@ function mutate(data: DatabaseSchema, actor: SessionData, body: any): unknown {
       task.status = input.status;
     }
     task.ownerId = previous ? previous.ownerId : actor.personId;
-    assertTaskLinks(data, task, previous && canAdministerLegacyTask(data,actor,previous) ? previous : undefined);
+    assertTaskLinks(data, task, previous && (isPublicTaskActor(actor)?publicTaskWritable(data,actor,previous):canAdministerLegacyTask(data,actor,previous)) ? previous : undefined);
     if (task.projectId) task.projectName = projectFor(data, task.projectId).title;
     if (input.status === 'Completed' && previous?.status !== 'Completed') {
       if (task.projectId && projectFor(data, task.projectId).state !== 'Active') throw new WorkspaceError('Reactiva el proyecto antes de completar trabajo.');
@@ -176,11 +143,51 @@ function mutate(data: DatabaseSchema, actor: SessionData, body: any): unknown {
     const changed = Object.keys(input).filter(key => JSON.stringify((previous as any)?.[key]) !== JSON.stringify((task as any)[key]));
     if (body.action === 'createTask' && task.projectId && projectFor(data, task.projectId).state !== 'Active') throw new WorkspaceError('Reactiva el proyecto antes de añadir trabajo.');
     const { activityLog: _log, ...saved } = task;
-    task.activityLog.push({ timestamp: new Date().toISOString(), user: actor.personId, type: 'User', revision: task.revision, snapshot: structuredClone(saved), changes: changed.map(field => ({ field, before: (previous as any)?.[field], after: (task as any)[field] })), ...(provenance ? { provenance } : {}), action: `${body.action === 'createTask' ? 'Tarea creada' : 'Tarea actualizada'}: ${changed.join(', ')}${reason ? ` · ${reason}` : ''}` });
+    task.activityLog.push({ timestamp: new Date().toISOString(), user: isPublicTaskActor(actor)?'Acceso público · espacio HB':actor.personId, type: 'User', revision: task.revision, snapshot: structuredClone(saved), changes: changed.map(field => ({ field, before: (previous as any)?.[field], after: (task as any)[field] })), ...(provenance ? { provenance } : {}), action: `${body.action === 'createTask' ? 'Tarea creada' : 'Tarea actualizada'}: ${changed.join(', ')}${reason ? ` · ${reason}` : ''}` });
     data.tasks = data.tasks.map(t => t.id === task.id ? task : t);
     reopenLinkedDeliverable(data, task, actor);
     return task;
   }
+ throw new WorkspaceError('Acción de tarea no reconocida.');
+}
+function mutate(data: DatabaseSchema, actor: SessionData, body: any): unknown {
+  data.projects ||= []; data.appliedOperations ||= [];
+  if (['saveDayPlan', 'createDecision', 'updateDecision', 'restoreDecision'].includes(body.action)) return executiveCommand(data, actor, body);
+  const reason = text(body.reason || '', 'motivo');
+  const input = body.fields || {};
+  let provenance: Task['activityLog'][number]['provenance'];
+  if (body.provenance !== undefined) {
+    const p = body.provenance;
+    if (!p || !['chat', 'voice'].includes(p.channel) || !['UserInstruction', 'Email', 'WhatsApp', 'Calendar', 'Document'].includes(p.sourceKind)) throw new WorkspaceError('Procedencia inválida.');
+    const sourceUrl = text(p.sourceUrl || '', 'fuente de instrucción');
+    if (sourceUrl) { try { if (!['http:', 'https:'].includes(new URL(sourceUrl).protocol)) throw new Error(); } catch { throw new WorkspaceError('Fuente de instrucción inválida.'); } }
+    const observedAt = text(p.observedAt || '', 'fecha de lectura');
+    if (observedAt && (!/(Z|[+-]\d{2}:\d{2})$/.test(observedAt) || !Number.isFinite(Date.parse(observedAt)))) throw new WorkspaceError('Fecha de lectura inválida.');
+    provenance = { channel: p.channel, instruction: text(p.instruction, 'instrucción de Humberto', true), sourceKind: p.sourceKind, sourceUrl, observedAt };
+  }
+  if (layerActions.includes(body.action)) return layerCommand(data, actor, body, provenance);
+  if (body.action === 'restoreTask') {
+    const existing = data.tasks.find(t => t.id === body.id);
+    if (!existing) throw new WorkspaceError('Tarea no encontrada.', 404);
+    if (!canWriteTask(data,actor,existing)) throw new WorkspaceError('La propiedad o administración de esta tarea requiere validación antes de modificarla.',403);
+    requireRevision(existing.revision || 0, body.expectedRevision);
+    const saved = existing.activityLog.find(log => log.revision === input.revision)?.snapshot;
+    if (!saved || !reason) throw new WorkspaceError('Elige una revisión y explica la restauración.');
+    const restored: Task = { ...structuredClone(saved), id: existing.id, ownerId: existing.ownerId, activityLog: [...existing.activityLog], revision: (existing.revision || 0) + 1 };
+    assertTaskLinks(data, restored, canAdministerLegacyTask(data,actor,existing) ? restored : undefined);
+    if (restored.status === 'Completed' && (restored.dependencyIds || []).some(id => data.tasks.find(t => t.id === id)?.status !== 'Completed')) throw new WorkspaceError('La revisión tiene dependencias actualmente pendientes.', 409);
+    const { activityLog: _log, ...savedAgain } = restored;
+    restored.activityLog.push({ timestamp: new Date().toISOString(), user: actor.personId, type: 'User', action: `Restaurada revisión ${input.revision} · ${reason}`, revision: restored.revision, snapshot: savedAgain, ...(provenance ? { provenance } : {}) });
+    data.tasks = data.tasks.map(t => t.id === restored.id ? restored : t);
+    reopenLinkedDeliverable(data, restored, actor);
+    return restored;
+  }
+  if (body.action === 'createProject') {
+    if (!data.companies.some(c => c.id === input.companyId)) throw new WorkspaceError('Elige un negocio válido.');
+    const project: Project = { id: randomUUID(), companyId: input.companyId, title: text(input.title, 'nombre', true, 240), objective: text(input.objective, 'objetivo', true), scope: text(input.scope || '', 'alcance'), ownerId: actor.personId, acceptancePersonId: actor.personId, state: 'Active', revision: 1, stages: [], deliverables: [], milestones: [], evidence: [], history: [] };
+    record(project, actor, 'Proyecto creado', reason); data.projects.push(project); return project;
+  }
+  if (body.action === 'createTask' || body.action === 'updateTask') return mutateTask(data,actor,body,provenance);
   const project = projectFor(data, body.id);
   if (!data.people.some(p=>p.id===project.ownerId)) throw new WorkspaceError('La propiedad de este proyecto requiere validación.',403);
   requireRevision(project.revision, body.expectedRevision);
@@ -283,7 +290,7 @@ function invalidateDependentDeliverables(project: Project) {
     }
   }
 }
-function reopenLinkedDeliverable(data: DatabaseSchema, task: Task, actor: SessionData) {
+function reopenLinkedDeliverable(data: DatabaseSchema, task: Task, actor: {personId:string;access?:string}) {
   if (task.status === 'Completed' || task.cancelledAt || !task.deliverableId) return;
   const project = data.projects?.find(p => p.id === task.projectId);
   const deliverable = project?.deliverables.find(d => d.id === task.deliverableId);
@@ -308,4 +315,15 @@ export async function applyWorkspaceCommand(actor: SessionData, body: any): Prom
     data.appliedOperations!.push({ requestId, actorId: actor.personId, fingerprint, result: structuredClone(result) });
     return result;
   });
+}
+
+/** Persisted task-only capability. No authenticated/Owner session is constructed. */
+export async function applyPublicTaskCommand(body:any):Promise<unknown>{
+ const requestId=text(body?.requestId,'identificador de operación',true,100),fingerprint=createHash('sha256').update(JSON.stringify(body)).digest('hex');
+ return dbService.transaction(data=>{
+  const actor=publicTaskActor(data);assertPublicTaskCommand(data,actor,body);const scope='public-hb-tasks:'+actor.personId;
+  const prior=data.appliedOperations?.find(o=>o.requestId===requestId&&o.actorId===scope);
+  if(prior){if(prior.fingerprint!==fingerprint)throw new WorkspaceError('El identificador ya se usó para otro cambio.',409);return prior.result;}
+  data.appliedOperations||=[];const result=mutateTask(data,actor,body);data.appliedOperations.push({requestId,actorId:scope,fingerprint,result:structuredClone(result)});return result;
+ });
 }
