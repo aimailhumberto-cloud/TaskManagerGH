@@ -1,6 +1,7 @@
 import type { DatabaseSchema, Task } from '@/services/mockData';
 import { companyDTO, publicValue, taskDTO } from './publicWorkspace';
 import { WorkspaceError } from './projects';
+import {publicSmjTracking} from './smjTracking';
 export const HB_PUBLIC_EMAIL = 'hb@sexualidad-sagrada.com';
 function display(value:any):any {
  const clean=publicValue(value);
@@ -15,9 +16,9 @@ export function publicHbView(db: DatabaseSchema) {
  if (accounts.length !== 1) throw new WorkspaceError('El perfil HB público no está verificado.', 503);
  const account = accounts[0], hb = db.people.find(p => p.id === account.personId);
  if (!hb || hb.role !== 'Owner') throw new WorkspaceError('La asociación del perfil HB requiere revisión.', 503);
- const policy = db.legacyAdministration;
- const legacy = policy && policy.version === 1 && policy.userId === account.id && policy.personId === hb.id && policy.userId === 'usr-5ry71br' && policy.personId === 'p1wq05qf' && /^[a-f0-9]{64}$/.test(policy.sourceSha256) && policy.approvalReference && Number.isFinite(Date.parse(policy.approvedAt)) && policy.taskIds?.length === 74 && new Set(policy.taskIds).size === 74 ? new Set(policy.taskIds) : new Set<string>();
- const visible = db.tasks.filter(t => t.ownerId === hb.id || t.assigneeId === hb.id || t.assigneeIds?.includes(hb.id) || !t.ownerId && legacy.has(t.id));
+ // The public workspace uses the new owned work; legacy74 is never an admission policy here.
+ const legacy = new Set<string>();
+ const visible = db.tasks.filter(t => !!t.ownerId && (t.ownerId === hb.id || t.assigneeId === hb.id || t.assigneeIds?.includes(hb.id)));
  const projects = (db.projects || []).filter(p => p.ownerId === hb.id).map(p => ({...display(p), history: []}));
  const projectIds = new Set(projects.map(p => p.id));
  const tasks = visible.map(t => {
@@ -29,6 +30,7 @@ export function publicHbView(db: DatabaseSchema) {
  return {
   access: 'public-hb-tasks' as const, actorId: hb.id, publicEditableTaskIds:tasks.filter(t=>t.ownerId===hb.id||!t.ownerId&&legacy.has(t.id)).map(t=>t.id), managedLegacyTaskIds: tasks.filter(t => !t.ownerId && legacy.has(t.id)).map(t => t.id),
   tasks, projects, companies: db.companies.filter(c => companies.has(c.id)).map(companyDTO),
+  smjTracking:db.smjTracking?.ownerId===hb.id?publicSmjTracking(db.smjTracking):null,
   people: db.people.filter(p => people.has(p.id)).map(p => ({id:p.id,name:p.name,avatar:p.avatar,role:p.role === 'AIAgent' ? 'AIAgent' : 'Member'})),
   decisions:(db.decisions || []).filter(d=>d.ownerId===hb.id).map(d=>({...display(d),history:[]})),
   automations:(db.automations || []).filter(a=>a.ownerId===hb.id).map(a=>({...display(a),history:[]})),

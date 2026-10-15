@@ -1,5 +1,8 @@
 'use client';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import SmjCompanyCenter from './SmjCompanyCenter';
+import LegacyProjectDetail from './LegacyProjectDetail';
+import {SMJ_COMPANY_ID} from '@/lib/smjCenter';
 import type { PublicHbView } from '@/lib/publicHbAccess';
 import type { Task } from '@/services/mockData';
 import type { Entry } from './WorkspaceHub';
@@ -32,15 +35,18 @@ export default function PublicHbWorkspace({entry,initial}:{entry:Entry;initial:P
   finally{locked.current=false;setBusy(false);}
  };
  const [company,setCompany]=useState(''),[query,setQuery]=useState(''),[task,setTask]=useState<Task|null>(null),[all,setAll]=useState(false);
+ const [projectId,setProjectId]=useState<string|null>(null);
+ useEffect(()=>{const params=new URLSearchParams(window.location.search);const id=params.get('company');if(initial.companies.some(c=>c.id===id))setCompany(id!);},[initial.companies]);
  const today=todayInPanama();const selected=view.tasks.filter(t=>!company||t.companyId===company);
  const openTask=(id:string)=>setTask(view.tasks.find(t=>t.id===id.split('::')[0])||null);
  const props={companies:view.companies,people:view.people,canEdit:true,editableTaskIds:view.publicEditableTaskIds,busy,command,openTask};
  const title=entry==='home'?'Hoy, Humberto':entry==='companies'?'Tus empresas':entry==='agenda'?'Tu tiempo, en perspectiva':'Encuentra tu trabajo';
  return <div className="tm-workspace" data-access="public-hb-tasks"><header className="tm-hero"><span className="tm-eyebrow">TASKMANAGER HB · {shortDate(today)} · PANAMÁ</span><h1>{title}</h1><p>Trabajo público del espacio HB.</p></header><p role="status" className="tm-inline-notice">Cualquier persona con este enlace puede editar las tareas de HB. Las cuentas e integraciones mantienen acceso privado.</p>{notice&&<p role="status" className="tm-inline-notice">{notice}</p>}<nav className="tm-company-tabs" aria-label="Empresas">{[{id:'',name:'Todas'},...view.companies].map(c=><button key={c.id} aria-pressed={company===c.id} onClick={()=>setCompany(c.id)}>{c.name}</button>)}</nav>
  {entry==='home'&&<><nav className="tm-tabs"><button onClick={()=>setAll(false)} aria-pressed={!all}>Hoy</button><button onClick={()=>setAll(true)} aria-pressed={all}>Todas las tareas</button></nav><TaskMaster tasks={all?selected:dailyWork(selected,today)} sourceTasks={view.tasks} companyId={company} variant={all?'table':'today'} {...props}/></>}
- {entry==='companies'&&<><CompanyDashboards tasks={view.tasks} companies={view.companies} projects={view.projects} selected={company} choose={setCompany}/><TaskMaster tasks={selected} companyId={company} {...props}/></>}
+ {entry==='companies'&&(company===SMJ_COMPANY_ID?<SmjCompanyCenter initialTracking={view.smjTracking} tasks={view.tasks} projects={view.projects} openProject={setProjectId} {...props}/>:<><CompanyDashboards tasks={view.tasks} companies={view.companies} projects={view.projects} selected={company} choose={setCompany}/><TaskMaster tasks={selected} companyId={company} {...props}/></>)}
  {entry==='agenda'&&<CalendarBoard tasks={scheduledWork(selected)} companies={view.companies} snapshot={null} companyId={company} selectCompany={setCompany} daysChanged={noDays} openTask={openTask}/>}
  {entry==='search'&&<section className="tm-pane tm-pane-dark"><h2>Buscar trabajo HB</h2><input className="tm-search-input" aria-label="Buscar trabajo HB" value={query} onChange={e=>setQuery(e.target.value)}/>{query.trim()&&selected.filter(t=>[t.title,t.nextAction,t.description,...t.steps.map(s=>s.text)].some(v=>v?.toLocaleLowerCase('es').includes(query.trim().toLocaleLowerCase('es')))).map(t=><button key={t.id} className="tm-work-card" onClick={()=>openTask(t.id)}>{t.title}</button>)}</section>}
  {task&&<div className="tm-modal-backdrop"><div className="tm-modal" role="dialog" aria-modal="true" aria-label="Consulta de tarea HB"><button className="tm-close" aria-label="Cerrar detalle" onClick={()=>setTask(null)}>×</button><TaskDetail task={task} tasks={view.tasks} companies={view.companies} people={view.people} canEdit={view.publicEditableTaskIds.includes(task.id)} busy={busy} command={command}/></div></div>}
+ {projectId&&view.projects.find(p=>p.id===projectId)&&<div className="tm-modal-backdrop"><div className="tm-modal" role="dialog" aria-modal="true" aria-label="Proyecto HB"><button className="tm-close" aria-label="Cerrar proyecto" onClick={()=>setProjectId(null)}>×</button><LegacyProjectDetail project={view.projects.find(p=>p.id===projectId)!} tasks={view.tasks} people={view.people} actorId={view.actorId} canEdit={false} busy={busy} command={command}/></div></div>}
  </div>;
 }

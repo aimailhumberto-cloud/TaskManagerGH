@@ -129,6 +129,7 @@ export interface User {
 }
 
 export interface DatabaseSchema {
+  smjTracking?: import('@/lib/smjTracking').SmjTracking;
   legacyAdministration?: import('@/lib/legacyAdministration').LegacyAdministration;
   whatsappReviews?: import('@/lib/whatsappAnalytics').WAReview[];
   automations?: import('@/lib/workspaceLayers').AutomationRecord[];

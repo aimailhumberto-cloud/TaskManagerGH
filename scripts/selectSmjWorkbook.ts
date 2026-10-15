@@ -1,0 +1,24 @@
+import {readFileSync,writeFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import assert from 'node:assert/strict';
+import type {SmjReferenceRow} from '../src/lib/smjTracking';
+const expected='e71b43534aa380e9f239250e6ab76ffe986df574a0df69677dfd5e635de75795';
+const raw=readFileSync('.local-data/smj-source/SMJ_HB_Targets_and_Contract_v2.xlsx');assert.equal(raw.length,130035);assert.equal(createHash('sha256').update(raw).digest('hex'),expected);
+const book=JSON.parse(readFileSync('.local-data/smj-workbook-cells.json','utf8'));assert.equal(book.source.sha256,expected);
+const cell=(sheet:string,column:string,row:number)=>book.sheets[sheet][column+row]?.value??null;
+const text=(value:unknown)=>typeof value==='string'?value.trim():'';
+const period=(value:unknown)=>{const s=text(value);assert(/^\d{4}-\d{2}-01T/.test(s));return s.slice(0,7);};
+const rows:SmjReferenceRow[]=[];const counts:Record<string,number>={Numeric:0,'Dash in PDF':0,'Blank in PDF':0,'No row in table':0};let total=0,canada=0,usa=0;
+for(let row=7;row<=60;row++){
+ const sourceId=text(cell('Tracking','A',row));assert.equal(sourceId,'V'+String(row-6).padStart(2,'0'));const country=cell('Tracking','C',row);assert(['CANADA','USA'].includes(country));const state=text(cell('Tracking','H',row));assert(state in counts);counts[state]++;
+ const value=cell('Tracking','I',row);assert.equal(cell('Tracking','J',row),null,'Actual sales must remain absent');if(state==='Numeric'){assert(typeof value==='number');total+=value;if(country==='CANADA')canada+=value;else usa+=value;}else assert.equal(value,null);
+ rows.push({id:'',sourceId,sheet:'Tracking',row,kind:'target',title:text(cell('Tracking','D',row))+' · '+period(cell('Tracking','E',row)),market:country==='CANADA'?'Canada':'USA',period:period(cell('Tracking','E',row)),value,valueState:state as SmjReferenceRow['valueState']});
+}
+assert.deepEqual(counts,{Numeric:38,'Dash in PDF':5,'Blank in PDF':5,'No row in table':6});assert.equal(total,301430);assert.equal(canada,163726);assert.equal(usa,137704);
+let weightTotal=0;for(let row=11;row<=24;row++){const mappingRow=row+29,sourceId=text(cell('TaskMapping','A',mappingRow));assert.equal(sourceId,'SMJ-SC'+String(row-10).padStart(2,'0'));assert.equal(cell('TaskMapping','C',mappingRow),cell('Scorecard','A',row));const weight=cell('Scorecard','B',row);assert(typeof weight==='number');assert.equal(weight,cell('TaskMapping','D',mappingRow));weightTotal+=weight;for(const column of ['C','D','E','F','G','H','I'])assert.equal(cell('Scorecard',column,row),null,'No scores imported');rows.push({id:'',sourceId,sheet:'Scorecard',row,kind:'criterion',title:text(cell('Scorecard','A',row)),weight});}assert(Math.abs(weightTotal-1)<0.000001);
+for(let row=9;row<=34;row++){const sourceId=text(cell('TaskMapping','A',row)),support=row>=32;assert.equal(sourceId,(support?'SMJ-SUP':'SMJ-OB')+String(support?row-31:row-8).padStart(2,'0'));for(const column of ['K','L','O','P','R','S','AB'])assert.equal(cell('TaskMapping',column,row),null,'No task/dates/recurrences/acceptances inferred');rows.push({id:'',sourceId,sheet:'TaskMapping',row,kind:support?'control':'obligation',title:text(cell('TaskMapping','F',row)),nextAction:text(cell('TaskMapping','G',row)),completionCriterion:text(cell('TaskMapping','H',row)),expectedEvidence:text(cell('TaskMapping','Q',row)),frequency:text(cell('TaskMapping','N',row))});}
+for(let row=7;row<=138;row++){const sourceId=text(cell('Routines','A',row));assert.equal(sourceId,'R'+String(row-6).padStart(3,'0'));assert.equal(cell('Routines','H',row),null);assert.equal(cell('Routines','J',row),null);rows.push({id:'',sourceId,sheet:'Routines',row,kind:'routine',title:text(cell('Routines','C',row)),period:period(cell('Routines','E',row)),frequency:text(cell('Routines','D',row)),expectedEvidence:text(cell('Routines','G',row))});}
+for(let row=58;row<=107;row++)rows.push({id:'',sheet:'TaskMapping',row,kind:'reference',title:text(cell('TaskMapping','A',row))+' · '+text(cell('TaskMapping','B',row))+' · '+text(cell('TaskMapping','C',row))});
+assert.equal(rows.length,276);assert(rows.every(row=>row.title&&row.title.length<=600));
+const selected={source:book.source,rows,controls:{targetRows:54,numericTargets:38,unknownTargets:16,total,canada,usa,criteria:14,sourceWeightTotal:weightTotal,obligations:23,supportingControls:3,routineEvidenceContainers:132,annexReferences:50,actualSalesImported:0,evaluationsImported:0,newTasks:0,newReminders:0,newRecurrences:0},excluded:['Private identities/contact columns','Full Terms/Clarifications document text','Fees payment claims','PortfolioValue/ScenarioAssumptions hypothesis values; never treated as sales/fees']};
+writeFileSync('.local-data/smj-selected-references.json',JSON.stringify(selected,null,2));console.log(JSON.stringify({source:book.source,controls:selected.controls,excluded:selected.excluded,output:'.local-data/smj-selected-references.json'}));
