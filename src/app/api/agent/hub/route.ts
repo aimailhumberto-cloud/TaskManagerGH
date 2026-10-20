@@ -28,7 +28,7 @@ function checkAgentAuth(req: NextRequest): { ok: boolean; error?: string } {
   return { ok: false, error: 'Invalid or missing AGENT_API_KEY (use Authorization: Bearer <key> or x-agent-key).' };
 }
 
-export function inferCompanyAndCategory(rawText: string, explicitCompanyId?: string, explicitCategory?: string): {
+function inferCompanyAndCategory(rawText: string, explicitCompanyId?: string, explicitCategory?: string): {
   companyId: string;
   category: string;
   subcategories: string[];
