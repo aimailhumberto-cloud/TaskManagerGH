@@ -3,7 +3,7 @@ import type {SessionData} from './session';
 import {hasAdministrationCapability} from './capabilities';
 import {WorkspaceError} from './projects';
 import {canAdministerLegacyTask} from './legacyAdministration';
-import {publicSmjTracking} from './smjTracking';
+import {ensureSmjTracking,publicSmjTracking} from './smjTracking';
 
 const taskKeys='id title description type repeatPattern steps companyId assigneeId assigneeIds ownerId status priority origin dueDate attachments activityLog isMeeting meetingTime meetingAttendees meetingConfirmations meetingLink comments completedDays category subcategories estimatedMinutes workSlot workTime validationStatus sourceUrl contextNotes projectId deliverableId dependencyIds cancelledAt revision cancellationReason projectName nextAction workDate waitingOn commitment followUpDate approvalStatus'.split(' ');
 const projectKeys='id companyId title objective scope ownerId acceptancePersonId state revision stages deliverables milestones evidence history'.split(' ');
@@ -50,7 +50,7 @@ export function workspaceDTO(db:DatabaseSchema,actor:SessionData){
  return {
  managedLegacyTaskIds:tasks.filter(t=>canAdministerLegacyTask(db,actor,t)).map(t=>t.id),
  tasks:tasks.map(taskDTO),projects:projects.map(p=>pick(p,projectKeys)),
- smjTracking:db.smjTracking?.ownerId===actor.personId?publicSmjTracking(db.smjTracking):null,
+ smjTracking:db.smjTracking?.ownerId===actor.personId?publicSmjTracking(ensureSmjTracking(db.smjTracking,actor.personId)):(admin&&companyIds.has('business-sm-jaleel')?publicSmjTracking(ensureSmjTracking(null,actor.personId)):null),
  companies:db.companies.filter(c=>admin||companyIds.has(c.id)).map(companyDTO),
  people:db.people.filter(p=>admin||peopleIds.has(p.id)).map(personDTO),
  automations:(db.automations||[]).filter(a=>a.ownerId===actor.personId).map(a=>pick(a,automationKeys)),

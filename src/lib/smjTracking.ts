@@ -1,10 +1,15 @@
 import {WorkspaceError} from './projects';
+import {DEFAULT_SMJ_ROWS,DEFAULT_SMJ_SOURCE} from './smjDefaultReferences';
 export type SmjRecordKind='distributor'|'sale'|'score'|'fee'|'evidence';
 export interface SmjReferenceRow {id:string;sheet:string;row:number;sourceId?:string;kind:'obligation'|'control'|'target'|'criterion'|'routine'|'reference';title:string;market?:string;period?:string;value?:number|null;valueState?:'Numeric'|'Dash in PDF'|'Blank in PDF'|'No row in table';weight?:number;sourceWeight?:number;nextAction?:string;completionCriterion?:string;expectedEvidence?:string;frequency?:string;}
 export interface SmjSource {libraryFileId:string;version:number;sha256:string;fileName:string;}
 export interface SmjRecord {id:string;kind:SmjRecordKind;title:string;market:'Canada'|'USA'|'';period:string;value:number|null;unit:string;sourceUrl:string;notes:string;distributorId:string;criterionId:string;referenceId:string;state:'NotStarted'|'InProgress'|'Waiting'|'Completed'|'NotApplicable';evidence:string;basis:string;revision:number;updatedAt:string;history:{revision:number;at:string;reason:string}[];}
 export interface SmjTracking {ownerId:string;companyId:'business-sm-jaleel';revision:number;source?:SmjSource;references:SmjReferenceRow[];records:SmjRecord[];}
 export const SMJ_LIBRARY_ID='libfile_90898d2ba1a08191927ae57d76f06f3a';
+export function ensureSmjTracking(current:SmjTracking|undefined|null,ownerId:string):SmjTracking {
+ if(current&&current.references&&current.references.length>0)return current;
+ return {ownerId,companyId:'business-sm-jaleel',revision:current?.revision||1,source:current?.source||DEFAULT_SMJ_SOURCE,references:DEFAULT_SMJ_ROWS,records:current?.records||[]};
+}
 /** Separate explicit response schema; never broadens the general workspace's nested allowlist. */
 export function publicSmjTracking(current:SmjTracking):SmjTracking {
  const pick=(value:any,keys:string[])=>Object.fromEntries(keys.filter(k=>value[k]!==undefined).map(k=>[k,value[k]]));

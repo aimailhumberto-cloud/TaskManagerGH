@@ -1,7 +1,7 @@
 import type { DatabaseSchema, Task } from '@/services/mockData';
 import { companyDTO, publicValue, taskDTO } from './publicWorkspace';
 import { WorkspaceError } from './projects';
-import {publicSmjTracking} from './smjTracking';
+import {ensureSmjTracking,publicSmjTracking} from './smjTracking';
 export const HB_PUBLIC_EMAIL = 'hb@sexualidad-sagrada.com';
 function display(value:any):any {
  const clean=publicValue(value);
@@ -30,7 +30,7 @@ export function publicHbView(db: DatabaseSchema) {
  return {
   access: 'public-hb-tasks' as const, actorId: hb.id, publicEditableTaskIds:tasks.filter(t=>t.ownerId===hb.id||!t.ownerId&&legacy.has(t.id)).map(t=>t.id), managedLegacyTaskIds: tasks.filter(t => !t.ownerId && legacy.has(t.id)).map(t => t.id),
   tasks, projects, companies: db.companies.filter(c => companies.has(c.id)).map(companyDTO),
-  smjTracking:db.smjTracking?.ownerId===hb.id?publicSmjTracking(db.smjTracking):null,
+  smjTracking:companies.has('business-sm-jaleel')?publicSmjTracking(ensureSmjTracking(db.smjTracking?.ownerId===hb.id?db.smjTracking:null,hb.id)):null,
   people: db.people.filter(p => people.has(p.id)).map(p => ({id:p.id,name:p.name,avatar:p.avatar,role:p.role === 'AIAgent' ? 'AIAgent' : 'Member'})),
   decisions:(db.decisions || []).filter(d=>d.ownerId===hb.id).map(d=>({...display(d),history:[]})),
   automations:(db.automations || []).filter(a=>a.ownerId===hb.id).map(a=>({...display(a),history:[]})),

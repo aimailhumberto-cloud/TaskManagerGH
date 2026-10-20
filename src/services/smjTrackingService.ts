@@ -1,7 +1,7 @@
 import {createHash,randomUUID} from 'crypto';
 import {dbService} from './dbService';
 import {publicTaskActor} from '@/lib/publicTaskScope';
-import {validateSmjRecord,type SmjTracking,type SmjRecord} from '@/lib/smjTracking';
+import {ensureSmjTracking,validateSmjRecord,type SmjTracking,type SmjRecord} from '@/lib/smjTracking';
 import {WorkspaceError} from '@/lib/projects';
 import type {SessionData} from '@/lib/session';
 import {verifiedProfile} from '@/lib/publicWorkspace';
@@ -13,7 +13,7 @@ export async function saveSmjRecord(body:any,privateSession?:SessionData){
   if(privateSession&&!hasAdministrationCapability(verifiedProfile(data,privateSession).role))throw new WorkspaceError('La edición privada SMJ requiere el perfil vigente autorizado.',403);
   const actor=privateSession||publicTaskActor(data);if(!data.companies.some(c=>c.id==='business-sm-jaleel')||!data.tasks.some(t=>t.companyId==='business-sm-jaleel'&&t.ownerId===actor.personId))throw new WorkspaceError('SMJ no pertenece al espacio HB.',403);
   const scope=(privateSession?'private-smj:':'public-smj:')+actor.personId;const prior=data.appliedOperations?.find(p=>p.actorId===scope&&p.requestId===body.requestId);if(prior){if(prior.fingerprint!==fingerprint)throw new WorkspaceError('Identificador ya utilizado.',409);return prior.result;}
-  const current:SmjTracking=data.smjTracking||{ownerId:actor.personId,companyId:'business-sm-jaleel',revision:0,references:[],records:[]};if(current.ownerId!==actor.personId)throw new WorkspaceError('Seguimiento ajeno.',403);
+  const current:SmjTracking=ensureSmjTracking(data.smjTracking?.ownerId===actor.personId?data.smjTracking:undefined,actor.personId);if(current.ownerId!==actor.personId)throw new WorkspaceError('Seguimiento ajeno.',403);
   const previous=body.id?current.records.find(r=>r.id===body.id):undefined;if(body.id&&!previous)throw new WorkspaceError('Registro SMJ no encontrado.',404);if(previous&&previous.revision!==body.expectedRevision)throw new WorkspaceError('Registro modificado; recarga y compara antes de guardar.',409);
   const fields=validateSmjRecord(body.fields,current.references,current.records);if(previous&&fields.kind!==previous.kind)throw new WorkspaceError('No se puede convertir el tipo de un registro.');
   if(fields.kind==='evidence'&&current.records.some(r=>r.kind==='evidence'&&r.referenceId===fields.referenceId&&r.id!==previous?.id))throw new WorkspaceError('Ya existe avance para esta referencia; edita su revisión actual.',409);
