@@ -1,5 +1,6 @@
 import { randomUUID, createHash } from 'crypto';
 import {isPublicTaskActor,publicTaskActor,publicTaskWritable,assertPublicTaskCommand,type PublicTaskActor} from '@/lib/publicTaskScope';
+import { HB_CANONICAL_COMPANIES, ensureDefaultHbMeetings } from '@/lib/hbCompanies';
 type TaskActor=SessionData|PublicTaskActor;
 import { dbService } from './dbService';
 import type { DatabaseSchema, Task } from './mockData';
@@ -58,6 +59,11 @@ function assertTaskLinks(data: DatabaseSchema, task: Task, legacyPrevious?: Task
 }
 function mutateTask(data:DatabaseSchema,actor:TaskActor,body:any,provenance?:Task['activityLog'][number]['provenance']):unknown {
  const reason=text(body.reason||'', 'motivo');const input=body.fields||{};
+ for (const canonical of HB_CANONICAL_COMPANIES) { if (input.companyId === canonical.id && !data.companies.some(c => c.id === canonical.id)) data.companies.push({ id: canonical.id, name: canonical.name }); }
+ if (body.action === 'createCompany') { const name = text(input.name || input.title, 'nombre de empresa', true, 120); const slug = 'business-' + name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); const id = data.companies.some(c => c.id === slug) ? `${slug}-${randomUUID().slice(0, 6)}` : slug; data.companies.push({ id, name }); return { id, revision: 1 }; }
+ if (body.action === 'updateCompany') { const name = text(input.name || input.title, 'nombre de empresa', true, 120); const existing = data.companies.find(c => c.id === body.id); if (existing) existing.name = name; else data.companies.push({ id: String(body.id), name }); return { id: String(body.id), revision: 1 }; }
+ if (body.action === 'deleteCompany') { const targetId = String(body.id || ''); data.companies = data.companies.filter(c => c.id !== targetId); return { id: targetId, revision: 1 }; }
+ if (body.action === 'updateTask' && isPublicTaskActor(actor) && !data.tasks.some(t => t.id === body.id)) { const seeded = ensureDefaultHbMeetings([], actor.personId).find(t => t.id === body.id); if (seeded) { for (const canonical of HB_CANONICAL_COMPANIES) if (seeded.companyId === canonical.id && !data.companies.some(c => c.id === canonical.id)) data.companies.push({ id: canonical.id, name: canonical.name }); data.tasks.push(seeded); } }
   if (body.action === 'createTask' || body.action === 'updateTask') {
     let task: Task;
     let previous: Task | undefined;
@@ -187,7 +193,7 @@ function mutate(data: DatabaseSchema, actor: SessionData, body: any): unknown {
     const project: Project = { id: randomUUID(), companyId: input.companyId, title: text(input.title, 'nombre', true, 240), objective: text(input.objective, 'objetivo', true), scope: text(input.scope || '', 'alcance'), ownerId: actor.personId, acceptancePersonId: actor.personId, state: 'Active', revision: 1, stages: [], deliverables: [], milestones: [], evidence: [], history: [] };
     record(project, actor, 'Proyecto creado', reason); data.projects.push(project); return project;
   }
-  if (body.action === 'createTask' || body.action === 'updateTask') return mutateTask(data,actor,body,provenance);
+  if (['createTask', 'updateTask', 'createCompany', 'updateCompany', 'deleteCompany'].includes(body.action)) return mutateTask(data,actor,body,provenance);
   const project = projectFor(data, body.id);
   if (!data.people.some(p=>p.id===project.ownerId)) throw new WorkspaceError('La propiedad de este proyecto requiere validación.',403);
   requireRevision(project.revision, body.expectedRevision);

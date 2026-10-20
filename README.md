@@ -32,17 +32,21 @@
 
 ## 🧭 Vistas y Módulos Principales
 
-### 1. Inicio (`/` o `/home` — "Hoy, Humberto")
-- **Hero Dinámico:** Indicador de fecha y hora oficial de Panamá, estado de sincronización y personalización de fondo (Lake, Marino o personalizado).
-- **Pantallazo Ejecutivo (4 KPIs Superiores):**
-  1. **Operación Hoy:** Tareas ejecutadas vs. pendientes del día con barra de progreso dorada.
-  2. **Por Vencer & Alertas:** Tareas arrastradas de días anteriores y tareas con vencimiento en la fecha actual.
-  3. **Entregables Clave:** Conteo de proyectos activos e hitos/pasos completados.
-  4. **Próxima Reunión:** Hora y fuente de la siguiente cita en la agenda de Panamá.
-- **Barra de Empresas:** Botones rápidos para alternar entre todas las empresas o centrarse en una unidad de negocio.
-- **Vistas de Trabajo y Acciones Directas:**
-  - `Hoy`: Tareas programadas para la fecha actual + botones de acción táctil directa (`✓ Hecho`, `↻ Reabrir`, `📅 Reprogramar`) + barra lateral con la **Agenda de reuniones**.
-  - `Todas las tareas`: Inventario completo con filtros por empresa, categoría y responsable.
+### 1. Inicio (`/` o `/home` — "Hoy, Humberto" · V2 Telemetría Ejecutiva)
+- **Barra de Telemetría Ejecutiva (`ExecutiveTelemetryHero` — sin foto de paisaje):**
+  - **Relojes del Mundo y Clima en Vivo:** Hora oficial de Panamá (`America/Panama`), Trinidad & Tobago (`America/Port_of_Spain` — S.M. Jaleel) e indicador de Playa Caracol.
+  - **Pie Chart / Donut 1 (`Ejecución Hoy`):** Progreso visual de operaciones completadas, en curso y pendientes del día.
+  - **Pie Chart / Donut 2 (`Carga por Empresa`):** Distribución proporcional del trabajo activo entre tus empresas.
+  - **Gráfica de Barras (`Ritmo Semanal Lu–Do`):** Velocidad operativa en los 7 días de la semana.
+- **Pantallazo Ejecutivo con 4 Tarjetas KPI Interactivas (Filtros en 1 clic):**
+  1. **Operación Hoy:** Filtra la lista inferior a las operaciones programadas para hoy.
+  2. **Por Vencer & Alertas:** Filtra la lista inferior a las tareas arrastradas o por vencer (con acciones rápidas `⚡ Traer a Hoy`, `✓ Hecho`, `📅 +1 día`).
+  3. **Entregables & Proyectos:** Despliega en la lista inferior los entregables e iniciativas clave (*IA para Todos*, *Ingredienta*, *S.M. Jaleel*, *Surf Shack*).
+  4. **Próxima Reunión:** Muestra la siguiente cita agendada (ej. *Reunión con Armando 10:00 AM*, *Cita del Jueves*) y abre el calendario.
+- **Portafolio Real de Empresas + Administrador Modificable (`+ ⚙️ Empresas`):**
+  - Tus 7 unidades de negocio reales (**Surf Shack**, **Academia Nacional de Surf**, **Casa Mahana**, **Soluciones Express**, **Mahana Tours**, **Bee Smart** *(con **IA para Todos** anidado como sub-marca/proyecto)* y **S.M. Jaleel**) + **Personal**, con editor integrado para crear o renombrar empresas.
+- **Bandeja de Validación Rápida & Agenda Viva:**
+  - Sustituye el antiguo bloque estático de registros por verificar por una bandeja accionable con botones `✓ Activar` y `✕ Descartar`, más creación rápida de citas (`+ Nueva Reunión`).
 - **Panel de Decisiones Estratégicas:** Bandeja de decisiones pendientes y resueltas con histórico de motivos.
 - **Avance por Empresa:** Métricas de completitud, pendientes de hoy y barras de progreso en tiempo real por cada negocio.
 - **Diseño Responsivo Móvil y Escritorio:** Cuadrícula adaptativa 2x2 en smartphones (`390px` / `320px`) sin desbordamiento horizontal y con botones táctiles de mínimo `40px`.
