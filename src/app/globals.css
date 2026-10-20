@@ -231,5 +231,69 @@ button.tm-telemetry-card:hover {transform:translateY(-2px);border-color:rgba(233
 .tm-agenda-day-header {display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;text-transform:capitalize;}
 .tm-agenda-day-items {display:grid;gap:6px;}
 
+/* Volcado Rápido / Brain Dump Bar */
+.tm-brain-dump-bar {margin-bottom:14px;padding:14px 18px;border:1px solid rgba(233,188,110,0.4);background:linear-gradient(135deg,#0f2234,#16202a);}
+.tm-brain-dump-form {display:grid;gap:10px;}
+.tm-brain-dump-label {display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.tm-brain-dump-badge {padding:3px 9px;border-radius:999px;background:rgba(233,188,110,0.2);border:1px solid rgba(233,188,110,0.5);color:#f7d794;font-size:10px;font-weight:700;letter-spacing:.08em;}
+.tm-brain-dump-label small {color:#c7d3df;font-size:12px;}
+.tm-brain-dump-controls {display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.tm-brain-dump-input {flex:1;min-width:240px;background:rgba(9,16,24,0.85)!important;border:1px solid rgba(233,188,110,0.35)!important;color:#fff!important;}
+.tm-brain-mic-btn.is-recording {background:#991b1b!important;border-color:#f87171!important;color:#fff!important;animation:tm-pulse 1.4s infinite;}
+.tm-brain-mode-toggle {display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#d6e0ea;cursor:pointer;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,0.06);}
+.tm-brain-dump-feedback {margin:8px 0 0;font-size:12px;color:#f5d596;font-weight:600;}
+
+/* Notion-Style Task & Meeting Interior Page */
+.tm-notion-page {display:grid;gap:14px;}
+.tm-notion-hero {background:linear-gradient(145deg,#0b2136,#162a3d);border:1px solid rgba(233,188,110,0.38);}
+.tm-notion-breadcrumbs {display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+.tm-notion-company-pill {padding:4px 10px;border-radius:999px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:12px;font-weight:700;}
+.tm-notion-subbrand-pill {padding:4px 10px;border-radius:999px;background:rgba(233,188,110,0.22);border:1px solid rgba(233,188,110,0.5);color:#f7d794;font-size:11px;font-weight:700;}
+.tm-notion-props-grid {display:grid;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.12);}
+.tm-notion-prop-row {display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:12px;}
+.tm-notion-prop-key {min-width:130px;color:#b8c7d4;font-weight:600;}
+.tm-notion-prop-val {color:#f8f5ef;font-weight:600;}
+.tm-notion-source-pills {display:flex;gap:6px;flex-wrap:wrap;}
+.tm-source-badge {padding:3px 9px;border-radius:999px;background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.16);color:#dce6f0;font-size:11px;}
+.tm-source-badge-gold {background:rgba(233,188,110,0.18);border-color:rgba(233,188,110,0.45);color:#f6d48f;font-weight:600;}
+
+/* Audio Recorder & Mobile Notes Sync Box */
+.tm-notion-audio-box {padding:14px 16px;border-radius:14px;background:linear-gradient(145deg,#142230,#1b2836);border:1px solid rgba(233,188,110,0.42);color:#f5f1e8;display:grid;gap:10px;}
+.tm-notion-audio-header {display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}
+.tm-notion-audio-header h3 {margin:2px 0 0;font-size:16px;color:#fff;}
+.tm-notion-audio-actions {display:flex;gap:8px;flex-wrap:wrap;}
+.is-recording-pulse {background:#b91c1c!important;color:#fff!important;animation:tm-pulse 1.3s infinite;}
+@keyframes tm-pulse {0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.55)}50%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+.tm-notion-sync-banner {margin:0;padding:8px 12px;border-radius:9px;background:rgba(233,188,110,0.16);border:1px solid rgba(233,188,110,0.4);color:#fde6b0;font-size:12px;font-weight:600;}
+.tm-live-recording-box {display:flex;align-items:center;gap:14px;padding:12px;border-radius:10px;background:rgba(185,28,28,0.18);border:1px solid rgba(248,113,113,0.45);}
+.tm-waveform-bars {display:flex;align-items:center;gap:3px;height:28px;}
+.tm-waveform-bars span {width:4px;height:14px;border-radius:3px;background:#f87171;animation:tm-wave .9s ease-in-out infinite alternate;}
+.tm-waveform-bars span:nth-child(2n){animation-delay:.2s;height:24px;}
+.tm-waveform-bars span:nth-child(3n){animation-delay:.4s;height:18px;}
+@keyframes tm-wave {from{transform:scaleY(0.45)}to{transform:scaleY(1.15)}}
+.tm-recorded-player {display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 12px;border-radius:10px;background:rgba(0,0,0,0.28);font-size:12px;}
+.tm-recorded-player audio {height:34px;max-width:100%;}
+.tm-notes-import-drawer {display:grid;gap:10px;padding:12px;border-radius:11px;background:rgba(9,16,24,0.65);border:1px solid rgba(255,255,255,0.14);}
+.tm-notes-import-top {display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;font-size:12px;}
+.tm-file-upload-label {display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:9px;background:rgba(233,188,110,0.18);border:1px dashed rgba(233,188,110,0.55);color:#f7d794;font-size:12px;font-weight:600;cursor:pointer;}
+.tm-file-upload-label input[type="file"] {display:none;}
+
+/* AI Internal Generation Toolbar & Notion Canvas Blocks */
+.tm-notion-ai-toolbar {padding:12px 14px;border-radius:12px;background:rgba(20,26,32,0.92);border:1px solid rgba(255,255,255,0.12);display:grid;gap:10px;}
+.tm-notion-ai-buttons {display:flex;gap:8px;flex-wrap:wrap;}
+.tm-ai-pill-btn {padding:8px 12px;border-radius:999px;border:1px solid rgba(233,188,110,0.42);background:linear-gradient(180deg,#1f3142,#142230);color:#f6d99c;font-size:12px;font-weight:700;cursor:pointer;transition:transform .14s,border-color .14s;}
+.tm-ai-pill-btn:hover {transform:translateY(-1px);border-color:#e9bc6e;background:#24394d;}
+.tm-notion-canvas-blocks {display:grid;gap:12px;}
+.tm-notion-callout {padding:12px 14px;border-radius:12px;background:linear-gradient(145deg,#dfd3c0,#cbbba3);border:1px solid rgba(110,88,53,0.35);color:#182430;display:grid;gap:8px;}
+.tm-notion-callout-head {display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+.tm-notion-callout-pre {margin:0;white-space:pre-wrap;font-family:var(--tm-sans);font-size:12.5px;line-height:1.5;color:#1e2d3b;}
+.tm-notion-checklist-block {padding:14px;border-radius:12px;background:rgba(22,28,34,0.94);border:1px solid rgba(255,255,255,0.12);color:#f5f2eb;display:grid;gap:10px;}
+.tm-notion-checklist-head {display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+.tm-notion-checklist-items {display:grid;gap:6px;}
+.tm-notion-check-row {display:flex;align-items:flex-start;gap:10px;padding:7px 10px;border-radius:8px;background:rgba(255,255,255,0.05);cursor:pointer;font-size:13px;color:#f3efe6;}
+.tm-notion-check-row.is-done span {text-decoration:line-through;color:#95a5b5;}
+.tm-notion-quick-step {display:flex;gap:8px;}
+.tm-notion-quick-step input {flex:1;}
+
 @media(max-width:1180px){.tm-telemetry-hero{grid-template-columns:1fr 1fr}}
-@media(max-width:640px){.tm-telemetry-hero{grid-template-columns:1fr;padding:18px}.tm-manage-companies-chip{margin-left:0}.tm-quick-meeting-row{grid-template-columns:1fr}}
+@media(max-width:640px){.tm-telemetry-hero{grid-template-columns:1fr;padding:18px}.tm-manage-companies-chip{margin-left:0}.tm-quick-meeting-row{grid-template-columns:1fr}.tm-brain-dump-controls{flex-direction:column;align-items:stretch}.tm-notion-audio-actions{width:100%}.tm-notion-audio-actions button{flex:1}}

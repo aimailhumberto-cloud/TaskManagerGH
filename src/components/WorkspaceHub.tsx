@@ -24,6 +24,7 @@ import AgentAgenda from './AgentAgenda';
 import HeroPersonalization from './HeroPersonalization';
 import WhatsAppAnalytics from './WhatsAppAnalytics';
 import SmjCompanyCenter from './SmjCompanyCenter';
+import BrainDumpBar from './BrainDumpBar';
 import { SMJ_COMPANY_ID } from '@/lib/smjCenter';
 export type Entry = 'home' | 'companies' | 'agenda' | 'search' | 'whatsapp';
 interface WorkspaceData { smjTracking?:import('@/lib/smjTracking').SmjTracking|null; managedLegacyTaskIds?: string[]; tasks: Task[]; companies: Company[]; people: Person[]; projects: Project[]; decisions: Decision[]; dayPlans: DayPlan[]; automations?: AutomationRecord[]; heroPreference?: HeroPreference | null }
@@ -59,6 +60,7 @@ export default function WorkspaceHub({ entry, actorId, canEdit, initial }: { ent
     {entry !== 'search' && entry !== 'whatsapp' && <nav aria-label="Empresas" className="tm-company-tabs">{[{ id: '', name: 'Todas' }, ...data.companies].map((c, i) => <button key={c.id} aria-pressed={company === c.id} onClick={() => setCompany(c.id)}><span className={`tm-chip-icon tm-chip-${i % 5}`}><WorkspaceIcon name={c.id ? 'company' : 'task'} size={18} /></span>{c.name}</button>)}</nav>}
     {entry !== 'whatsapp' && <><div className='tm-responsible-toolbar'><label>Responsable <select aria-label='Filtrar responsable' value={responsible} onChange={e => setResponsible(e.target.value)}><option value=''>Todos los responsables</option>{data.people.map(p => <option key={p.id} value={p.id}>{p.name}{p.role === 'AIAgent' ? ' · agente' : ''}</option>)}</select></label><button className='tm-soft-button' aria-expanded={agentsOpen} onClick={() => setAgentsOpen(v => !v)}>lumen, agentes y automatizaciones</button></div>{agentsOpen && <AgentAutomationPanel people={data.people} tasks={selected} companies={data.companies} automations={(data.automations || []).filter(a => !company || a.companyId === company)} responsible={responsible} setResponsible={setResponsible} {...{ canEdit, busy, command }} />}</>}
     {entry === 'home' && <>
+      <BrainDumpBar onProcessed={async msg => { setNotice(msg); await reload(); }} />
       <section className="tm-executive-kpis" aria-label="Resumen ejecutivo del día">
         <button type="button" className={`tm-pane tm-pane-dark tm-kpi-card tm-kpi-interactive ${view === 'today' ? 'is-active-filter' : ''}`} onClick={() => setView('today')}>
           <div className="tm-kpi-top"><span className="tm-eyebrow">Operación Hoy</span><span className="tm-status tm-status-teal">{todays.length ? Math.round((doneToday / todays.length) * 100) : 0}%</span></div>
