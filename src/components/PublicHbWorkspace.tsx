@@ -21,7 +21,7 @@ import { dailyWork, scheduledWork } from '@/lib/stepWork';
 import { todayInPanama, shortDate } from '@/lib/workspaceDisplay';
 
 const noDays = () => {};
-type KpiFilter = 'today' | 'overdue' | 'deliverables' | 'all';
+type KpiFilter = 'today' | 'overdue' | 'deliverables' | 'in_progress' | 'completed_closed' | 'all';
 
 export default function PublicHbWorkspace({ entry, initial }: { entry: Entry; initial: PublicHbView }) {
   const [view, setView] = useState(initial);
@@ -99,7 +99,7 @@ export default function PublicHbWorkspace({ entry, initial }: { entry: Entry; in
   const [company, setCompany] = useState('');
   const [query, setQuery] = useState('');
   const [task, setTask] = useState<Task | null>(null);
-  const [kpiFilter, setKpiFilter] = useState<KpiFilter>('today');
+  const [kpiFilter, setKpiFilter] = useState<KpiFilter>('all');
   const [projectId, setProjectId] = useState<string | null>(null);
   const [manageCompaniesOpen, setManageCompaniesOpen] = useState(false);
   const [newCompanyName, setNewCompanyName] = useState('');
@@ -118,9 +118,20 @@ export default function PublicHbWorkspace({ entry, initial }: { entry: Entry; in
   const today = todayInPanama();
   const selected = view.tasks.filter(t => !company || t.companyId === company);
   const active = selected.filter(t => !t.cancelledAt && t.validationStatus !== 'NeedsConfirmation');
-  const todays = dailyWork(active, today);
+  const rawTodays = dailyWork(active, today);
+  const todaysIds = new Set(rawTodays.map(t => t.id));
+  const todays = [
+    ...rawTodays,
+    ...active.filter(
+      t =>
+        !todaysIds.has(t.id) &&
+        (t.status === 'In Progress' || (t.status === 'Completed' && (!t.workDate || t.workDate <= today)))
+    ),
+  ];
   const pendingToday = todays.filter(t => t.status !== 'Completed');
   const doneToday = todays.length - pendingToday.length;
+  const inProgressTasks = selected.filter(t => !t.cancelledAt && t.status === 'In Progress');
+  const completedOrClosedTasks = selected.filter(t => t.status === 'Completed' || Boolean(t.cancelledAt));
 
   const dueOrCarryover = active.filter(
     t =>
@@ -184,7 +195,7 @@ export default function PublicHbWorkspace({ entry, initial }: { entry: Entry; in
         ? 'Tus 7 negocios reales con sub-marcas anidadas y tareas organizadas hacia abajo.'
         : 'Vista semanal por defecto con tus reuniones y bloques de trabajo.';
 
-  // Filtered task list based on which KPI card was clicked
+  // Filtered task list based on which KPI card or status tab was clicked
   const displayedTasks =
     kpiFilter === 'today'
       ? todays
@@ -192,7 +203,11 @@ export default function PublicHbWorkspace({ entry, initial }: { entry: Entry; in
         ? dueOrCarryover
         : kpiFilter === 'deliverables'
           ? deliverableTasks
-          : active;
+          : kpiFilter === 'in_progress'
+            ? inProgressTasks
+            : kpiFilter === 'completed_closed'
+              ? completedOrClosedTasks
+              : selected;
 
   const listHeading =
     kpiFilter === 'today'
@@ -201,7 +216,11 @@ export default function PublicHbWorkspace({ entry, initial }: { entry: Entry; in
         ? `⚠️ Por Vencer y Alertas (${dueOrCarryover.length})`
         : kpiFilter === 'deliverables'
           ? `📦 Entregables e Iniciativas Clave (${deliverableTasks.length})`
-          : `📋 Todas las tareas activas (${active.length})`;
+          : kpiFilter === 'in_progress'
+            ? `⚡ En Proceso (${inProgressTasks.length})`
+            : kpiFilter === 'completed_closed'
+              ? `✅ Completadas y Cerradas (${completedOrClosedTasks.length})`
+              : `📋 Todas las tareas (${selected.length} · incluye pendientes, en proceso, completadas y cerradas)`;
 
   return (
     <div className="tm-workspace" data-access="public-hb-tasks">
@@ -476,8 +495,14 @@ export default function PublicHbWorkspace({ entry, initial }: { entry: Entry; in
             <>
               <div className="tm-day-toolbar">
                 <nav aria-label="Vistas de trabajo">
+                  <button onClick={() => setKpiFilter('all')} aria-pressed={kpiFilter === 'all'}>
+                    Todas las tareas <span>{selected.length}</span>
+                  </button>
                   <button onClick={() => setKpiFilter('today')} aria-pressed={kpiFilter === 'today'}>
                     Operación Hoy <span>{todays.length}</span>
+                  </button>
+                  <button onClick={() => setKpiFilter('in_progress')} aria-pressed={kpiFilter === 'in_progress'}>
+                    En Proceso <span>{inProgressTasks.length}</span>
                   </button>
                   <button onClick={() => setKpiFilter('overdue')} aria-pressed={kpiFilter === 'overdue'}>
                     Por Vencer & Alertas <span>{dueOrCarryover.length}</span>
@@ -488,8 +513,11 @@ export default function PublicHbWorkspace({ entry, initial }: { entry: Entry; in
                   >
                     Entregables Clave <span>{deliverableTasks.length}</span>
                   </button>
-                  <button onClick={() => setKpiFilter('all')} aria-pressed={kpiFilter === 'all'}>
-                    Todas las tareas <span>{active.length}</span>
+                  <button
+                    onClick={() => setKpiFilter('completed_closed')}
+                    aria-pressed={kpiFilter === 'completed_closed'}
+                  >
+                    Completadas & Cerradas <span>{completedOrClosedTasks.length}</span>
                   </button>
                 </nav>
                 <span className="tm-day-summary">{listHeading}</span>
@@ -777,7 +805,7 @@ export default function PublicHbWorkspace({ entry, initial }: { entry: Entry; in
               busy={busy}
               command={command}
             />
-            <TaskMaster tasks={active} sourceTasks={view.tasks} companyId={company} {...props} />
+            <TaskMaster tasks={selected} sourceTasks={view.tasks} companyId={company} {...props} />
           </>
         ))}
 

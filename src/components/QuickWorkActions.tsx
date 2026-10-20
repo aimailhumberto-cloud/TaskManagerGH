@@ -22,8 +22,11 @@ export default function QuickWorkActions({
   const [date, setDate] = useState(task.workDate || '');
   const [scheduling, setScheduling] = useState(false);
   const parent = task.parentTaskId ? tasks.find(t => t.id === task.parentTaskId) : task;
-  if (!canEdit || !parent || task.cancelledAt || task.validationStatus === 'NeedsConfirmation') return null;
-  const done = task.status === 'Completed';
+  if (!canEdit || !parent) return null;
+
+  const isClosed = Boolean(task.cancelledAt);
+  const done = !isClosed && task.status === 'Completed';
+  const currentSelectValue = isClosed ? 'Cancelled' : task.status || 'Pending';
   const today = todayInPanama();
   const tomorrow = shiftDay(today, 1);
 
@@ -43,31 +46,64 @@ export default function QuickWorkActions({
 
   return (
     <div className="tm-quick-actions" aria-label={`Acciones de ${task.title}`}>
+      <select
+        className="tm-quick-status-select"
+        aria-label={`Cambiar estatus de ${task.title}`}
+        value={currentSelectValue}
+        disabled={busy}
+        onChange={e => {
+          const val = e.target.value;
+          if (val === 'Cancelled') {
+            update({ cancelled: true }, 'Tarea marcada como cerrada.');
+          } else {
+            update(
+              {
+                status: val,
+                ...(isClosed ? { cancelled: false } : {}),
+                ...(task.validationStatus === 'NeedsConfirmation' ? { validationStatus: 'Confirmed' } : {}),
+              },
+              `Estatus cambiado a ${val}`
+            );
+          }
+        }}
+      >
+        <option value="Pending">⏳ Pendiente</option>
+        <option value="In Progress">⚡ En proceso</option>
+        <option value="Completed">✅ Completada</option>
+        <option value="Blocked">🛑 Bloqueada</option>
+        <option value="Cancelled">🔒 Cerrada</option>
+      </select>
+
       <button
         className="tm-soft-button"
         disabled={busy}
-        aria-label={`${done ? 'Reabrir' : 'Hecho'}: ${task.title}`}
+        aria-label={`${done || isClosed ? 'Reabrir' : 'Hecho'}: ${task.title}`}
         onClick={() =>
           update(
-            { status: done ? 'Pending' : 'Completed' },
-            done ? 'Trabajo reabierto desde la acción directa.' : 'Trabajo marcado como hecho desde la acción directa.'
+            done || isClosed
+              ? { status: 'Pending', ...(isClosed ? { cancelled: false } : {}) }
+              : { status: 'Completed', validationStatus: 'Confirmed' },
+            done || isClosed
+              ? 'Trabajo reabierto desde la acción directa.'
+              : 'Trabajo marcado como hecho desde la acción directa.'
           )
         }
       >
         <WorkspaceIcon name="check" size={16} />
-        {done ? 'Reabrir' : 'Hecho'}
+        {done || isClosed ? 'Reabrir' : 'Hecho'}
       </button>
-      {!done && task.workDate !== today && (
+
+      {!done && !isClosed && task.workDate !== today && (
         <button
           type="button"
           className="tm-soft-button"
           disabled={busy}
-          onClick={() => update({ workDate: today }, 'Movida a operación de hoy.')}
+          onClick={() => update({ workDate: today, validationStatus: 'Confirmed' }, 'Movida a operación de hoy.')}
         >
           ⚡ Traer a Hoy
         </button>
       )}
-      {!done && (
+      {!done && !isClosed && (
         <button
           type="button"
           className="tm-soft-button"
@@ -77,7 +113,7 @@ export default function QuickWorkActions({
           📅 +1 día
         </button>
       )}
-      {!done && (
+      {!done && !isClosed && (
         <button
           className="tm-soft-button"
           disabled={busy}

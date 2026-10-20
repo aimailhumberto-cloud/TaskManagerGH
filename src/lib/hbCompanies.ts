@@ -153,6 +153,15 @@ export function normalizeHbTask(task: Task): Task | null {
   if (copy.companyId === 'business-bee-smart' && /rollup|flyer/i.test(copy.title) && !copy.category) {
     copy.category = 'Rollup y Flyers';
   }
+  const coreOperationalIds = new Set([
+    '49cddfa0-efc4-42d3-a805-16fc145d5c75',
+    '7db6d573-909a-40fc-8598-6b71d80481d8',
+    '7d86396c-3ffa-4ddc-9b3f-44697ec2b283',
+    '83804a6e-699c-4b62-b64b-427af2797d85',
+  ]);
+  if (coreOperationalIds.has(copy.id) || copy.status !== 'Pending') {
+    copy.validationStatus = 'Confirmed';
+  }
   return copy;
 }
 

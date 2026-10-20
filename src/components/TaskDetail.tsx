@@ -432,6 +432,35 @@ export default function TaskDetail({
 
         <div className="tm-notion-props-grid" aria-label="Propiedades estilo Notion">
           <div className="tm-notion-prop-row">
+            <span className="tm-notion-prop-key">🎯 Estatus Actual</span>
+            <select
+              className="tm-quick-status-select"
+              value={task.cancelledAt ? 'Cancelled' : task.status || 'Pending'}
+              disabled={!canEdit || busy}
+              onChange={e => {
+                const val = e.target.value;
+                if (val === 'Cancelled') {
+                  save({ cancelled: true }, 'Tarea marcada como cerrada desde cabecera Notion');
+                } else {
+                  save(
+                    {
+                      status: val,
+                      ...(task.cancelledAt ? { cancelled: false } : {}),
+                      validationStatus: 'Confirmed',
+                    },
+                    `Estatus actualizado a ${val} desde cabecera Notion`
+                  );
+                }
+              }}
+            >
+              <option value="Pending">⏳ Pendiente</option>
+              <option value="In Progress">⚡ En proceso / En curso</option>
+              <option value="Completed">✅ Completada</option>
+              <option value="Blocked">🛑 Bloqueada</option>
+              <option value="Cancelled">🔒 Cerrada / Cancelada</option>
+            </select>
+          </div>
+          <div className="tm-notion-prop-row">
             <span className="tm-notion-prop-key">📅 Fecha & Hora</span>
             <span className="tm-notion-prop-val">
               {task.workDate || task.dueDate?.slice(0, 10) || 'Hoy'}{' '}

@@ -295,5 +295,11 @@ button.tm-telemetry-card:hover {transform:translateY(-2px);border-color:rgba(233
 .tm-notion-quick-step {display:flex;gap:8px;}
 .tm-notion-quick-step input {flex:1;}
 
+/* Instant Status Dropdown & Status Filter Pills */
+.tm-quick-status-select {padding:6px 10px;border-radius:9px;background:rgba(15,34,52,0.92)!important;border:1px solid rgba(233,188,110,0.45)!important;color:#f7d794!important;font-size:12px!important;font-weight:700;cursor:pointer;width:auto!important;min-width:136px;}
+.tm-status-filter-pills {display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 12px;}
+.tm-status-filter-pills button {padding:6px 12px;border-radius:999px;border:1px solid rgba(255,255,255,0.16);background:rgba(14,22,30,0.65);color:#dce6f0;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s,border-color .15s;}
+.tm-status-filter-pills button[aria-pressed="true"] {background:linear-gradient(180deg,#ecc478,#d7a359);border-color:#e9bc6e;color:#1d262f;font-weight:700;}
+
 @media(max-width:1180px){.tm-telemetry-hero{grid-template-columns:1fr 1fr}}
 @media(max-width:640px){.tm-telemetry-hero{grid-template-columns:1fr;padding:18px}.tm-manage-companies-chip{margin-left:0}.tm-quick-meeting-row{grid-template-columns:1fr}.tm-brain-dump-controls{flex-direction:column;align-items:stretch}.tm-notion-audio-actions{width:100%}.tm-notion-audio-actions button{flex:1}}
