@@ -71,6 +71,147 @@ function extractStepsFromTranscript(rawText: string, fallbackTask: Task): string
   return buildSmartStepsForTask(fallbackTask).slice(0, 3);
 }
 
+function FormattedTaskDescription({ description, fallback }: { description?: string; fallback: string }) {
+  const [showFull, setShowFull] = useState(false);
+  const text = description?.trim() || fallback;
+  if (!text) return null;
+
+  if (text.length < 120 && !text.includes('CM') && !text.includes('Topes')) {
+    return <p className="tm-task-desc-simple">{text}</p>;
+  }
+
+  const highlights: { label: string; value: string; icon: string }[] = [];
+  const daysMatch = text.match(/(\d+\s*días[^\.;]*|\d+\s*noches[^\.;]*)/i);
+  if (daysMatch) {
+    highlights.push({ icon: '🗓️', label: 'Duración & Fechas', value: daysMatch[0].trim() });
+  }
+
+  const flightsMatch = text.match(/(CM\d+[^;]*)/i);
+  if (flightsMatch) {
+    highlights.push({ icon: '✈️', label: 'Vuelos Confirmados', value: flightsMatch[0].trim() });
+  }
+
+  const budgetMatch = text.match(/(Topes?[^;]*|\$\d+[^;]*)/i);
+  if (budgetMatch) {
+    highlights.push({ icon: '💵', label: 'Presupuesto & Topes', value: budgetMatch[0].trim() });
+  }
+
+  const agendaMatch = text.match(/(Panamá Startups[^;]*|charla[^;]*)/i);
+  if (agendaMatch) {
+    highlights.push({ icon: '🎤', label: 'Hitos de Agenda', value: agendaMatch[0].trim() });
+  }
+
+  const sentences = text
+    .split(/(?<=[.;])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 5);
+
+  return (
+    <div className="tm-desc-formatted">
+      {highlights.length > 0 && (
+        <div className="tm-desc-highlights">
+          {highlights.map((h, i) => (
+            <div key={i} className="tm-desc-highlight-card">
+              <span>{h.icon} {h.label}</span>
+              <strong>{h.value}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="tm-desc-bullets">
+        {(showFull ? sentences : sentences.slice(0, 4)).map((s, idx) => (
+          <div key={idx} className="tm-desc-bullet-item">
+            • {s}
+          </div>
+        ))}
+      </div>
+
+      {sentences.length > 4 && (
+        <button
+          type="button"
+          className="tm-desc-toggle-btn"
+          onClick={() => setShowFull(!showFull)}
+        >
+          {showFull ? '▲ Mostrar menos detalles' : `▼ Ver todos los lineamientos (${sentences.length} puntos)`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+interface ParsedStep {
+  id: string;
+  completed: boolean;
+  raw: string;
+  category: string;
+  code?: string;
+  quantity?: string;
+  statusText?: string;
+  title: string;
+  detail?: string;
+}
+
+function parseStep(step: Step): ParsedStep {
+  const text = step.text || '';
+  if (!text.includes('|')) {
+    return {
+      id: step.id,
+      completed: Boolean(step.completed),
+      raw: text,
+      category: 'General',
+      title: text,
+    };
+  }
+
+  const parts = text.split('|').map(p => p.trim());
+  const prefix = parts[0] || '';
+  const quantity = parts[1] || '';
+  const statusText = parts[2] || '';
+  const rawDesc = parts[3] || parts.slice(3).join(' | ') || '';
+
+  let category = '👔 Ropa & Calzado';
+  const upPrefix = prefix.toUpperCase();
+  if (upPrefix.includes('COMPRAS') || upPrefix.includes('RC')) {
+    category = '🛍️ Compras & Topes';
+  } else if (upPrefix.includes('VUELO') || upPrefix.includes('VIAJE') || upPrefix.includes('LOG') || upPrefix.includes('POS')) {
+    category = '✈️ Logística & Vuelos';
+  } else if (upPrefix.includes('TRABAJO') || upPrefix.includes('STARTUP') || upPrefix.includes('CHARLA')) {
+    category = '💼 Agenda & Charla';
+  } else if (!upPrefix.includes('ROPA')) {
+    const rawCat = prefix.split(/[·\-]/)[0]?.trim();
+    if (rawCat) category = `📁 ${rawCat}`;
+  }
+
+  const codeMatch = prefix.match(/(R\d+|RC\d+|[A-Z]{1,3}\d+)/i);
+  const code = codeMatch ? codeMatch[0].toUpperCase() : undefined;
+
+  let title = rawDesc;
+  let detail: string | undefined = undefined;
+
+  if (rawDesc.includes(';')) {
+    const subParts = rawDesc.split(';');
+    title = subParts[0].trim();
+    detail = subParts.slice(1).join(';').trim();
+  } else if (rawDesc.includes(':')) {
+    const subParts = rawDesc.split(':');
+    title = subParts[0].trim();
+    detail = subParts.slice(1).join(':').trim();
+  }
+
+  return {
+    id: step.id,
+    completed: Boolean(step.completed),
+    raw: text,
+    category,
+    code,
+    quantity,
+    statusText,
+    title: title || rawDesc || 'Paso sin título',
+    detail,
+  };
+}
+
 export default function TaskDetail({
   task,
   tasks,
@@ -106,6 +247,9 @@ export default function TaskDetail({
   const [aiOutputBody, setAiOutputBody] = useState('');
   const [emailDraft, setEmailDraft] = useState<{ subject: string; body: string } | null>(null);
   const [syncBanner, setSyncBanner] = useState('');
+  const [checklistSearch, setChecklistSearch] = useState('');
+  const [checklistCategory, setChecklistCategory] = useState('all');
+  const [checklistStatusFilter, setChecklistStatusFilter] = useState<'all' | 'pending' | 'completed'>('all');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recognitionRef = useRef<any>(null);
@@ -415,6 +559,24 @@ export default function TaskDetail({
     setEmailDraft({ subject, body });
   };
 
+  const parsedSteps = steps.filter(s => !s.cancelled).map(parseStep);
+  const categories = Array.from(new Set(parsedSteps.map(s => s.category)));
+  const filteredSteps = parsedSteps.filter(s => {
+    if (checklistCategory !== 'all' && s.category !== checklistCategory) return false;
+    if (checklistStatusFilter === 'pending' && s.completed) return false;
+    if (checklistStatusFilter === 'completed' && !s.completed) return false;
+    if (checklistSearch.trim()) {
+      const q = checklistSearch.toLowerCase();
+      const match =
+        s.title.toLowerCase().includes(q) ||
+        (s.detail && s.detail.toLowerCase().includes(q)) ||
+        (s.code && s.code.toLowerCase().includes(q)) ||
+        (s.quantity && s.quantity.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+    return true;
+  });
+
   return (
     <div className="tm-task-detail tm-notion-page">
       {/* NOTION-STYLE HEADER & PROPERTIES TABLE */}
@@ -428,7 +590,10 @@ export default function TaskDetail({
         </div>
 
         <h2>{task.title}</h2>
-        <p>{task.description || task.nextAction || 'Define la siguiente acción o graba la nota de reunión abajo.'}</p>
+        <FormattedTaskDescription
+          description={task.description}
+          fallback={task.nextAction || 'Define la siguiente acción o graba la nota de reunión abajo.'}
+        />
 
         <div className="tm-notion-props-grid" aria-label="Propiedades estilo Notion">
           <div className="tm-notion-prop-row">
@@ -679,36 +844,122 @@ export default function TaskDetail({
             <strong>
               ☑️ Pasos y Compromisos Extraídos ({completed}/{activeSteps.length})
             </strong>
-            {!activeSteps.length && canEdit && (
-              <button type="button" className="tm-soft-button tm-btn-xs" onClick={handleAiBreakdownSteps}>
-                ✨ Sugerir pasos con IA
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {parsedSteps.length > 5 && (
+                <span className="text-xs text-amber-200/80 font-mono">
+                  {Math.round((completed / (activeSteps.length || 1)) * 100)}% completado
+                </span>
+              )}
+              {!activeSteps.length && canEdit && (
+                <button type="button" className="tm-soft-button tm-btn-xs" onClick={handleAiBreakdownSteps}>
+                  ✨ Sugerir pasos con IA
+                </button>
+              )}
+            </div>
           </div>
 
+          {/* CHECKLIST SEARCH, CATEGORIES & FILTERS */}
+          {parsedSteps.length > 0 && (
+            <div className="tm-checklist-toolbar">
+              <div className="tm-checklist-search-row">
+                <input
+                  type="text"
+                  placeholder="🔍 Buscar prenda o paso (ej. jean, zapatos, compras)..."
+                  value={checklistSearch}
+                  onChange={e => setChecklistSearch(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className={`tm-category-pill ${checklistStatusFilter === 'all' ? 'is-active' : ''}`}
+                  onClick={() => setChecklistStatusFilter('all')}
+                >
+                  Todos ({parsedSteps.length})
+                </button>
+                <button
+                  type="button"
+                  className={`tm-category-pill ${checklistStatusFilter === 'pending' ? 'is-active' : ''}`}
+                  onClick={() => setChecklistStatusFilter('pending')}
+                >
+                  ⏳ Pendientes ({parsedSteps.filter(s => !s.completed).length})
+                </button>
+                <button
+                  type="button"
+                  className={`tm-category-pill ${checklistStatusFilter === 'completed' ? 'is-active' : ''}`}
+                  onClick={() => setChecklistStatusFilter('completed')}
+                >
+                  ✅ Listos ({parsedSteps.filter(s => s.completed).length})
+                </button>
+              </div>
+
+              {categories.length > 1 && (
+                <div className="tm-checklist-category-pills">
+                  <button
+                    type="button"
+                    className={`tm-category-pill ${checklistCategory === 'all' ? 'is-active' : ''}`}
+                    onClick={() => setChecklistCategory('all')}
+                  >
+                    Todas ({parsedSteps.length})
+                  </button>
+                  {categories.map(cat => {
+                    const count = parsedSteps.filter(s => s.category === cat).length;
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        className={`tm-category-pill ${checklistCategory === cat ? 'is-active' : ''}`}
+                        onClick={() => setChecklistCategory(cat)}
+                      >
+                        {cat} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="tm-notion-checklist-items">
-            {steps
-              .filter(s => !s.cancelled)
-              .map(step => (
-                <label key={step.id} className={`tm-notion-check-row ${step.completed ? 'is-done' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={step.completed}
-                    disabled={!canEdit || busy}
-                    onChange={async e => {
-                      const checked = e.target.checked;
-                      const updatedSteps = steps.map(s =>
-                        s.id === step.id
-                          ? { ...s, completed: checked, status: (checked ? 'Completed' : 'Pending') as Step['status'] }
-                          : s
-                      );
-                      setSteps(updatedSteps);
-                      await save({ steps: updatedSteps }, `Paso ${checked ? 'completado' : 'reabierto'}: ${step.text}`);
-                    }}
-                  />
-                  <span>{step.text}</span>
-                </label>
-              ))}
+            {filteredSteps.map(step => (
+              <div
+                key={step.id}
+                className={`tm-smart-check-card ${step.completed ? 'is-done' : ''}`}
+                onClick={async () => {
+                  if (!canEdit || busy) return;
+                  const nextCompleted = !step.completed;
+                  const updatedSteps = steps.map(s =>
+                    s.id === step.id
+                      ? { ...s, completed: nextCompleted, status: (nextCompleted ? 'Completed' : 'Pending') as Step['status'] }
+                      : s
+                  );
+                  setSteps(updatedSteps);
+                  await save({ steps: updatedSteps }, `Paso ${nextCompleted ? 'completado' : 'reabierto'}: ${step.title}`);
+                }}
+              >
+                <input
+                  type="checkbox"
+                  className="tm-smart-check-checkbox"
+                  checked={step.completed}
+                  disabled={!canEdit || busy}
+                  onChange={() => {}}
+                />
+                <div className="tm-smart-check-body">
+                  <div className="tm-smart-check-title-row">
+                    <span className="tm-smart-check-title">{step.title}</span>
+                  </div>
+                  {step.detail && <p className="tm-smart-check-detail">{step.detail}</p>}
+                  <div className="tm-smart-check-badges">
+                    {step.code && <span className="tm-smart-badge-code">{step.code}</span>}
+                    {step.quantity && <span className="tm-smart-badge-qty">{step.quantity}</span>}
+                    {step.statusText && <span className="tm-smart-badge-status">{step.statusText}</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {filteredSteps.length === 0 && (
+              <p className="text-xs text-slate-400 py-3 text-center">
+                Sin resultados para el filtro actual.
+              </p>
+            )}
           </div>
 
           {canEdit && (

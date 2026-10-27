@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import SmjCompanyCenter from './SmjCompanyCenter';
 import LegacyProjectDetail from './LegacyProjectDetail';
 import ExecutiveTelemetryHero from './ExecutiveTelemetryHero';
-import BrainDumpBar from './BrainDumpBar';
 import SupervisionModule from './supervision/SupervisionModule';
 import { SMJ_COMPANY_ID } from '@/lib/smjCenter';
 import { getCompanyMeta } from '@/lib/hbCompanies';
@@ -239,17 +238,6 @@ export default function PublicHbWorkspace({ entry, initial }: { entry: Entry; in
         dueCount={dueOrCarryover.length}
         companies={view.companies}
         onSelectFilter={f => setKpiFilter(f)}
-      />
-
-      <BrainDumpBar
-        onProcessed={async msg => {
-          setNotice(msg);
-          const reload = await fetch('/api/public/workspace', { cache: 'no-store' });
-          if (reload.ok) {
-            const fresh: PublicHbView = await reload.json();
-            setView(fresh);
-          }
-        }}
       />
 
       {notice && (

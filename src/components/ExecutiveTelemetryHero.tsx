@@ -115,15 +115,12 @@ export default function ExecutiveTelemetryHero({
         <span className="tm-eyebrow">TASKMANAGER HB · {shortDate(today).toUpperCase()} · PANAMÁ</span>
         <h1>{title}</h1>
         <p>{subtitle}</p>
-        <div className="tm-telemetry-clocks" aria-label="Relojes del mundo y clima">
+        <div className="tm-telemetry-clocks" aria-label="Relojes de operaciones">
           <span className="tm-clock-pill">
             🇵🇦 Panamá <b>{ptyClock}</b>
           </span>
           <span className="tm-clock-pill">
             🇹🇹 Trinidad SMJ <b>{trtClock}</b>
-          </span>
-          <span className="tm-clock-pill">
-            🌊 Playa Caracol <b>28°C · 1.1m</b>
           </span>
           {rightSlot}
         </div>
