@@ -4,6 +4,7 @@ import SmjCompanyCenter from './SmjCompanyCenter';
 import LegacyProjectDetail from './LegacyProjectDetail';
 import ExecutiveTelemetryHero from './ExecutiveTelemetryHero';
 import BrainDumpBar from './BrainDumpBar';
+import SupervisionModule from './supervision/SupervisionModule';
 import { SMJ_COMPANY_ID } from '@/lib/smjCenter';
 import { getCompanyMeta } from '@/lib/hbCompanies';
 import type { PublicHbView } from '@/lib/publicHbAccess';
@@ -187,13 +188,17 @@ export default function PublicHbWorkspace({ entry, initial }: { entry: Entry; in
         ? 'Tus empresas'
         : entry === 'agenda'
           ? 'Tu tiempo, en perspectiva'
-          : 'Encuentra tu trabajo';
+          : entry === 'supervision'
+            ? 'Supervisión · Lumen AGI'
+            : 'Encuentra tu trabajo';
   const subtitle =
     entry === 'home'
       ? 'Centro de mando ejecutivo · Relojes, métricas en vivo, empresas y agenda semanal.'
       : entry === 'companies'
         ? 'Tus 7 negocios reales con sub-marcas anidadas y tareas organizadas hacia abajo.'
-        : 'Vista semanal por defecto con tus reuniones y bloques de trabajo.';
+        : entry === 'supervision'
+          ? 'Módulo de supervisión v1 · Proyección sintética desacoplada y modo sin conexión.'
+          : 'Vista semanal por defecto con tus reuniones y bloques de trabajo.';
 
   // Filtered task list based on which KPI card or status tab was clicked
   const displayedTasks =
@@ -847,6 +852,8 @@ export default function PublicHbWorkspace({ entry, initial }: { entry: Entry; in
               ))}
         </section>
       )}
+
+      {entry === 'supervision' && <SupervisionModule />}
 
       {task && (
         <div className="tm-modal-backdrop">

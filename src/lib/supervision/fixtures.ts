@@ -1,0 +1,563 @@
+import type { V1Object, V1ContinuityHeader, V1Event } from './types';
+
+/**
+ * Fixtures sintéticos canónicos de Supervisión v1
+ * Clasificación: private_fixture
+ * Fuente: CONTRACT_V1.md, v1-snapshot.json y v1-evidence.json
+ */
+export const CANONICAL_FIXTURE_OBJECTS: V1Object[] = [
+  // Objeto Canónico: Tarea de prueba con resultado incierto (desajuste de volumen)
+  {
+    id: 'continuity:task:fixture-task',
+    business_id: 'fixture-business',
+    project_id: 'proj-fixture-pilot',
+    kind: 'task',
+    revision: 1,
+    classification: 'private_fixture',
+    source_refs: ['fixture:continuity/entity/fixture-task'],
+    states: {
+      registration: 'inventoried',
+      connection: 'connected',
+      verification: 'verified',
+      freshness: 'fresh',
+      work: 'hb_decision',
+    },
+    verified_at: '2026-01-01T12:00:00Z',
+    data: {
+      obligation: 'FIXTURE: example task',
+      attempt: 1,
+      deadline: null,
+      evidence_refs: [
+        'continuity:evidence:fixture-verification',
+        'continuity:evidence:fixture-run',
+      ],
+      next_steps: 'Review fixture evidence',
+      outcome: 'uncertain',
+      result: 'FIXTURE volume mismatch',
+    },
+    continuity: {
+      entity_id: 'fixture-task',
+      name: 'FIXTURE: example task',
+      health: 'volume_mismatch',
+      freshness_seconds: 900,
+      linear_state: 'verified',
+      real_verified: false,
+      last_run: {
+        id: 'fixture-run',
+        entity_id: 'fixture-task',
+        evidence_id: 'fixture-run',
+        expected: 10.0,
+        actual: 8.0,
+        unit: 'items',
+        status: 'succeeded',
+        result: 'FIXTURE volume mismatch',
+        completed_at: '2026-01-01T12:00:00Z',
+      },
+    },
+    revisions_history: [],
+  },
+
+  // Objeto Canónico: Evidencia de conexión
+  {
+    id: 'continuity:evidence:fixture-connection',
+    business_id: 'fixture-business',
+    project_id: 'proj-fixture-pilot',
+    kind: 'evidence',
+    revision: 1,
+    classification: 'private_fixture',
+    source_refs: ['fixture:continuity/evidence/fixture-connection'],
+    states: {
+      registration: 'inventoried',
+      connection: 'unknown',
+      verification: 'not_verified',
+      freshness: 'fresh',
+      work: 'unknown',
+    },
+    verified_at: null,
+    data: {
+      source_ref: 'fixture:continuity/evidence/fixture-connection',
+      description: 'Synthetic fixture only; no real integration',
+    },
+    continuity: {
+      entity_ref: 'continuity:task:fixture-task',
+      observed_at: '2026-01-01T12:00:00Z',
+      received_at: null,
+      purpose: 'connection',
+      real_verified: false,
+      runs: [],
+    },
+    revisions_history: [],
+  },
+
+  // Objeto Canónico: Evidencia de inventario
+  {
+    id: 'continuity:evidence:fixture-inventory',
+    business_id: 'fixture-business',
+    project_id: null,
+    kind: 'evidence',
+    revision: 1,
+    classification: 'private_fixture',
+    source_refs: ['fixture:continuity/evidence/fixture-inventory'],
+    states: {
+      registration: 'inventoried',
+      connection: 'unknown',
+      verification: 'not_verified',
+      freshness: 'fresh',
+      work: 'unknown',
+    },
+    verified_at: null,
+    data: {
+      source_ref: 'fixture:continuity/evidence/fixture-inventory',
+      description: 'Synthetic fixture only; no real integration',
+    },
+    continuity: {
+      entity_ref: 'continuity:task:fixture-task',
+      observed_at: '2026-01-01T12:00:00Z',
+      received_at: null,
+      purpose: 'inventory',
+      real_verified: false,
+      runs: [],
+    },
+    revisions_history: [],
+  },
+
+  // Objeto Canónico: Evidencia de ejecución
+  {
+    id: 'continuity:evidence:fixture-run',
+    business_id: 'fixture-business',
+    project_id: 'proj-fixture-pilot',
+    kind: 'evidence',
+    revision: 1,
+    classification: 'private_fixture',
+    source_refs: ['fixture:continuity/evidence/fixture-run'],
+    states: {
+      registration: 'inventoried',
+      connection: 'unknown',
+      verification: 'not_verified',
+      freshness: 'fresh',
+      work: 'unknown',
+    },
+    verified_at: null,
+    data: {
+      source_ref: 'fixture:continuity/evidence/fixture-run',
+      description: 'Synthetic result; no external execution',
+    },
+    continuity: {
+      entity_ref: 'continuity:task:fixture-task',
+      observed_at: '2026-01-01T12:00:00Z',
+      received_at: null,
+      purpose: 'run',
+      real_verified: false,
+      runs: [
+        {
+          id: 'fixture-run',
+          entity_id: 'fixture-task',
+          evidence_id: 'fixture-run',
+          expected: 10.0,
+          actual: 8.0,
+          unit: 'items',
+          status: 'succeeded',
+          result: 'FIXTURE volume mismatch',
+          completed_at: '2026-01-01T12:00:00Z',
+        },
+      ],
+    },
+    revisions_history: [],
+  },
+
+  // Objeto Canónico: Evidencia de verificación
+  {
+    id: 'continuity:evidence:fixture-verification',
+    business_id: 'fixture-business',
+    project_id: 'proj-fixture-pilot',
+    kind: 'evidence',
+    revision: 1,
+    classification: 'private_fixture',
+    source_refs: ['fixture:continuity/evidence/fixture-verification'],
+    states: {
+      registration: 'inventoried',
+      connection: 'unknown',
+      verification: 'not_verified',
+      freshness: 'fresh',
+      work: 'unknown',
+    },
+    verified_at: null,
+    data: {
+      source_ref: 'fixture:continuity/evidence/fixture-verification',
+      description: 'Synthetic fixture only; no real integration',
+    },
+    continuity: {
+      entity_ref: 'continuity:task:fixture-task',
+      observed_at: '2026-01-01T12:00:00Z',
+      received_at: null,
+      purpose: 'verification',
+      real_verified: false,
+      runs: [],
+    },
+    revisions_history: [],
+  },
+
+  // Objeto Canónico: Incidente abierto por desajuste de volumen
+  {
+    id: 'continuity:incident:1',
+    business_id: 'fixture-business',
+    project_id: 'proj-fixture-pilot',
+    kind: 'incident',
+    revision: 1,
+    classification: 'private_fixture',
+    source_refs: ['fixture:continuity/alert/1'],
+    states: {
+      registration: 'inventoried',
+      connection: 'unknown',
+      verification: 'not_verified',
+      freshness: 'unknown',
+      work: 'active',
+    },
+    verified_at: null,
+    data: {
+      reason: 'volume_mismatch',
+      status: 'open',
+      evidence_refs: [],
+      next_steps: 'Review continuity fixture',
+    },
+    continuity: {
+      entity_ref: 'continuity:task:fixture-task',
+      opened_at: '2026-01-01T12:00:00Z',
+      resolved_at: null,
+      real_verified: false,
+    },
+    revisions_history: [],
+  },
+
+  // Objeto Activo: SMJ Portal de Distribución
+  {
+    id: 'fixture:asset:smj-portal',
+    business_id: 'business-sm-jaleel',
+    project_id: 'proj-smj-q1-logistics',
+    kind: 'asset',
+    revision: 1,
+    classification: 'private_fixture',
+    source_refs: ['fixture:smj/asset/portal'],
+    states: {
+      registration: 'inventoried',
+      connection: 'connected',
+      verification: 'verified',
+      freshness: 'fresh',
+      work: 'active',
+    },
+    verified_at: '2026-01-01T11:45:00Z',
+    data: {
+      owner: 'Humberto',
+      account_ref: 'acc_smj_distrib_local',
+      access: 'read_only_synthetic',
+      authentication: 'Descriptor OAuth vault token (sin secretos expuestos)',
+      last_verified_at: '2026-01-01T11:45:00Z',
+    },
+    revisions_history: [],
+  },
+
+  // Objeto Documento: Especificación SMJ (Sin conflicto, pertenece a logística)
+  {
+    id: 'fixture:doc:smj-plan-q1',
+    business_id: 'business-sm-jaleel',
+    project_id: 'proj-smj-q1-logistics',
+    kind: 'document',
+    revision: 2,
+    classification: 'private_fixture',
+    source_refs: ['fixture:smj/doc/plan-q1'],
+    states: {
+      registration: 'inventoried',
+      connection: 'connected',
+      verification: 'verified',
+      freshness: 'fresh',
+      work: 'active',
+    },
+    verified_at: '2026-01-01T11:30:00Z',
+    data: {
+      source_ref: 'fixture:smj/doc/plan-q1',
+      captured_at: '2026-01-01T11:30:00Z',
+      hash: 'sha256-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      attachments: ['resumen_rutas_distribucion.pdf'],
+      availability: 'local_mirror',
+      title: 'Plan de Rutas y Distribución SMJ Q1 2026',
+      content: 'Consolidado logístico de Panamá y Colón. Rutas matutinas de martes a sábado.',
+      conflict: false,
+    },
+    revisions_history: [
+      {
+        id: 'fixture:doc:smj-plan-q1',
+        business_id: 'business-sm-jaleel',
+        project_id: 'proj-smj-q1-logistics',
+        kind: 'document',
+        revision: 1,
+        classification: 'private_fixture',
+        source_refs: ['fixture:smj/doc/plan-q1-v1'],
+        states: {
+          registration: 'inventoried',
+          connection: 'connected',
+          verification: 'not_verified',
+          freshness: 'fresh',
+          work: 'active',
+        },
+        verified_at: null,
+        data: {
+          source_ref: 'fixture:smj/doc/plan-q1-v1',
+          captured_at: '2026-01-01T10:00:00Z',
+          hash: 'sha256-1111111111111111111111111111111111111111111111111111111111111111',
+          attachments: [],
+          availability: 'local_mirror',
+          title: 'Borrador Inicial Plan de Rutas SMJ',
+          content: 'Borrador inicial preliminar sin validar por operaciones.',
+          conflict: false,
+        },
+      },
+    ],
+  },
+
+  // Objeto Documento: Auditoría Legal SMJ (Pertenece a otro proyecto: proj-smj-audit)
+  {
+    id: 'fixture:doc:smj-audit-2026',
+    business_id: 'business-sm-jaleel',
+    project_id: 'proj-smj-audit',
+    kind: 'document',
+    revision: 1,
+    classification: 'private_fixture',
+    source_refs: ['fixture:smj/doc/audit'],
+    states: {
+      registration: 'inventoried',
+      connection: 'connected',
+      verification: 'verified',
+      freshness: 'fresh',
+      work: 'active',
+    },
+    verified_at: '2026-01-01T11:15:00Z',
+    data: {
+      source_ref: 'fixture:smj/doc/audit',
+      captured_at: '2026-01-01T11:15:00Z',
+      hash: 'sha256-4444444444444444444444444444444444444444444444444444444444444444',
+      attachments: ['informe_auditoria_fiscal.pdf'],
+      availability: 'local_mirror',
+      title: 'Dictamen de Auditoría Fiscal SMJ 2026',
+      content: 'Cumplimiento normativo y certificaciones contables en regla.',
+      conflict: false,
+    },
+    revisions_history: [],
+  },
+
+  // Objeto Documento: Casa Mahana con Conflicto Activo
+  {
+    id: 'fixture:doc:mahana-estatutos-conflict',
+    business_id: 'business-casa-mahana',
+    project_id: 'proj-mahana-legal',
+    kind: 'document',
+    revision: 3,
+    classification: 'private_fixture',
+    source_refs: ['fixture:mahana/doc/estatutos'],
+    states: {
+      registration: 'inventoried',
+      connection: 'connected',
+      verification: 'not_verified',
+      freshness: 'fresh',
+      work: 'hb_decision',
+    },
+    verified_at: null,
+    data: {
+      source_ref: 'fixture:mahana/doc/estatutos',
+      captured_at: '2026-01-01T10:15:00Z',
+      hash: 'sha256-a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e',
+      attachments: ['borrador_acta_2026_v2.pdf'],
+      availability: 'local_mirror',
+      title: 'Estatutos Operativos Casa Mahana 2026',
+      content: 'Versión discrepante entre firmas notariales y borrador de asamblea general.',
+      conflict: true,
+    },
+    revisions_history: [],
+  },
+
+  // Objeto Relación: SMJ Plan documents Portal
+  {
+    id: 'fixture:rel:smj-doc-portal',
+    business_id: 'business-sm-jaleel',
+    project_id: 'proj-smj-q1-logistics',
+    kind: 'relationship',
+    revision: 1,
+    classification: 'private_fixture',
+    source_refs: ['fixture:smj/rel/doc-portal'],
+    states: {
+      registration: 'inventoried',
+      connection: 'connected',
+      verification: 'verified',
+      freshness: 'fresh',
+      work: 'active',
+    },
+    verified_at: '2026-01-01T11:30:00Z',
+    data: {
+      source: 'fixture:doc:smj-plan-q1',
+      target: 'fixture:asset:smj-portal',
+      relation: 'documents',
+      evidence_refs: ['fixture:evidence:smj-portal-check'],
+      condition: 'verified',
+    },
+    revisions_history: [],
+  },
+
+  // Objeto Evidencia: Verificación SMJ Portal
+  {
+    id: 'fixture:evidence:smj-portal-check',
+    business_id: 'business-sm-jaleel',
+    project_id: 'proj-smj-q1-logistics',
+    kind: 'evidence',
+    revision: 1,
+    classification: 'private_fixture',
+    source_refs: ['fixture:smj/evidence/portal-check'],
+    states: {
+      registration: 'inventoried',
+      connection: 'unknown',
+      verification: 'not_verified',
+      freshness: 'fresh',
+      work: 'unknown',
+    },
+    verified_at: null,
+    data: {
+      source_ref: 'fixture:smj/evidence/portal-check',
+      description: 'Lectura sintética del catálogo de pedidos SMJ',
+    },
+    continuity: {
+      entity_ref: 'fixture:asset:smj-portal',
+      observed_at: '2026-01-01T11:30:00Z',
+      received_at: null,
+      purpose: 'verification',
+      real_verified: false,
+      runs: [],
+    },
+    revisions_history: [],
+  },
+
+  // Objeto Tarea: Bee Smart Campaña Rollup IA para Todos
+  {
+    id: 'fixture:task:beesmart-flyers',
+    business_id: 'business-bee-smart',
+    project_id: 'proj-beesmart-launch',
+    kind: 'task',
+    revision: 1,
+    classification: 'private_fixture',
+    source_refs: ['fixture:beesmart/task/flyers'],
+    states: {
+      registration: 'inventoried',
+      connection: 'connected',
+      verification: 'verified',
+      freshness: 'fresh',
+      work: 'active',
+    },
+    verified_at: '2026-01-01T11:00:00Z',
+    data: {
+      obligation: 'Rollup y Flyers IA para Todos',
+      attempt: 1,
+      deadline: '2026-01-10T00:00:00Z',
+      evidence_refs: [],
+      next_steps: 'Enviar arte final a imprenta y coordinar retiro',
+      outcome: 'verified_fixture',
+      result: 'Diseño aprobado en alta resolución',
+    },
+    revisions_history: [],
+  },
+
+  // Objeto Flujo: Surf Shack Logística Playa Caracol
+  {
+    id: 'fixture:flow:surfshack-season',
+    business_id: 'business-surf-shack',
+    project_id: 'proj-surf-caracol',
+    kind: 'flow',
+    revision: 1,
+    classification: 'private_fixture',
+    source_refs: ['fixture:surfshack/flow/season'],
+    states: {
+      registration: 'inventoried',
+      connection: 'connected',
+      verification: 'not_verified',
+      freshness: 'fresh',
+      work: 'active',
+    },
+    verified_at: null,
+    data: {
+      dependencies: ['fixture:asset:surfshack-inventory'],
+      planned: 'Operación continua temporada alta Playa Caracol',
+      occurrences: 4,
+      attempts: 4,
+      next_steps: 'Confirmar rotación de instructores el fin de semana',
+    },
+    revisions_history: [],
+  },
+
+  // Objeto Activo: Inventario Surf Shack
+  {
+    id: 'fixture:asset:surfshack-inventory',
+    business_id: 'business-surf-shack',
+    project_id: 'proj-surf-caracol',
+    kind: 'asset',
+    revision: 1,
+    classification: 'private_fixture',
+    source_refs: ['fixture:surfshack/asset/inventory'],
+    states: {
+      registration: 'inventoried',
+      connection: 'connected',
+      verification: 'verified',
+      freshness: 'fresh',
+      work: 'active',
+    },
+    verified_at: '2026-01-01T09:00:00Z',
+    data: {
+      owner: 'Humberto',
+      account_ref: 'inv_caracol_01',
+      access: 'read_only_synthetic',
+      authentication: 'Descriptor de inventario físico verificado localmente',
+      last_verified_at: '2026-01-01T09:00:00Z',
+    },
+    revisions_history: [],
+  },
+];
+
+export const CANONICAL_CONTINUITY_HEADER: V1ContinuityHeader = {
+  last_check_at: '2026-01-01T12:00:00Z',
+  check_interval_seconds: 300,
+  entities: 1,
+  healthy_fixture: 0,
+  open_incidents: 1,
+  adapters: {
+    dot_wake: {
+      enabled: false,
+      status: 'pending_verified_public_api',
+    },
+    obsidian: {
+      enabled: false,
+      status: 'pending_private_document_mirror',
+    },
+    task_manager: {
+      enabled: false,
+      status: 'pending_roadmap_and_authentication',
+    },
+  },
+};
+
+export const INITIAL_SIMULATED_EVENTS: V1Event[] = [
+  {
+    id: 'ev:1001',
+    type: 'task.changed',
+    schema_version: '1.0',
+    object: CANONICAL_FIXTURE_OBJECTS[0],
+    occurred_at: '2026-01-01T12:00:00Z',
+    received_at: null,
+    correlation_id: 'corr-init-01',
+    provenance: 'fixture',
+  },
+  {
+    id: 'ev:1002',
+    type: 'document.revised',
+    schema_version: '1.0',
+    object: CANONICAL_FIXTURE_OBJECTS[7], // SMJ Plan
+    occurred_at: '2026-01-01T11:30:00Z',
+    received_at: null,
+    correlation_id: 'corr-init-02',
+    provenance: 'fixture',
+  },
+];

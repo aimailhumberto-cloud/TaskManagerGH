@@ -16,6 +16,7 @@
     "test:personal": "tsx scripts/testPersonalTasks.ts",
     "test:personal:ui": "node scripts/test-personal-ui.mjs",
     "typecheck": "tsc --noEmit",
+    "test:supervision": "tsx scripts/testSupervisionContract.ts",
     "test:roadmap": "tsx scripts/testRoadmap.ts",
     "prebuild": "node scripts/restore-workspace-asset.cjs"
   },

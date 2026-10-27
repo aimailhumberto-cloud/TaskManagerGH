@@ -12,7 +12,7 @@ import { workspaceDTO } from '@/lib/publicWorkspace';
 export default async function WorkspacePage({ entry }: { entry: Entry }) {
   const session = decryptSession((await cookies()).get('hermes_session')?.value || '');
   if (!session) {
-    if (!['home','companies','agenda','search'].includes(entry)) redirect('/login');
+    if (!['home','companies','agenda','search','supervision'].includes(entry)) redirect('/login');
     try { return <PublicHbWorkspace entry={entry} initial={await readPublicHbWorkspace()} />; }
     catch { return <section className="tm-workspace"><header className="tm-hero"><h1>TaskManager HB</h1><p>Consulta pública · Solo lectura</p></header><section className="tm-pane tm-pane-dark"><h2>Datos no disponibles</h2><p role="alert">El espacio HB requiere verificación del almacenamiento existente. No se inicializó una base vacía ni se importaron datos.</p><Link href="/">Reintentar consulta</Link></section></section>; }
   }
