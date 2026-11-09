@@ -35,8 +35,8 @@ export default async function RootLayout({
     }
   }
   return (
-    <html lang="es" className="h-full bg-primary-50">
-      <body className="h-full bg-primary-50 text-primary-900 antialiased font-sans">
+    <html lang="es" className="h-full bg-primary-50" suppressHydrationWarning>
+      <body className="h-full bg-primary-50 text-primary-900 antialiased font-sans" suppressHydrationWarning>
         {/* The E2E-compliant data-testid="app-shell" wrapper container */}
         <div 
           data-testid="app-shell" 

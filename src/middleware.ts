@@ -13,4 +13,4 @@ export async function middleware(request: NextRequest) {
   if (!valid) return NextResponse.redirect(new URL('/login', request.url));
   return NextResponse.next();
 }
-export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|avatars).*)'] };
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico|avatars|brands|smj-verified).*)'] };
