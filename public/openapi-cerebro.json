@@ -1,0 +1,242 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "S.M. Jaleel Segundo Cerebro API (Dots Integration)",
+    "description": "API REST en vivo para consultar el mapa neuronal de S.M. Jaleel, jerarquías de clientes internos y externos, portafolio de marcas y registrar notas en memoria de trabajo en tiempo real.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://taskmanagergh.onrender.com",
+      "description": "Servidor de Producción (Online)"
+    },
+    {
+      "url": "http://localhost:3010",
+      "description": "Servidor de Desarrollo Local"
+    }
+  ],
+  "paths": {
+    "/api/agent/brain": {
+      "get": {
+        "operationId": "getBrainGraph",
+        "summary": "Consultar el estado del cerebro completo, sus nodos y conexiones",
+        "description": "Devuelve la totalidad de los 486 nodos canónicos (Core, Departamentos, Personas, Mercados, Distribuidores, Marcas, Tareas, Memorias) y más de 2,000 conexiones sinápticas. Permite filtrar por lente de rol o mercado.",
+        "parameters": [
+          {
+            "name": "lens",
+            "in": "query",
+            "required": false,
+            "description": "Lente de perspectiva analítica (ej: 'global-core', 'role-export-manager-naca').",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "market",
+            "in": "query",
+            "required": false,
+            "description": "Filtro de mercado geográfico (ej: 'panama', 'belize', 'canada', 'united-states', 'all').",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Grafo neuronal y resumen operativo obtenido exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrainGraphResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "postBrainAction",
+        "summary": "Ejecutar una acción sobre el Segundo Cerebro (Guardar memoria o consolidar)",
+        "description": "Permite al agente Dots inyectar recuerdos en memoria de trabajo (Working Memory) que aparecen en ámbar pulsante en el mapa, o consolidar recuerdos a memoria permanente.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrainActionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Acción ejecutada correctamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "result": { "type": "object" }
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Recuerdo de memoria de trabajo creado exitosamente",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "result": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BrainGraphResponse": {
+        "type": "object",
+        "properties": {
+          "ok": { "type": "boolean" },
+          "scope": { "type": "string" },
+          "lens": { "type": "string" },
+          "marketFilter": { "type": "string" },
+          "summary": {
+            "type": "object",
+            "properties": {
+              "totalNodes": { "type": "integer" },
+              "totalLinks": { "type": "integer" },
+              "workingMemoryCount": { "type": "integer" },
+              "longTermCount": { "type": "integer" },
+              "departmentsCount": { "type": "integer" },
+              "marketsCount": { "type": "integer" },
+              "distributorsCount": { "type": "integer" },
+              "brandsCount": { "type": "integer" }
+            }
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "title": { "type": "string" },
+                "type": { "type": "string" },
+                "memory_tier": { "type": "string" },
+                "country": { "type": "string" },
+                "frontmatter": { "type": "object" },
+                "body": { "type": "string" },
+                "links": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            }
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source": { "type": "string" },
+                "target": { "type": "string" },
+                "relationType": { "type": "string" },
+                "label": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "BrainActionRequest": {
+        "type": "object",
+        "required": ["action"],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": ["remember_working", "consolidate_session", "update_dossier"],
+            "description": "'remember_working' para registrar notas rápidas; 'consolidate_session' para promover a largo plazo; 'update_dossier' para actualizar telemetría, último correo, observaciones o tareas de una ficha."
+          },
+          "nodeId": {
+            "type": "string",
+            "description": "ID o nombre clave de la entidad a actualizar (Requerido para update_dossier, ej: 'medimex', 'chubby', 'sancas', 'panama')."
+          },
+          "updatedBy": {
+            "type": "string",
+            "description": "Identidad del agente o autor que actualiza (ej: 'DOTS Agent', 'Humberto Bouché')."
+          },
+          "lastEmailSubject": {
+            "type": "string",
+            "description": "Asunto del último correo procesado o recibido."
+          },
+          "lastEmailDate": {
+            "type": "string",
+            "description": "Fecha del último correo en formato YYYY-MM-DD."
+          },
+          "lastEmailSender": {
+            "type": "string",
+            "description": "Nombre o correo del remitente del último mensaje."
+          },
+          "nextFollowupDate": {
+            "type": "string",
+            "description": "Fecha del próximo hito o seguimiento comercial (YYYY-MM-DD)."
+          },
+          "nextFollowupAction": {
+            "type": "string",
+            "description": "Descripción concreta del próximo hito o compromiso."
+          },
+          "executiveObservations": {
+            "type": "string",
+            "description": "Observaciones estratégicas y comerciales del nodo (reemplaza o enriquece las observaciones)."
+          },
+          "newAction": {
+            "type": "object",
+            "description": "Nueva acción a registrar en la bitácora histórica (Timeline).",
+            "properties": {
+              "date": { "type": "string" },
+              "type": { "type": "string", "enum": ["email_recibido", "email_enviado", "reunion_ejecutiva", "sop_forecast", "llamada_whatsapp", "nota_comercial"] },
+              "summary": { "type": "string" }
+            }
+          },
+          "newPendingTask": {
+            "type": "string",
+            "description": "Nueva tarea operativa a incorporar al checklist de la entidad."
+          },
+          "title": {
+            "type": "string",
+            "description": "Título descriptivo del recuerdo (Requerido para remember_working)."
+          },
+          "content": {
+            "type": "string",
+            "description": "Detalle y observaciones del evento o reunión."
+          },
+          "links": {
+            "type": "array",
+            "description": "Lista de nodos enlazados con sintaxis [[Nombre del Nodo]]",
+            "items": { "type": "string" }
+          },
+          "relationType": {
+            "type": "string",
+            "description": "Tipo de sinapsis (ej: collaborates_with, distributes, operates_in)."
+          },
+          "source": {
+            "type": "string",
+            "description": "Fuente (ej: 'WhatsApp Voice Note', 'Reunión Teams', 'Llamada Telefónica')."
+          },
+          "sessionSummary": {
+            "type": "string",
+            "description": "Resumen de acta para sesión de consolidación."
+          }
+        }
+      }
+    }
+  }
+}

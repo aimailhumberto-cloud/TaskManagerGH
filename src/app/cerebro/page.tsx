@@ -3168,61 +3168,47 @@ export default function CerebroPage() {
                       </button>
                     </div>
 
-                    {/* Panel de Asignación / Carga de Foto para el Ícono */}
-                    <div className="mb-3 p-2.5 bg-gray-950/80 border border-gray-800 rounded-xl">
-                      <div className="flex items-center justify-between text-[10px] font-mono font-bold text-sky-400 mb-1.5">
+                    {/* 1. Telemetría Ejecutiva en Vivo (Metadatos de Alto Valor) */}
+                    <div className="mb-3 bg-gradient-to-r from-sky-950/80 via-gray-950 to-indigo-950/80 border border-sky-500/40 rounded-xl p-3 shadow-inner">
+                      <div className="flex items-center justify-between text-[10px] font-mono uppercase text-sky-400 font-bold mb-2">
                         <span className="flex items-center gap-1.5">
-                          <span>📸</span>
-                          <span>Foto del Ícono (Canvas & Ficha)</span>
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                          <span>Telemetría & Estatus en Vivo</span>
                         </span>
-                        <span className="text-[9px] text-gray-500 font-mono">
-                          {fm.avatar_image || fm.photo_url || fm.visual_photo_url || fm.visual_logo_url ? 'Foto Activa' : 'Icono Base'}
-                        </span>
+                        <span className="text-gray-400 text-[9px]">Sincronizado vía DOTS</span>
                       </div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[9px] text-gray-400 font-mono">Presets:</span>
-                        {[
-                          { label: 'MEDIMEX', src: '/brands/medimex-logo.png' },
-                          { label: 'SMJ Corp', src: '/brands/smjaleel-logo.png' },
-                          { label: 'Chubby', src: '/brands/chubby.png' },
-                          { label: 'Busta', src: '/brands/busta.png' },
-                          { label: 'Fruta', src: '/brands/fruta.png' },
-                          { label: 'Oasis', src: '/brands/oasis.png' },
-                          { label: 'Altitude', src: '/brands/altitude.png' },
-                          { label: 'Planta TT', src: '/brands/manufacturing-banner.jpg' },
-                        ].map((preset) => (
-                          <button
-                            key={preset.label}
-                            onClick={() => {
-                              if (!node.frontmatter) node.frontmatter = {};
-                              node.frontmatter.avatar_image = preset.src;
-                              setStatusMessage(`Foto "${preset.label}" vinculada al ícono de "${node.title}"`);
-                              setTimeout(() => setStatusMessage(null), 3000);
-                            }}
-                            className="px-1.5 py-0.5 rounded text-[9px] font-mono bg-gray-800 hover:bg-sky-900 hover:text-sky-200 text-gray-300 border border-gray-700 transition"
-                          >
-                            {preset.label}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="mt-1.5 flex items-center gap-1.5">
-                        <input
-                          type="text"
-                          placeholder="Escribe URL o ruta de imagen (ej. /brands/foto.jpg) y pulsa Enter..."
-                          className="flex-1 bg-gray-900/90 border border-gray-700 rounded px-2 py-1 text-[10px] font-mono text-white placeholder-gray-500 outline-none focus:border-sky-500"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              const val = (e.target as HTMLInputElement).value.trim();
-                              if (val) {
-                                if (!node.frontmatter) node.frontmatter = {};
-                                node.frontmatter.avatar_image = val;
-                                setStatusMessage(`Nueva foto vinculada al ícono de "${node.title}"`);
-                                setTimeout(() => setStatusMessage(null), 3000);
-                                (e.target as HTMLInputElement).value = '';
-                              }
-                            }
-                          }}
-                        />
+                      <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                        <div className="bg-gray-900/80 p-2 rounded border border-gray-800">
+                          <span className="text-[10px] text-gray-400 block">🕒 Última Actualización:</span>
+                          <span className="text-white font-semibold text-[11px]">
+                            {fm.last_updated_at ? new Date(fm.last_updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Reciente'}
+                          </span>
+                          <span className="text-[9px] text-sky-400 block truncate">Por: {fm.last_updated_by || 'DOTS Agent'}</span>
+                        </div>
+                        <div className="bg-gray-900/80 p-2 rounded border border-gray-800">
+                          <span className="text-[10px] text-gray-400 block">✉️ Último Correo Leído:</span>
+                          <span className="text-white font-semibold text-[11px] truncate block" title={fm.last_email_subject || 'Sin correos nuevos'}>
+                            {fm.last_email_subject || 'Bandeja al día'}
+                          </span>
+                          <span className="text-[9px] text-emerald-400 block truncate">
+                            {fm.last_email_date ? `${fm.last_email_date} · ` : ''}{fm.last_email_sender || (fm.email_orders || fm.email_primary || 'Contacto directo')}
+                          </span>
+                        </div>
+                        {(fm.next_followup_action || fm.next_followup_date) && (
+                          <div className="col-span-2 bg-gray-900/80 p-2 rounded border border-gray-800 flex items-center justify-between">
+                            <div className="min-w-0 pr-2">
+                              <span className="text-[10px] text-gray-400 block">🎯 Próximo Hito / Seguimiento:</span>
+                              <span className="text-amber-300 font-semibold text-[11px] truncate block">
+                                {fm.next_followup_action || 'Seguimiento operativo general'}
+                              </span>
+                            </div>
+                            {fm.next_followup_date && (
+                              <span className="text-[10px] px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-300 font-bold shrink-0">
+                                {fm.next_followup_date}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -3346,34 +3332,54 @@ export default function CerebroPage() {
                       </div>
                     )}
 
-                    {/* 4. Bitácora de Últimas Acciones & Correos Recientes */}
+                    {/* 4. Bitácora de Últimas Acciones & Correos Registrados (Timeline Logs) */}
                     {Array.isArray(fm.recent_actions) && fm.recent_actions.length > 0 && (
-                      <div className="mb-3 bg-gray-950/80 border border-gray-800 rounded-xl p-3 shadow-lg">
-                        <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-sky-400 font-bold mb-2">
+                      <div className="mb-3 bg-gray-950/80 border border-gray-800 rounded-xl p-3.5 shadow-lg">
+                        <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-sky-400 font-bold mb-2.5">
                           <span className="flex items-center gap-1.5">
                             <span>⏱️</span>
-                            <span>Últimas Acciones & Correos Registrados</span>
+                            <span>Bitácora de Acciones & Logs Registrados</span>
                           </span>
-                          <span className="text-[9px] text-gray-500 font-mono">Bitácora Activa</span>
+                          <span className="text-[9px] text-gray-400 font-mono">Últimas 72h</span>
                         </div>
-                        <div className="space-y-2 border-l border-sky-500/30 ml-1.5 pl-3">
+                        <div className="space-y-2.5 border-l border-sky-500/30 ml-2 pl-3">
                           {fm.recent_actions.map((act: any, idx: number) => {
                             const isObj = typeof act === 'object' && act !== null;
                             const dateStr = isObj ? act.date : 'Reciente';
-                            const typeStr = isObj ? (act.type || 'acción').replace(/_/g, ' ') : 'nota';
+                            const rawType = isObj ? (act.type || 'acción').toLowerCase() : 'nota';
                             const summaryStr = isObj ? (act.summary || act.detail || JSON.stringify(act)) : String(act);
+
+                            const isEmail = rawType.includes('email') || rawType.includes('correo');
+                            const isMeeting = rawType.includes('reunion') || rawType.includes('meeting');
+                            const isLogistics = rawType.includes('sop') || rawType.includes('forecast') || rawType.includes('embarque');
+                            const isCall = rawType.includes('call') || rawType.includes('whatsapp') || rawType.includes('llamada');
+
+                            const dotBg = isEmail ? 'bg-emerald-400' : isMeeting ? 'bg-sky-400' : isLogistics ? 'bg-indigo-400' : isCall ? 'bg-teal-400' : 'bg-amber-400';
+                            const badgeClass = isEmail
+                              ? 'text-emerald-300 bg-emerald-950/80 border-emerald-800/60'
+                              : isMeeting
+                              ? 'text-sky-300 bg-sky-950/80 border-sky-800/60'
+                              : isLogistics
+                              ? 'text-indigo-300 bg-indigo-950/80 border-indigo-800/60'
+                              : isCall
+                              ? 'text-teal-300 bg-teal-950/80 border-teal-800/60'
+                              : 'text-amber-300 bg-amber-950/80 border-amber-800/60';
+
+                            const iconEmoji = isEmail ? '✉️' : isMeeting ? '🤝' : isLogistics ? '📦' : isCall ? '📞' : '📝';
+
                             return (
                               <div key={idx} className="relative group">
-                                <span className="absolute -left-[17px] top-1 w-2 h-2 rounded-full bg-sky-400 border border-gray-950 group-hover:scale-125 transition" />
+                                <span className={`absolute -left-[17px] top-1.5 w-2 h-2 rounded-full ${dotBg} border border-gray-950 group-hover:scale-125 transition`} />
                                 <div className="flex items-center gap-2 mb-0.5">
-                                  <span className="text-[10px] font-mono text-sky-300 bg-sky-950/80 px-1.5 py-0.2 rounded border border-sky-800/60">
-                                    {dateStr}
+                                  <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded border font-bold flex items-center gap-1 ${badgeClass}`}>
+                                    <span>{iconEmoji}</span>
+                                    <span>{dateStr}</span>
                                   </span>
                                   <span className="text-[9px] font-mono uppercase text-gray-400 tracking-wider">
-                                    {typeStr}
+                                    {rawType.replace(/_/g, ' ')}
                                   </span>
                                 </div>
-                                <p className="text-[11px] text-gray-300 leading-tight">
+                                <p className="text-xs text-gray-200 leading-snug">
                                   {summaryStr}
                                 </p>
                               </div>
@@ -4089,38 +4095,35 @@ export default function CerebroPage() {
                       </div>
                     )}
 
-                    {/* General Metadata Grid */}
-                    <div className="grid grid-cols-2 gap-2 text-xs mb-3 font-mono bg-gray-950/70 p-3 rounded-lg border border-gray-800">
-                      {fm.country_name && <div><span className="text-gray-500">País:</span> {formatDisplayValue(fm.country_name)}</div>}
-                      {fm.based_in_city && <div><span className="text-gray-500">Ciudad:</span> {formatDisplayValue(fm.based_in_city)}</div>}
-                      {fm.timezone && <div><span className="text-gray-500">Zona H.:</span> {formatDisplayValue(fm.timezone)}</div>}
-                      {fm.gender && <div><span className="text-gray-500">Género:</span> {formatDisplayValue(fm.gender)}</div>}
-                      {fm.incoterm && <div><span className="text-gray-500">Incoterm:</span> {formatDisplayValue(fm.incoterm)}</div>}
-                      {fm.transit_time_from_trinidad_days && (
-                        <div><span className="text-gray-500">Tránsito TT:</span> {formatDisplayValue(fm.transit_time_from_trinidad_days)} días</div>
-                      )}
-                      {fm.payment_terms && (
-                        <div><span className="text-gray-500">Pago/Crédito:</span> {formatDisplayValue(fm.payment_terms)}</div>
-                      )}
-                      {fm.currency && (
-                        <div><span className="text-gray-500">Moneda:</span> {formatDisplayValue(fm.currency)}</div>
-                      )}
-                      {fm.annual_target_cases && (
-                        <div className="col-span-2 text-sky-400">
-                          <span className="text-gray-500">Meta Anual:</span> {formatDisplayValue(fm.annual_target_cases)} cajas
-                        </div>
-                      )}
-                      {fm.primary_ports && (
-                        <div className="col-span-2 text-gray-300">
-                          <span className="text-gray-500">Puertos:</span> {Array.isArray(fm.primary_ports) ? fm.primary_ports.join(' · ') : formatDisplayValue(fm.primary_ports)}
-                        </div>
-                      )}
-                      {fm.source && (
-                        <div className="col-span-2 text-gray-400">
-                          <span className="text-gray-500">Fuente:</span> {formatDisplayValue(fm.source)}
-                        </div>
-                      )}
-                    </div>
+                    {/* General Metadata Grid (Para entidades sin ficha especializada) */}
+                    {node.type !== 'distributor' && node.type !== 'market' && node.type !== 'core' && (
+                      <div className="grid grid-cols-2 gap-2 text-xs mb-3 font-mono bg-gray-950/70 p-3 rounded-lg border border-gray-800">
+                        {fm.country_name && <div><span className="text-gray-500">País:</span> {formatDisplayValue(fm.country_name)}</div>}
+                        {fm.based_in_city && <div><span className="text-gray-500">Ciudad:</span> {formatDisplayValue(fm.based_in_city)}</div>}
+                        {fm.timezone && <div><span className="text-gray-500">Zona H.:</span> {formatDisplayValue(fm.timezone)}</div>}
+                        {fm.gender && <div><span className="text-gray-500">Género:</span> {formatDisplayValue(fm.gender)}</div>}
+                        {fm.incoterm && <div><span className="text-gray-500">Incoterm:</span> {formatDisplayValue(fm.incoterm)}</div>}
+                        {fm.transit_time_from_trinidad_days && (
+                          <div><span className="text-gray-500">Tránsito TT:</span> {formatDisplayValue(fm.transit_time_from_trinidad_days)} días</div>
+                        )}
+                        {fm.payment_terms && (
+                          <div><span className="text-gray-500">Pago/Crédito:</span> {formatDisplayValue(fm.payment_terms)}</div>
+                        )}
+                        {fm.currency && (
+                          <div><span className="text-gray-500">Moneda:</span> {formatDisplayValue(fm.currency)}</div>
+                        )}
+                        {fm.annual_target_cases && (
+                          <div className="col-span-2 text-sky-400">
+                            <span className="text-gray-500">Meta Anual:</span> {formatDisplayValue(fm.annual_target_cases)} cajas
+                          </div>
+                        )}
+                        {fm.primary_ports && (
+                          <div className="col-span-2 text-gray-300">
+                            <span className="text-gray-500">Puertos:</span> {Array.isArray(fm.primary_ports) ? fm.primary_ports.join(' · ') : formatDisplayValue(fm.primary_ports)}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Completeness Bar */}
                     {node.completeness_score !== undefined && (
@@ -4143,39 +4146,7 @@ export default function CerebroPage() {
                       {renderFormattedBody(node.body)}
                     </div>
 
-                    {/* Full Raw Metadata Explorer (Un Pocotón de Información) */}
-                    <details className="mb-3 bg-gray-950/90 border border-gray-800 rounded-lg p-2.5 text-xs">
-                      <summary className="font-mono text-[11px] text-sky-400 font-bold cursor-pointer hover:text-sky-300 flex items-center justify-between select-none">
-                        <span>🔍 Ver Todos los Atributos Registrados ({Object.keys(fm).length + 4} campos)</span>
-                        <span className="text-[10px] text-gray-500 font-normal">Desplegar</span>
-                      </summary>
-                      <div className="mt-2.5 pt-2 border-t border-gray-800 space-y-1.5 font-mono text-[10px]">
-                        <div className="grid grid-cols-3 gap-1 bg-gray-900/60 p-1.5 rounded">
-                          <span className="text-gray-500 font-semibold">ID Bóveda:</span>
-                          <span className="col-span-2 text-white break-all">{node.id}</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-1 bg-gray-900/60 p-1.5 rounded">
-                          <span className="text-gray-500 font-semibold">Tipo de Entidad:</span>
-                          <span className="col-span-2 text-emerald-400">{node.type}</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-1 bg-gray-900/60 p-1.5 rounded">
-                          <span className="text-gray-500 font-semibold">Nivel Jerárquico:</span>
-                          <span className="col-span-2 text-amber-300">Nivel {node.hierarchy_level ?? 'N/A'}</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-1 bg-gray-900/60 p-1.5 rounded">
-                          <span className="text-gray-500 font-semibold">Archivo Fuente:</span>
-                          <span className="col-span-2 text-gray-300 break-all select-all">{node.filePath || 'vault/...'}</span>
-                        </div>
-                        {Object.entries(fm).map(([key, val]) => (
-                          <div key={key} className="grid grid-cols-3 gap-1 bg-gray-900/40 p-1.5 rounded">
-                            <span className="text-gray-400 font-semibold break-all">{key}:</span>
-                            <span className="col-span-2 text-gray-200 break-all select-all">
-                              {typeof val === 'object' ? JSON.stringify(val) : String(val)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
+
 
                     {/* Action Bar for Dots */}
                     <div className="mb-3 p-2 bg-sky-950/40 border border-sky-900 rounded-lg flex items-center justify-between text-xs">

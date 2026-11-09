@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadBrainGraph, saveWorkingMemory, consolidateWorkingMemory } from '@/lib/smjBrainService';
+import { loadBrainGraph, saveWorkingMemory, consolidateWorkingMemory, updateDossierMetadata } from '@/lib/smjBrainService';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,8 +69,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, result }, { status: 200, headers: CORS_HEADERS });
     }
 
+    if (action === 'update_dossier') {
+      const { nodeId, updatedBy, lastEmailSubject, lastEmailDate, lastEmailSender, nextFollowupDate, nextFollowupAction, executiveObservations, newAction, newPendingTask } = body;
+      if (!nodeId) {
+        return NextResponse.json(
+          { ok: false, error: 'nodeId es requerido para update_dossier (ej. "medimex", "chubby")' },
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+      const result = updateDossierMetadata({
+        nodeId,
+        updatedBy,
+        lastEmailSubject,
+        lastEmailDate,
+        lastEmailSender,
+        nextFollowupDate,
+        nextFollowupAction,
+        executiveObservations,
+        newAction,
+        newPendingTask,
+      });
+      return NextResponse.json(result, { status: result.ok ? 200 : 404, headers: CORS_HEADERS });
+    }
+
     return NextResponse.json(
-      { ok: false, error: `Acción '${action}' no reconocida. Usa 'remember_working' o 'consolidate_session'.` },
+      { ok: false, error: `Acción '${action}' no reconocida. Usa 'remember_working', 'consolidate_session' o 'update_dossier'.` },
       { status: 400, headers: CORS_HEADERS }
     );
   } catch (error: any) {

@@ -301,3 +301,73 @@ ${wmFiles.map(f => `- [[${path.basename(f, '.md')}]]`).join('\n') || '- No habí
     sessionFile: sessionFilePath,
   };
 }
+
+export function updateDossierMetadata(input: {
+  nodeId: string;
+  updatedBy?: string;
+  lastEmailSubject?: string;
+  lastEmailDate?: string;
+  lastEmailSender?: string;
+  nextFollowupDate?: string;
+  nextFollowupAction?: string;
+  executiveObservations?: string;
+  newAction?: { date?: string; type?: string; summary?: string };
+  newPendingTask?: string;
+}): { ok: boolean; message: string; updatedFile?: string } {
+  const vaultDir = getVaultPath();
+  const allFiles = getAllMarkdownFiles(vaultDir);
+  const targetLower = input.nodeId.toLowerCase().replace(/^(distributor|brand|core|person|market|dept|customer)-/i, '');
+  
+  const foundFile = allFiles.find(f => {
+    const base = path.basename(f, '.md').toLowerCase();
+    const idLower = input.nodeId.toLowerCase();
+    return base.includes(idLower) || base.includes(targetLower) || base.replace(/[^a-z0-9]/g, '').includes(targetLower.replace(/[^a-z0-9]/g, ''));
+  });
+
+  if (!foundFile) {
+    return { ok: false, message: `No se encontró nodo con ID o nombre '${input.nodeId}'` };
+  }
+
+  const content = fs.readFileSync(foundFile, 'utf-8');
+  const { frontmatter, body } = parseFrontmatterAndBody(content);
+
+  // Apply updates
+  frontmatter.last_updated_at = new Date().toISOString();
+  frontmatter.last_updated_by = input.updatedBy || 'DOTS Agent';
+
+  if (input.lastEmailSubject) frontmatter.last_email_subject = input.lastEmailSubject;
+  if (input.lastEmailDate) frontmatter.last_email_date = input.lastEmailDate;
+  if (input.lastEmailSender) frontmatter.last_email_sender = input.lastEmailSender;
+  if (input.nextFollowupDate) frontmatter.next_followup_date = input.nextFollowupDate;
+  if (input.nextFollowupAction) frontmatter.next_followup_action = input.nextFollowupAction;
+  if (input.executiveObservations) frontmatter.executive_observations = input.executiveObservations;
+
+  if (input.newAction) {
+    if (!Array.isArray(frontmatter.recent_actions)) frontmatter.recent_actions = [];
+    const date = input.newAction.date || new Date().toISOString().slice(0, 10);
+    const type = input.newAction.type || 'nota';
+    const summary = input.newAction.summary || '';
+    frontmatter.recent_actions.unshift({ date, type, summary });
+  }
+
+  if (input.newPendingTask) {
+    if (!Array.isArray(frontmatter.pending_tasks)) frontmatter.pending_tasks = [];
+    frontmatter.pending_tasks.unshift(input.newPendingTask);
+  }
+
+  const updatedYaml = YAML.stringify(frontmatter).trim();
+  const newContent = `---\n${updatedYaml}\n---\n\n${body}\n`;
+  fs.writeFileSync(foundFile, newContent, 'utf-8');
+
+  // Also write to bundled vault if running locally and both exist
+  const bundledPath = path.join(process.cwd(), 'vault');
+  if (fs.existsSync(bundledPath) && !foundFile.startsWith(bundledPath)) {
+    const rel = path.relative(vaultDir, foundFile);
+    const bundledTarget = path.join(bundledPath, rel);
+    if (fs.existsSync(path.dirname(bundledTarget))) {
+      fs.writeFileSync(bundledTarget, newContent, 'utf-8');
+    }
+  }
+
+  return { ok: true, message: `Ficha '${path.basename(foundFile, '.md')}' actualizada exitosamente`, updatedFile: foundFile };
+}
