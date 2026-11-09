@@ -1310,6 +1310,7 @@ export default function CerebroPage() {
     window.addEventListener('resize', updateCanvasDimensions);
     (window as any).__selectNode = (node: any) => pushToStackedDeck(node);
     (window as any).__getNodes = () => nodesRef.current;
+    (window as any).__getTransform = () => transformRef.current;
     (window as any).__selectById = (id: string) => {
       const target = nodesRef.current.find(n => n.id.toLowerCase().includes(id.toLowerCase()));
       if (target) pushToStackedDeck(target);
@@ -2880,105 +2881,132 @@ export default function CerebroPage() {
             className="w-full h-full cursor-pointer block"
           />
 
-          {/* Floating Hover Tooltip (Hover Inteligente: Ficha 360° + Despliegue de Siguiente Capa) */}
-          {hoveredNode && (
-            <div
-              style={{
-                left: Math.min(tooltipPos.x + 18, (containerRef.current?.clientWidth || 1000) - 320),
-                top: Math.max(16, Math.min(tooltipPos.y - 40, (containerRef.current?.clientHeight || 800) - 240)),
-              }}
-              onClick={(e) => e.stopPropagation()}
-              className="absolute z-40 bg-gray-950/98 border border-sky-500/80 shadow-2xl rounded-xl p-3.5 backdrop-blur-xl text-xs w-80 animate-in fade-in zoom-in-95 duration-150 pointer-events-auto select-none"
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <span
-                  className="px-2 py-0.5 rounded text-[9px] font-mono font-bold text-white uppercase"
-                  style={{ backgroundColor: (TYPE_CONFIG[hoveredNode.type] || TYPE_CONFIG.department).bg }}
-                >
-                  {(TYPE_CONFIG[hoveredNode.type] || TYPE_CONFIG.department).label}
-                </span>
-                {hoveredNode.completeness_score !== undefined && (
-                  <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800">
-                    {hoveredNode.completeness_score}% completitud
-                  </span>
-                )}
-                {hoveredNode.memory_tier === 'working' && (
-                  <span className="text-[9px] font-mono text-amber-300 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800 animate-pulse">
-                    TEMPORAL
-                  </span>
-                )}
-              </div>
-              <h4 className="font-bold text-sm text-white leading-tight">{hoveredNode.title}</h4>
+          {/* Floating Hover Tooltip (Sale SIEMPRE a un lado del círculo sin tapar el nodo) */}
+          {hoveredNode && (() => {
+            const { x: tx, y: ty, scale } = transformRef.current;
+            const containerW = containerRef.current?.clientWidth || 1000;
+            const containerH = containerRef.current?.clientHeight || 800;
 
-              {/* Dynamic Next-Layer Contextual Preview */}
-              <div className="mt-2 p-2 rounded-lg bg-gray-900/90 border border-gray-800 text-[11px] font-mono space-y-1">
-                {hoveredNode.type === 'brand' && (
-                  <div>
-                    <span className="text-amber-400 font-bold block text-[10px] uppercase">📦 Siguiente Capa (Catálogo):</span>
-                    <span className="text-gray-300">Formato: 250ml / Packs · 6 Sabores · Estiba 2,800 cajas/cont</span>
-                  </div>
-                )}
-                {hoveredNode.type === 'market' && (
-                  <div>
-                    <span className="text-teal-400 font-bold block text-[10px] uppercase">🤝 Siguiente Capa (Distribuidor):</span>
-                    <span className="text-gray-200">
-                      {hoveredNode.id.includes('panama') ? 'MEDIMEX S.A. (Oficial y Exclusivo)' :
-                       hoveredNode.id.includes('belize') ? 'Santiago Castillo Ltd. (SanCas)' :
-                       hoveredNode.id.includes('canada') ? 'Morgan Williams (Canada)' : 'Walton & Post (USA)'}
-                    </span>
-                  </div>
-                )}
-                {hoveredNode.type === 'distributor' && (
-                  <div>
-                    <span className="text-emerald-400 font-bold block text-[10px] uppercase">🌎 Siguiente Capa (Territorio):</span>
-                    <span className="text-gray-200">
-                      {hoveredNode.id.includes('medimex') || hoveredNode.id.includes('panama') ? 'Panamá · Chubby, Fruta & Busta' :
-                       hoveredNode.id.includes('sancas') ? 'Belice (CARICOM) · Chubby & Fruta' :
-                       hoveredNode.id.includes('morgan') ? 'Canadá · Retail Moderno' : 'EE. UU. · Costa Este'}
-                    </span>
-                  </div>
-                )}
-                {hoveredNode.type === 'person' && (
-                  <div>
-                    <span className="text-sky-400 font-bold block text-[10px] uppercase">👥 Siguiente Capa (Equipo):</span>
-                    <span className="text-gray-200">
-                      {hoveredNode.frontmatter?.job_title || 'Cargo Ejecutivo'} · {hoveredNode.frontmatter?.based_in_city || 'HQ'}
-                    </span>
-                  </div>
-                )}
-                {hoveredNode.type === 'department' && (
-                  <div>
-                    <span className="text-purple-400 font-bold block text-[10px] uppercase">🏢 Siguiente Capa (Estructura):</span>
-                    <span className="text-gray-200">Personal Operativo y Líneas de Reporte</span>
-                  </div>
-                )}
-              </div>
+            // Coordenadas de pantalla del nodo para calcular el encuadre exacto
+            const nodeScreenX = (hoveredNode.x ?? 0) * scale + tx;
+            const nodeScreenY = (hoveredNode.y ?? 0) * scale + ty;
+            const nodeScreenR = (hoveredNode.radius || 28) * scale;
 
-              {/* Dual Action Buttons (Ficha 360° + Ver Capa en Lienzo) */}
-              <div className="grid grid-cols-2 gap-2 mt-2.5">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    pushToStackedDeck(hoveredNode, false);
-                  }}
-                  className="py-1.5 px-2 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-1 transition"
-                  title="Abrir ficha ejecutiva completa en panel lateral"
-                >
-                  <span>📋 Ficha 360°</span>
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    pushToStackedDeck(hoveredNode, true);
-                  }}
-                  className="py-1.5 px-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-1 transition"
-                  title="Desplegar siguiente capa directamente en el lienzo"
-                >
-                  <span>🚀 Ver Capa ▼</span>
-                </button>
+            const tooltipW = 320;
+            const tooltipH = 220;
+            const safeGap = 32; // Margen limpio garantizado fuera del perímetro del círculo
+
+            // Posicionar a la derecha si hay espacio; si choca con el borde o ficha lateral, posicionar a la izquierda
+            const spaceRight = containerW - (nodeScreenX + nodeScreenR + safeGap);
+            let left = 0;
+            if (spaceRight >= tooltipW + 16) {
+              left = nodeScreenX + nodeScreenR + safeGap;
+            } else {
+              left = Math.max(16, nodeScreenX - nodeScreenR - safeGap - tooltipW);
+            }
+
+            // Centrado vertical respecto al círculo del nodo
+            let top = Math.max(16, Math.min(nodeScreenY - tooltipH / 2, containerH - tooltipH - 24));
+
+            return (
+              <div
+                style={{ left, top }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  pushToStackedDeck(hoveredNode, false);
+                }}
+                className="absolute z-40 bg-gray-950/98 border border-sky-500/80 shadow-2xl rounded-xl p-3.5 backdrop-blur-xl text-xs w-80 animate-in fade-in zoom-in-95 duration-150 pointer-events-auto select-none"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <span
+                    className="px-2 py-0.5 rounded text-[9px] font-mono font-bold text-white uppercase"
+                    style={{ backgroundColor: (TYPE_CONFIG[hoveredNode.type] || TYPE_CONFIG.department).bg }}
+                  >
+                    {(TYPE_CONFIG[hoveredNode.type] || TYPE_CONFIG.department).label}
+                  </span>
+                  {hoveredNode.completeness_score !== undefined && (
+                    <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800">
+                      {hoveredNode.completeness_score}% completitud
+                    </span>
+                  )}
+                  {hoveredNode.memory_tier === 'working' && (
+                    <span className="text-[9px] font-mono text-amber-300 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800 animate-pulse">
+                      TEMPORAL
+                    </span>
+                  )}
+                </div>
+                <h4 className="font-bold text-sm text-white leading-tight">{hoveredNode.title}</h4>
+
+                {/* Dynamic Next-Layer Contextual Preview */}
+                <div className="mt-2 p-2 rounded-lg bg-gray-900/90 border border-gray-800 text-[11px] font-mono space-y-1">
+                  {hoveredNode.type === 'brand' && (
+                    <div>
+                      <span className="text-amber-400 font-bold block text-[10px] uppercase">📦 Siguiente Capa (Catálogo):</span>
+                      <span className="text-gray-300">Formato: 250ml / Packs · 6 Sabores · Estiba 2,800 cajas/cont</span>
+                    </div>
+                  )}
+                  {hoveredNode.type === 'market' && (
+                    <div>
+                      <span className="text-teal-400 font-bold block text-[10px] uppercase">🤝 Siguiente Capa (Distribuidor):</span>
+                      <span className="text-gray-200">
+                        {hoveredNode.id.includes('panama') ? 'MEDIMEX S.A. (Oficial y Exclusivo)' :
+                         hoveredNode.id.includes('belize') ? 'Santiago Castillo Ltd. (SanCas)' :
+                         hoveredNode.id.includes('canada') ? 'Morgan Williams (Canada)' : 'Walton & Post (USA)'}
+                      </span>
+                    </div>
+                  )}
+                  {hoveredNode.type === 'distributor' && (
+                    <div>
+                      <span className="text-emerald-400 font-bold block text-[10px] uppercase">🌎 Siguiente Capa (Territorio):</span>
+                      <span className="text-gray-200">
+                        {hoveredNode.id.includes('medimex') || hoveredNode.id.includes('panama') ? 'Panamá · Chubby, Fruta & Busta' :
+                         hoveredNode.id.includes('sancas') ? 'Belice (CARICOM) · Chubby & Fruta' :
+                         hoveredNode.id.includes('morgan') ? 'Canadá · Retail Moderno' : 'EE. UU. · Costa Este'}
+                      </span>
+                    </div>
+                  )}
+                  {hoveredNode.type === 'person' && (
+                    <div>
+                      <span className="text-sky-400 font-bold block text-[10px] uppercase">👥 Siguiente Capa (Equipo):</span>
+                      <span className="text-gray-200">
+                        {hoveredNode.frontmatter?.job_title || 'Cargo Ejecutivo'} · {hoveredNode.frontmatter?.based_in_city || 'HQ'}
+                      </span>
+                    </div>
+                  )}
+                  {hoveredNode.type === 'department' && (
+                    <div>
+                      <span className="text-purple-400 font-bold block text-[10px] uppercase">🏢 Siguiente Capa (Estructura):</span>
+                      <span className="text-gray-200">Personal Operativo y Líneas de Reporte</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Dual Action Buttons (Ficha 360° + Ver Capa en Lienzo) */}
+                <div className="grid grid-cols-2 gap-2 mt-2.5">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      pushToStackedDeck(hoveredNode, false);
+                    }}
+                    className="py-1.5 px-2 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-1 transition"
+                    title="Abrir ficha ejecutiva completa en panel lateral"
+                  >
+                    <span>📋 Ficha 360°</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      pushToStackedDeck(hoveredNode, true);
+                    }}
+                    className="py-1.5 px-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-1 transition"
+                    title="Desplegar siguiente capa directamente en el lienzo"
+                  >
+                    <span>🚀 Ver Capa ▼</span>
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Quick Brain Dump Bar */}
           <form
@@ -3108,7 +3136,7 @@ export default function CerebroPage() {
                   return Array.from(new Set(collected)).slice(0, 3);
                 })();
 
-                const contactWa = fm.whatsapp || fm.phone_mobile || fm.direct_contacts?.whatsapp || (nid.includes('medimex') ? '+507 6600-0000' : null);
+                const contactWa = fm.whatsapp || fm.phone_mobile || fm.direct_contacts?.whatsapp || null;
                 const contactEmail = fm.email_orders || fm.email_primary || fm.direct_contacts?.email || (nid.includes('medimex') ? 'pedidos@medimexsa.com' : null);
                 const contactPhone = fm.phone_main || fm.direct_contacts?.phone || (nid.includes('medimex') ? '+507 270-2000' : null);
 
