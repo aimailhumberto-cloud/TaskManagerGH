@@ -11,7 +11,17 @@ type ActiveTab = 'radar' | 'distributors' | 'markets' | 'universe' | 'calendar';
 export default function TasksPage() {
   const [tasks, setTasks] = useState<UnifiedBrainTask[]>([]);
   const [distributors, setDistributors] = useState<DistributorSummary[]>([]);
-  const [summary, setSummary] = useState({
+  const [summary, setSummary] = useState<{
+    totalTasks: number;
+    overdueTasks: number;
+    todayTasks: number;
+    next48hTasks: number;
+    completedTasks: number;
+    dotsAssignedTasks: number;
+    distributorsCount: number;
+    atRiskDistributors: number;
+    panamaTimestamp?: string;
+  }>({
     totalTasks: 0,
     overdueTasks: 0,
     todayTasks: 0,
@@ -200,8 +210,13 @@ export default function TasksPage() {
                 <span className="text-xs text-slate-500">|</span>
                 <span className="text-xs text-slate-400 font-mono">SEGUNDO CEREBRO (SSOT)</span>
               </div>
-              <h1 className="text-xl sm:text-2xl font-serif font-bold text-slate-100 tracking-tight mt-1">
-                Executive Task Manager
+              <h1 className="text-xl sm:text-2xl font-serif font-bold text-slate-100 tracking-tight mt-1 flex items-center gap-3">
+                <span>Executive Task Manager</span>
+                {summary.panamaTimestamp && (
+                  <span className="text-[11px] font-mono font-normal text-slate-400 bg-slate-900/90 px-2.5 py-0.5 rounded border border-slate-700/80">
+                    Sincronizado: {summary.panamaTimestamp} (Panamá)
+                  </span>
+                )}
               </h1>
             </div>
 
@@ -496,10 +511,18 @@ export default function TasksPage() {
                                   ? 'bg-rose-950/60 text-rose-300 border-rose-800/60'
                                   : dist.status === 'Ahead'
                                   ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/60'
-                                  : 'bg-amber-950/60 text-amber-300 border-amber-800/60'
+                                  : dist.status === 'On Track'
+                                  ? 'bg-amber-950/60 text-amber-300 border-amber-800/60'
+                                  : 'bg-slate-900/60 text-slate-400 border-slate-700/60'
                               }`}
                             >
-                              {dist.status === 'At Risk' ? 'En Riesgo' : dist.status === 'Ahead' ? 'Superando Meta' : 'En Meta'}
+                              {dist.status === 'At Risk'
+                                ? 'En Riesgo'
+                                : dist.status === 'Ahead'
+                                ? 'Superando Meta'
+                                : dist.status === 'On Track'
+                                ? 'En Meta'
+                                : 'Sin cuota formal'}
                             </span>
                           </div>
 
@@ -509,20 +532,28 @@ export default function TasksPage() {
                           <div className="mt-3 space-y-1.5">
                             <div className="flex items-center justify-between text-xs font-mono">
                               <span className="text-slate-400">
-                                {dist.actualCasesYTD.toLocaleString()} / {dist.targetCasesYear.toLocaleString()} cjs
+                                {dist.actualCasesYTD !== undefined && dist.targetCasesYear !== undefined
+                                  ? `${dist.actualCasesYTD.toLocaleString()} / ${dist.targetCasesYear.toLocaleString()} cjs`
+                                  : 'Sin dato registrado'}
                               </span>
-                              <span className={dist.complianceRate < 70 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>
-                                {dist.complianceRate}% cuota
+                              <span className={dist.complianceRate !== undefined ? (dist.complianceRate < 70 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold') : 'text-slate-500'}>
+                                {dist.complianceRate !== undefined ? `${dist.complianceRate}% cuota` : '—'}
                               </span>
                             </div>
-                            <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all duration-500 ${
-                                  dist.complianceRate < 70 ? 'bg-rose-500' : 'bg-emerald-500'
-                                }`}
-                                style={{ width: `${Math.min(dist.complianceRate, 100)}%` }}
-                              />
-                            </div>
+                            {dist.complianceRate !== undefined ? (
+                              <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-500 ${
+                                    dist.complianceRate < 70 ? 'bg-rose-500' : 'bg-emerald-500'
+                                  }`}
+                                  style={{ width: `${Math.min(dist.complianceRate, 100)}%` }}
+                                />
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-slate-500 font-mono py-0.5">
+                                Cuota anual no registrada en ficha oficial
+                              </div>
+                            )}
                           </div>
 
                           {/* Next Follow-up Banner */}
@@ -832,11 +863,12 @@ export default function TasksPage() {
                 </div>
 
                 {/* Calendar Days Strip */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                   {[
-                    { label: 'Semana Actual (Nov 9 - 15)', filter: (d: string) => d >= '2026-11-09' && d <= '2026-11-15' },
-                    { label: 'Próxima Semana (Nov 16 - 22)', filter: (d: string) => d >= '2026-11-16' && d <= '2026-11-22' },
-                    { label: 'Cierre de Mes (Nov 23 - 30)', filter: (d: string) => d >= '2026-11-23' && d <= '2026-11-30' },
+                    { label: 'Semana Actual (Nov 9 - 15)', filter: (d?: string) => !!d && d >= '2026-11-09' && d <= '2026-11-15' },
+                    { label: 'Próxima Semana (Nov 16 - 22)', filter: (d?: string) => !!d && d >= '2026-11-16' && d <= '2026-11-22' },
+                    { label: 'Cierre de Mes (Nov 23 - 30)', filter: (d?: string) => !!d && d >= '2026-11-23' && d <= '2026-11-30' },
+                    { label: 'Sin Plazo Fijado / Continuas', filter: (d?: string) => !d },
                   ].map((block, idx) => {
                     const blockTasks = tasks.filter(t => block.filter(t.dueDate) && !t.isCompleted);
                     return (
@@ -968,29 +1000,53 @@ function TaskExecutiveCard({
             <span>{task.sourceNodeTitle}</span>
           </button>
 
-          {/* DOTS active status pulse */}
-          {task.status === 'In Review DOTS' && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-700/60 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping" />
-              <span>En trámite por DOTS</span>
+          {/* DOTS active status pulse & stage (Point 7) */}
+          {task.dotsStatus !== 'idle' && (
+            <span
+              className={`text-[10px] font-mono font-medium px-2 py-0.5 rounded border flex items-center gap-1 ${
+                task.dotsStage === 'borrador_listo'
+                  ? 'bg-emerald-950/80 text-emerald-300 border-emerald-700/60'
+                  : task.dotsStage === 'en_analisis'
+                  ? 'bg-indigo-950/80 text-indigo-300 border-indigo-700/60'
+                  : task.dotsStage === 'recibido'
+                  ? 'bg-sky-950/80 text-sky-300 border-sky-700/60'
+                  : 'bg-amber-950/80 text-amber-300 border-amber-700/60'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+              <span>
+                {task.dotsStage === 'borrador_listo'
+                  ? '[DOTS: Borrador listo]'
+                  : task.dotsStage === 'en_analisis'
+                  ? '[DOTS: En análisis]'
+                  : task.dotsStage === 'recibido'
+                  ? '[DOTS: Recibido]'
+                  : '[DOTS: Solicitado]'}
+              </span>
             </span>
           )}
 
-          {/* Quota Compliance status if applicable */}
+          {/* Quota Compliance status if applicable (Point 1) */}
           {task.distributorQuota && (
             <span
               className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
                 task.distributorQuota.status === 'At Risk'
                   ? 'bg-rose-950/50 text-rose-300 border-rose-800/50'
-                  : 'bg-emerald-950/50 text-emerald-300 border-emerald-800/50'
+                  : task.distributorQuota.status === 'Ahead'
+                  ? 'bg-emerald-950/50 text-emerald-300 border-emerald-800/50'
+                  : task.distributorQuota.status === 'On Track'
+                  ? 'bg-amber-950/50 text-amber-300 border-amber-800/50'
+                  : 'bg-slate-900/50 text-slate-400 border-slate-700/50'
               }`}
             >
-              Cuota: {task.distributorQuota.complianceRate}%
+              {task.distributorQuota.complianceRate !== undefined
+                ? `Cuota: ${task.distributorQuota.complianceRate}%`
+                : 'Cuota: Sin dato registrado'}
             </span>
           )}
         </div>
 
-        {/* Due Date */}
+        {/* Due Date (Point 2) */}
         <div className="flex items-center gap-1.5 text-xs font-mono shrink-0">
           <svg className="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
@@ -1004,10 +1060,12 @@ function TaskExecutiveCard({
                 ? 'text-rose-400 font-bold'
                 : task.isToday
                 ? 'text-amber-300 font-bold'
-                : 'text-slate-400'
+                : task.dueDate
+                ? 'text-slate-400'
+                : 'text-slate-500 italic'
             }
           >
-            {task.dueDate}
+            {task.dueDate || 'Sin fecha fijada'}
           </span>
         </div>
       </div>

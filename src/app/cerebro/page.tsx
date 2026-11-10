@@ -74,12 +74,12 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// Dynamic Node Photo Cache-Busting Helper
+// Dynamic Node Photo Cache-Busting Helper (Deterministic & Cache-Safe)
 function getPhotoUrlWithBust(url?: string | null, updatedAt?: string | number): string | null {
   if (!url || typeof url !== 'string') return null;
+  if (!updatedAt) return url;
   const sep = url.includes('?') ? '&' : '?';
-  const bust = updatedAt ? `v=${encodeURIComponent(updatedAt)}` : `v=${Date.now()}`;
-  return `${url}${sep}${bust}`;
+  return `${url}${sep}v=${encodeURIComponent(updatedAt)}`;
 }
 
 // Universal Dynamic Node Photos Cache (Soporta fotos en CUALQUIER nodo con refresco reactivo)
@@ -366,24 +366,39 @@ function isNodeLeader(node: any): boolean {
   return false;
 }
 
-// Helper to categorize staff into their departmental hub
-function getPersonDeptCategory(node: any): 'exports' | 'manufacturing' | 'supply_chain' | 'finance' | 'general' {
+// Helper to categorize staff into their departmental hub based strictly on verified relations and roles
+function getPersonDeptCategory(node: any): 'exports' | 'manufacturing' | 'supply_chain' | 'finance' | 'marketing' | 'legal' | 'business_intelligence' | 'information_technology' | 'internal_audit' | 'general' {
   const id = (node.id || '').toLowerCase();
   const fm = node.frontmatter || {};
   const job = ((fm.job_title || fm.role || fm.title || '') + ' ' + (node.title || '')).toLowerCase();
   const deptRaw = String(fm.department || node.department || '').toLowerCase();
 
-  if (deptRaw.includes('export') || job.includes('export') || id.includes('clint') || id.includes('humberto') || id.includes('olivia') || id.includes('alanna') || id.includes('ivan') || id.includes('reedhi') || id.includes('goorachan') || id.includes('phillip')) {
+  if (deptRaw.includes('marketing') || job.includes('marketing') || id.includes('eesa') || id.includes('dixon')) {
+    return 'marketing';
+  }
+  if (deptRaw.includes('legal') || job.includes('legal') || id.includes('dookie')) {
+    return 'legal';
+  }
+  if (deptRaw.includes('business-intelligence') || deptRaw.includes('business intelligence') || job.includes('business intelligence') || id.includes('faraaz') || id.includes('sabeeha')) {
+    return 'business_intelligence';
+  }
+  if (deptRaw.includes('information-technology') || deptRaw.includes('technology') || job.includes('information technology') || job.includes('epicor') || id.includes('bailey') || id.includes('ravikumar')) {
+    return 'information_technology';
+  }
+  if (deptRaw.includes('audit') || job.includes('audit') || id.includes('jerome')) {
+    return 'internal_audit';
+  }
+  if (deptRaw.includes('finance') || deptRaw.includes('credit') || job.includes('invoic') || job.includes('credit') || job.includes('finance') || id.includes('michelle-grant') || id.includes('debiena') || id.includes('jugoon') || id.includes('sookram')) {
+    return 'finance';
+  }
+  if (deptRaw.includes('export') || (job.includes('export') && !job.includes('customs') && !job.includes('warehouse') && !job.includes('logistics')) || id.includes('clint') || id.includes('humberto-bouche') || id.includes('olivia') || id.includes('alanna') || id.includes('ivan') || id.includes('richard-williams') || id.includes('rena') || id.includes('sinanan')) {
     return 'exports';
+  }
+  if (deptRaw.includes('supply') || deptRaw.includes('procurement') || deptRaw.includes('logistics') || deptRaw.includes('customs') || deptRaw.includes('warehouse') || job.includes('purchas') || job.includes('logistics') || job.includes('chain') || job.includes('customs') || id.includes('sonia') || id.includes('agard') || id.includes('richards') || id.includes('reedhi') || id.includes('goorachan') || id.includes('phillip') || id.includes('bijadder') || id.includes('gay')) {
+    return 'supply_chain';
   }
   if (deptRaw.includes('manufactur') || deptRaw.includes('plant') || job.includes('manufactur') || job.includes('plant') || job.includes('bottling') || id.includes('rajesh')) {
     return 'manufacturing';
-  }
-  if (deptRaw.includes('supply') || deptRaw.includes('procurement') || deptRaw.includes('logistics') || job.includes('purchas') || job.includes('logistics') || job.includes('chain') || job.includes('customs') || id.includes('sonia') || id.includes('agard') || id.includes('richards') || id.includes('gay')) {
-    return 'supply_chain';
-  }
-  if (deptRaw.includes('finance') || deptRaw.includes('credit') || job.includes('invoic') || job.includes('credit') || job.includes('finance') || id.includes('jugoon') || id.includes('sookram')) {
-    return 'finance';
   }
   return 'general';
 }
@@ -1568,6 +1583,8 @@ export default function CerebroPage() {
   const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [pinnedCount, setPinnedCount] = useState(0);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   // Hierarchical Drill-Down & Breadcrumbs Navigation
   const [drilldownStack, setDrilldownStack] = useState<{ id: string; title: string; type: string; category?: string }[]>([]);
@@ -1681,10 +1698,24 @@ export default function CerebroPage() {
         `/api/agent/brain?market=${encodeURIComponent(selectedMarket)}&lens=${encodeURIComponent(activeLens)}&_t=${Date.now()}`,
         { cache: 'no-store' }
       );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: BrainGraphResponse = await res.json();
       if (json.ok) {
         setGraphData(json);
         setupNodesWithMode(json.nodes, json.links);
+        setSyncError(null);
+        try {
+          const pTime = new Intl.DateTimeFormat('es-PA', {
+            timeZone: 'America/Panama',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true,
+          }).format(new Date());
+          setLastSyncTime(pTime);
+        } catch {
+          setLastSyncTime(new Date().toLocaleTimeString());
+        }
 
         // Auto-refresh stacked deck with fresh node data from the vault (sync with Dots modifications)
         setStackedDeck(prev => {
@@ -1711,9 +1742,11 @@ export default function CerebroPage() {
             })
             .filter(card => json.nodes.some((n: any) => n.id === card.id));
         });
+      } else {
+        setSyncError((json as any).error || 'Respuesta anómala del servidor');
       }
-    } catch (e) {
-      console.error('Error fetching brain graph', e);
+    } catch (e: any) {
+      setSyncError('Fallo de conexión con el Segundo Cerebro. Mostrando vista local.');
     }
   };
 
@@ -1783,9 +1816,19 @@ export default function CerebroPage() {
 
     const existingMap = new Map(nodesRef.current.map(n => [n.id, n]));
 
+    // Point 10: Persistent positions stored in localStorage
+    let savedPositions: Record<string, { x: number; y: number }> = {};
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('cerebro_pinned_positions');
+        if (stored) savedPositions = JSON.parse(stored);
+      } catch {}
+    }
+
     const initialized: NodeData[] = filteredRawNodes.map((n) => {
       const existing = existingMap.get(n.id);
       const target = getNodeTarget(n, viewModeRef.current);
+      const saved = savedPositions[n.id];
 
       let nodeRadius = 24;
       if (n.type === 'core') nodeRadius = 38;
@@ -1799,43 +1842,50 @@ export default function CerebroPage() {
       else if (n.type === 'product_variant') nodeRadius = 15;
       else nodeRadius = 20;
 
+      const isPinned = saved ? true : (existing ? existing.isPinned : false);
+      const pinnedX = saved ? saved.x : (existing ? existing.pinnedX : undefined);
+      const pinnedY = saved ? saved.y : (existing ? existing.pinnedY : undefined);
+
       if (existing) {
         return {
           ...n,
-          x: existing.x,
-          y: existing.y,
+          x: saved ? saved.x : existing.x,
+          y: saved ? saved.y : existing.y,
           vx: existing.vx || 0,
           vy: existing.vy || 0,
-          targetX: existing.isPinned ? existing.pinnedX ?? target.x : target.x,
-          targetY: existing.isPinned ? existing.pinnedY ?? target.y : target.y,
+          targetX: isPinned && pinnedX !== undefined ? pinnedX : target.x,
+          targetY: isPinned && pinnedY !== undefined ? pinnedY : target.y,
           originalTargetX: target.x,
           originalTargetY: target.y,
           radius: nodeRadius,
           isDragged: existing.isDragged,
-          isPinned: existing.isPinned,
-          pinnedX: existing.pinnedX,
-          pinnedY: existing.pinnedY,
+          isPinned,
+          pinnedX,
+          pinnedY,
         };
       }
 
       return {
         ...n,
-        x: target.x + (Math.random() - 0.5) * 15,
-        y: target.y + (Math.random() - 0.5) * 15,
+        x: saved ? saved.x : target.x + (Math.random() - 0.5) * 15,
+        y: saved ? saved.y : target.y + (Math.random() - 0.5) * 15,
         vx: 0,
         vy: 0,
-        targetX: target.x,
-        targetY: target.y,
+        targetX: isPinned && pinnedX !== undefined ? pinnedX : target.x,
+        targetY: isPinned && pinnedY !== undefined ? pinnedY : target.y,
         originalTargetX: target.x,
         originalTargetY: target.y,
         radius: nodeRadius,
         isDragged: false,
-        isPinned: false,
+        isPinned,
+        pinnedX,
+        pinnedY,
       };
     });
 
     nodesRef.current = initialized;
     linksRef.current = filteredRawLinks;
+    setPinnedCount(initialized.filter(n => n.isPinned).length);
   };
 
   const handleSetCatalogScope = (scope: 'collapsed' | 'all' | 'chubby' | 'busta' | 'fruta' | 'oasis' | 'altitude') => {
@@ -1919,6 +1969,34 @@ export default function CerebroPage() {
             if (gravityActive) {
               const floatOffset = Math.sin(time * 1.6 + (n.hierarchy_level || 1)) * 0.35;
               n.y += floatOffset;
+            }
+          }
+        }
+
+        // Point 10: Anti-Overlap Collision Repulsion (Physical safety margins between adjacent nodes)
+        for (let i = 0; i < nodes.length; i++) {
+          const n1 = nodes[i];
+          const r1 = n1.radius || 24;
+          for (let j = i + 1; j < nodes.length; j++) {
+            const n2 = nodes[j];
+            const r2 = n2.radius || 24;
+            const minSpacing = r1 + r2 + 24; // 24px physical separation margin
+            const dx = n2.x - n1.x;
+            const dy = n2.y - n1.y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < minSpacing * minSpacing && distSq > 0.001) {
+              const dist = Math.sqrt(distSq);
+              const overlap = (minSpacing - dist) * 0.5;
+              const nx = dx / dist;
+              const ny = dy / dist;
+              if (!n1.isPinned && !n1.isDragged) {
+                n1.x -= nx * overlap * 0.45;
+                n1.y -= ny * overlap * 0.45;
+              }
+              if (!n2.isPinned && !n2.isDragged) {
+                n2.x += nx * overlap * 0.45;
+                n2.y += ny * overlap * 0.45;
+              }
             }
           }
         }
@@ -2404,10 +2482,11 @@ export default function CerebroPage() {
     let targetY = h / 2;
     let targetScale = 0.72;
 
-    if (targetNode) {
+    const liveNode = targetNode ? nodesRef.current.find(n => n.id === targetNode.id) || targetNode : undefined;
+    if (liveNode && typeof liveNode.x === 'number' && !isNaN(liveNode.x)) {
       targetScale = 1.05;
-      targetX = w / 2 - targetNode.x * targetScale;
-      targetY = h / 2 - targetNode.y * targetScale;
+      targetX = w / 2 - liveNode.x * targetScale;
+      targetY = h / 2 - liveNode.y * targetScale;
     } else {
       const visibleNodes = nodesRef.current.filter(n => n.type !== 'packaging' && n.type !== 'flavor');
       if (visibleNodes.length > 0) {
@@ -2509,6 +2588,11 @@ export default function CerebroPage() {
   };
 
   const handleUnpinAll = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('cerebro_pinned_positions');
+      } catch {}
+    }
     nodesRef.current.forEach(n => {
       n.isPinned = false;
       n.pinnedX = undefined;
@@ -2701,6 +2785,14 @@ export default function CerebroPage() {
           node.targetX = node.x;
           node.targetY = node.y;
           setPinnedCount(nodesRef.current.filter(n => n.isPinned).length);
+          if (typeof window !== 'undefined') {
+            try {
+              const stored = localStorage.getItem('cerebro_pinned_positions');
+              const map = stored ? JSON.parse(stored) : {};
+              map[node.id] = { x: Math.round(node.x), y: Math.round(node.y) };
+              localStorage.setItem('cerebro_pinned_positions', JSON.stringify(map));
+            } catch {}
+          }
         }
       }
       draggedNodeRef.current = null;
@@ -2906,6 +2998,14 @@ export default function CerebroPage() {
           node.targetX = node.x;
           node.targetY = node.y;
           setPinnedCount(nodesRef.current.filter(n => n.isPinned).length);
+          if (typeof window !== 'undefined') {
+            try {
+              const stored = localStorage.getItem('cerebro_pinned_positions');
+              const map = stored ? JSON.parse(stored) : {};
+              map[node.id] = { x: Math.round(node.x), y: Math.round(node.y) };
+              localStorage.setItem('cerebro_pinned_positions', JSON.stringify(map));
+            } catch {}
+          }
         }
         draggedNodeRef.current = null;
       }
@@ -3053,17 +3153,18 @@ export default function CerebroPage() {
   };
 
 
-  // Instant Search Results Filter
+  // Universal Instant Search across all 508 vault nodes (Point 8: Never hidden by market/org filter)
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase().trim();
-    const pool = nodesRef.current.length > 0 ? nodesRef.current : (graphData?.nodes || []);
+    const pool = (graphData as any)?.allNodes || graphData?.nodes || nodesRef.current || [];
     return pool.filter((n: any) => {
       const title = (n.title || '').toLowerCase();
       const id = (n.id || '').toLowerCase();
-      const job = (n.frontmatter?.job_title || '').toLowerCase();
+      const job = (n.frontmatter?.job_title || n.frontmatter?.role || '').toLowerCase();
       const dept = (n.department || n.frontmatter?.department || '').toLowerCase();
-      return title.includes(q) || id.includes(q) || job.includes(q) || dept.includes(q);
+      const country = (n.country || n.frontmatter?.based_in_country || '').toLowerCase();
+      return title.includes(q) || id.includes(q) || job.includes(q) || dept.includes(q) || country.includes(q);
     });
   }, [searchQuery, graphData]);
 
@@ -3184,6 +3285,14 @@ export default function CerebroPage() {
           <span className="px-1.5 py-0.5 text-[9px] font-mono bg-sky-950 text-sky-300 border border-sky-800 rounded font-semibold shrink-0">
             {graphData?.nodes.length || summary.totalNodes} Nodos
           </span>
+
+          {/* Panama Sync Time Pill (Point 11) */}
+          {lastSyncTime && (
+            <span className="hidden md:inline-flex px-2 py-0.5 text-[9px] font-mono bg-slate-900/90 text-slate-300 border border-slate-700 rounded items-center gap-1 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>{lastSyncTime} (Panamá)</span>
+            </span>
+          )}
         </div>
 
         {/* Center: Search Bar with Autocomplete Dropdown */}
@@ -3214,7 +3323,7 @@ export default function CerebroPage() {
                 <span>Resultados</span>
                 <span className="text-sky-400 font-bold">{searchResults.length}</span>
               </div>
-              {searchResults.slice(0, 8).map(node => (
+              {searchResults.slice(0, 8).map((node: any) => (
                 <div
                   key={node.id}
                   onClick={() => {
@@ -3317,6 +3426,21 @@ export default function CerebroPage() {
         </div>
       </header>
 
+      {/* Point 11: Real-time Connection Health Alert Banner */}
+      {syncError && (
+        <div className="bg-rose-950/95 border-b border-rose-700/80 text-rose-200 text-xs px-4 py-2 flex items-center justify-between z-50 animate-in fade-in duration-200">
+          <div className="flex items-center gap-2">
+            <span className="font-mono font-bold text-rose-400">[ALERTA DE CONEXIÓN]</span>
+            <span>{syncError}</span>
+          </div>
+          {lastSyncTime && (
+            <span className="text-slate-400 font-mono text-[11px] shrink-0">
+              Última carga exitosa: {lastSyncTime} (Panamá)
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Unified Settings & Controls Popover (Desktop Popover / Mobile Sheet) */}
       {isSettingsMenuOpen && (
         <>
@@ -3344,7 +3468,7 @@ export default function CerebroPage() {
                 defaultValue=""
                 onChange={e => {
                   if (!e.target.value) return;
-                  const pool = nodesRef.current.length > 0 ? nodesRef.current : (graphData?.nodes || []);
+                  const pool = (graphData as any)?.allNodes || graphData?.nodes || nodesRef.current || [];
                   const targetNode = pool.find((n: any) => n.id === e.target.value);
                   if (targetNode) {
                     pushToStackedDeck(targetNode);
@@ -3356,31 +3480,38 @@ export default function CerebroPage() {
                 className="w-full bg-gray-900 text-sky-300 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-sky-400 font-medium"
               >
                 <option value="">📋 Seleccionar Entidad por Nombre...</option>
-                <optgroup label="🧃 Marcas Master SMJ">
-                  {(nodesRef.current.length > 0 ? nodesRef.current : (graphData?.nodes || [])).filter((n: any) => n.type === 'brand').map((n: any) => (
-                    <option key={n.id} value={n.id}>🧃 {n.title}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="🏛️ Filiales & Organizaciones Globales">
-                  {(nodesRef.current.length > 0 ? nodesRef.current : (graphData?.nodes || [])).filter((n: any) => n.type === 'organization').map((n: any) => (
-                    <option key={n.id} value={n.id}>🏛️ {n.title}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="🌎 Mercados & Distribuidores">
-                  {(nodesRef.current.length > 0 ? nodesRef.current : (graphData?.nodes || [])).filter((n: any) => n.type === 'market' || n.type === 'distributor').map((n: any) => (
-                    <option key={n.id} value={n.id}>{(TYPE_CONFIG[n.type] || TYPE_CONFIG.department).icon} {n.title}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="🏢 Departamentos & Jefaturas">
-                  {(nodesRef.current.length > 0 ? nodesRef.current : (graphData?.nodes || [])).filter((n: any) => n.type === 'core' || n.type === 'department').map((n: any) => (
-                    <option key={n.id} value={n.id}>🏢 {n.title}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="👑 Personas & Directivos">
-                  {(nodesRef.current.length > 0 ? nodesRef.current : (graphData?.nodes || [])).filter((n: any) => n.type === 'person').map((n: any) => (
-                    <option key={n.id} value={n.id}>👤 {n.title}</option>
-                  ))}
-                </optgroup>
+                {(() => {
+                  const fullCatalog = (graphData as any)?.allNodes || graphData?.nodes || nodesRef.current || [];
+                  return (
+                    <>
+                      <optgroup label="🧃 Marcas Master SMJ">
+                        {fullCatalog.filter((n: any) => n.type === 'brand').map((n: any) => (
+                          <option key={n.id} value={n.id}>🧃 {n.title}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🏛️ Filiales & Organizaciones Globales">
+                        {fullCatalog.filter((n: any) => n.type === 'organization').map((n: any) => (
+                          <option key={n.id} value={n.id}>🏛️ {n.title}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🌎 Mercados & Distribuidores">
+                        {fullCatalog.filter((n: any) => n.type === 'market' || n.type === 'distributor').map((n: any) => (
+                          <option key={n.id} value={n.id}>{(TYPE_CONFIG[n.type] || TYPE_CONFIG.department).icon} {n.title}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="🏢 Departamentos & Jefaturas">
+                        {fullCatalog.filter((n: any) => n.type === 'core' || n.type === 'department').map((n: any) => (
+                          <option key={n.id} value={n.id}>🏢 {n.title}</option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="👑 Personas & Directivos">
+                        {fullCatalog.filter((n: any) => n.type === 'person').map((n: any) => (
+                          <option key={n.id} value={n.id}>👤 {n.title}</option>
+                        ))}
+                      </optgroup>
+                    </>
+                  );
+                })()}
               </select>
             </div>
 
@@ -3819,21 +3950,22 @@ export default function CerebroPage() {
                   return (
                     <div className="flex items-center gap-2.5 mb-2 border-b border-gray-800/80 pb-2">
                       <div
-                        className="w-10 h-10 rounded-full border flex items-center justify-center shrink-0 overflow-hidden bg-gray-950 p-0.5 shadow"
+                        className="w-10 h-10 rounded-full border flex items-center justify-center shrink-0 overflow-hidden bg-gray-950 p-0.5 shadow relative"
                         style={{ borderColor: (TYPE_CONFIG[hoveredNode.type] || TYPE_CONFIG.department).border }}
                       >
-                        {photoSrc ? (
+                        {photoSrc && (
                           <img
                             src={getPhotoUrlWithBust(photoSrc, fm.updated_at || fm.updatedAt) || photoSrc}
                             alt={hoveredNode.title}
-                            className="w-full h-full object-cover rounded-full"
+                            className="w-full h-full object-cover rounded-full z-10"
                             onError={(e) => {
                               (e.currentTarget as HTMLElement).style.display = 'none';
                             }}
                           />
-                        ) : (
-                          <span className="text-base">{(TYPE_CONFIG[hoveredNode.type] || TYPE_CONFIG.department).icon}</span>
                         )}
+                        <span className="absolute inset-0 flex items-center justify-center text-sm">
+                          {(TYPE_CONFIG[hoveredNode.type] || TYPE_CONFIG.department).icon}
+                        </span>
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -4097,21 +4229,22 @@ export default function CerebroPage() {
                     <div className="flex items-start justify-between gap-3 border-b border-gray-800 pb-3 mb-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className="w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-lg border-2 shrink-0 overflow-hidden bg-gray-950 p-1"
+                          className="w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-lg border-2 shrink-0 overflow-hidden bg-gray-950 p-1 relative"
                           style={{ borderColor: cfg.border }}
                         >
-                          {photoSrc ? (
+                          {photoSrc && (
                             <img
                               src={getPhotoUrlWithBust(photoSrc, fm.updated_at || fm.updatedAt) || photoSrc}
                               alt={node.title}
-                              className="w-full h-full object-cover rounded-full"
+                              className="w-full h-full object-cover rounded-full z-10"
                               onError={(e) => {
                                 (e.currentTarget as HTMLElement).style.display = 'none';
                               }}
                             />
-                          ) : (
-                            <span>{flagEmoji || cfg.icon}</span>
                           )}
+                          <span className="absolute inset-0 flex items-center justify-center text-base">
+                            {flagEmoji || cfg.icon}
+                          </span>
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -4212,7 +4345,7 @@ export default function CerebroPage() {
                               className="group relative h-24 rounded-lg overflow-hidden border border-gray-800 bg-gray-900/90 flex items-center justify-center p-1.5 hover:border-sky-500 transition-all shadow"
                             >
                               <img
-                                src={src}
+                                src={getPhotoUrlWithBust(src, fm.updated_at || fm.updatedAt) || src}
                                 alt={`Visual ${idx + 1}`}
                                 className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
                                 onError={(e) => {
@@ -4734,9 +4867,53 @@ export default function CerebroPage() {
                     })()}
 
                     {node.type === 'department' && (() => {
-                      const deptKey = node.id.includes('export') ? 'exports' : node.id.includes('manufacturing') ? 'manufacturing' : node.id.includes('supply') ? 'supply_chain' : 'finance';
-                      const allNodes = graphData?.nodes || nodesRef.current || [];
-                      const deptMembers = allNodes.filter((n: any) => n.type === 'person' && getPersonDeptCategory(n) === deptKey);
+                      const deptKey = node.id.includes('export')
+                        ? 'exports'
+                        : node.id.includes('manufacturing') || node.id.includes('plant')
+                        ? 'manufacturing'
+                        : node.id.includes('supply') || node.id.includes('procurement')
+                        ? 'supply_chain'
+                        : node.id.includes('marketing')
+                        ? 'marketing'
+                        : node.id.includes('legal')
+                        ? 'legal'
+                        : node.id.includes('business-intelligence')
+                        ? 'business_intelligence'
+                        : node.id.includes('information-technology') || node.id.includes('-it')
+                        ? 'information_technology'
+                        : node.id.includes('internal-audit')
+                        ? 'internal_audit'
+                        : node.id.includes('finance')
+                        ? 'finance'
+                        : 'general';
+
+                      const allNodes = (graphData as any)?.allNodes || graphData?.nodes || nodesRef.current || [];
+                      const obsContacts: string[] = Array.isArray(fm.relations?.observed_contacts) ? fm.relations.observed_contacts : [];
+                      const headName = String(fm.head_of_department || '').toLowerCase();
+                      const deptIdClean = node.id.replace('dept-', '').toLowerCase();
+                      const deptTitleClean = node.title.replace('Department: ', '').toLowerCase();
+
+                      const deptMembers = allNodes.filter((n: any) => {
+                        if (n.type !== 'person') return false;
+                        const pName = n.title.replace('Person: ', '').toLowerCase();
+                        const pIdClean = n.id.replace('person-', '').toLowerCase();
+                        const pDept = String(n.frontmatter?.department || n.department || '').toLowerCase();
+                        const pReportsTo = String(n.frontmatter?.reports_to || '').toLowerCase();
+
+                        // 1. Observed contacts in department markdown frontmatter
+                        if (obsContacts.some(c => c.toLowerCase().includes(pName) || c.toLowerCase().includes(pIdClean))) return true;
+
+                        // 2. Direct frontmatter department specification
+                        if (pDept && (pDept.includes(deptIdClean) || pDept.includes(deptTitleClean))) return true;
+
+                        // 3. Supervisor tree (reports directly to the head of this department)
+                        if (headName && headName.length > 3 && pReportsTo && pReportsTo.includes(headName.split(' ')[0])) return true;
+
+                        // 4. Categorized match (only if specific and matches verified department)
+                        if (deptKey !== 'general' && getPersonDeptCategory(n) === deptKey) return true;
+
+                        return false;
+                      });
                       const deptLeaders = deptMembers.filter((p: any) => isNodeLeader(p));
                       const deptStaff = deptMembers.filter((p: any) => !isNodeLeader(p));
                       const isDeptAccordionOpen = expandedDeptInDossier === node.id;

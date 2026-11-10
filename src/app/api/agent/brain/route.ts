@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadBrainGraph, saveWorkingMemory, consolidateWorkingMemory, updateDossierMetadata } from '@/lib/smjBrainService';
+import { loadBrainGraph, saveWorkingMemory, consolidateWorkingMemory, updateDossierMetadata, upsertNode } from '@/lib/smjBrainService';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,8 +92,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(result, { status: result.ok ? 200 : 404, headers: CORS_HEADERS });
     }
 
+    if (action === 'upsert_node') {
+      const { relativePath, frontmatter, body: nodeBody } = body;
+      if (!relativePath || !frontmatter) {
+        return NextResponse.json(
+          { ok: false, error: 'relativePath and frontmatter son requeridos para upsert_node' },
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+      const result = upsertNode({
+        relativePath,
+        frontmatter,
+        body: nodeBody || '',
+      });
+      return NextResponse.json(result, { status: result.ok ? 200 : 500, headers: CORS_HEADERS });
+    }
+
     return NextResponse.json(
-      { ok: false, error: `Acción '${action}' no reconocida. Usa 'remember_working', 'consolidate_session' o 'update_dossier'.` },
+      { ok: false, error: `Acción '${action}' no reconocida. Usa 'remember_working', 'consolidate_session', 'update_dossier' o 'upsert_node'.` },
       { status: 400, headers: CORS_HEADERS }
     );
   } catch (error: any) {
