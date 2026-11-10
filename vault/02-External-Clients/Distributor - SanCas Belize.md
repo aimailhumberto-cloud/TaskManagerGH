@@ -132,6 +132,28 @@ pending_tasks:
     of Belize.
   - Finalizar agenda ejecutiva de reuniones con directores de compras de Brodies
     y Save-U.
+  - id: e7cfc6c6-1fa8-487f-bc90-f573908b35d8
+    title: Revisar forecast de 3 anos de Santiago Castillo con Clint
+    description: "Actualizacion 10 noviembre 2026: Olivia solicita forecast por
+      marca y pack size: 130000 cajas ene-dic2027; 141700 ene-dic2028; 115840
+      ene-sep2029. Cantidades SOLICITADAS, NO aceptadas por HB ni distribuidor.
+      Ultimo pendiente para Distribution Agreement, solicita ASAP, sin fecha
+      limite fija. Luisa Santos (lsantos@santiagocastilloltd.com) respondera
+      despues de verificar ajustes que cree compartieron. Angelo fuera hasta
+      lunes16 noviembre; esa fecha NO es vencimiento. Responsable seguimiento
+      HB; estado esperando respuesta Luisa. Despues revisar ajustes con Clint y
+      decidir respuesta. No se acepta acuerdo ni volumen, no se envia correo.
+      Fuente: Outlook SMJ, hilo Distribution Agreement - 3 Year Forecast |
+      Santiago Castillo (Belize). Luisa10nov recibido11:09/enviado11:08; Olivia
+      citado10:02/recibido11:02; zona de interfaz no verificada. Hilo completo
+      leido, sin respuesta posterior observada en la revision."
+    priority: High
+    status: Blocked
+    completed: false
+    waiting_on: Luisa Santos
+    assignee: Humberto Bouche
+    dueDate: ""
+    legacy_task_id: e7cfc6c6-1fa8-487f-bc90-f573908b35d8
 direct_contacts:
   phone: +501 223 0000
   email: orders@sancas.bz
@@ -250,3 +272,12 @@ Antigravity esta trabajando en cambios de la aplicacion, segun HB. Este lote mod
 HB aclara: "La moneda del precio es la moneda de Belice". Por tanto, Turbo pasa de BZD 2.25 a BZD 2.00 (dolar beliceno), diferencia BZD 0.25 y -11.11%. Esta confirmacion resuelve la duda de moneda anterior; siguen pendientes SKU/presentacion, canal/base del precio y vigencia.
 
 HB aclara: "Yo es mi visita al mercado de Humberto cuando yo vaya alla. Exacto." La visita es de [[Person - Humberto Bouche]] al mercado de Belice; el objetivo es que el conozca directamente los wholesalers, reservando tiempo para visitas y censo de cobertura/clientes. Queda resuelta la transcripcion ambigua anterior: no hay una persona llamada Deba asignada. No se ha confirmado fecha de viaje ni agenda.
+
+
+## Forecast SanCas - actualizacion correos 2026-11-10
+
+Actualizacion 10 noviembre 2026: Olivia solicita forecast por marca y pack size: 130000 cajas ene-dic2027; 141700 ene-dic2028; 115840 ene-sep2029. Cantidades SOLICITADAS, NO aceptadas por HB ni distribuidor. Ultimo pendiente para Distribution Agreement, solicita ASAP, sin fecha limite fija. Luisa Santos (lsantos@santiagocastilloltd.com) respondera despues de verificar ajustes que cree compartieron. Angelo fuera hasta lunes16 noviembre; esa fecha NO es vencimiento. Responsable seguimiento HB; estado esperando respuesta Luisa. Despues revisar ajustes con Clint y decidir respuesta. No se acepta acuerdo ni volumen, no se envia correo.
+
+Fuente: Outlook SMJ, hilo Distribution Agreement - 3 Year Forecast | Santiago Castillo (Belize). Luisa10nov recibido11:09/enviado11:08; Olivia citado10:02/recibido11:02; zona de interfaz no verificada. Hilo completo leido, sin respuesta posterior observada en la revision.
+
+Seguimiento unico ID e7cfc6c6-1fa8-487f-bc90-f573908b35d8, conservado desde Task Manager anterior y reflejado en /tasks dentro de este distribuidor. No constituye una tarea adicional.
