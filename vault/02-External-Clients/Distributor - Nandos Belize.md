@@ -2,9 +2,13 @@
 id: dist-nandos-belize
 title: "Distributor: Nando's Wholesale LLP (Belize)"
 type: distributor
+operator_subtype: wholesaler
 memory_tier: long_term
 company_name: NANDO'S WHOLESALE LLP
 market: "[[Market - Belize]]"
+spatial_anchor: market-belize
+spatial_tier: operator
+channel_type: wholesale
 based_in_country: Belize
 verification_status: user_confirmed_distributor_email_and_shipping_documents_observed
 updated_at: 2026-11-10T14:03:51.892Z

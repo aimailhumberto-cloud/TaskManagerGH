@@ -2,6 +2,9 @@
 id: dist-sancas-belize
 title: "Distributor: SanCas (Belize)"
 type: distributor
+operator_subtype: exclusive_distributor
+spatial_anchor: market-belize
+spatial_tier: operator
 memory_tier: long_term
 company_name: Santiago Castillo Ltd. (SanCas)
 legal_name: Santiago Castillo Limited
