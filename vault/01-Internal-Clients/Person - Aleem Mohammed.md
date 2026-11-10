@@ -10,12 +10,15 @@ aliases:
 - Dr. Mohamed
 - Doctor Mohammed
 job_title: Chairman
+hierarchy_level: 0
 entity_scope: internal
 organization: '[[Core - S.M. Jaleel & Co. Ltd.]]'
 relations:
   chairman_of:
   - '[[Core - S.M. Jaleel & Co. Ltd.]]'
   spouse:
+  - '[[Person - Anna Mohammed]]'
+  supervises:
   - '[[Person - Anna Mohammed]]'
 verification_status: Chairman confirmed by HB 2026-11-09; official search index and 2024 press corroborate
 source_urls:
