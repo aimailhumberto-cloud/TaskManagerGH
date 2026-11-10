@@ -8,34 +8,47 @@ location: "South Oropouche, Trinidad & Tobago"
 core_functions:
   - "Programación de líneas de embotellado PET, Tetra Pak y Latas"
   - "Fabricación y soplado in-house de botellas Chubby"
-  - "Cumplimiento de Buenas Prácticas de Manufactura (GMP) y certificaciones internacionales HACCP/ISO"
+  - "Cumplimiento de Buenas Prácticas de Manufactura (GMP) y certificaciones
+    internacionales HACCP/ISO"
 sla_production_days: 21
 completeness_score: 95
 is_active: true
 verification_status: confirmed_official_corporate
 last_updated_at: "2026-11-10T10:00:00Z"
 last_updated_by: "DOTS Agent"
-last_email_subject: "Programación de corrida de producción Chubby 250ml y Fruta 1L para exportación"
+last_email_subject: "Programación de corrida de producción Chubby 250ml y Fruta
+  1L para exportación"
 last_email_date: "2026-11-09"
 last_email_sender: "Dirección de Operaciones de Planta Trinidad"
 next_followup_date: "2026-11-16"
-next_followup_action: "Mantenimiento preventivo programado en línea de soplado PET e inspección de calidad"
+next_followup_action: "Mantenimiento preventivo programado en línea de soplado
+  PET e inspección de calidad"
 gallery_photos:
   - /brands/manufacturing-banner.jpg
   - /brands/manufacturing-line-1.jpg
   - /brands/manufacturing-line-2.jpg
-visual_logo_url: "/smj-verified/3837381613fc476d56aa4315d0d08cac57497fd8aecb3481ce79a3a323eb29a8.png"
-executive_observations: "Complejo industrial central de manufactura y embotellado de S.M. Jaleel en Otaheite Industrial Estate, South Oropouche. Alberga líneas de alta velocidad para soplado PET in-house de botellas Chubby, envasado aséptico Tetra Pak de jugos Fruta, enlatado de refrescos Busta y Altitude, y planta de purificación y mineralización de agua Oasis con certificaciones internacionales HACCP e ISO."
+visual_logo_url: "/smj-verified/3837381613fc476d56aa4315d0d08cac57497fd8aecb348\
+  1ce79a3a323eb29a8.png"
+executive_observations: "Complejo industrial central de manufactura y
+  embotellado de S.M. Jaleel en Otaheite Industrial Estate, South Oropouche.
+  Alberga líneas de alta velocidad para soplado PET in-house de botellas Chubby,
+  envasado aséptico Tetra Pak de jugos Fruta, enlatado de refrescos Busta y
+  Altitude, y planta de purificación y mineralización de agua Oasis con
+  certificaciones internacionales HACCP e ISO."
 recent_actions:
   - date: "2026-11-09"
     type: programacion_planta
-    summary: Asignación de turnos continuos 24/7 para corrida de 50,000 cajas de Chubby sabores Banana y Orange Tango.
+    summary: Asignación de turnos continuos 24/7 para corrida de 50,000 cajas de
+      Chubby sabores Banana y Orange Tango.
   - date: "2026-11-08"
     type: control_calidad
-    summary: Certificación de inocuidad microbiológica y pruebas de hermeticidad de tapas rosca en lote de exportación.
+    summary: Certificación de inocuidad microbiológica y pruebas de hermeticidad de
+      tapas rosca en lote de exportación.
 pending_tasks:
-  - Verificar disponibilidad de bobinas de etiquetas retráctiles y cajas corrugadas en bodega.
-  - Coordinar entrega de producto terminado a la plataforma de carga de contenedores para Point Lisas.
+  - Verificar disponibilidad de bobinas de etiquetas retráctiles y cajas
+    corrugadas en bodega.
+  - Coordinar entrega de producto terminado a la plataforma de carga de
+    contenedores para Point Lisas.
 direct_contacts:
   phone: "+1 868 677 7523"
   email: "plant.operations@smjaleel.com"
@@ -53,6 +66,8 @@ relations:
     - "[[Brand - Fruta]]"
     - "[[Brand - Oasis]]"
     - "[[Brand - Altitude]]"
+  observed_contacts:
+    - "[[Person - Humberto Jose Montoya Borja]]"
 updated_at: "2026-11-10T10:00:00Z"
 ---
 

@@ -7,34 +7,46 @@ headquarters: "Otaheite Industrial Estate, South Oropouche, Trinidad & Tobago"
 location: "South Oropouche, Trinidad & Tobago / Regional Hubs"
 core_functions:
   - "Estrategia comercial de exportación y apertura de mercados internacionales"
-  - "Gestión de contratos de distribución, scorecards de distribuidores y precios FOB/CIF"
+  - "Gestión de contratos de distribución, scorecards de distribuidores y
+    precios FOB/CIF"
   - "Supervisión de cuotas de volumen mensual (Sell-In y Sell-Out)"
 completeness_score: 95
 is_active: true
 verification_status: confirmed_official_corporate
 last_updated_at: "2026-11-10T10:00:00Z"
 last_updated_by: "DOTS Agent"
-last_email_subject: "Revisión de cuotas de exportación Q4 y asignación de contenedores Centroamérica y Caribe"
+last_email_subject: "Revisión de cuotas de exportación Q4 y asignación de
+  contenedores Centroamérica y Caribe"
 last_email_date: "2026-11-09"
 last_email_sender: "Clint Villafana / VP International Exports"
 next_followup_date: "2026-11-15"
-next_followup_action: "Reunión de alineación mensual con gerentes de distribución regional y revisión de scorecards"
+next_followup_action: "Reunión de alineación mensual con gerentes de
+  distribución regional y revisión de scorecards"
 gallery_photos:
   - /brands/smjaleel-logo.png
   - /brands/manufacturing-banner.jpg
   - /brands/chubby-bottles.png
-visual_logo_url: "/smj-verified/3837381613fc476d56aa4315d0d08cac57497fd8aecb3481ce79a3a323eb29a8.png"
-executive_observations: "Dirección corporativa encargada de liderar la estrategia comercial internacional, fijación de precios FOB/CIF, acuerdos de distribución exclusiva y cumplimiento de metas de volumen en más de 60 países. Conduce la relación con distribuidores clave (como MEDIMEX en Panamá, SanCas en Belice, Walton & Post en EE. UU. y Morgan Williams en Canadá)."
+visual_logo_url: "/smj-verified/3837381613fc476d56aa4315d0d08cac57497fd8aecb348\
+  1ce79a3a323eb29a8.png"
+executive_observations: "Dirección corporativa encargada de liderar la
+  estrategia comercial internacional, fijación de precios FOB/CIF, acuerdos de
+  distribución exclusiva y cumplimiento de metas de volumen en más de 60 países.
+  Conduce la relación con distribuidores clave (como MEDIMEX en Panamá, SanCas
+  en Belice, Walton & Post en EE. UU. y Morgan Williams en Canadá)."
 recent_actions:
   - date: "2026-11-09"
     type: comite_exportaciones
-    summary: Aprobación de asignación de cuota de 15 contenedores para distribuidores de Centroamérica.
+    summary: Aprobación de asignación de cuota de 15 contenedores para
+      distribuidores de Centroamérica.
   - date: "2026-11-08"
     type: negociacion_tarifas
-    summary: Revisión de fletes marítimos consolidados Point Lisas - Manzanillo con líneas navieras.
+    summary: Revisión de fletes marítimos consolidados Point Lisas - Manzanillo con
+      líneas navieras.
 pending_tasks:
-  - Consolidar el scorecard trimestral de rotación Sell-In / Sell-Out por distribuidor.
-  - Formalizar contratos de exclusividad y metas anuales 2027 para Centroamérica y el Caribe.
+  - Consolidar el scorecard trimestral de rotación Sell-In / Sell-Out por
+    distribuidor.
+  - Formalizar contratos de exclusividad y metas anuales 2027 para Centroamérica
+    y el Caribe.
 direct_contacts:
   phone: "+1 868 677 7523"
   email: "exports@smjaleel.com"
@@ -51,6 +63,16 @@ relations:
     - "[[Distributor - SanCas Belize]]"
     - "[[Distributor - Walton and Post]]"
     - "[[Distributor - Morgan Williams]]"
+  observed_contacts:
+    - "[[Person - Clint Villafana]]"
+    - "[[Person - Alanna Ramjattan]]"
+    - "[[Person - Emily Sinanan]]"
+    - "[[Person - Humberto Bouche]]"
+    - "[[Person - Ivan Saroop]]"
+    - "[[Person - Olivia Rampersad]]"
+    - "[[Person - Rena Rahaman]]"
+    - "[[Person - Richard Williams]]"
+    - "[[Person - Tevin Bijadder]]"
 updated_at: "2026-11-10T10:00:00Z"
 ---
 
