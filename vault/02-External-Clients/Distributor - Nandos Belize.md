@@ -6,8 +6,8 @@ memory_tier: long_term
 company_name: NANDO'S WHOLESALE LLP
 market: "[[Market - Belize]]"
 based_in_country: Belize
-verification_status: user_confirmed_distributor_email_observed
-updated_at: 2026-11-10T13:56:05.120Z
+verification_status: user_confirmed_distributor_email_and_shipping_documents_observed
+updated_at: 2026-11-10T14:03:51.892Z
 source_email_subject: "Fw: NANDO'S WHOLESALE LLP CONFIRMED SAILING - CMA CGM (10.08.2026)"
 source_email_forward_date: 2026-11-10
 source_email_original_date: 2026-08-11
@@ -30,7 +30,7 @@ tags:
 # Nando's Wholesale LLP - Belize
 
 ## Identidad y alcance comprobados
-HB identifico expresamente el 10 noviembre 2026 a Nando como segundo distribuidor de Belice, distinto de Santiago Castillo/SanCas, y solicito crear la ficha con la informacion del correo completo. El nombre NANDO'S WHOLESALE LLP figura en el asunto. No se ha comprobado razon social registral, domicilio, cargos, jerarquia, exclusividad ni condiciones comerciales.
+HB identifico expresamente el 10 noviembre 2026 a Nando como segundo distribuidor de Belice, distinto de Santiago Castillo/SanCas, y solicito crear la ficha con la informacion del correo completo. El nombre NANDO'S WHOLESALE LLP figura en el asunto. No se ha comprobado inscripcion registral, cargos, jerarquia ni exclusividad. Domicilio y condiciones del embarque historico se verificaron despues en los PDF; no se extrapolan a condiciones actuales.
 
 ## Fuente y procedencia
 Correo de la cuenta corporativa humberto.bouche@smjaleel.com, reenviado por Olivia Rampersad el 10 noviembre 2026 a las 08:40 (recibido 08:41, hora Panama). Texto: 'Hi Humberto, Please see below: invoice for Nando. Regards, Olivia'. Hilo completo leido en Outlook por el trabajador de archivo el mismo dia. Fuente original: Rebecca Sukal <rebecca.sukal@smjaleel.com>, 11 agosto 2026 10:00, dirigido a purchasing@cnldistributors.com y nandos@nandos.bz. CNL es destinatario operativo observado; NO se ha probado equivalencia corporativa con Nandos ni se fusionan entidades.
@@ -47,7 +47,31 @@ Correo de la cuenta corporativa humberto.bouche@smjaleel.com, reenviado por Oliv
 Trabajador verifico copias locales corporativas y hashes iguales a descargas en HBLaptop:
 - OneDrive - S.M. Jaleel & Company Limited/Attachments/Belize/Nandos/SMJPM31592 rev1.pdf (480754 bytes).
 - Misma carpeta: NANDOS  - CMA BL - SMJPM31592.pdf (143576 bytes).
-Interior de ambos PDF pendiente de lectura en esta consolidacion; no se extraen importes ni condiciones no revisadas. Sincronizacion remota OneDrive no comprobada aqui. Existe carpeta previa Handover/2026-11-09; su contenido no fue usado como evidencia en esta ficha.
+Actualizacion: interior de ambos PDF leido y contrastado por el trabajador analizar_adjuntos_belice el 10 noviembre 2026; detalle y limitaciones abajo. Sincronizacion remota OneDrive no comprobada aqui. Existe carpeta previa Handover/2026-11-09; su contenido no fue usado como evidencia en esta ficha.
 
 ## Incertidumbres y accion
 FOC fue mencionado oralmente por HB, sin significado confirmado: no se interpreta como free of charge. No se crea pago, tarea ni evento a partir de una factura historica o de un certificado pendiente en agosto. Se conserva la distincion con [[Distributor - SanCas Belize]]; cualquier exclusividad previamente atribuida a SanCas debe validarse por alcance de marca/canal y contrato antes de aplicarse a todo Belice.
+
+
+## Verificacion documental del embarque - 2026-11-10
+Fuentes: PDF corporativos enumerados arriba, lectura interna por analizar_adjuntos_belice; BL completo de dos paginas mediante texto y mapas Unicode. Esta ampliacion sustituye el estado previo de lectura pendiente conservado en respaldo.
+
+### Factura SMJPM31592 rev1
+- Fecha 4 agosto 2026; pedido 40031592.
+- Consignatario NANDO\'S WHOLESALE LLP; domicilio consignado 5 Miles George Price Highway, Belize City, Belize.
+- Comprador consignado SMJ Procurement & Marketing Inc.; origen Trinidad & Tobago, destino Belize.
+- 1x20 pies, 1352 cajas; ex-factory USD 5958.64, total CIF USD 9609.53.
+- Condicion literal 30 DAYS BL. Es condicion de este documento historico, no prueba de deuda pendiente ni fecha actual exigible.
+- Lineas observadas: Classic Cola 355ml; Cole Cold Banana/Grape/KolaChampion/Pear/Pineapple 355ml (132 cajas por linea); Cole Cold Cream Soda/Grape 2L (91 cajas por linea); Juciful Kids Apple/Fruit Punch 200ml (189 cajas por linea).
+- Discrepancia preservada: correo menciona Classic 500ml; factura identifica Classic Cola 355ml. No se corrige silenciosamente ni se infiere una nueva presentacion.
+
+### Sea waybill PSP0206343
+- Documento no negociable, emitido 10 agosto 2026 en Port of Spain; embarcado LILA HAREN el mismo dia, viaje 0AGLGN1MA.
+- Ruta Point Lisas a Belize City; Nandos Wholesale LLP como consignatario y notify, mismo domicilio.
+- Contenedor ECMU2914893, sello M0315444, 1x20ST, 1352 cajas assorted beverages.
+- Peso 11934.820 kg, tara 2160 kg, volumen 25 m3.
+- Freight, DTHC y OTHC figuran PREPAID. Esto no acredita pago total de factura ni saldo actual.
+- Referencias SMJPM31592 y pedido 40031592.
+
+### Limites de conclusion
+Los documentos prueban factura y embarque historicos, no recepcion final, liquidacion, saldo, obligacion actual de HB o identidad CNL=Nandos. No se crearon tareas, pagos ni eventos. Terminos y domicilio quedan atribuidos a estos documentos de agosto, pendientes de confirmar si se necesitan como datos vigentes.
