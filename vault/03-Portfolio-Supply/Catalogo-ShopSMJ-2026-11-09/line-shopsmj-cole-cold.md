@@ -27,6 +27,17 @@ visual_rights: "Internal reference; reuse license not established"
 visual_logo_url: "/smj-verified/407f68694cbfd8f50bf77523f14d6bc1f61f48b691ee276b4f106a6beb4722f4.png"
 gallery_photos:
   - "/smj-verified/407f68694cbfd8f50bf77523f14d6bc1f61f48b691ee276b4f106a6beb4722f4.png"
+visual_photo_url: "https://cdn.shopify.com/s/files/1/1302/2643/files/Cole_Cold_copy.png?v=1726749785"
+visual_photo_asset_id: "SHOP-LINE-cole-cold-370ml-IMAGE-38523438923938"
+visual_photo_source_url: "https://shopsmj.com/products/cole-cold-370ml"
+visual_photo_original_image_url: "https://cdn.shopify.com/s/files/1/1302/2643/files/Cole_Cold_copy.png?v=1726749785"
+visual_photo_sha256: "f9a9ffca5da05811c23ee6ac4ef8be88fcff3717ff8d0352c96d431af938766e"
+visual_photo_scope: "official_product_line_listing_image"
+visual_photo_evidence: "ShopSMJ primary product listing image for exact handle cole-cold-370ml; family/range image only, not an individual SKU or multipack photograph."
+visual_photo_rights: "Unknown; official public source, no blanket reuse license established"
+visual_photo_verified_on: "2026-11-09"
+visual_photo_verification_status: "source_identity_and_image_bytes_verified; actual_UI_visibility_checked_separately"
+visual_photo_catalog_snapshot_sha256: "55bf4f2b6950ca08f5580fd254452d793c585f3e6f47ebef104c90bc816a17b5"
 ---
 
 # Linea: Cole Cold

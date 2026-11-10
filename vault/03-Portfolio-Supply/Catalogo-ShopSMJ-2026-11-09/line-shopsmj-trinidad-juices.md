@@ -27,6 +27,17 @@ visual_rights: "Internal reference; reuse license not established"
 visual_logo_url: "/smj-verified/a1a7c61452a184240ecb1c08d7874a413769122c8976ff2d99b21498ade1a00c.png"
 gallery_photos:
   - "/smj-verified/a1a7c61452a184240ecb1c08d7874a413769122c8976ff2d99b21498ade1a00c.png"
+visual_photo_url: "https://cdn.shopify.com/s/files/1/1302/2643/files/Trinidad_Juices_copy.png?v=1726749994"
+visual_photo_asset_id: "SHOP-LINE-trinidad-juices-20-oz-IMAGE-38523447247010"
+visual_photo_source_url: "https://shopsmj.com/products/trinidad-juices-20-oz"
+visual_photo_original_image_url: "https://cdn.shopify.com/s/files/1/1302/2643/files/Trinidad_Juices_copy.png?v=1726749994"
+visual_photo_sha256: "c411df08df338f01656bcb0940ba5fe1bf26788752d50e875256ca8a978590f3"
+visual_photo_scope: "official_product_line_listing_image"
+visual_photo_evidence: "ShopSMJ primary product listing image for exact handle trinidad-juices-20-oz; family/range image only, not an individual SKU or multipack photograph."
+visual_photo_rights: "Unknown; official public source, no blanket reuse license established"
+visual_photo_verified_on: "2026-11-09"
+visual_photo_verification_status: "source_identity_and_image_bytes_verified; actual_UI_visibility_checked_separately"
+visual_photo_catalog_snapshot_sha256: "55bf4f2b6950ca08f5580fd254452d793c585f3e6f47ebef104c90bc816a17b5"
 ---
 
 # Linea: Trinidad Juices

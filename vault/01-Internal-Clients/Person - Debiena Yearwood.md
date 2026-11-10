@@ -1,19 +1,51 @@
 ---
 id: person-debiena-yearwood
-title: "Person: Debiena Yearwood"
+title: 'Person: Debiena Yearwood'
 type: person
 memory_tier: long_term
-email_primary: "exports@smjpm.com"
-job_title: "Accounts & Exports Assistant Manager"
-organization: "SMJ Procurement & Marketing Inc."
-source: "Recopilacion SMJ v4 2026-11-09; SHA256 dfc0978685ded763e057e7f407a9b8b17dc95b20309e2093002490ba72b022e8; insumos/carga-inicial-2026-11-09/SM_Jaleel_recopilacion_2026-11-09.md"
+email_primary: exports@smjpm.com
+job_title: Accounts & Exports Assistant Manager
+organization: SMJ Procurement & Marketing Inc.
+source: Recopilacion SMJ v4 2026-11-09; SHA256 dfc0978685ded763e057e7f407a9b8b17dc95b20309e2093002490ba72b022e8; insumos/carga-inicial-2026-11-09/SM_Jaleel_recopilacion_2026-11-09.md
 verification_status: source_observed_fields_only
 tags:
-  - smj
-  - contacto-documentado
+- smj
+- contacto-documentado
 relations:
   signature_company:
-    - "organization-smj-procurement-marketing-inc"
+  - organization-smj-procurement-marketing-inc
+  sent_professional_email_to:
+  - '[[Person - Humberto Bouche]]'
+person_evidence_audit:
+  audited_at_utc: '2026-11-09T22:54:20.616654+00:00'
+  source_cutoff: '2026-11-09'
+  status: field_level_audit_completed
+  verified_or_source_observed_fields:
+    job_title:
+      status: observed
+      source_ids:
+      - MAIL-DEBIENA
+    email_primary:
+      status: observed_professional_address
+      source_ids:
+      - DOC-01
+    organization:
+      status: observed_signature_affiliation_not_legal_employer_contract
+      source_ids:
+      - DOC-01
+  unverified_legacy_fields: {}
+  missing_fields:
+  - manager
+  relationship_evidence:
+  - relation_type: sent_professional_email_to
+    target_id: person-humberto-bouche
+    evidence_class: recorded_email_context
+    source_ids:
+    - DOC-01
+    observed_date: '2026-11-09'
+    limits: Recorded direct email of 9 Nov; professional correspondence only.
+  audit_report_folder: C:\Users\Usuario\Documents\SM Jaleel\outputs\People_Connectivity_Audit_20261109T224544Z
+  no_whole_profile_verification_claim: true
 ---
 
 # Debiena Yearwood
@@ -54,3 +86,9 @@ No legal ownership percentages, current factory function, or HB employer inferre
   "proposed_action": "append_evidence_after_identity_match",
   "reused_relation_id": null
 }
+
+
+## Person and connection audit - 2026-11-09
+- Uncorroborated legacy fields and legacy completeness percentages remain unverified; see person_evidence_audit. Historical text and aliases are preserved.
+Sources: C:\Users\Usuario\Downloads\SMJaleel\insumos\carga-inicial-2026-11-09\SM_Jaleel_organigrama_observado_2026-11-09.md; C:\Users\Usuario\Downloads\SMJaleel\insumos\carga-inicial-2026-11-09\SM_Jaleel_recopilacion_2026-11-09.md.
+Professional contexts are not employment, market ownership or hierarchy. No live deployment or code change is part of this update.

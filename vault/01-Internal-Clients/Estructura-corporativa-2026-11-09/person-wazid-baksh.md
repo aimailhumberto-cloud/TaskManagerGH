@@ -1,18 +1,46 @@
 ---
 id: person-wazid-baksh
-title: "Wazid Baksh"
+title: Wazid Baksh
 type: person
 memory_tier: long_term
 status: source_observed
-observed_on: 2026-11-09
+observed_on: '2026-11-09'
 source: SMJ_Corporate_Structure_2026-11-09
 registry_verified: false
 tags:
-  - smj
-  - estructura-documentada
+- smj
+- estructura-documentada
 relations:
   public_regional_sales_contact:
-    - "group-smj-group"
+  - group-smj-group
+  published_us_contact_context:
+  - '[[Market - United States]]'
+job_title: Vice President Sales North America
+job_title_validity: published_2025_not_internally_revalidated
+person_evidence_audit:
+  audited_at_utc: '2026-11-09T22:54:20.616654+00:00'
+  source_cutoff: '2026-11-09'
+  status: field_level_audit_completed
+  verified_or_source_observed_fields:
+    job_title:
+      status: observed
+      source_ids:
+      - DOC-01
+      - PUB-USA
+  unverified_legacy_fields: {}
+  missing_fields:
+  - email_primary
+  - manager
+  relationship_evidence:
+  - relation_type: published_us_contact_context
+    target_id: market-united-states
+    evidence_class: published_contact_context
+    source_ids:
+    - PUB-USA
+    observed_date: '2026-11-09'
+    limits: Official USA page; no manager or contractual coverage inferred.
+  audit_report_folder: C:\Users\Usuario\Documents\SM Jaleel\outputs\People_Connectivity_Audit_20261109T224544Z
+  no_whole_profile_verification_claim: true
 ---
 
 # Wazid Baksh
@@ -77,3 +105,9 @@ No legal ownership percentages, current factory function, or HB employer inferre
   "proposed_action": "append_evidence_after_identity_match",
   "reused_relation_id": null
 }
+
+
+## Person and connection audit - 2026-11-09
+- Uncorroborated legacy fields and legacy completeness percentages remain unverified; see person_evidence_audit. Historical text and aliases are preserved.
+Sources: C:\Users\Usuario\Downloads\SMJaleel\insumos\carga-inicial-2026-11-09\SM_Jaleel_organigrama_observado_2026-11-09.md; C:\Users\Usuario\Downloads\SMJaleel\insumos\carga-inicial-2026-11-09\SM_Jaleel_recopilacion_2026-11-09.md.
+Professional contexts are not employment, market ownership or hierarchy. No live deployment or code change is part of this update.

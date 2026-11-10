@@ -29,6 +29,17 @@ visual_rights: "Internal reference; reuse license not established"
 visual_logo_url: "/smj-verified/285e2ebb60326a03fc282ba1e65b7515de67a8f45c8ba4e0f914680e0f1d1642.png"
 gallery_photos:
   - "/smj-verified/285e2ebb60326a03fc282ba1e65b7515de67a8f45c8ba4e0f914680e0f1d1642.png"
+visual_photo_url: "https://cdn.shopify.com/s/files/1/1302/2643/files/Chubby_copy_edf8cdf0-30b8-407e-905c-c1ddc965309d.png?v=1753455932"
+visual_photo_asset_id: "SHOP-LINE-chubby-IMAGE-41427848659106"
+visual_photo_source_url: "https://shopsmj.com/products/chubby"
+visual_photo_original_image_url: "https://cdn.shopify.com/s/files/1/1302/2643/files/Chubby_copy_edf8cdf0-30b8-407e-905c-c1ddc965309d.png?v=1753455932"
+visual_photo_sha256: "ef5ed73aeab9168387d694ea89ce4ccbd963c77dffb20ff58737a4190348c106"
+visual_photo_scope: "official_product_line_listing_image"
+visual_photo_evidence: "ShopSMJ primary product listing image for exact handle chubby; family/range image only, not an individual SKU or multipack photograph."
+visual_photo_rights: "Unknown; official public source, no blanket reuse license established"
+visual_photo_verified_on: "2026-11-09"
+visual_photo_verification_status: "source_identity_and_image_bytes_verified; actual_UI_visibility_checked_separately"
+visual_photo_catalog_snapshot_sha256: "55bf4f2b6950ca08f5580fd254452d793c585f3e6f47ebef104c90bc816a17b5"
 ---
 
 # Linea: Chubby

@@ -27,6 +27,17 @@ visual_rights: "Internal reference; reuse license not established"
 visual_logo_url: "/smj-verified/cd3137634a3b4a420334cef6f7d5bbd4a345aec40d1f5d772dab592eb4cb4da6.png"
 gallery_photos:
   - "/smj-verified/cd3137634a3b4a420334cef6f7d5bbd4a345aec40d1f5d772dab592eb4cb4da6.png"
+visual_photo_url: "https://cdn.shopify.com/s/files/1/1302/2643/files/Untitleddesign_1.png?v=1744646361"
+visual_photo_asset_id: "SHOP-LINE-turbo-IMAGE-40364585320610"
+visual_photo_source_url: "https://shopsmj.com/products/turbo"
+visual_photo_original_image_url: "https://cdn.shopify.com/s/files/1/1302/2643/files/Untitleddesign_1.png?v=1744646361"
+visual_photo_sha256: "09e1f22164b417bff3e6649b28e52189c9c559b1ff0685b11e75d677f52df8c4"
+visual_photo_scope: "official_product_line_listing_image"
+visual_photo_evidence: "ShopSMJ primary product listing image for exact handle turbo; family/range image only, not an individual SKU or multipack photograph."
+visual_photo_rights: "Unknown; official public source, no blanket reuse license established"
+visual_photo_verified_on: "2026-11-09"
+visual_photo_verification_status: "source_identity_and_image_bytes_verified; actual_UI_visibility_checked_separately"
+visual_photo_catalog_snapshot_sha256: "55bf4f2b6950ca08f5580fd254452d793c585f3e6f47ebef104c90bc816a17b5"
 ---
 
 # Linea: Turbo

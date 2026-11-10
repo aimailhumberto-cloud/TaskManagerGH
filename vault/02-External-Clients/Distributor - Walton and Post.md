@@ -25,6 +25,16 @@ relations:
     - "[[Market - United States]]"
   managed_by_role:
 updated_at: "2026-11-09T13:21:00-05:00"
+visual_logo_url: "https://www.waltonpost.com/Portals/0/ThemePluginPro/uploads/2024/1/29/WPL2.png"
+visual_logo_asset_id: "WALTON-OFFICIAL-HEADER-20261109"
+visual_logo_source_url: "https://www.waltonpost.com/en-us/"
+visual_logo_original_image_url: "https://www.waltonpost.com/Portals/0/ThemePluginPro/uploads/2024/1/29/WPL2.png"
+visual_logo_sha256: "9da69665713051f76e360554f707e7feceaab56364beb9e002f4e42d957a2281"
+visual_logo_scope: "verified_company_logo"
+visual_logo_evidence: "Official Walton & Post header logo; identity only, no new SMJ contract or territory inferred."
+visual_logo_rights: "Unknown; official public source, no blanket reuse license established"
+visual_logo_verified_on: "2026-11-09"
+visual_logo_verification_status: "source_identity_and_image_bytes_verified; actual_UI_visibility_checked_separately"
 ---
 
 # Walton and Post Inc. (Master Distributor USA)

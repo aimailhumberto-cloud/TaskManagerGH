@@ -27,6 +27,17 @@ visual_rights: "Internal reference; reuse license not established"
 visual_logo_url: "/smj-verified/2d6c0b3bcb83a7f066ba17dc9a43aff4d2e3a9534c4425e2185d6d6e0d3dcdbd.png"
 gallery_photos:
   - "/smj-verified/2d6c0b3bcb83a7f066ba17dc9a43aff4d2e3a9534c4425e2185d6d6e0d3dcdbd.png"
+visual_photo_url: "https://cdn.shopify.com/s/files/1/1302/2643/files/Viva_copy_16eaf174-eb2d-4825-af28-15c496274e43.png?v=1753455872"
+visual_photo_asset_id: "SHOP-LINE-viva-350-ml-IMAGE-41427848757410"
+visual_photo_source_url: "https://shopsmj.com/products/viva-350-ml"
+visual_photo_original_image_url: "https://cdn.shopify.com/s/files/1/1302/2643/files/Viva_copy_16eaf174-eb2d-4825-af28-15c496274e43.png?v=1753455872"
+visual_photo_sha256: "00aed7795651afca94bf541d9d11ac26b3d51501daedcce95cfa587086babb2e"
+visual_photo_scope: "official_product_line_listing_image"
+visual_photo_evidence: "ShopSMJ primary product listing image for exact handle viva-350-ml; family/range image only, not an individual SKU or multipack photograph."
+visual_photo_rights: "Unknown; official public source, no blanket reuse license established"
+visual_photo_verified_on: "2026-11-09"
+visual_photo_verification_status: "source_identity_and_image_bytes_verified; actual_UI_visibility_checked_separately"
+visual_photo_catalog_snapshot_sha256: "55bf4f2b6950ca08f5580fd254452d793c585f3e6f47ebef104c90bc816a17b5"
 ---
 
 # Linea: VIVA

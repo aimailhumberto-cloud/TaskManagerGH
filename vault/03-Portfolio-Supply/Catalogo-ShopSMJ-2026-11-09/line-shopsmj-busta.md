@@ -29,6 +29,17 @@ visual_rights: "Internal reference; reuse license not established"
 visual_logo_url: "/smj-verified/9f334a294bed44890685756c4036aba8ff3933003995d327e408aeaf2382a0e9.png"
 gallery_photos:
   - "/smj-verified/9f334a294bed44890685756c4036aba8ff3933003995d327e408aeaf2382a0e9.png"
+visual_photo_url: "https://cdn.shopify.com/s/files/1/1302/2643/files/Busta_copy.png?v=1726749007"
+visual_photo_asset_id: "SHOP-LINE-busta-1-IMAGE-38523391967394"
+visual_photo_source_url: "https://shopsmj.com/products/busta-1"
+visual_photo_original_image_url: "https://cdn.shopify.com/s/files/1/1302/2643/files/Busta_copy.png?v=1726749007"
+visual_photo_sha256: "186d39dbbcccf2307ba1cde4eb3c27e884eb298064125649afaadbc78a63370b"
+visual_photo_scope: "official_product_line_listing_image"
+visual_photo_evidence: "ShopSMJ primary product listing image for exact handle busta-1; family/range image only, not an individual SKU or multipack photograph."
+visual_photo_rights: "Unknown; official public source, no blanket reuse license established"
+visual_photo_verified_on: "2026-11-09"
+visual_photo_verification_status: "source_identity_and_image_bytes_verified; actual_UI_visibility_checked_separately"
+visual_photo_catalog_snapshot_sha256: "55bf4f2b6950ca08f5580fd254452d793c585f3e6f47ebef104c90bc816a17b5"
 ---
 
 # Linea: Busta

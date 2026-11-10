@@ -27,6 +27,17 @@ visual_rights: "Internal reference; reuse license not established"
 visual_logo_url: "/smj-verified/86ed05260ff0fcc6ee3258b82c5c72fe9acd6e48792ccf272b09c8f8597cb952.png"
 gallery_photos:
   - "/smj-verified/86ed05260ff0fcc6ee3258b82c5c72fe9acd6e48792ccf272b09c8f8597cb952.png"
+visual_photo_url: "https://cdn.shopify.com/s/files/1/1302/2643/files/CC.png?v=1787675889"
+visual_photo_asset_id: "SHOP-LINE-caribbean-cool-IMAGE-47232267321506"
+visual_photo_source_url: "https://shopsmj.com/products/caribbean-cool"
+visual_photo_original_image_url: "https://cdn.shopify.com/s/files/1/1302/2643/files/CC.png?v=1787675889"
+visual_photo_sha256: "b6e36a4af6e6d463887d7cf06d92f5d66bc0050edf7e181dd5663c3f3b45d0f6"
+visual_photo_scope: "official_product_line_listing_image"
+visual_photo_evidence: "ShopSMJ primary product listing image for exact handle caribbean-cool; family/range image only, not an individual SKU or multipack photograph."
+visual_photo_rights: "Unknown; official public source, no blanket reuse license established"
+visual_photo_verified_on: "2026-11-09"
+visual_photo_verification_status: "source_identity_and_image_bytes_verified; actual_UI_visibility_checked_separately"
+visual_photo_catalog_snapshot_sha256: "55bf4f2b6950ca08f5580fd254452d793c585f3e6f47ebef104c90bc816a17b5"
 ---
 
 # Linea: Caribbean Cool
