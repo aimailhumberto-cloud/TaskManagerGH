@@ -98,25 +98,173 @@ function formatDisplayValue(val: any): string {
   return String(val);
 }
 
-function renderFormattedBody(body: string) {
+// Balanced-bracket scanner to strip simple and arbitrarily nested JSON blocks { ... }
+function stripJsonBlocks(text: string): string {
+  let result = '';
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === '{') {
+      let depth = 1;
+      let j = i + 1;
+      let inString = false;
+      let escape = false;
+      while (j < text.length && depth > 0) {
+        const char = text[j];
+        if (escape) {
+          escape = false;
+        } else if (char === '\\') {
+          escape = true;
+        } else if (char === '"') {
+          inString = !inString;
+        } else if (!inString) {
+          if (char === '{') depth++;
+          else if (char === '}') depth--;
+        }
+        j++;
+      }
+      if (depth === 0) {
+        const candidate = text.slice(i, j);
+        if (candidate.includes('"') && (candidate.includes(':') || candidate.includes('id'))) {
+          i = j;
+          continue;
+        }
+      }
+    }
+    result += text[i];
+    i++;
+  }
+  return result;
+}
+
+const TECHNICAL_HEADER_REGEX = /^##\s+(?:Corporate evidence batch|Visual sources associated|Person and connection audit|Archivo de roles aprobado|Evidence and limits|Source attributes|Sources|Evidence boundary audit|Evidencia y limites|Fuente y limites|Verified Canada operation|Official catalogue evidence|Additional sourced catalogue|Additional local pickup|Brand identity relation|Logo oficial)/i;
+
+const FORENSIC_NOISE_LINE_REGEX = /^(?:Source package:|Sources:|No legal ownership percentages|Verified local bytes|Research identity:|Observed 2026-11-09|Uncorroborated legacy fields|Professional contexts are not|No live deployment|Recopilacion SMJ|Solo datos explicitamente transcritos|SHA256)/i;
+
+function renderInlineWithWikilinks(text: string, onWikilinkClick?: (target: string) => void) {
+  const parts = text.split(/(\[\[.*?\]\])/g);
+  return parts.map((part, index) => {
+    const match = part.match(/^\[\[(.*?)\]\]$/);
+    if (!match) return <React.Fragment key={index}>{part}</React.Fragment>;
+    const raw = match[1];
+    const [target, alias] = raw.split('|');
+    const cleanTarget = target.trim();
+    const display = (alias || target).trim();
+
+    return (
+      <button
+        key={index}
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (onWikilinkClick) {
+            onWikilinkClick(cleanTarget);
+          } else if (typeof window !== 'undefined') {
+            const globalHandler = (window as any).handleWikilinkClick || (window as any).__cerebroHandleWikilinkClick;
+            if (typeof globalHandler === 'function') {
+              globalHandler(cleanTarget);
+            } else {
+              const buttons = Array.from(document.querySelectorAll('button'));
+              const cleanLower = cleanTarget.toLowerCase();
+              const targetBtn = buttons.find(b => {
+                const btnText = b.textContent?.trim().toLowerCase() || '';
+                return btnText === `[[${cleanLower}]]` || btnText === cleanLower;
+              });
+              if (targetBtn && targetBtn !== e.currentTarget) {
+                targetBtn.click();
+              } else {
+                window.dispatchEvent(new CustomEvent('cerebro:wikilink', { detail: cleanTarget }));
+              }
+            }
+          }
+        }}
+        className="text-sky-300 hover:text-white underline decoration-sky-500/50 hover:decoration-sky-300 font-mono text-[11px] px-1 py-0.5 rounded bg-sky-950/60 border border-sky-800/80 hover:bg-sky-900 transition mx-0.5 inline-flex items-center gap-1 cursor-pointer align-baseline"
+        title={`Abrir sinapsis: ${cleanTarget}`}
+      >
+        <span>🔗</span>
+        <span>[[{display}]]</span>
+      </button>
+    );
+  });
+}
+
+function renderFormattedBody(body: string, onWikilinkClick?: (target: string) => void) {
   if (!body) return null;
-  const lines = body.split('\n');
+
+  // Step 1: Strip simple and nested JSON blocks
+  const noJson = stripJsonBlocks(body);
+
+  // Step 2: Strip technical sections & forensic noise lines
+  const rawLines = noJson.split(/\r?\n/);
+  const cleanLines: string[] = [];
+  let skippingTechnicalSection = false;
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('## ') || trimmed.startsWith('# ')) {
+      if (TECHNICAL_HEADER_REGEX.test(trimmed)) {
+        skippingTechnicalSection = true;
+        continue;
+      } else {
+        skippingTechnicalSection = false;
+      }
+    }
+
+    if (skippingTechnicalSection || FORENSIC_NOISE_LINE_REGEX.test(trimmed)) {
+      continue;
+    }
+
+    // Filter residual JSON key-value pairs or brackets
+    if (
+      /^"[a-zA-Z0-9_-]+":\s*/.test(trimmed) ||
+      trimmed === '{' ||
+      trimmed === '}' ||
+      trimmed === '},' ||
+      trimmed === ',' ||
+      trimmed === ']' ||
+      trimmed === '],' ||
+      /^"[^"]+",?$/.test(trimmed)
+    ) {
+      continue;
+    }
+
+    // Collapse multiple consecutive empty lines
+    if (!trimmed && cleanLines.length > 0 && !cleanLines[cleanLines.length - 1].trim()) {
+      continue;
+    }
+
+    cleanLines.push(line);
+  }
+
+  const finalContent = cleanLines.join('\n').trim();
+  if (!finalContent) return null;
+
+  const displayLines = finalContent.split('\n');
+
   return (
     <div className="space-y-1.5 text-xs text-gray-300 leading-relaxed font-sans">
-      {lines.map((line, idx) => {
+      {displayLines.map((line, idx) => {
         const trimmed = line.trim();
         if (!trimmed) return <div key={idx} className="h-1" />;
+        if (trimmed.startsWith('# ')) {
+          return (
+            <h2 key={idx} className="text-sm font-bold text-sky-300 uppercase tracking-wide mt-2 mb-1">
+              {renderInlineWithWikilinks(trimmed.replace(/^#\s+/, ''), onWikilinkClick)}
+            </h2>
+          );
+        }
         if (trimmed.startsWith('## ')) {
           return (
             <h3 key={idx} className="text-xs font-bold text-sky-400 uppercase tracking-wider mt-2.5 pt-1 border-t border-gray-800/80">
-              {trimmed.replace(/^##\s+/, '')}
+              {renderInlineWithWikilinks(trimmed.replace(/^##\s+/, ''), onWikilinkClick)}
             </h3>
           );
         }
         if (trimmed.startsWith('### ')) {
           return (
             <h4 key={idx} className="text-[11px] font-semibold text-emerald-300 mt-2">
-              {trimmed.replace(/^###\s+/, '')}
+              {renderInlineWithWikilinks(trimmed.replace(/^###\s+/, ''), onWikilinkClick)}
             </h4>
           );
         }
@@ -124,14 +272,18 @@ function renderFormattedBody(body: string) {
           return (
             <div key={idx} className="flex items-start gap-1.5 pl-2 text-gray-300">
               <span className="text-sky-400 text-[10px] mt-0.5">•</span>
-              <span>{trimmed.replace(/^[-*]\s+/, '')}</span>
+              <span>{renderInlineWithWikilinks(trimmed.replace(/^[-*]\s+/, ''), onWikilinkClick)}</span>
             </div>
           );
         }
-        return <p key={idx}>{trimmed}</p>;
+        return <p key={idx}>{renderInlineWithWikilinks(trimmed, onWikilinkClick)}</p>;
       })}
     </div>
   );
+}
+
+if (typeof globalThis !== 'undefined') {
+  (globalThis as any).__renderFormattedBody = renderFormattedBody;
 }
 
 const TYPE_CONFIG: Record<
@@ -1258,6 +1410,12 @@ export default function CerebroPage() {
   const [expandedDeptInDossier, setExpandedDeptInDossier] = useState<string | null>(null);
   const [expandedLeaderInDossier, setExpandedLeaderInDossier] = useState<string | null>(null);
 
+  // Executive Command Cockpit (HUD) State
+  const [isHudOpen, setIsHudOpen] = useState(true);
+
+  // Mobile Collapsible Controls State
+  const [isMobileControlsOpen, setIsMobileControlsOpen] = useState(false);
+
   // Interactive Hover Tooltip State
   const [hoveredNode, setHoveredNode] = useState<NodeData | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -1273,14 +1431,25 @@ export default function CerebroPage() {
   const animFrameRef = useRef<number | null>(null);
   const hoveredNodeRef = useRef<NodeData | null>(null);
 
+  // Touch Gesture Refs (Mobile Support: 1-finger pan, 2-finger pinch, tap detection)
+  const touchStartPosRef = useRef({ x: 0, y: 0, time: 0 });
+  const lastTouchPosRef = useRef({ x: 0, y: 0 });
+  const initialPinchDistRef = useRef<number | null>(null);
+  const initialPinchScaleRef = useRef(1);
+  const pinchCenterRef = useRef<{ x: number; y: number } | null>(null);
+  const touchMovedRef = useRef(false);
+
   useEffect(() => {
     setMounted(true);
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setIsHudOpen(false);
+    }
   }, []);
 
   const updateCanvasDimensions = () => {
     if (containerRef.current && canvasRef.current) {
-      const w = containerRef.current.clientWidth || 1200;
-      const h = containerRef.current.clientHeight || 800;
+      const w = containerRef.current.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 1200);
+      const h = containerRef.current.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 800);
       const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
 
       canvasRef.current.width = Math.floor(w * dpr);
@@ -1316,9 +1485,18 @@ export default function CerebroPage() {
       if (target) pushToStackedDeck(target);
       return !!target;
     };
+    (window as any).handleWikilinkClick = (target: string) => handleWikilinkClick(target);
+    (window as any).__cerebroHandleWikilinkClick = (target: string) => handleWikilinkClick(target);
+    const handleWikilinkEvent = (e: any) => {
+      if (e.detail) handleWikilinkClick(e.detail);
+    };
+    window.addEventListener('cerebro:wikilink', handleWikilinkEvent);
     return () => {
       if (ro) ro.disconnect();
       window.removeEventListener('resize', updateCanvasDimensions);
+      window.removeEventListener('cerebro:wikilink', handleWikilinkEvent);
+      delete (window as any).handleWikilinkClick;
+      delete (window as any).__cerebroHandleWikilinkClick;
     };
   }, [mounted]);
 
@@ -2113,6 +2291,174 @@ export default function CerebroPage() {
     transformRef.current.scale = Math.max(0.25, Math.min(3.0, transformRef.current.scale * zoomFactor));
   };
 
+  // Native Touch Gestures (Mobile Support: 1-finger pan, 2-finger pinch-zoom with midpoint compensation, tap detection)
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const clientX = touch.clientX - rect.left;
+      const clientY = touch.clientY - rect.top;
+
+      touchStartPosRef.current = { x: clientX, y: clientY, time: Date.now() };
+      lastTouchPosRef.current = { x: clientX, y: clientY };
+      touchMovedRef.current = false;
+
+      // Check if touching a node
+      const { x: tx, y: ty, scale } = transformRef.current;
+      const worldX = (clientX - tx) / scale;
+      const worldY = (clientY - ty) / scale;
+
+      const touchedNode = nodesRef.current.find(n => {
+        const dx = n.x - worldX;
+        const dy = n.y - worldY;
+        return Math.sqrt(dx * dx + dy * dy) <= Math.max(n.radius + 24, 44);
+      });
+
+      if (touchedNode) {
+        draggedNodeRef.current = touchedNode;
+        touchedNode.isDragged = true;
+      } else {
+        draggedNodeRef.current = null;
+        isDraggingCanvasRef.current = true;
+      }
+    } else if (e.touches.length === 2) {
+      // Cancel 1-finger node drag
+      if (draggedNodeRef.current) {
+        draggedNodeRef.current.isDragged = false;
+        draggedNodeRef.current = null;
+      }
+      isDraggingCanvasRef.current = false;
+
+      const t0 = e.touches[0];
+      const t1 = e.touches[1];
+      const p0 = { x: t0.clientX - rect.left, y: t0.clientY - rect.top };
+      const p1 = { x: t1.clientX - rect.left, y: t1.clientY - rect.top };
+
+      const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+      initialPinchDistRef.current = dist > 0 ? dist : 1;
+      initialPinchScaleRef.current = transformRef.current.scale;
+      pinchCenterRef.current = {
+        x: (p0.x + p1.x) / 2,
+        y: (p0.y + p1.y) / 2,
+      };
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const clientX = touch.clientX - rect.left;
+      const clientY = touch.clientY - rect.top;
+
+      const startPos = touchStartPosRef.current;
+      const distFromStart = Math.hypot(clientX - startPos.x, clientY - startPos.y);
+      if (distFromStart > 5) {
+        touchMovedRef.current = true;
+      }
+
+      if (draggedNodeRef.current) {
+        const { x: tx, y: ty, scale } = transformRef.current;
+        draggedNodeRef.current.x = (clientX - tx) / scale;
+        draggedNodeRef.current.y = (clientY - ty) / scale;
+        draggedNodeRef.current.targetX = draggedNodeRef.current.x;
+        draggedNodeRef.current.targetY = draggedNodeRef.current.y;
+      } else if (isDraggingCanvasRef.current) {
+        const dx = clientX - lastTouchPosRef.current.x;
+        const dy = clientY - lastTouchPosRef.current.y;
+        transformRef.current.x += dx;
+        transformRef.current.y += dy;
+      }
+      lastTouchPosRef.current = { x: clientX, y: clientY };
+    } else if (e.touches.length === 2 && initialPinchDistRef.current && pinchCenterRef.current) {
+      touchMovedRef.current = true;
+      const t0 = e.touches[0];
+      const t1 = e.touches[1];
+      const p0 = { x: t0.clientX - rect.left, y: t0.clientY - rect.top };
+      const p1 = { x: t1.clientX - rect.left, y: t1.clientY - rect.top };
+
+      const currentDist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+      const pinchRatio = currentDist / initialPinchDistRef.current;
+      const newScale = Math.max(0.25, Math.min(3.0, initialPinchScaleRef.current * pinchRatio));
+
+      const currentCenter = {
+        x: (p0.x + p1.x) / 2,
+        y: (p0.y + p1.y) / 2,
+      };
+
+      // Zoom centered on gesture midpoint with drift compensation
+      const prevScale = transformRef.current.scale;
+      const worldMidX = (pinchCenterRef.current.x - transformRef.current.x) / prevScale;
+      const worldMidY = (pinchCenterRef.current.y - transformRef.current.y) / prevScale;
+
+      transformRef.current.scale = newScale;
+      transformRef.current.x = currentCenter.x - worldMidX * newScale;
+      transformRef.current.y = currentCenter.y - worldMidY * newScale;
+
+      pinchCenterRef.current = currentCenter;
+      initialPinchDistRef.current = currentDist;
+      initialPinchScaleRef.current = newScale;
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    if (e.touches.length === 0) {
+      // Gesture ended
+      const duration = Date.now() - touchStartPosRef.current.time;
+      const wasTap = !touchMovedRef.current && duration < 350;
+
+      if (wasTap) {
+        // Tap on canvas - check if tapped on a node
+        const rect = canvas.getBoundingClientRect();
+        const tapX = lastTouchPosRef.current.x;
+        const tapY = lastTouchPosRef.current.y;
+        const { x: tx, y: ty, scale } = transformRef.current;
+        const worldX = (tapX - tx) / scale;
+        const worldY = (tapY - ty) / scale;
+
+        const tappedNode = nodesRef.current.find(n => {
+          const dx = n.x - worldX;
+          const dy = n.y - worldY;
+          return Math.sqrt(dx * dx + dy * dy) <= Math.max(n.radius + 24, 44);
+        });
+
+        if (tappedNode) {
+          pushToStackedDeck(tappedNode);
+        }
+      }
+
+      if (draggedNodeRef.current) {
+        draggedNodeRef.current.isDragged = false;
+        draggedNodeRef.current = null;
+      }
+      isDraggingCanvasRef.current = false;
+      initialPinchDistRef.current = null;
+      pinchCenterRef.current = null;
+      touchMovedRef.current = false;
+    } else if (e.touches.length === 1) {
+      // Transition from 2 fingers to 1 finger
+      initialPinchDistRef.current = null;
+      pinchCenterRef.current = null;
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const clientX = touch.clientX - rect.left;
+      const clientY = touch.clientY - rect.top;
+      lastTouchPosRef.current = { x: clientX, y: clientY };
+      touchStartPosRef.current = { x: clientX, y: clientY, time: Date.now() };
+      touchMovedRef.current = true; // Was pinching, do not trigger tap
+      isDraggingCanvasRef.current = true;
+    }
+  };
+
   const resetView = () => {
     if (containerRef.current) {
       transformRef.current = {
@@ -2132,15 +2478,24 @@ export default function CerebroPage() {
     if (node.type === 'person') setExpandedLeaderInDossier(node.id);
     if (node.type === 'department') setExpandedDeptInDossier(node.id);
 
-    // Re-encuadre suave de cámara: centrar el nodo cliqueado en el área visible a la izquierda del panel lateral
+    // Re-encuadre suave de cámara: centrar el nodo cliqueado en el área visible (Mobile: área superior sobre Bottom Sheet; Desktop: izquierda del drawer)
     setTimeout(() => {
       const containerW = containerRef.current?.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 1200);
       const containerH = containerRef.current?.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 800);
-      const drawerW = 520;
-      const visibleW = Math.max(containerW - drawerW, 400);
       const scale = transformRef.current.scale;
-      transformRef.current.x = (visibleW / 2) - (node.x * scale);
-      transformRef.current.y = (containerH / 2) - (node.y * scale);
+
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        // Mobile: Bottom sheet occupies bottom area (up to 75-85vh). Focus on top visible canvas area (upper 40-50%)
+        const visibleH = Math.max(containerH * 0.42, 180);
+        transformRef.current.x = (containerW / 2) - (node.x * scale);
+        transformRef.current.y = (visibleH / 2) - (node.y * scale);
+      } else {
+        // Desktop: Right side panel occupies drawerW
+        const drawerW = 520;
+        const visibleW = Math.max(containerW - drawerW, 400);
+        transformRef.current.x = (visibleW / 2) - (node.x * scale);
+        transformRef.current.y = (containerH / 2) - (node.y * scale);
+      }
     }, 40);
 
     // Si se solicitó desplegar la capa correspondiente en el lienzo
@@ -2235,7 +2590,7 @@ export default function CerebroPage() {
     }
   };
 
-  const summary = graphData?.summary || {
+  const summary = useMemo(() => graphData?.summary || {
     totalNodes: 0,
     totalLinks: 0,
     workingMemoryCount: 0,
@@ -2244,9 +2599,7 @@ export default function CerebroPage() {
     marketsCount: 0,
     distributorsCount: 0,
     brandsCount: 0,
-  };
-
-  const [isHudOpen, setIsHudOpen] = useState(true);
+  }, [graphData]);
 
   // Auditor de Salud de Memoria & Enlaces Rotos en Tiempo Real
   const linkHealthAudit = useMemo(() => {
@@ -2310,46 +2663,96 @@ export default function CerebroPage() {
   return (
     <div className="fixed inset-0 z-[60] flex flex-col w-screen h-screen bg-[#060A12] text-gray-100 overflow-hidden font-sans">
       {/* Top Header Navigation & Executive HUD */}
-      <header className="flex items-center justify-between px-5 py-2.5 border-b border-gray-800 bg-[#0B111E] z-50 shadow-md relative">
-        <div className="flex items-center gap-4">
+      {/* Top Header Navigation & Executive HUD */}
+      <header className="h-12 max-h-[48px] px-3 md:px-5 flex items-center justify-between border-b border-gray-800 bg-[#0B111E] z-50 shrink-0 relative shadow-md">
+        <div className="flex items-center gap-2 md:gap-4 min-w-0">
           <Link
             href="/"
-            className="text-xs uppercase font-bold tracking-wider text-gray-400 hover:text-white transition flex items-center gap-1.5"
+            className="text-xs uppercase font-bold tracking-wider text-gray-400 hover:text-white transition flex items-center gap-1 shrink-0"
+            title="Volver a TaskManager HB"
           >
-            ← TaskManager HB
+            <span>←</span>
+            <span className="hidden md:inline">TaskManager HB</span>
           </Link>
-          <div className="h-4 w-px bg-gray-700" />
-          <div className="flex items-center gap-2">
-            <span className="text-2xl animate-spin" style={{ animationDuration: '30s' }}>🌌</span>
-            <div>
-              <h1 className="font-bold text-sm tracking-wide text-white flex items-center gap-2">
-                S.M. Jaleel <span className="text-sky-400 font-normal">| Segundo Cerebro Vivo</span>
-                <span className="px-2 py-0.5 text-[9px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800 rounded font-semibold flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+          <div className="h-4 w-px bg-gray-700 shrink-0" />
+          <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
+            <span className="text-xl md:text-2xl animate-spin shrink-0" style={{ animationDuration: '30s' }}>🌌</span>
+            <div className="min-w-0">
+              <h1 className="font-bold text-xs md:text-sm tracking-wide text-white flex items-center gap-1.5 truncate">
+                <span className="hidden sm:inline">S.M. Jaleel</span>
+                <span className="sm:hidden">SMJ</span>
+                <span className="text-sky-400 font-normal hidden md:inline">| Segundo Cerebro Vivo</span>
+                <span className="text-sky-400 font-normal md:hidden">| Cerebro</span>
+                <span className="hidden lg:inline px-2 py-0.5 text-[9px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800 rounded font-semibold items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block mr-1" />
                   {viewMode === 'quadrants' ? 'MAPA CONTINENTAL' : viewMode === 'organigram' ? 'MODO ORGANIGRAMA' : 'CONSTELACIONES'}
                 </span>
               </h1>
             </div>
           </div>
+          {/* Active Node Count Badge */}
+          <span className="px-1.5 py-0.5 text-[9px] font-mono bg-sky-950 text-sky-300 border border-sky-800 rounded font-semibold shrink-0">
+            {graphData?.nodes.length || summary.totalNodes} Nodos
+          </span>
         </div>
 
-        {/* Executive HUD Toggle Button */}
-        <button
-          onClick={() => setIsHudOpen(!isHudOpen)}
-          className={`px-3 py-1 rounded text-xs font-semibold border flex items-center gap-1.5 transition shadow-sm ${
-            isHudOpen
-              ? 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white border-sky-400'
-              : 'bg-gray-800 hover:bg-gray-700 text-sky-300 border-sky-800'
-          }`}
-          title="Plegar o desplegar cinta de indicadores ejecutivos"
-        >
-          <span>📊</span>
-          <span>HUD Ejecutivo</span>
-          <span className="text-[10px] ml-0.5 font-mono">{isHudOpen ? '▲' : '▼'}</span>
-        </button>
+        {/* Mobile Header Right: Quick Ficha toggle & Collapsible Menu Trigger */}
+        <div className="flex items-center gap-1.5 md:hidden">
+          {/* Quick Dossier Counter Button */}
+          <button
+            onClick={() => {
+              if (stackedDeck.length === 0) {
+                const coreNode = nodesRef.current.find(n => n.type === 'core') || nodesRef.current[0];
+                if (coreNode) pushToStackedDeck(coreNode);
+              } else {
+                setStackedDeck([]);
+              }
+            }}
+            className={`min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1 transition ${
+              stackedDeck.length > 0
+                ? 'bg-sky-600 text-white border-sky-400 shadow-sm'
+                : 'bg-gray-800 text-gray-300 border-gray-700'
+            }`}
+            title="Fichas Ejecutivas"
+          >
+            <span>📋</span>
+            <span className="font-mono text-[11px] font-bold">({stackedDeck.length})</span>
+          </button>
 
-        {/* Mode Selectors & Controls */}
-        <div className="flex items-center gap-2">
+          {/* Compact Menu / Filter Button */}
+          <button
+            onClick={() => setIsMobileControlsOpen(!isMobileControlsOpen)}
+            className={`min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1 transition ${
+              isMobileControlsOpen
+                ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white border-sky-400 shadow'
+                : 'bg-gray-800 text-sky-300 border-sky-800/80 hover:bg-gray-700'
+            }`}
+            title="Abrir herramientas y filtros"
+            aria-expanded={isMobileControlsOpen}
+          >
+            <span>⚙️</span>
+            <span className="text-[11px]">Filtros</span>
+            <span className="text-[9px] font-mono">{isMobileControlsOpen ? '▲' : '▼'}</span>
+          </button>
+        </div>
+
+        {/* Desktop Controls (hidden md:flex) */}
+        <div className="hidden md:flex items-center gap-2">
+          {/* Executive HUD Toggle Button */}
+          <button
+            onClick={() => setIsHudOpen(!isHudOpen)}
+            className={`px-3 py-1 rounded text-xs font-semibold border flex items-center gap-1.5 transition shadow-sm ${
+              isHudOpen
+                ? 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white border-sky-400'
+                : 'bg-gray-800 hover:bg-gray-700 text-sky-300 border-sky-800'
+            }`}
+            title="Plegar o desplegar cinta de indicadores ejecutivos"
+          >
+            <span>📊</span>
+            <span>HUD Ejecutivo</span>
+            <span className="text-[10px] ml-0.5 font-mono">{isHudOpen ? '▲' : '▼'}</span>
+          </button>
+
           {/* View Mode Toggle */}
           <div className="flex items-center bg-gray-900 p-0.5 rounded-lg border border-gray-700">
             <button
@@ -2729,6 +3132,285 @@ export default function CerebroPage() {
         </div>
       </header>
 
+      {/* Mobile Collapsible Controls Popover / Sheet */}
+      {isMobileControlsOpen && (
+        <>
+          <div
+            onClick={() => setIsMobileControlsOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden animate-in fade-in duration-200"
+          />
+          <div className="fixed inset-x-0 top-12 z-50 bg-[#0B111E]/98 border-b border-gray-700 shadow-2xl p-4 max-h-[calc(100vh-48px)] overflow-y-auto space-y-3.5 backdrop-blur-xl md:hidden animate-in slide-in-from-top duration-200 text-xs">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-800">
+              <span className="font-bold text-white flex items-center gap-1.5">
+                <span>⚙️</span> Herramientas & Filtros Cerebro
+              </span>
+              <button
+                onClick={() => setIsMobileControlsOpen(false)}
+                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg bg-gray-800 text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Quick Node Selector (Categorized) */}
+            <div>
+              <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">Buscar / Abrir Ficha:</label>
+              <select
+                defaultValue=""
+                onChange={e => {
+                  if (!e.target.value) return;
+                  const pool = graphData?.nodes || nodesRef.current;
+                  const targetNode = pool.find((n: any) => n.id === e.target.value);
+                  if (targetNode) {
+                    pushToStackedDeck(targetNode);
+                    setIsMobileControlsOpen(false);
+                  }
+                  e.target.value = '';
+                }}
+                className="w-full bg-gray-800 text-sky-300 border border-sky-700/60 rounded-lg px-2.5 py-2 text-xs outline-none focus:border-sky-400 font-medium"
+              >
+                <option value="">📋 Seleccionar Ficha por Nombre...</option>
+                <optgroup label="🧃 Marcas Master SMJ">
+                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'brand').map((n: any) => (
+                    <option key={n.id} value={n.id}>🧃 {n.title}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="🏛️ Filiales & Organizaciones Globales (7)">
+                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'organization').map((n: any) => (
+                    <option key={n.id} value={n.id}>🏛️ {n.title}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="🌎 Mercados & Distribuidores">
+                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'market' || n.type === 'distributor').map((n: any) => (
+                    <option key={n.id} value={n.id}>{(TYPE_CONFIG[n.type] || TYPE_CONFIG.department).icon} {n.title}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="🏢 Departamentos Centrales (4)">
+                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'core' || n.type === 'department').map((n: any) => (
+                    <option key={n.id} value={n.id}>🏢 {n.title}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="👑 Jefaturas & Liderazgo C-Suite (12)">
+                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'person' && (LEADER_IDS.has(n.id) || (n.hierarchy_level !== undefined && n.hierarchy_level <= 2))).map((n: any) => (
+                    <option key={n.id} value={n.id}>👑 {n.title}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="👥 Colaboradores & Personal Operativo (42)">
+                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'person' && !(LEADER_IDS.has(n.id) || (n.hierarchy_level !== undefined && n.hierarchy_level <= 2))).map((n: any) => (
+                    <option key={n.id} value={n.id}>👤 {n.title}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="📦 Multipacks & Empaques (55)">
+                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'packaging').map((n: any) => (
+                    <option key={n.id} value={n.id}>📦 {n.title}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="🏷️ SKUs & Presentaciones (204)">
+                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'product_variant').map((n: any) => (
+                    <option key={n.id} value={n.id}>🏷️ {n.title}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="🍇 Sabores Registrados (105)">
+                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'flavor').map((n: any) => (
+                    <option key={n.id} value={n.id}>🍇 {n.title}</option>
+                  ))}
+                </optgroup>
+              </select>
+            </div>
+
+            {/* View Mode Selector */}
+            <div>
+              <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">Modo de Visualización:</label>
+              <div className="grid grid-cols-3 gap-1.5 bg-gray-900 p-1 rounded-lg border border-gray-700">
+                <button
+                  onClick={() => { handleSetViewMode('quadrants'); setIsMobileControlsOpen(false); }}
+                  className={`py-1.5 rounded text-xs transition text-center ${
+                    viewMode === 'quadrants' ? 'bg-sky-600 text-white font-semibold shadow' : 'text-gray-400'
+                  }`}
+                >
+                  🧭 Cuadrantes
+                </button>
+                <button
+                  onClick={() => { handleSetViewMode('constellations'); setIsMobileControlsOpen(false); }}
+                  className={`py-1.5 rounded text-xs transition text-center ${
+                    viewMode === 'constellations' ? 'bg-emerald-600 text-white font-semibold shadow' : 'text-gray-400'
+                  }`}
+                >
+                  🌌 Constelaciones
+                </button>
+                <button
+                  onClick={() => { handleSetViewMode('organigram'); setIsMobileControlsOpen(false); }}
+                  className={`py-1.5 rounded text-xs transition text-center ${
+                    viewMode === 'organigram' ? 'bg-purple-600 text-white font-semibold shadow' : 'text-gray-400'
+                  }`}
+                >
+                  🏛️ Organigrama
+                </button>
+              </div>
+            </div>
+
+            {/* Market Filter */}
+            <div>
+              <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">Filtro de Mercado:</label>
+              <select
+                value={selectedMarket}
+                onChange={e => {
+                  setSelectedMarket(e.target.value);
+                  setIsMobileControlsOpen(false);
+                }}
+                className="w-full bg-gray-800 text-gray-200 border border-gray-700 rounded-lg px-2.5 py-2 text-xs outline-none focus:border-emerald-500"
+              >
+                <option value="all">🌍 Todos Mercados</option>
+                <option value="panama">🇵🇦 Panamá</option>
+                <option value="belize">🇧🇿 Belice</option>
+                <option value="canada">🇨🇦 Canadá</option>
+                <option value="united states">🇺🇸 EE. UU.</option>
+              </select>
+            </div>
+
+            {/* SKUs & Multipacks Scope */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] uppercase font-mono text-amber-400 block">SKUs & Multipacks:</label>
+                <span className="text-[9px] font-mono text-gray-400">{catalogScope === 'collapsed' ? 'Plegado (80)' : catalogScope === 'all' ? 'Todos (459)' : catalogScope.toUpperCase()}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  onClick={() => { handleSetCatalogScope('collapsed'); setIsMobileControlsOpen(false); }}
+                  className={`py-1.5 px-2 rounded text-xs border text-left transition ${
+                    catalogScope === 'collapsed' ? 'bg-amber-950 text-amber-200 border-amber-600 font-bold' : 'bg-gray-800 text-gray-300 border-gray-700'
+                  }`}
+                >
+                  📁 Plegar (80)
+                </button>
+                <button
+                  onClick={() => { handleSetCatalogScope('all'); setIsMobileControlsOpen(false); }}
+                  className={`py-1.5 px-2 rounded text-xs border text-left transition ${
+                    catalogScope === 'all' ? 'bg-amber-950 text-amber-200 border-amber-600 font-bold' : 'bg-gray-800 text-gray-300 border-gray-700'
+                  }`}
+                >
+                  🌐 Todos (459)
+                </button>
+                {[
+                  { key: 'chubby', label: '🥤 Chubby (+20)' },
+                  { key: 'busta', label: '🍾 Busta (+36)' },
+                  { key: 'fruta', label: '🍊 Fruta (+81)' },
+                  { key: 'oasis', label: '💧 Oasis (+35)' },
+                  { key: 'altitude', label: '⚡ Altitude (+14)' },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={() => { handleSetCatalogScope(item.key as any); setIsMobileControlsOpen(false); }}
+                    className={`py-1.5 px-2 rounded text-xs border text-left transition ${
+                      catalogScope === item.key ? 'bg-amber-900/70 text-amber-200 border-amber-600 font-bold' : 'bg-gray-800 text-gray-300 border-gray-700'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Estructura & Personal Scope */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[10px] uppercase font-mono text-indigo-400 block">Estructura & Personal:</label>
+                <span className="text-[9px] font-mono text-gray-400">{orgScope === 'collapsed' ? 'Plegado (12)' : orgScope === 'all' ? 'Todos (54)' : orgScope.toUpperCase()}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  onClick={() => { handleSetOrgScope('collapsed'); setIsMobileControlsOpen(false); }}
+                  className={`py-1.5 px-2 rounded text-xs border text-left transition ${
+                    orgScope === 'collapsed' ? 'bg-indigo-950 text-indigo-200 border-indigo-600 font-bold' : 'bg-gray-800 text-gray-300 border-gray-700'
+                  }`}
+                >
+                  📁 Liderazgo (12)
+                </button>
+                <button
+                  onClick={() => { handleSetOrgScope('all'); setIsMobileControlsOpen(false); }}
+                  className={`py-1.5 px-2 rounded text-xs border text-left transition ${
+                    orgScope === 'all' ? 'bg-indigo-950 text-indigo-200 border-indigo-600 font-bold' : 'bg-gray-800 text-gray-300 border-gray-700'
+                  }`}
+                >
+                  👥 Todo Personal (54)
+                </button>
+                {[
+                  { key: 'exports', label: '🌐 Exportación (+21)' },
+                  { key: 'manufacturing', label: '🏭 Manufactura (+12)' },
+                  { key: 'supply_chain', label: '📦 Supply Chain (+8)' },
+                  { key: 'finance', label: '💰 Finanzas (+6)' },
+                  { key: 'organizations', label: '🏛️ Filiales (+7)' },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={() => { handleSetOrgScope(item.key as any); setIsMobileControlsOpen(false); }}
+                    className={`py-1.5 px-2 rounded text-xs border text-left transition ${
+                      orgScope === item.key ? 'bg-indigo-900/70 text-indigo-200 border-indigo-600 font-bold' : 'bg-gray-800 text-gray-300 border-gray-700'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick Actions Grid */}
+            <div>
+              <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">Acciones Rápidas:</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => {
+                    fetchGraph();
+                    setStatusMessage('🔄 Bóveda sincronizada');
+                    setTimeout(() => setStatusMessage(null), 2500);
+                  }}
+                  className="py-2 px-2.5 bg-sky-950/80 hover:bg-sky-900 border border-sky-700 rounded-lg text-xs text-sky-300 font-semibold flex items-center justify-center gap-1.5"
+                >
+                  <span>🔄</span> Sincronizar
+                </button>
+                <button
+                  onClick={() => {
+                    resetView();
+                    setIsMobileControlsOpen(false);
+                  }}
+                  className="py-2 px-2.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs text-gray-200 font-semibold flex items-center justify-center gap-1.5"
+                >
+                  <span>🎯</span> Centrar Vista
+                </button>
+                <button
+                  onClick={() => setGravityActive(!gravityActive)}
+                  className="py-2 px-2.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs text-gray-200 font-semibold flex items-center justify-center gap-1.5"
+                >
+                  <span>{gravityActive ? '🌊 Flotación' : '⏸ Pausa'}</span>
+                </button>
+                <button
+                  onClick={() => setIsHudOpen(!isHudOpen)}
+                  className={`py-2 px-2.5 border rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 ${
+                    isHudOpen ? 'bg-indigo-900/80 text-white border-indigo-500' : 'bg-gray-800 text-gray-300 border-gray-700'
+                  }`}
+                >
+                  <span>📊 {isHudOpen ? 'Ocultar HUD' : 'Mostrar HUD'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Session Consolidate */}
+            <div className="pt-2 border-t border-gray-800">
+              <button
+                onClick={() => {
+                  handleConsolidate();
+                  setIsMobileControlsOpen(false);
+                }}
+                disabled={isSubmitting}
+                className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-amber-500 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-2"
+              >
+                <span>⚡</span> Consolidar Sesión de Trabajo
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Executive Command Cockpit (HUD de 5 Cuadritos e Indicadores) */}
       {isHudOpen && (
         <section className="bg-[#090E1A]/95 border-b border-gray-800/80 px-5 py-2.5 z-40 shadow-xl backdrop-blur-md">
@@ -2868,9 +3550,9 @@ export default function CerebroPage() {
       )}
 
       {/* Main Workspace Area */}
-      <div className="relative flex-1 flex overflow-hidden">
+      <div className="relative flex-1 flex flex-col md:flex-row overflow-hidden min-h-[550px] h-[calc(100vh-48px)]">
         {/* Orbital Canvas Viewport (flex-1 min-w-0 ensures aside fits seamlessly on right) */}
-        <div ref={containerRef} className="flex-1 min-w-0 relative h-full">
+        <div ref={containerRef} className="flex-1 min-w-0 relative h-full min-h-[550px]">
           <canvas
             ref={canvasRef}
             onClick={handleCanvasClick}
@@ -2878,7 +3560,11 @@ export default function CerebroPage() {
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onWheel={handleWheel}
-            className="w-full h-full cursor-pointer block"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
+            className="w-full h-full cursor-pointer block touch-none"
           />
 
           {/* Floating Hover Tooltip (Sale SIEMPRE a un lado del círculo sin tapar el nodo) */}
@@ -2915,7 +3601,7 @@ export default function CerebroPage() {
                   e.stopPropagation();
                   pushToStackedDeck(hoveredNode, false);
                 }}
-                className="absolute z-40 bg-gray-950/98 border border-sky-500/80 shadow-2xl rounded-xl p-3.5 backdrop-blur-xl text-xs w-80 animate-in fade-in zoom-in-95 duration-150 pointer-events-auto select-none"
+                className="hidden md:block absolute z-40 bg-gray-950/98 border border-sky-500/80 shadow-2xl rounded-xl p-3.5 backdrop-blur-xl text-xs w-80 animate-in fade-in zoom-in-95 duration-150 pointer-events-auto select-none"
               >
                 <div className="flex items-center justify-between mb-1.5">
                   <span
@@ -3008,10 +3694,10 @@ export default function CerebroPage() {
             );
           })()}
 
-          {/* Quick Brain Dump Bar */}
+          {/* Quick Brain Dump Bar (Desktop Only) */}
           <form
             onSubmit={handleRememberWorking}
-            className="absolute top-4 left-4 flex items-center gap-2 bg-gray-900/90 border border-gray-700 rounded-lg px-3 py-2 shadow-2xl backdrop-blur z-20 w-96 max-w-[90vw]"
+            className="hidden md:flex absolute top-4 left-4 items-center gap-2 bg-gray-900/90 border border-gray-700 rounded-lg px-3 py-2 shadow-2xl backdrop-blur z-20 w-96 max-w-[90vw]"
           >
             <span className="text-amber-400 text-sm">⚡</span>
             <input
@@ -3037,8 +3723,8 @@ export default function CerebroPage() {
             </div>
           )}
 
-          {/* Canvas Footer Legend */}
-          <div className="absolute bottom-4 left-4 p-3 bg-gray-900/90 border border-gray-800 rounded-lg text-xs space-y-1.5 backdrop-blur shadow-lg z-10 pointer-events-none">
+          {/* Canvas Footer Legend (Desktop Only) */}
+          <div className="hidden md:block absolute bottom-4 left-4 p-3 bg-gray-900/90 border border-gray-800 rounded-lg text-xs space-y-1.5 backdrop-blur shadow-lg z-10 pointer-events-none">
             <div className="font-semibold text-gray-400 text-[10px] uppercase tracking-wider flex items-center gap-2">
               <span>{viewMode === 'quadrants' ? '🧭 Cuadrantes (América Izq · Marcas Arriba · HQ Centro)' : viewMode === 'organigram' ? '🏛️ Estructura Jerárquica L0 - L4' : '🌌 Constelaciones por Afinidad'}</span>
               <span className="text-sky-400 font-mono">| Anti-Solapamiento Activo</span>
@@ -3066,29 +3752,47 @@ export default function CerebroPage() {
           </div>
         </div>
 
-        {/* Stacked Decks (Ficha Detallada en Panel Lateral Derecho - Encuadre Cero Scrolling) */}
+        {/* Stacked Decks: Sliding Bottom Sheet on mobile (<768px) / Lateral Side Panel on desktop (>=768px) */}
         {stackedDeck.length > 0 && (
-          <aside className="w-[440px] xl:w-[480px] 2xl:w-[520px] max-w-[38vw] shrink-0 h-full border-l border-gray-800 bg-[#0B111E]/98 backdrop-blur-xl flex flex-col z-40 shadow-2xl transition-all overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gray-900/90 sticky top-0 z-10 shadow">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                  <span>📋</span>
-                  <span>Fichas Ejecutivas Abiertas ({stackedDeck.length})</span>
-                </span>
-                <span className="text-[10px] text-gray-400">· Vista 360° en Vivo</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setStackedDeck([])}
-                  className="text-xs px-2.5 py-1 rounded bg-gray-800 hover:bg-red-950/80 text-gray-300 hover:text-red-300 border border-gray-700 hover:border-red-800 transition font-mono flex items-center gap-1"
-                  title="Cerrar panel lateral"
-                >
-                  <span>✕</span> Cerrar Todo
-                </button>
-              </div>
-            </div>
+          <>
+            {/* Mobile Backdrop Overlay */}
+            <div
+              onClick={() => setStackedDeck([])}
+              className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-xs transition-opacity duration-300 animate-in fade-in"
+              aria-hidden="true"
+            />
 
-            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4">
+            <aside className="fixed inset-x-0 bottom-0 z-50 w-full max-h-[85vh] h-[75vh] md:h-full md:relative md:inset-auto md:w-[440px] xl:w-[480px] 2xl:w-[520px] md:max-w-[38vw] shrink-0 border-t md:border-t-0 md:border-l border-gray-700 md:border-gray-800 bg-[#0B111E]/98 backdrop-blur-xl flex flex-col shadow-2xl transition-transform duration-300 ease-out overflow-hidden rounded-t-2xl md:rounded-none animate-in slide-in-from-bottom md:slide-in-from-right">
+              {/* Visual Pill Drag Handle (Mobile only) */}
+              <div className="md:hidden flex justify-center pt-2.5 pb-1 bg-gray-900/90 shrink-0">
+                <div className="w-12 h-1.5 bg-gray-500 rounded-full" />
+              </div>
+
+              {/* Aside / Bottom Sheet Header */}
+              <div className="flex items-center justify-between px-4 py-2.5 md:py-3 border-b border-gray-800 bg-gray-900/90 sticky top-0 z-10 shadow shrink-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                    <span>📋</span>
+                    <span>Fichas Ejecutivas ({stackedDeck.length})</span>
+                  </span>
+                  <span className="hidden sm:inline text-[10px] text-gray-400">· Vista 360° en Vivo</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* Thumb-Accessible Close Button (min 44x44px touch target on mobile) */}
+                  <button
+                    onClick={() => setStackedDeck([])}
+                    className="min-h-[44px] min-w-[44px] md:min-h-[32px] md:min-w-0 text-xs px-3 py-2 md:px-2.5 md:py-1 rounded-lg md:rounded bg-gray-800 hover:bg-red-950/80 text-gray-200 hover:text-red-300 border border-gray-700 hover:border-red-800 transition font-mono flex items-center justify-center gap-1.5 active:scale-95"
+                    title="Cerrar ficha"
+                    aria-label="Cerrar ficha ejecutiva"
+                  >
+                    <span className="text-sm">✕</span>
+                    <span className="hidden md:inline">Cerrar Todo</span>
+                    <span className="md:hidden text-xs font-sans">Cerrar</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 overscroll-contain">
               {stackedDeck.map((node) => {
                 const cfg = TYPE_CONFIG[node.type] || TYPE_CONFIG.department;
                 const fm = node.frontmatter || {};
@@ -3189,8 +3893,9 @@ export default function CerebroPage() {
                       </div>
                       <button
                         onClick={() => removeFromDeck(node.id)}
-                        className="text-gray-400 hover:text-white p-1 text-sm leading-none shrink-0"
+                        className="text-gray-400 hover:text-white p-1 text-sm leading-none shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-gray-800 transition active:scale-95"
                         title="Cerrar ficha"
+                        aria-label={`Cerrar ficha de ${node.title}`}
                       >
                         ✕
                       </button>
@@ -4171,7 +4876,7 @@ export default function CerebroPage() {
 
                     {/* Formatted Dossier Body */}
                     <div className="mb-3 bg-gray-900/60 p-3 rounded-lg border border-gray-800/80">
-                      {renderFormattedBody(node.body)}
+                      {renderFormattedBody(node.body, handleWikilinkClick)}
                     </div>
 
 
@@ -4213,22 +4918,35 @@ export default function CerebroPage() {
                 );
               })}
             </div>
-          </aside>
-        )}
 
-        {/* Docked Floating Trigger Button (Visible when aside is closed so user always has 1-click access) */}
-        {stackedDeck.length === 0 && (
-          <button
-            onClick={() => {
-              const core = graphData?.nodes.find(n => n.type === 'core') || graphData?.nodes[0];
-              if (core) pushToStackedDeck(core);
-            }}
-            className="absolute right-0 top-1/2 -translate-y-1/2 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white py-3.5 px-2.5 rounded-l-xl shadow-2xl text-xs font-bold z-30 flex items-center gap-1.5 transition select-none cursor-pointer border border-sky-400"
-            title="Abrir Ficha Lateral Ejecutiva"
-          >
-            <span>📋 Abrir Ficha Lateral</span>
-          </button>
-        )}
+            {/* Mobile Sticky Thumb Action Bar at Bottom of Sheet (Min 44px touch target) */}
+            <div className="md:hidden p-3 bg-gray-950/95 border-t border-gray-800 sticky bottom-0 z-10 flex gap-2 shrink-0">
+              <button
+                onClick={() => setStackedDeck([])}
+                className="w-full py-3 bg-gray-800 hover:bg-red-950 active:scale-95 text-white rounded-xl text-xs font-bold border border-gray-700 hover:border-red-700 shadow flex items-center justify-center gap-2 min-h-[44px] transition"
+                aria-label="Cerrar ficha ejecutiva"
+              >
+                <span>✕</span>
+                <span>Cerrar Ficha Ejecutiva</span>
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
+
+      {/* Docked Floating Trigger Button (Visible when aside is closed on desktop so user always has 1-click access) */}
+      {stackedDeck.length === 0 && (
+        <button
+          onClick={() => {
+            const core = graphData?.nodes.find(n => n.type === 'core') || graphData?.nodes[0];
+            if (core) pushToStackedDeck(core);
+          }}
+          className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white py-3.5 px-2.5 rounded-l-xl shadow-2xl text-xs font-bold z-30 items-center gap-1.5 transition select-none cursor-pointer border border-sky-400"
+          title="Abrir Ficha Lateral Ejecutiva"
+        >
+          <span>📋 Abrir Ficha Lateral</span>
+        </button>
+      )}
       </div>
     </div>
   );
