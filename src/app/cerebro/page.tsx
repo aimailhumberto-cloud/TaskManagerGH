@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import Link from 'next/link';
+import { getMarketDistributors, marketDistributorLabel, distributorDisplayName } from '@/lib/marketDistributors';
 import { searchBrainNodes, resolveBrainNode, humanNodeName, fitIdentityBounds } from '@/lib/smjIdentity';
 
 interface NodeData {
@@ -4008,9 +4009,11 @@ export default function CerebroPage() {
                     <div>
                       <span className="text-teal-400 font-bold block text-[10px] uppercase">🤝 Siguiente Capa (Distribuidor):</span>
                       <span className="text-gray-200">
-                        {hoveredNode.id.includes('panama') ? 'MEDIMEX S.A. (Oficial y Exclusivo)' :
-                         hoveredNode.id.includes('belize') ? 'Santiago Castillo Ltd. (SanCas)' :
-                         hoveredNode.id.includes('canada') ? 'Morgan Williams (Canada)' : 'Walton & Post (USA)'}
+                        {marketDistributorLabel(getMarketDistributors(
+                          hoveredNode.id,
+                          graphData?.allNodes || graphData?.nodes || nodesRef.current || [],
+                          graphData?.links || linksRef.current || []
+                        ))}
                       </span>
                     </div>
                   )}
@@ -4530,54 +4533,32 @@ export default function CerebroPage() {
                       </div>
                     )}
 
-                    {/* Dynamic Country <-> Distributor Bridge Card (100% Sin Hardcoding) */}
+                    {/* Country/distributor bridge: explicit commercial edges, no geography defaults. */}
                     {node.type === 'market' && (() => {
-                      const allNodes = graphData?.nodes || nodesRef.current || [];
-                      const allLinks = graphData?.links || linksRef.current || [];
-                      const linkedDistNode = allNodes.find((n: any) => {
-                        if (n.type !== 'distributor') return false;
-                        const nFm = n.frontmatter || {};
-                        if (nFm.status === 'historical_inactive' || nFm.is_active === false) return false;
-                        const isLinked = allLinks.some((l: any) => {
-                          const s = typeof l.source === 'object' ? l.source.id : l.source;
-                          const t = typeof l.target === 'object' ? l.target.id : l.target;
-                          return (s === node.id && t === n.id) || (s === n.id && t === node.id);
-                        });
-                        const rels = nFm.relations || {};
-                        const belongsTo = JSON.stringify(rels.belongs_to_market || '') + JSON.stringify(nFm.market || '');
-                        return isLinked || belongsTo.toLowerCase().includes(node.id.toLowerCase());
-                      });
-
-                      const distTitle = linkedDistNode
-                        ? (linkedDistNode.frontmatter?.company_name || linkedDistNode.title.replace(/^Distributor:\s*/i, ''))
-                        : (node.id.includes('belize') ? 'Santiago Castillo Ltd. (SanCas Belize)' :
-                           node.id.includes('panama') ? 'MEDIMEX S.A. (Oficial y Exclusivo)' :
-                           node.id.includes('canada') ? 'Morgan Williams (Canada)' : 'Walton and Post (USA)');
-
+                      const linkedDistributors = getMarketDistributors(
+                        node.id,
+                        graphData?.allNodes || graphData?.nodes || nodesRef.current || [],
+                        graphData?.links || linksRef.current || []
+                      );
                       return (
                         <div className="bg-gradient-to-r from-teal-950/80 to-emerald-950/80 border border-teal-500/60 rounded-xl p-3 mb-3 shadow-lg">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                              <span className="text-xl">🤝</span>
-                              <div>
-                                <span className="text-[10px] font-mono uppercase tracking-wider text-teal-400 font-bold block">
-                                  Distribuidor Oficial Autorizado
-                                </span>
-                                <span className="text-xs font-bold text-white">
-                                  {distTitle}
-                                </span>
-                              </div>
-                            </div>
-                            {linkedDistNode && (
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-teal-400 font-bold block">
+                            {linkedDistributors.length > 1 ? 'Distribuidores vinculados' : linkedDistributors.length === 1 ? 'Distribuidor vinculado' : 'Distribuidor pendiente'}
+                          </span>
+                          {linkedDistributors.length === 0 ? (
+                            <span className="text-xs font-bold text-white">{marketDistributorLabel([])}</span>
+                          ) : linkedDistributors.map(distributor => (
+                            <div key={distributor.id} className="flex items-center justify-between gap-2 mt-2">
+                              <span className="text-xs font-bold text-white">{distributorDisplayName(distributor)}</span>
                               <button
-                                onClick={() => pushToStackedDeck(linkedDistNode)}
+                                onClick={() => pushToStackedDeck(distributor as NodeData)}
                                 className="px-2.5 py-1 bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-semibold rounded shadow transition flex items-center gap-1 shrink-0"
                               >
                                 <span>Abrir Distribuidor</span>
-                                <span>→</span>
+                                <span aria-hidden="true">→</span>
                               </button>
-                            )}
-                          </div>
+                            </div>
+                          ))}
                         </div>
                       );
                     })()}
