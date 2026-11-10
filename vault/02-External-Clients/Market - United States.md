@@ -28,6 +28,8 @@ relations:
   contains_distribution_zone:
     - "[[Market - US - New York]]"
     - "[[Market - US - Florida]]"
+  active_project:
+    - "[[Project - USA VIVIR Labels]]"
 updated_at: 2026-11-09T22:42:24.346Z
 pending_tasks:
   - id: pt-market-united-states-usa-vivir-verificar-inte-c94cc1a9
@@ -36,17 +38,19 @@ pending_tasks:
     priority: Medium
     description: "Responsable: HB. Olivia, Labels - USA & Canada (In Progress),
       10nov2026 12:36 UI Outlook, informa etiquetas VIVIR conformes USA
-      terminadas y PDA como cliente interesado; contacto Stephanie L, identidad
-      completa por verificar. Confirmar situacion comercial y siguiente paso,
-      sin inferir pedido, volumen, compromiso de compra ni asignar PDA a Walton
-      u otro distribuidor. Revision INTERNA 13nov por la tarde, no plazo
+      terminadas y PDA como cliente interesado; contacto Stephanie Lahourie,
+      stephanie.lahourie@smjaleel.com. Confirmar situacion comercial y siguiente
+      paso, sin inferir pedido, volumen, compromiso de compra ni asignar PDA a
+      Walton u otro distribuidor. Revision INTERNA 13nov por la tarde, no plazo
       prometido por cliente. Fuente: correo corporativo completo leido por
-      worker revisar_correos_clint, reportado a coordinacion."
+      worker revisar_correos_clint, reportado a coordinacion. Expediente:
+      [[Project - USA VIVIR Labels]]. Seguimiento viernes13 confirmado por HB."
     country: US
     status: Pending
     completed: false
     created_at: 2026-11-10T17:44:39.812Z
     created_by: Chairman / Executive Office
+    updated_at: 2026-11-10T17:59:31.719Z
 recent_actions:
   - date: 2026-11-10
     type: nueva_tarea_ejecutiva

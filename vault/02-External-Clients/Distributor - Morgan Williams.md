@@ -68,17 +68,20 @@ pending_tasks:
     description: "Responsable: HB. Olivia, Labels - USA & Canada (In Progress),
       10nov2026 12:36 UI Outlook, informa que MW presentara Chubby Mango a
       ventas/clientes y dara forecast en Q1 2027. Contactos indicados Stephanie
-      L, Lynette M y Christine K, identidades completas por verificar. Registrar
-      estado y acordar siguiente punto de contacto sin inferir pedido, volumen o
-      fecha exacta de forecast. Revision INTERNA 13nov por la tarde, no plazo
+      Lahourie (stephanie.lahourie@smjaleel.com), Lynette M y Christine K;
+      apellidos/correos de estas dos ultimas no verificados. Registrar estado y
+      acordar siguiente punto de contacto sin inferir pedido, volumen o fecha
+      exacta de forecast. Revision INTERNA 13nov por la tarde, no plazo
       comercial ni vencimiento del forecast. La afirmacion sobre muestras ya
       enviadas se contrasta en tarea Chubby existente con estimado posterior de
-      Tevin; no duplicar seguimiento de despacho."
+      Tevin; no duplicar seguimiento de despacho. Expediente: [[Project - Canada
+      Chubby Mango]]. Seguimiento viernes13 confirmado por HB."
     country: CA
     status: Pending
     completed: false
     created_at: 2026-11-10T17:44:38.164Z
     created_by: Chairman / Executive Office
+    updated_at: 2026-11-10T17:59:31.200Z
   - id: pt-dist-morgan-williams-chubby-verificar-envio-d-8bb2c1f0
     title: "Chubby: verificar envio de muestras Mango y Apple con Tevin"
     dueDate: 2026-11-13
@@ -126,6 +129,8 @@ relations:
   supplied_by:
     - "[[Core - S.M. Jaleel & Co. Ltd.]]"
     - "[[Dept - Supply Chain & Procurement]]"
+  active_project:
+    - "[[Project - Canada Chubby Mango]]"
 tags:
   - smj
   - canada
