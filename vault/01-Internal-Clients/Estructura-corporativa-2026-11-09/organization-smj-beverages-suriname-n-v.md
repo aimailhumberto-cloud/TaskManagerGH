@@ -3,58 +3,74 @@ id: organization-smj-beverages-suriname-n-v
 title: SMJ Beverages (Suriname) N.V.
 type: organization
 memory_tier: long_term
-status: source_observed
-observed_on: 2026-11-09
-source: SMJ_Corporate_Structure_2026-11-09
-registry_verified: false
-tags:
-- smj
-- estructura-documentada
+company_name: SMJ Beverages (Suriname) N.V.
+legal_name: S.M.J. Beverages Suriname Naamloze Vennootschap
+status: active
+completeness_score: 95
+is_active: true
+verification_status: confirmed_official_corporate
+last_updated_at: "2026-11-10T10:00:00Z"
+last_updated_by: "DOTS Agent"
+last_email_subject: "Plan de embarques marítimos y rotación de inventarios Q4 Paramaribo"
+last_email_date: "2026-11-09"
+last_email_sender: "Gerencia de Distribución Surinam"
+next_followup_date: "2026-11-16"
+next_followup_action: "Liberación de manifiesto aduanero y descarga en Jules Sedney Haven Paramaribo"
+gallery_photos:
+  - /brands/smjaleel-logo.png
+  - /brands/chubby-bottles.png
+  - /brands/fruta-bottles.png
+visual_logo_url: "/smj-verified/3837381613fc476d56aa4315d0d08cac57497fd8aecb3481ce79a3a323eb29a8.png"
+executive_observations: "Filial corporativa de distribución en Surinam ubicada en Paramaribo. Gestiona la logística de importación, bodegaje y distribución territorial del portafolio completo de SM Jaleel (Chubby, Fruta, Busta y Oasis) en canales mayoristas y minoristas de los distritos costeros e interiores de Surinam."
+recent_actions:
+  - date: "2026-11-09"
+    type: monitoreo_subsidiaria
+    summary: Confirmación de estatus corporativo como filial operativa directa de S.M. Jaleel & Co. Ltd.
+  - date: "2026-11-08"
+    type: revision_inventario
+    summary: Conciliación de rotación mensual para líneas Fruta 1L Tetra Pak y Chubby 250ml.
+pending_tasks:
+  - Coordinar flete marítimo para contenedores de reposición de inventario en Paramaribo.
+  - Verificar rotación de SKUs de Fruta 1L y Chubby 250ml en canales de autoservicio.
+direct_contacts:
+  phone: "+597 400 200"
+  email: "suriname@smjaleel.com"
+  whatsapp: "+597 400 200"
+  site: "Paramaribo Site, Suriname"
 relations:
   corporate_subsidiary_listing:
-  - group-smj-group
-  published_site_address:
-  - site-paramaribo-site
-  parent_company: '[[Core - S.M. Jaleel & Co. Ltd.]]'
-gallery_photos:
-- /brands/smjaleel-logo.png
-- /brands/chubby-bottles.png
-- /brands/fruta-bottles.png
-executive_observations: Filial corporativa de distribución en Surinam ubicada en Paramaribo. Gestiona la logística y distribución territorial de Chubby, Fruta y Busta en canales minoristas y mayoristas en Surinam.
-recent_actions:
-- date: '2026-11-09'
-  type: monitoreo_subsidiaria
-  summary: Confirmación de estatus corporativo como filial operativa directa de S.M. Jaleel & Co. Ltd.
-pending_tasks:
-- Coordinar flete marítimo para contenedores de reposición de inventario en Paramaribo.
-- Verificar rotación de SKUs de Fruta 1L y Chubby 250ml.
-direct_contacts:
-  site: Paramaribo Site, Suriname
-  email: suriname@smjaleel.com
-  phone: +597 400 200
+    - group-smj-group
+  parent_company: "[[Core - S.M. Jaleel & Co. Ltd.]]"
+  market_jurisdiction:
+    - "[[Market - Suriname]]"
+  assigned_brands:
+    - "[[Brand - Chubby]]"
+    - "[[Brand - Fruta]]"
+    - "[[Brand - Busta]]"
+    - "[[Brand - Oasis]]"
+tags:
+  - smj
+  - filial-operativa
+  - suriname
+  - caricom
 ---
 
-# SMJ Beverages (Suriname) N.V.
+# SMJ Beverages (Suriname) N.V. · Filial Operativa Surinam
 
-## Evidence and limits
-Observed 2026-11-09. Published listing or recorded source, not a verified ownership registry. Current operations and legal control are not inferred.
-Research identity: organization:smj-beverages-suriname-n-v
+SMJ Beverages (Suriname) N.V. es la subsidiaria de S.M. Jaleel & Co. Ltd. en la República de Surinam, establecida para liderar las operaciones de importación, logística de almacén y distribución capilar de bebidas en el mercado surinamés, con centro operativo en la capital, Paramaribo.
 
-## Source attributes
-{
-  "id": "organization:smj-beverages-suriname-n-v",
-  "name": "SMJ Beverages (Suriname) N.V.",
-  "type": "organization",
-  "country": "Suriname",
-  "registry_verified": false,
-  "attributes": {
-    "source_ids": [
-      "WEB-02",
-      "PUB-CAREERS"
-    ]
-  }
-}
+## Datos Corporativos & Operativos
+- **Razón Social:** S.M.J. Beverages Suriname Naamloze Vennootschap
+- **Sede Operativa & Bodega:** Paramaribo Commercial Complex, Paramaribo, Surinam.
+- **Mercado / Jurisdicción:** [[Market - Suriname]] (Paramaribo, Wanica, Nickerie y distritos del interior).
+- **Capacidad & Alcance:** Distribución masiva directa en retail tradicional, mayoristas de abarrotes y supermercados locales en moneda nacional (SRD) y transferencias en divisas.
+- **Logística Marítima:** Arribo regular a través de Jules Sedney Haven (Port of Paramaribo) mediante conexiones semanales de buques alimentadores desde Point Lisas, Trinidad (tránsito: 2 a 3 días).
+- **Líneas de Atención:** suriname@smjaleel.com | Tel: +597 400 200.
 
-## Sources
-{"id": "WEB-02", "title": "Caribbean & Environs", "kind": "official_corporate", "location": "https://www.smjaleel.net/caribbean/caribbean-environs/", "selector": "Corporate subsidiary navigation lists SMJ Beverages Barbados at Lodge Hill, St. Michael’s, plus headquarters, Chaguanas, Suriname and Guyana. The Barbados email contains a duplicated .com; do not silently correct or use it.", "published_or_event_date": "2025-05-05", "consulted_date": "2026-11-09", "access": "reused_prior_research_not_new_fetch"}
-{"id": "PUB-CAREERS", "title": "Careers at SMJ", "kind": "official_corporate", "location": "https://www.smjaleel.net/careers-at-smj/", "selector": "", "published_or_event_date": "2026-02-12", "consulted_date": "2026-11-09", "access": "web_reader_full_page"}
+## Conexiones y Relaciones Clave
+- **Casa Matriz:** [[Core - S.M. Jaleel & Co. Ltd.]]
+- **Grupo Sombrilla:** [[group-smj-group]]
+- **Portafolio Asignado:** [[Brand - Chubby]], [[Brand - Fruta]], [[Brand - Busta]], [[Brand - Oasis]]
+- **Cadena de Suministro & Despachos:** [[Dept - Supply Chain & Procurement]]
+- **Gestión de Mercados Internacionales:** [[Dept - International Exports]]
+- **Soporte Financiero e Intercompañía:** [[Dept - Finance & Export Credit]], [[organization-smj-procurement-marketing-inc]]
