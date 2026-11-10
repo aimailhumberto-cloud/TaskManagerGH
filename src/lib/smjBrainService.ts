@@ -42,15 +42,59 @@ export interface BrainGraph {
 
 const VAULT_DEFAULT_PATH = 'C:\\Users\\Usuario\\Downloads\\SMJaleel\\vault';
 
-function getVaultPath(): string {
+function copyFolderRecursiveSync(source: string, target: string) {
+  if (!fs.existsSync(target)) {
+    fs.mkdirSync(target, { recursive: true });
+  }
+  const files = fs.readdirSync(source);
+  for (const file of files) {
+    const curSource = path.join(source, file);
+    const curTarget = path.join(target, file);
+    if (fs.lstatSync(curSource).isDirectory()) {
+      copyFolderRecursiveSync(curSource, curTarget);
+    } else {
+      fs.copyFileSync(curSource, curTarget);
+    }
+  }
+}
+
+export function getVaultPath(): string {
   if (process.env.SMJ_VAULT_PATH && fs.existsSync(process.env.SMJ_VAULT_PATH)) {
     return process.env.SMJ_VAULT_PATH;
+  }
+  const renderPersistentVault = '/data/vault';
+  if (fs.existsSync(renderPersistentVault)) {
+    return renderPersistentVault;
+  }
+  if (fs.existsSync('/data')) {
+    try {
+      fs.mkdirSync(renderPersistentVault, { recursive: true });
+      const bundled = path.join(process.cwd(), 'vault');
+      if (fs.existsSync(bundled)) {
+        copyFolderRecursiveSync(bundled, renderPersistentVault);
+      }
+      return renderPersistentVault;
+    } catch {
+      // fallback
+    }
   }
   if (fs.existsSync(VAULT_DEFAULT_PATH)) {
     return VAULT_DEFAULT_PATH;
   }
   const bundledPath = path.join(process.cwd(), 'vault');
   if (fs.existsSync(bundledPath)) {
+    const tmpCloudVault = '/tmp/smj-vault';
+    if (process.env.RENDER || process.platform === 'linux') {
+      try {
+        if (!fs.existsSync(tmpCloudVault)) {
+          fs.mkdirSync(tmpCloudVault, { recursive: true });
+          copyFolderRecursiveSync(bundledPath, tmpCloudVault);
+        }
+        return tmpCloudVault;
+      } catch {
+        return bundledPath;
+      }
+    }
     return bundledPath;
   }
   return VAULT_DEFAULT_PATH;
@@ -122,13 +166,25 @@ export function loadBrainGraph(lens?: string, marketFilter?: string): BrainGraph
 
       const links = extractWikilinks(content);
 
+      let hierarchyLevel = frontmatter.hierarchy_level !== undefined ? frontmatter.hierarchy_level : 3;
+      const jobTitleLower = String(frontmatter.job_title || frontmatter.role || '').toLowerCase();
+      if (id.includes('aleem') || jobTitleLower.includes('chair') || jobTitleLower.includes('presidente')) {
+        hierarchyLevel = 0;
+      } else if (id.includes('anna-mohammed') || jobTitleLower.includes('chief operating') || jobTitleLower.includes('coo')) {
+        hierarchyLevel = 0;
+      } else if (jobTitleLower.includes('vice president') || jobTitleLower.includes('vp')) {
+        hierarchyLevel = Math.min(hierarchyLevel, 1);
+      } else if (jobTitleLower.includes('manager') || jobTitleLower.includes('gerente') || jobTitleLower.includes('director') || jobTitleLower.includes('head') || jobTitleLower.includes('lead')) {
+        hierarchyLevel = Math.min(hierarchyLevel, 2);
+      }
+
       nodes.push({
         id,
         title,
         type: frontmatter.type || 'working_memory',
         memory_tier: frontmatter.memory_tier || (file.includes('00-Working-Memory') ? 'working' : 'long_term'),
         status: frontmatter.status || 'active',
-        hierarchy_level: frontmatter.hierarchy_level !== undefined ? frontmatter.hierarchy_level : 3,
+        hierarchy_level: hierarchyLevel,
         completeness_score: frontmatter.completeness_score,
         country: frontmatter.country_name || frontmatter.based_in_country,
         department: frontmatter.department,
@@ -370,4 +426,84 @@ export function updateDossierMetadata(input: {
   }
 
   return { ok: true, message: `Ficha '${path.basename(foundFile, '.md')}' actualizada exitosamente`, updatedFile: foundFile };
+}
+
+export function writeVaultFile(relativePath: string, content: string): { ok: boolean; path: string; fullPath: string } {
+  const vaultDir = getVaultPath();
+  const sanitizedRel = relativePath.replace(/^(\.\.[\/\\])+/, '').replace(/^[\\\/]+/, '');
+  const targetPath = path.join(vaultDir, sanitizedRel);
+  const targetDir = path.dirname(targetPath);
+
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+
+  fs.writeFileSync(targetPath, content, 'utf-8');
+
+  // Also sync to bundled repository folder if separate
+  const bundled = path.join(process.cwd(), 'vault');
+  if (fs.existsSync(bundled) && !targetPath.startsWith(bundled)) {
+    try {
+      const bTarget = path.join(bundled, sanitizedRel);
+      const bDir = path.dirname(bTarget);
+      if (!fs.existsSync(bDir)) fs.mkdirSync(bDir, { recursive: true });
+      fs.writeFileSync(bTarget, content, 'utf-8');
+    } catch {}
+  }
+
+  return { ok: true, path: sanitizedRel, fullPath: targetPath };
+}
+
+export function deleteVaultFile(relativePath: string): { ok: boolean; path: string } {
+  const vaultDir = getVaultPath();
+  const sanitizedRel = relativePath.replace(/^(\.\.[\/\\])+/, '').replace(/^[\\\/]+/, '');
+  const targetPath = path.join(vaultDir, sanitizedRel);
+
+  if (fs.existsSync(targetPath)) {
+    fs.unlinkSync(targetPath);
+  }
+
+  const bundled = path.join(process.cwd(), 'vault');
+  if (fs.existsSync(bundled)) {
+    try {
+      const bTarget = path.join(bundled, sanitizedRel);
+      if (fs.existsSync(bTarget)) fs.unlinkSync(bTarget);
+    } catch {}
+  }
+
+  return { ok: true, path: sanitizedRel };
+}
+
+export function readVaultFile(relativePath: string): { ok: boolean; path: string; content?: string; mtime?: string; size?: number } {
+  const vaultDir = getVaultPath();
+  const sanitizedRel = relativePath.replace(/^(\.\.[\/\\])+/, '').replace(/^[\\\/]+/, '');
+  const targetPath = path.join(vaultDir, sanitizedRel);
+
+  if (!fs.existsSync(targetPath)) {
+    return { ok: false, path: sanitizedRel };
+  }
+
+  const stat = fs.statSync(targetPath);
+  const content = fs.readFileSync(targetPath, 'utf-8');
+  return {
+    ok: true,
+    path: sanitizedRel,
+    content,
+    mtime: stat.mtime.toISOString(),
+    size: stat.size,
+  };
+}
+
+export function listVaultFiles(): { path: string; size: number; mtime: string }[] {
+  const vaultDir = getVaultPath();
+  const allFiles = getAllMarkdownFiles(vaultDir);
+  return allFiles.map(f => {
+    const rel = path.relative(vaultDir, f).replace(/\\/g, '/');
+    const stat = fs.statSync(f);
+    return {
+      path: rel,
+      size: stat.size,
+      mtime: stat.mtime.toISOString(),
+    };
+  });
 }

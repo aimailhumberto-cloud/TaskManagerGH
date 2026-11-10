@@ -325,6 +325,7 @@ const TYPE_CONFIG: Record<
 
 // Canonical Executive Leaders Set (Always visible in clean executive collapsed view)
 const LEADER_IDS = new Set([
+  'person-aleem-mohammed',
   'person-anna-mohammed',
   'person-clint-villafana',
   'person-sonia-harris',
@@ -338,6 +339,32 @@ const LEADER_IDS = new Set([
   'person-andre-hosein',
   'person-humberto-jose-montoya-borja',
 ]);
+
+// Dynamic helper to identify leaders / directors / managers created by DOTS
+function isNodeLeader(node: any): boolean {
+  if (!node) return false;
+  const id = (node.id || '').toLowerCase();
+  if (LEADER_IDS.has(id)) return true;
+  if (node.hierarchy_level !== undefined && node.hierarchy_level <= 2) return true;
+  const fm = node.frontmatter || {};
+  const job = String(fm.job_title || fm.role || node.title || '').toLowerCase();
+  if (
+    job.includes('chair') ||
+    job.includes('chief') ||
+    job.includes('coo') ||
+    job.includes('ceo') ||
+    job.includes('vice president') ||
+    job.includes('vp') ||
+    job.includes('director') ||
+    job.includes('gerente') ||
+    job.includes('general manager') ||
+    job.includes('head') ||
+    job.includes('lead')
+  ) {
+    return true;
+  }
+  return false;
+}
 
 // Helper to categorize staff into their departmental hub
 function getPersonDeptCategory(node: any): 'exports' | 'manufacturing' | 'supply_chain' | 'finance' | 'general' {
@@ -371,18 +398,21 @@ const CLUSTER_CENTERS: Record<string, { x: number; y: number; label: string; col
   workingMemory: { x: 0, y: 200, label: 'Bandeja Memoria Temporal', color: 'rgba(251, 191, 36, 0.10)' },
 };
 
-// Organigram Hierarchical Strata (Levels L0 to L4)
+// Organigram Hierarchical Strata (Levels L-Apex to L4)
 const ORGANIGRAM_STRATA = [
-  { level: 0, y: -260, label: 'L0 · DIRECTORIO & COO (ANNA MOHAMMED · HQ TRINIDAD)', color: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.4)' },
-  { level: 1, y: -120, label: 'L1 · VICEPRESIDENCIAS (CLINT VILLAFANA · SONIA HARRIS)', color: 'rgba(59, 130, 246, 0.10)', border: 'rgba(59, 130, 246, 0.35)' },
-  { level: 2, y: 20, label: 'L2 · GERENCIAS DE EXPORTACIÓN (HUMBERTO BOUCHE · OLIVIA RAMPERSAD · ALANNA · RAJESH)', color: 'rgba(139, 92, 246, 0.10)', border: 'rgba(139, 92, 246, 0.35)' },
-  { level: 3, y: 160, label: 'L3 · MERCADOS EXTERNOS & DISTRIBUIDORES (MEDIMEX · SANCAS · MORGAN WILLIAMS · WALTON)', color: 'rgba(16, 185, 129, 0.10)', border: 'rgba(16, 185, 129, 0.35)' },
+  { level: -1, y: -380, label: 'L-APEX · CHAIRMAN DE LA JUNTA DIRECTIVA (DR. ALEEM MOHAMMED)', color: 'rgba(234, 179, 8, 0.15)', border: 'rgba(234, 179, 8, 0.5)' },
+  { level: 0, y: -260, label: 'L0 · DIRECCIÓN EJECUTIVA & COO (ANNA MOHAMMED · HQ TRINIDAD)', color: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.4)' },
+  { level: 1, y: -120, label: 'L1 · VICEPRESIDENCIAS Y DIRECCIONES GENERALES', color: 'rgba(59, 130, 246, 0.10)', border: 'rgba(59, 130, 246, 0.35)' },
+  { level: 2, y: 20, label: 'L2 · GERENCIAS DE EXPORTACIÓN, OPERACIONES & PLANTA', color: 'rgba(139, 92, 246, 0.10)', border: 'rgba(139, 92, 246, 0.35)' },
+  { level: 3, y: 160, label: 'L3 · MERCADOS EXTERNOS, DISTRIBUIDORES & RETAIL INTERNACIONAL', color: 'rgba(16, 185, 129, 0.10)', border: 'rgba(16, 185, 129, 0.35)' },
   { level: 4, y: 320, label: 'L4 · PORTAFOLIO DE MARCAS & OPERACIONES S&OP', color: 'rgba(234, 88, 12, 0.10)', border: 'rgba(234, 88, 12, 0.35)' },
 ];
 
 // 1. Spatially Balanced Quadrant Target Assignment (Completely Decentralized, Zero Overlap)
 function assignQuadrantTarget(node: any): { x: number; y: number } {
   const id = (node.id || '').toLowerCase();
+  const fm = node.frontmatter || {};
+  const job = String(fm.job_title || fm.role || node.title || '').toLowerCase();
 
   // TOP SHOWROOM: Marcas SMJ Máster (y = -260) - SOLO nodos tipo 'brand'
   if (node.type === 'brand') {
@@ -395,25 +425,60 @@ function assignQuadrantTarget(node: any): { x: number; y: number } {
   }
 
   // WEST (LEFT): Américas, Países, Distribuidores y Filiales Internacionales
-  // Canadá
-  if (id.includes('market-canada')) return { x: -580, y: -190 };
-  if (id.includes('morgan-williams')) return { x: -390, y: -220 };
-  if (id.includes('dist-canada-primary')) return { x: -390, y: -160 };
-  if (id.includes('walmart')) return { x: -240, y: -190 };
+  // Dinámico para TODOS los Mercados y Países (sin apilarse jamás)
+  if (node.type === 'market' || id.startsWith('market-') || (node.type === 'country' && !id.includes('trinidad'))) {
+    if (id.includes('canada')) return { x: -580, y: -220 };
+    if (id.includes('united-states') || id.includes('usa') || id.includes('florida') || id.includes('miami') || id.includes('new-york') || id.includes('tampa')) {
+      if (id.includes('miami')) return { x: -630, y: -150 };
+      if (id.includes('florida')) return { x: -580, y: -150 };
+      if (id.includes('new-york')) return { x: -630, y: -180 };
+      if (id.includes('tampa')) return { x: -530, y: -140 };
+      return { x: -580, y: -150 };
+    }
+    if (id.includes('belize')) return { x: -580, y: -70 };
+    if (id.includes('panama')) return { x: -580, y: 10 };
+    if (id.includes('costa-rica')) return { x: -580, y: 80 };
+    if (id.includes('el-salvador')) return { x: -580, y: 140 };
+    if (id.includes('barbados')) return { x: -540, y: 190 };
+    if (id.includes('guyana')) return { x: -580, y: 240 };
+    if (id.includes('saint-lucia') || id.includes('st-lucia')) return { x: -500, y: 220 };
+    if (id.includes('suriname')) return { x: -540, y: 270 };
+    if (id.includes('jamaica')) return { x: -500, y: -30 };
+    if (id.includes('south-africa')) return { x: -440, y: 280 };
 
-  // Estados Unidos
-  if (id.includes('market-united-states') || id.includes('market-usa')) return { x: -580, y: -60 };
-  if (id.includes('walton-and-post') || id.includes('walton')) return { x: -390, y: -60 };
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
+    const yPos = -230 + (Math.abs(hash) % 490);
+    const xPos = -580 + ((Math.abs(hash >> 3) % 100) - 50);
+    return { x: xPos, y: yPos };
+  }
 
-  // Belice
-  if (id.includes('market-belize')) return { x: -580, y: 70 };
-  if (id.includes('sancas-belize') || id.includes('sancas')) return { x: -390, y: 50 };
+  // Distribuidores Internacionales
+  if (node.type === 'distributor' || id.startsWith('dist-') || id.startsWith('distributor-')) {
+    if (id.includes('morgan-williams')) return { x: -390, y: -220 };
+    if (id.includes('dist-canada-primary')) return { x: -390, y: -160 };
+    if (id.includes('walton')) return { x: -390, y: -100 };
+    if (id.includes('sancas')) return { x: -390, y: -40 };
+    if (id.includes('medimex')) return { x: -390, y: 30 };
+    if (id.includes('panama-central')) return { x: -390, y: 90 };
+
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) hash = (hash * 23 + id.charCodeAt(i)) & 0xffffffff;
+    const yPos = -210 + (Math.abs(hash) % 430);
+    return { x: -390, y: yPos };
+  }
+
+  // Clientes Retail & Listings
+  if (node.type === 'customer' || id.includes('walmart') || id.startsWith('listing-')) {
+    if (id.includes('walmart-ca') || id.includes('walmart-canada')) return { x: -240, y: -200 };
+    if (id.includes('walmart')) return { x: -240, y: -150 };
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) hash = (hash * 19 + id.charCodeAt(i)) & 0xffffffff;
+    return { x: -240, y: -200 + (Math.abs(hash) % 360) };
+  }
+
+  // Proyectos e Hitos Comerciales
   if (id.includes('wm-20261109-002') || id.includes('gira-comercial-belice')) return { x: -240, y: 70 };
-
-  // Panamá
-  if (id.includes('market-panama')) return { x: -580, y: 200 };
-  if (id.includes('medimex')) return { x: -390, y: 170 };
-  if (id.includes('panama-central')) return { x: -390, y: 230 };
   if (id.includes('apertura-canal')) return { x: -240, y: 200 };
 
   // TERRITORIO MATRIZ: Trinidad & Tobago (x = -170, y = -30)
@@ -423,7 +488,7 @@ function assignQuadrantTarget(node: any): { x: number; y: number } {
   if (node.type === 'core' || id.includes('core-sm-jaleel')) return { x: 0, y: -30 };
   if (id.includes('manufacturing-plant') || id.includes('dept-manufacturing')) return { x: 150, y: -30 };
 
-  // SUBSIDIARIAS INTERNACIONALES DE S.M. JALEEL (Cinturón dependiente y formalizado desde Casa Matriz)
+  // SUBSIDIARIAS INTERNACIONALES DE S.M. JALEEL
   if (node.type === 'organization') {
     if (id.includes('guyana')) return { x: -140, y: 70 };
     if (id.includes('barbados')) return { x: -70, y: 110 };
@@ -435,7 +500,29 @@ function assignQuadrantTarget(node: any): { x: number; y: number } {
     return { x: 0, y: 95 };
   }
 
-  // EAST (RIGHT): Dirección Ejecutiva, Jefaturas & Liderazgo (TOTALMENTE DESCENTRALIZADO)
+  // Departamentos Corporativos (Todos los 11 departamentos ubicados con precisión)
+  if (node.type === 'department' || id.startsWith('dept-')) {
+    if (id.includes('international-exports') || id.includes('export')) return { x: 630, y: -90 };
+    if (id.includes('supply-chain') || id.includes('procurement')) return { x: 630, y: 170 };
+    if (id.includes('manufacturing') || id.includes('plant')) return { x: 150, y: -30 };
+    if (id.includes('finance') || id.includes('credit')) return { x: 630, y: 240 };
+    if (id.includes('business-intelligence')) return { x: 630, y: -160 };
+    if (id.includes('customs')) return { x: 480, y: 250 };
+    if (id.includes('export-warehousing')) return { x: 340, y: 250 };
+    if (id.includes('information-technology') || id.includes('-it')) return { x: 750, y: -160 };
+    if (id.includes('internal-audit')) return { x: 750, y: -90 };
+    if (id.includes('legal')) return { x: 750, y: -20 };
+    if (id.includes('marketing')) return { x: 750, y: 50 };
+
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) hash = (hash * 29 + id.charCodeAt(i)) & 0xffffffff;
+    return { x: 680, y: -150 + (Math.abs(hash) % 380) };
+  }
+
+  // EAST (RIGHT): Dirección Ejecutiva, Jefaturas & Liderazgo
+  // Fila 0 - CHAIRMAN & BOARD (Arriba de Anna, y = -300)
+  if (id.includes('aleem') || job.includes('chair')) return { x: 480, y: -300 };
+
   // Fila 1 - C-Suite & COO (Arriba, y = -220)
   if (id.includes('anna-mohammed')) return { x: 480, y: -220 };
   if (id.includes('role-chief-operating')) return { x: 340, y: -220 };
@@ -444,7 +531,6 @@ function assignQuadrantTarget(node: any): { x: number; y: number } {
   // Fila 2 - Vicepresidencias (y = -90)
   if (id.includes('clint-villafana')) return { x: 480, y: -90 };
   if (id.includes('role-vp-international-exports')) return { x: 340, y: -90 };
-  if (id.includes('dept-international-exports')) return { x: 630, y: -90 };
 
   // Fila 3 - Gerencias de Exportación (y = 40 · ¡Línea de Humberto!)
   if (id.includes('humberto-bouche') || id.includes('humberto')) return { x: 340, y: 40 };
@@ -456,10 +542,8 @@ function assignQuadrantTarget(node: any): { x: number; y: number } {
   // Fila 4 - Supply Chain, Compras y Planta (y = 170)
   if (id.includes('sonia-harris')) return { x: 480, y: 170 };
   if (id.includes('role-vp-logistics')) return { x: 340, y: 170 };
-  if (id.includes('dept-supply-chain')) return { x: 630, y: 170 };
   if (id.includes('rajesh') || id.includes('plant-operations-director')) return { x: 210, y: 170 };
   if (id.includes('role-vp-manufacturing')) return { x: 210, y: 240 };
-  if (id.includes('dept-finance')) return { x: 630, y: 240 };
 
   // Otros líderes clave
   if (id.includes('amir-hosein')) return { x: 340, y: 210 };
@@ -519,8 +603,11 @@ function assignQuadrantTarget(node: any): { x: number; y: number } {
 // 2. Constellation Targets (Distinct Orbital Galaxies - Centered & Zero Overflow)
 function assignClusterTarget(node: any): { x: number; y: number; clusterKey: string } {
   const id = (node.id || '').toLowerCase();
+  const fm = node.frontmatter || {};
+  const job = String(fm.job_title || fm.role || node.title || '').toLowerCase();
 
   // CLUSTER 1: CORE TRINIDAD & SUBSIDIARIAS CORPORATIVAS (Center: 0, -20)
+  if (id.includes('aleem') || job.includes('chair')) return { x: 0, y: -90, clusterKey: 'core' };
   if (id.includes('trinidad')) return { x: -85, y: -20, clusterKey: 'core' };
   if (node.type === 'core' || id.includes('core-sm-jaleel')) return { x: 0, y: -20, clusterKey: 'core' };
   if (id.includes('anna-mohammed')) return { x: 85, y: -50, clusterKey: 'core' };
@@ -556,13 +643,16 @@ function assignClusterTarget(node: any): { x: number; y: number; clusterKey: str
   if (id.includes('market-united-states') || id.includes('usa')) return { x: -430, y: -120, clusterKey: 'exportNorth' };
   if (id.includes('walton-and-post') || id.includes('walton')) return { x: -360, y: -90, clusterKey: 'exportNorth' };
 
-  // ORGANIZACIONES & FILIALES (Cinturón Internacional)
-  if (node.type === 'organization') {
-    if (id.includes('guyana') || id.includes('suriname') || id.includes('barbados') || id.includes('st-lucia')) {
-      return { x: -330, y: 20, clusterKey: 'exportCentral' };
+  // Generic Markets in Constellation
+  if (node.type === 'market' || id.startsWith('market-')) {
+    if (id.includes('canada') || id.includes('usa') || id.includes('united-states')) {
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
+      return { x: -360 + ((hash % 100) - 50), y: -160 + (((hash >> 3) % 100) - 50), clusterKey: 'exportNorth' };
     }
-    if (id.includes('usa')) return { x: -390, y: -90, clusterKey: 'exportNorth' };
-    return { x: -50, y: -110, clusterKey: 'core' };
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
+    return { x: -360 + ((hash % 120) - 60), y: 130 + (((hash >> 3) % 120) - 60), clusterKey: 'exportCentral' };
   }
 
   // CLUSTER 4: DIRECCIÓN EJECUTIVA & COMERCIAL (Center: 360, -160)
@@ -629,17 +719,24 @@ function assignClusterTarget(node: any): { x: number; y: number; clusterKey: str
   return { x: 0, y: 80, clusterKey: 'core' };
 }
 
-// 3. Organigram Targets (Pure Hierarchical Executive Tree L0 - L4)
+// 3. Organigram Targets (Pure Hierarchical Executive Tree L-Apex to L4)
 function assignOrganigramTarget(node: any): { x: number; y: number } {
   const id = (node.id || '').toLowerCase();
+  const fm = node.frontmatter || {};
+  const job = String(fm.job_title || fm.role || node.title || '').toLowerCase();
 
-  // L0: C-SUITE & APEX (y = -260)
+  // L-APEX: CHAIRMAN DE LA JUNTA DIRECTIVA (y = -380)
+  if (id.includes('aleem') || job.includes('chair')) {
+    return { x: 0, y: -380 };
+  }
+
+  // L0: C-SUITE & COO (y = -260)
   if (id.includes('anna-mohammed')) return { x: 0, y: -260 };
   if (id.includes('role-chief-operating')) return { x: -170, y: -260 };
   if (id.includes('noella-hewitt')) return { x: 170, y: -260 };
   if (node.type === 'core' || id.includes('core-sm-jaleel')) return { x: 340, y: -260 };
 
-  // L1: VICEPRESIDENCIAS (y = -120)
+  // L1: VICEPRESIDENCIAS & DEPARTAMENTOS (y = -120)
   // Export Branch (Left)
   if (id.includes('clint-villafana')) return { x: -300, y: -120 };
   if (id.includes('role-vp-international-exports')) return { x: -470, y: -120 };
@@ -649,6 +746,22 @@ function assignOrganigramTarget(node: any): { x: number; y: number } {
   if (id.includes('role-vp-logistics')) return { x: 400, y: -120 };
   if (id.includes('dept-supply-chain')) return { x: 550, y: -120 };
   if (id.includes('dept-finance')) return { x: 690, y: -120 };
+
+  // Departamentos estructurados
+  if (node.type === 'department' || id.startsWith('dept-')) {
+    if (id.includes('business-intelligence')) return { x: -600, y: -120 };
+    if (id.includes('marketing')) return { x: -220, y: -60 };
+    if (id.includes('legal')) return { x: -120, y: -180 };
+    if (id.includes('internal-audit')) return { x: 120, y: -180 };
+    if (id.includes('information-technology') || id.includes('-it')) return { x: 820, y: -120 };
+    if (id.includes('customs')) return { x: 420, y: -60 };
+    if (id.includes('export-warehousing')) return { x: 280, y: -60 };
+    if (id.includes('manufacturing') || id.includes('plant')) return { x: 310, y: 20 };
+
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) hash = (hash * 29 + id.charCodeAt(i)) & 0xffffffff;
+    return { x: -500 + (Math.abs(hash) % 1100), y: -70 };
+  }
 
   // ORGANIZACIONES & FILIALES INTERNACIONALES (y = -40, entre VP y Gerencias)
   if (node.type === 'organization') {
@@ -669,24 +782,40 @@ function assignOrganigramTarget(node: any): { x: number; y: number } {
   if (id.includes('manufacturing-plant') || id.includes('dept-manufacturing')) return { x: 310, y: 20 };
   if (id.includes('role-vp-manufacturing')) return { x: 460, y: 20 };
 
-  // L3: MERCADOS EXTERNOS & DISTRIBUIDORES DIRECTOS (y = 160)
-  // Canada
-  if (id.includes('market-canada')) return { x: -640, y: 140 };
-  if (id.includes('morgan-williams')) return { x: -640, y: 220 };
-  if (id.includes('dist-canada-primary')) return { x: -520, y: 220 };
-  if (id.includes('walmart')) return { x: -520, y: 140 };
-  // USA
-  if (id.includes('market-united-states') || id.includes('usa')) return { x: -360, y: 140 };
-  if (id.includes('walton-and-post') || id.includes('walton')) return { x: -360, y: 220 };
-  // Belize
-  if (id.includes('market-belize')) return { x: -140, y: 140 };
-  if (id.includes('sancas-belize') || id.includes('sancas')) return { x: -140, y: 220 };
-  if (id.includes('wm-20261109-002') || id.includes('gira-comercial-belice')) return { x: -20, y: 220 };
-  // Panama
-  if (id.includes('market-panama')) return { x: 120, y: 140 };
-  if (id.includes('medimex')) return { x: 120, y: 220 };
-  if (id.includes('panama-central')) return { x: 250, y: 220 };
-  if (id.includes('apertura-canal')) return { x: 250, y: 140 };
+  // L3: MERCADOS EXTERNOS & DISTRIBUIDORES DIRECTOS (y = 140 - 220)
+  if (node.type === 'market' || id.startsWith('market-') || (node.type === 'country' && !id.includes('trinidad'))) {
+    if (id.includes('canada')) return { x: -640, y: 140 };
+    if (id.includes('united-states') || id.includes('usa')) return { x: -480, y: 140 };
+    if (id.includes('belize')) return { x: -320, y: 140 };
+    if (id.includes('panama')) return { x: -160, y: 140 };
+    if (id.includes('costa-rica')) return { x: 0, y: 140 };
+    if (id.includes('el-salvador')) return { x: 140, y: 140 };
+    if (id.includes('barbados')) return { x: 280, y: 140 };
+    if (id.includes('guyana')) return { x: 420, y: 140 };
+    if (id.includes('saint-lucia') || id.includes('st-lucia')) return { x: 560, y: 140 };
+    if (id.includes('suriname')) return { x: 700, y: 140 };
+    if (id.includes('jamaica')) return { x: -400, y: 180 };
+    if (id.includes('south-africa')) return { x: 800, y: 140 };
+
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
+    const xPos = -640 + (Math.abs(hash) % 1350);
+    return { x: xPos, y: 140 };
+  }
+
+  if (node.type === 'distributor' || id.startsWith('dist-') || id.startsWith('distributor-')) {
+    if (id.includes('morgan-williams')) return { x: -640, y: 220 };
+    if (id.includes('dist-canada-primary')) return { x: -580, y: 220 };
+    if (id.includes('walton-and-post') || id.includes('walton')) return { x: -480, y: 220 };
+    if (id.includes('sancas-belize') || id.includes('sancas')) return { x: -320, y: 220 };
+    if (id.includes('medimex')) return { x: -160, y: 220 };
+    if (id.includes('panama-central')) return { x: -100, y: 220 };
+
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) hash = (hash * 23 + id.charCodeAt(i)) & 0xffffffff;
+    const xPos = -600 + (Math.abs(hash) % 1200);
+    return { x: xPos, y: 220 };
+  }
 
   // L4: MARCAS MÁSTER, RUTINAS & MEMORIA (y = 320)
   if (node.type === 'brand') {
@@ -1624,7 +1753,7 @@ export default function CerebroPage() {
 
       // 2. Organization / Staff filtering (People & Operational Employees)
       if (n.type === 'person') {
-        const isLeader = LEADER_IDS.has(n.id) || (n.hierarchy_level !== undefined && n.hierarchy_level <= 2);
+        const isLeader = isNodeLeader(n);
         if (oScope === 'collapsed') {
           // In collapsed mode: show only C-Suite, VP and Key Managers (12 people), hide 42 operational staff
           return isLeader;
@@ -2997,7 +3126,7 @@ export default function CerebroPage() {
     let emails = 0;
 
     for (const p of people) {
-      const isLeader = LEADER_IDS.has(p.id) || (p.hierarchy_level !== undefined && p.hierarchy_level <= 2);
+      const isLeader = isNodeLeader(p);
       if (isLeader) leaders++;
       if (p.frontmatter?.whatsapp || p.frontmatter?.phone_mobile) whatsapps++;
       if (p.frontmatter?.email_primary) emails++;
@@ -4520,7 +4649,7 @@ export default function CerebroPage() {
                       const allNodes = graphData?.nodes || nodesRef.current || [];
                       const allLinks = graphData?.links || linksRef.current || [];
                       const pName = node.title.replace('Person: ', '');
-                      const isLeader = LEADER_IDS.has(node.id) || (node.hierarchy_level !== undefined && node.hierarchy_level <= 2);
+                      const isLeader = isNodeLeader(node);
 
                       // Find direct reports (subordinates or people linked to this leader)
                       const directReports = allNodes.filter((n: any) => {
@@ -4608,8 +4737,8 @@ export default function CerebroPage() {
                       const deptKey = node.id.includes('export') ? 'exports' : node.id.includes('manufacturing') ? 'manufacturing' : node.id.includes('supply') ? 'supply_chain' : 'finance';
                       const allNodes = graphData?.nodes || nodesRef.current || [];
                       const deptMembers = allNodes.filter((n: any) => n.type === 'person' && getPersonDeptCategory(n) === deptKey);
-                      const deptLeaders = deptMembers.filter((p: any) => LEADER_IDS.has(p.id) || (p.hierarchy_level !== undefined && p.hierarchy_level <= 2));
-                      const deptStaff = deptMembers.filter((p: any) => !(LEADER_IDS.has(p.id) || (p.hierarchy_level !== undefined && p.hierarchy_level <= 2)));
+                      const deptLeaders = deptMembers.filter((p: any) => isNodeLeader(p));
+                      const deptStaff = deptMembers.filter((p: any) => !isNodeLeader(p));
                       const isDeptAccordionOpen = expandedDeptInDossier === node.id;
 
                       return (
