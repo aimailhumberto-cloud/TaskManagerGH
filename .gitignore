@@ -40,3 +40,13 @@ artifacts/
 
 # Exact image reconstructed from the versioned asset parts at build time
 /public/workspace/hb-lake-hero.png
+
+# Auto-sync daemon runtime files
+scripts/auto-sync/.sync.pid
+scripts/auto-sync/.sync-status.json
+scripts/auto-sync/auto-sync.log
+scripts/auto-sync/sync-error.log
+.sync.pid
+.sync-status.json
+auto-sync.log
+sync-error.log
