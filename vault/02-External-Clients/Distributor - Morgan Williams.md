@@ -37,6 +37,11 @@ executive_observations: Socio distribuidor e importador de bebidas de S.M.
   cadenas de retail de Canadá.
 recent_actions:
   - date: 2026-11-10
+    type: actualizacion_seguimiento
+    summary: "Tevin estima despacho muestras Mango/Apple jueves12 o viernes13nov.
+      Olivia informa Mango enviadas: no se presume mismo lote; verificar.
+      Revision interna viernes13 tarde, no compromiso de despacho."
+  - date: 2026-11-10
     type: nueva_tarea_ejecutiva
     summary: 'Nueva tarea asignada
       [pt-dist-morgan-williams-chubby-verificar-envio-d-8bb2c1f0]: "Chubby:
@@ -52,22 +57,26 @@ recent_actions:
 pending_tasks:
   - id: pt-dist-morgan-williams-chubby-verificar-envio-d-8bb2c1f0
     title: "Chubby: verificar envio de muestras Mango y Apple con Tevin"
-    dueDate: 2026-11-10
+    dueDate: 2026-11-13
     priority: High
-    description: "Responsable: Humberto Bouche (HB). Seguimiento hoy 10 noviembre
-      2026 por la tarde, hora no especificada. Revisar si Tevin Bijadder
-      confirmo fecha de envio de muestras Chubby Mango y Apple a
-      Morgan-Williams. Si no hay confirmacion, preparar consulta por Teams y
-      mostrar destinatario y texto exacto a HB para aprobacion; NO enviar. No se
-      afirma que el envio o su fecha esten confirmados. Fuente: instruccion
-      explicita HB: Y lo de Chobi ponlo como una tarea de seguimiento. Si para
-      hoy en la tarde no tenemos seguimiento, yo le podemos mandar un chat a
-      Tevin en Teams."
+    description: 'Responsable: Humberto Bouche (HB). Revision INTERNA viernes 13
+      noviembre 2026 por la tarde, America/Panama; no es plazo prometido por
+      Tevin ni fecha confirmada de despacho. Tevin indica hoy: "This will be
+      shipped on Thursday or Friday", referido a muestras Chubby Mango/Apple;
+      ventana estimada 12/13 noviembre, envio aun no comprobado. Discrepancia
+      por aclarar: Olivia, correo Labels USA & Canada, informa muestras Mango ya
+      enviadas, mientras Tevin posterior estima despacho Mango/Apple. No asumir
+      que sea el mismo lote. Verificar identificacion del lote, sabores, fecha
+      efectiva y evidencia de despacho antes de cerrar. Si falta informacion,
+      preparar consulta para aprobacion de HB; no enviar. Fuente: correos
+      corporativos leidos por worker de correo y coordinacion 10nov2026.
+      Instruccion original HB de seguimiento conservada en expediente.'
     country: Canada
     status: Pending
     completed: false
     created_at: 2026-11-10T15:57:26.259Z
     created_by: Chairman / Executive Office
+    updated_at: 2026-11-10T17:43:16.004Z
   - Consolidar el reporte de rotación de la campaña promocional Chubby Plushie
     en tiendas seleccionadas.
   - Programar despacho de contenedor de 2,800 cajas Chubby vía Puerto de Halifax
@@ -123,3 +132,9 @@ Morgan Williams International Inc. es el importador y distribuidor autorizado de
   - [[Person - Humberto Bouche]] (`Distribution Manager - Export`)
 - **Logística y Cadena de Suministro:** [[Dept - Supply Chain & Procurement]]
 - **Supervisión de Despachos y Facturación:** [[Dept - International Exports]], [[Dept - Finance & Export Credit]]
+
+## Seguimiento de muestras Chubby - actualizacion 2026-11-10
+
+Tevin: "This will be shipped on Thursday or Friday" para Mango/Apple, ventana estimada 12/13 noviembre. No hay envio verificado. Olivia, Labels USA & Canada, refiere Mango ya enviadas. Se conserva la discrepancia sin asumir mismo lote; verificar lote, sabores, fecha efectiva y evidencia. Revision interna HB viernes13 por la tarde (America/Panama), no vencimiento comercial. Fuente: coordinacion y worker de correo corporativo 10nov2026.
+
+Seguimiento anterior sustituido, conservado como historia: Responsable: Humberto Bouche (HB). Seguimiento hoy 10 noviembre 2026 por la tarde, hora no especificada. Revisar si Tevin Bijadder confirmo fecha de envio de muestras Chubby Mango y Apple a Morgan-Williams. Si no hay confirmacion, preparar consulta por Teams y mostrar destinatario y texto exacto a HB para aprobacion; NO enviar. No se afirma que el envio o su fecha esten confirmados. Fuente: instruccion explicita HB: Y lo de Chobi ponlo como una tarea de seguimiento. Si para hoy en la tarde no tenemos seguimiento, yo le podemos mandar un chat a Tevin en Teams.
