@@ -4,7 +4,7 @@ title: "Person: Luisa Santos"
 type: person
 memory_tier: long_term
 email_primary: ""
-job_title: ""
+job_title: General Manager
 organization: "[[Distributor - SanCas Belize]]"
 source: Recopilacion SMJ v4 2026-11-09; SHA256
   dfc0978685ded763e057e7f407a9b8b17dc95b20309e2093002490ba72b022e8;
@@ -51,14 +51,14 @@ sancas_contact_evidence:
   association_status: name_and_company_match
   employment_basis: HB explicitly identifies shared contacts as Santiago Castillo
     workers in contact with him
-  job_title_status: pending
+  job_title_status: confirmed_by_Olivia_2026-11-10T13:41:33Z
   manager_status: pending
   hierarchy_status: pending
   source_statement: "Olivia 08:38: Hi Humberto, the above are the contacts for SanCas"
   phone_assignment: observed_in_full_name_card
 phone_mobile: "+5016102551"
 whatsapp: "+5016102551"
-updated_at: 2026-11-10T13:43:01.740Z
+updated_at: 2026-11-10T14:17:55.387Z
 ---
 
 # Luisa Santos
@@ -79,3 +79,7 @@ Professional contexts are not employment, market ownership or hierarchy. No live
 ## WhatsApp SanCas contacts 2026-11-10
 Linked to SanCas and HB as requested by HB. Olivia shared card Luisa Santos at 08:37 with +5016102551. No job title or reporting line established. Full name matches this existing record. HB asked whether Luisa is GM; no answer observed, so GM is not confirmed.
 Source archive: corporate OneDrive Brand Guidelines/SanCas Belize/2026-11-10/CONTACTOS_Olivia_2026-11-10.md. No messages sent or phone address book modified.
+
+
+## Confirmation received 2026-11-10
+Olivia replied "Yes" at 08:41:33 Panama to HB's 08:39:04 question "is Luisa the GM right?". General Manager is now source-confirmed for SanCas; reporting manager remains unknown. This supersedes the earlier pending-title observation, preserved above as history. Source: WhatsApp personal Olivia Rampersad, messages msg_ddee57ed0bbdd2b785e0f3febb4c79de and msg_4a3b4380cae15e014b4304e657f9a48c.
