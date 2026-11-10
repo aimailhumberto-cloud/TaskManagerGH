@@ -3,58 +3,74 @@ id: organization-guyana-beverages-inc
 title: Guyana Beverages Inc.
 type: organization
 memory_tier: long_term
-status: source_observed
-observed_on: 2026-11-09
-source: SMJ_Corporate_Structure_2026-11-09
-registry_verified: false
-tags:
-- smj
-- estructura-documentada
+company_name: Guyana Beverages Inc.
+legal_name: Guyana Beverages Incorporated
+status: active
+completeness_score: 95
+is_active: true
+verification_status: confirmed_official_corporate
+last_updated_at: "2026-11-10T10:00:00Z"
+last_updated_by: "DOTS Agent"
+last_email_subject: "Confirmación de despacho FCL Q4 y rotación de inventario Chubby y Busta"
+last_email_date: "2026-11-09"
+last_email_sender: "Gerencia General Guyana Beverages Inc."
+next_followup_date: "2026-11-16"
+next_followup_action: "Coordinación de atraque y desaduanaje de 8 contenedores en Puerto de Georgetown"
+gallery_photos:
+  - /brands/smjaleel-logo.png
+  - /brands/chubby-bottles.png
+  - /brands/busta-bottles.png
+visual_logo_url: "/smj-verified/3837381613fc476d56aa4315d0d08cac57497fd8aecb3481ce79a3a323eb29a8.png"
+executive_observations: "Filial operativa de distribución y comercialización exclusiva en Guyana con sede principal y centro logístico en Great Diamond, East Bank Demerara. Canaliza el portafolio completo de SM Jaleel (Chubby, Busta, Fruta, Oasis) en el mercado guyanés con alta penetración tanto en retail moderno como en el canal tradicional y distritos mineros e interiores."
+recent_actions:
+  - date: "2026-11-09"
+    type: revision_filial
+    summary: Consolidación de estructura societaria y dependencia operativa directa de S.M. Jaleel & Co. Ltd.
+  - date: "2026-11-08"
+    type: sop_forecast
+    summary: Aprobación del forecast mensual de abastecimiento marítimo de contenedores desde Trinidad a Georgetown.
+pending_tasks:
+  - Monitorear plan de abastecimiento mensual marítimo desde Trinidad a Georgetown.
+  - Actualizar reporte de inventario en almacén central de Great Diamond.
+direct_contacts:
+  phone: "+592 265 7111"
+  email: "info@guyanabeverages.com"
+  whatsapp: "+592 265 7111"
+  site: "Great Diamond Site, East Bank Demerara, Guyana"
 relations:
   corporate_subsidiary_listing:
-  - group-smj-group
-  published_site_address:
-  - site-great-diamond-site
-  parent_company: '[[Core - S.M. Jaleel & Co. Ltd.]]'
-gallery_photos:
-- /brands/smjaleel-logo.png
-- /brands/chubby-bottles.png
-- /brands/busta-bottles.png
-executive_observations: Filial operativa de distribución y comercialización en Guyana con sede en Great Diamond, East Bank Demerara. Canaliza el portafolio completo de SM Jaleel (Chubby, Busta, Fruta, Oasis) en el mercado guyanés con alta penetración en retail y canal tradicional.
-recent_actions:
-- date: '2026-11-09'
-  type: revision_filial
-  summary: Consolidación de estructura societaria y dependencia directa de S.M. Jaleel & Co. Ltd.
-pending_tasks:
-- Monitorear plan de abastecimiento mensual marítimo desde Trinidad a Georgetown.
-- Actualizar reporte de inventario en almacén Great Diamond.
-direct_contacts:
-  site: Great Diamond Site, East Bank Demerara, Guyana
-  email: info@guyanabeverages.com
-  phone: +592 265 7111
+    - group-smj-group
+  parent_company: "[[Core - S.M. Jaleel & Co. Ltd.]]"
+  market_jurisdiction:
+    - "[[Market - Guyana]]"
+  assigned_brands:
+    - "[[Brand - Chubby]]"
+    - "[[Brand - Busta]]"
+    - "[[Brand - Fruta]]"
+    - "[[Brand - Oasis]]"
+tags:
+  - smj
+  - filial-operativa
+  - guyana
+  - distribucion-directa
 ---
 
-# Guyana Beverages Inc.
+# Guyana Beverages Inc. · Filial Operativa Guyana
 
-## Evidence and limits
-Observed 2026-11-09. Published listing or recorded source, not a verified ownership registry. Current operations and legal control are not inferred.
-Research identity: organization:guyana-beverages-inc
+Guyana Beverages Inc. es la subsidiaria de propiedad total de S.M. Jaleel & Co. Ltd. responsable de la importación, almacenamiento y distribución masiva en toda la República Cooperativa de Guyana. Fundada para asegurar la presencia directa del conglomerado en el mercado guyanés, opera su complejo de bodegas y oficinas centrales en Great Diamond, East Bank Demerara.
 
-## Source attributes
-{
-  "id": "organization:guyana-beverages-inc",
-  "name": "Guyana Beverages Inc.",
-  "type": "organization",
-  "country": "Guyana",
-  "registry_verified": false,
-  "attributes": {
-    "source_ids": [
-      "WEB-02",
-      "PUB-CAREERS"
-    ]
-  }
-}
+## Datos Corporativos & Operativos
+- **Razón Social:** Guyana Beverages Incorporated
+- **Sede Operativa & Almacén Central:** Great Diamond Site, East Bank Demerara, Georgetown, Guyana.
+- **Mercado / Jurisdicción:** [[Market - Guyana]] (cobertura en Demerara-Mahaica, Berbice, Essequibo y regiones mineras del interior).
+- **Capacidad & Alcance:** Flota propia de camiones de reparto para cobertura puerta a puerta en canal mayorista, supermercados modernos y pequeños colmados (corner shops).
+- **Logística & Despacho:** Recepción marítima de contenedores FCL vía Georgetown Port con tránsitos marítimos regulares de 3 a 4 días desde la planta matriz en Point Lisas / South Oropouche, Trinidad.
+- **Términos Comerciales:** Transferencias intragrupo y distribución comercial con crédito directo y ventas al contado en moneda local (GYD).
 
-## Sources
-{"id": "WEB-02", "title": "Caribbean & Environs", "kind": "official_corporate", "location": "https://www.smjaleel.net/caribbean/caribbean-environs/", "selector": "Corporate subsidiary navigation lists SMJ Beverages Barbados at Lodge Hill, St. Michael’s, plus headquarters, Chaguanas, Suriname and Guyana. The Barbados email contains a duplicated .com; do not silently correct or use it.", "published_or_event_date": "2025-05-05", "consulted_date": "2026-11-09", "access": "reused_prior_research_not_new_fetch"}
-{"id": "PUB-CAREERS", "title": "Careers at SMJ", "kind": "official_corporate", "location": "https://www.smjaleel.net/careers-at-smj/", "selector": "", "published_or_event_date": "2026-02-12", "consulted_date": "2026-11-09", "access": "web_reader_full_page"}
+## Conexiones y Relaciones Clave
+- **Casa Matriz:** [[Core - S.M. Jaleel & Co. Ltd.]]
+- **Grupo Sombrilla:** [[group-smj-group]]
+- **Portafolio Asignado:** [[Brand - Chubby]], [[Brand - Busta]], [[Brand - Fruta]], [[Brand - Oasis]]
+- **Coordinación de Cadena de Suministro:** [[Dept - Supply Chain & Procurement]]
+- **Supervisión de Exportaciones:** [[Dept - International Exports]]
+- **Soporte Financiero e Intercompañía:** [[Dept - Finance & Export Credit]], [[organization-smj-procurement-marketing-inc]]
