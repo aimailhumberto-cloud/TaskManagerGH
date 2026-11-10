@@ -1,5 +1,6 @@
 ---
 id: person-humberto-bouche
+avatar_image: '/smj-verified/ff53465de7669e9fad4c49ed002ef2c7205daa38c32b8f541bcdd14489e0c81c.png'
 title: 'Person: Humberto Bouche'
 type: person
 memory_tier: long_term
