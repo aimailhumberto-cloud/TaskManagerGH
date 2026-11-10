@@ -40,6 +40,26 @@ executive_observations: Distribuidor líder exclusivo y socio comercial
   City, abasteciendo a cadenas de supermercados clave (Brodies, Save-U, Publics)
   y al canal de tiendas independientes.
 recent_actions:
+  - date: 2026-11-10
+    type: nueva_tarea_ejecutiva
+    summary: 'Nueva tarea asignada
+      [pt-dist-sancas-belize-sancas-preparar-visita-d-80950efb]: "SanCas:
+      preparar visita de Humberto y censo de cobertura" (10:53 a. m.)'
+  - date: 2026-11-10
+    type: nueva_tarea_ejecutiva
+    summary: 'Nueva tarea asignada
+      [pt-dist-sancas-belize-sancas-definir-y-medir-d-e1c1a48a]: "SanCas:
+      definir y medir distribucion numerica" (10:53 a. m.)'
+  - date: 2026-11-10
+    type: nueva_tarea_ejecutiva
+    summary: 'Nueva tarea asignada
+      [pt-dist-sancas-belize-sancas-separar-volumen-m-903dc82f]: "SanCas:
+      separar volumen mayoristas e independientes" (10:53 a. m.)'
+  - date: 2026-11-10
+    type: nueva_tarea_ejecutiva
+    summary: 'Nueva tarea asignada
+      [pt-dist-sancas-belize-sancas-medir-efecto-del-ebeb4d63]: "SanCas: medir
+      efecto del precio Turbo en BZD" (10:53 a. m.)'
   - date: 2026-11-09
     type: coordinacion_comercial
     summary: Confirmación de agenda para visita comercial en Belice con Olivia
@@ -49,6 +69,65 @@ recent_actions:
     summary: Envío de programa de despacho marítimo CIF Port of Belize para
       reposición de Chubby y Busta.
 pending_tasks:
+  - id: pt-dist-sancas-belize-sancas-preparar-visita-d-80950efb
+    title: "SanCas: preparar visita de Humberto y censo de cobertura"
+    priority: Medium
+    description: "Responsable: Humberto Bouche (HB). SIN FECHA LIMITE FIJADA.
+      Preparar visita de Humberto a Belice cuando viaje, sin fecha fijada.
+      Reservar tiempo para todos los wholesalers y preparar censo con zonas,
+      rutas, clientes unicos y cobertura. No realizar reservas ni compromisos
+      externos. Fuente HB: Sentinel_8cfdbc5980a48191bfa6cfd6f14f3cc7.
+      Aclaraciones: moneda de Belice (BZD); visita de Humberto cuando vaya al
+      mercado. Distribuidor dist-sancas-belize. Sin fecha inventada."
+    country: Belice
+    status: Pending
+    completed: false
+    created_at: 2026-11-10T15:53:14.782Z
+    created_by: Chairman / Executive Office
+  - id: pt-dist-sancas-belize-sancas-definir-y-medir-d-e1c1a48a
+    title: "SanCas: definir y medir distribucion numerica"
+    priority: Medium
+    description: "Responsable: Humberto Bouche (HB). SIN FECHA LIMITE FIJADA.
+      Definir distribucion numerica (ND): universo elegible, zonas, canal, SKU y
+      periodo; numerador outlets con producto. No inventar cobertura ni
+      universo. Fuente HB: Sentinel_8cfdbc5980a48191bfa6cfd6f14f3cc7.
+      Aclaraciones: moneda de Belice (BZD); visita de Humberto cuando vaya al
+      mercado. Distribuidor dist-sancas-belize. Sin fecha inventada."
+    country: Belice
+    status: Pending
+    completed: false
+    created_at: 2026-11-10T15:53:14.081Z
+    created_by: Chairman / Executive Office
+  - id: pt-dist-sancas-belize-sancas-separar-volumen-m-903dc82f
+    title: "SanCas: separar volumen mayoristas e independientes"
+    priority: Medium
+    description: "Responsable: Humberto Bouche (HB). SIN FECHA LIMITE FIJADA.
+      Proximo reporte: separar volumen de wholesalers/mayoristas e
+      independientes con periodo y unidades homogeneos; evitar doble conteo. No
+      hay fecha limite fijada. Fuente HB:
+      Sentinel_8cfdbc5980a48191bfa6cfd6f14f3cc7. Aclaraciones: moneda de Belice
+      (BZD); visita de Humberto cuando vaya al mercado. Distribuidor
+      dist-sancas-belize. Sin fecha inventada."
+    country: Belice
+    status: Pending
+    completed: false
+    created_at: 2026-11-10T15:53:13.387Z
+    created_by: Chairman / Executive Office
+  - id: pt-dist-sancas-belize-sancas-medir-efecto-del-ebeb4d63
+    title: "SanCas: medir efecto del precio Turbo en BZD"
+    priority: Medium
+    description: "Responsable: Humberto Bouche (HB). SIN FECHA LIMITE FIJADA.
+      Evaluar cambio de precio Turbo de BZD2.25 a BZD2.00 (-11.11%). Validar
+      SKU, canal, vigencia y base comparable antes/despues. BZD confirmado por
+      HB. No asumir volumen, resultado ni fecha de implementacion. Fuente HB:
+      Sentinel_8cfdbc5980a48191bfa6cfd6f14f3cc7. Aclaraciones: moneda de Belice
+      (BZD); visita de Humberto cuando vaya al mercado. Distribuidor
+      dist-sancas-belize. Sin fecha inventada."
+    country: Belice
+    status: Pending
+    completed: false
+    created_at: 2026-11-10T15:53:12.808Z
+    created_by: Chairman / Executive Office
   - Confirmar fecha de arribo de contenedor de 2,200 cajas Chubby surtido a Port
     of Belize.
   - Finalizar agenda ejecutiva de reuniones con directores de compras de Brodies
