@@ -3,10 +3,12 @@ id: wm-20261109-001
 title: "Working Memory: Prioridad Lote Chubby 250ml Panamá y Belice"
 type: working_memory
 memory_tier: working
-status: "pulsing"
-captured_at: "2026-11-09T11:48:00-05:00"
-source: "Dots Agent (Voice / Chat)"
-notes: "Rajesh en Manufactura confirmó que la corrida de botellas Chubby para Centroamérica puede adelantarse al tercer martes de mes si Supply Chain confirma resina PET antes del viernes."
+status: pulsing
+captured_at: 2026-11-09T11:48:00-05:00
+source: Dots Agent (Voice / Chat)
+notes: Rajesh en Manufactura confirmó que la corrida de botellas Chubby para
+  Centroamérica puede adelantarse al tercer martes de mes si Supply Chain
+  confirma resina PET antes del viernes.
 relations:
   touches:
     - "[[Person - Rajesh Maharaj]]"
@@ -15,7 +17,15 @@ relations:
     - "[[Market - Panama]]"
     - "[[Market - Belize]]"
     - "[[Brand - Chubby]]"
-updated_at: "2026-11-09T11:48:00-05:00"
+updated_at: 2026-11-09T11:48:00-05:00
+dots_status: in_progress
+last_dots_instruction: Por favor preparar reporte de análisis preliminar.
+last_dots_request_at: 2026-11-10T14:29:29.680Z
+recent_actions:
+  - date: 2026-11-10
+    type: solicitud_dots
+    summary: 'Instrucción despachada a DOTS: "Por favor preparar reporte de análisis
+      preliminar."'
 ---
 
 # Working Memory: Prioridad Lote Chubby 250ml Panamá y Belice
