@@ -7,8 +7,9 @@ first_name: Tomás
 last_name: Casas
 aliases:
   - Tomas Casas
+  - "Tomás Casas"
   - Tomás
-organization: "[[Core - S.M. Jaleel & Co. Ltd.]]"
+organization: "[[core-sm-jaleel]]"
 entity_scope: internal
 geographic_scope: "Centroamérica con Belice excluido; Panamá conserva exclusión previa pendiente de\
   \ aclaración; Jamaica como mercado del Caribe"
@@ -16,11 +17,11 @@ relations:
   direct_reports:
     - "[[person-gabriela-trigueros]]"
   reports_to:
-    - "[[Person - Anna Mohammed]]"
+    - "[[person-anna-mohammed]]"
   responsible_for_markets:
-    - "[[Market - Costa Rica]]"
-    - "[[Market - El Salvador]]"
-    - "[[Market - Jamaica]]"
+    - "[[market-costa-rica]]"
+    - "[[market-el-salvador]]"
+    - "[[market-jamaica]]"
 verification_status: Relación jerárquica y mercados confirmados directamente por
   HB; lista de mercados incompleta
 source: "HB, conversación privada 2026-11-10:
@@ -62,7 +63,7 @@ gabriela_identity_resolution_20261110:
 
 # Tomás Casas
 
-HB confirma que reporta directamente a [[Person - Anna Mohammed]]. Atiende Centroamérica excepto Panamá. Costa Rica, El Salvador y Jamaica son los mercados nombrados explícitamente. Jamaica pertenece al Caribe, no a Centroamérica.
+HB confirma que reporta directamente a [[person-anna-mohammed]]. Atiende Centroamérica excepto Panamá. Costa Rica, El Salvador y Jamaica son los mercados nombrados explícitamente. Jamaica pertenece al Caribe, no a Centroamérica.
 
 Otros mercados, cargo formal, contactos y fechas de vigencia permanecen pendientes. No se asignan por inferencia. La exclusión de Panamá corresponde a su alcance actual confirmado por HB.
 

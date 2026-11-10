@@ -8,7 +8,7 @@ iso_code: SV
 region: Central America
 relations:
   responsible_person:
-    - "[[Person - Tomas Casas]]"
+    - "[[person-tomas-casas]]"
     - "[[person-gabriela-trigueros]]"
 verification_status: Mercado y vínculo con Tomás confirmados directamente por HB
 source: "HB, conversación privada 2026-11-10:
@@ -57,7 +57,7 @@ gabriela_identity_resolution_20261110:
 
 # Market: El Salvador
 
-HB confirmó este mercado dentro del alcance de [[Person - Tomas Casas]] el 10 de noviembre de 2026. 
+HB confirmó este mercado dentro del alcance de [[person-tomas-casas]] el 10 de noviembre de 2026. 
 
 Distribuidores, marcas, condiciones comerciales y otros responsables pendientes de fuente verificable.
 

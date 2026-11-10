@@ -8,7 +8,7 @@ iso_code: JM
 region: Caribbean
 relations:
   responsible_person:
-    - "[[Person - Tomas Casas]]"
+    - "[[person-tomas-casas]]"
 verification_status: Mercado y vínculo con Tomás confirmados directamente por HB
 source: "HB, conversación privada 2026-11-10:
   Sentinel_4e17890036ac81919a5fa05feffd78c4; corrección explícita posterior
@@ -39,7 +39,7 @@ hb_market_scope_confirmation_20261110:
 
 # Market: Jamaica
 
-HB confirmó este mercado dentro del alcance de [[Person - Tomas Casas]] el 10 de noviembre de 2026. Jamaica se clasifica geográficamente como Caribe, no Centroamérica.
+HB confirmó este mercado dentro del alcance de [[person-tomas-casas]] el 10 de noviembre de 2026. Jamaica se clasifica geográficamente como Caribe, no Centroamérica.
 
 Distribuidores, marcas, condiciones comerciales y otros responsables pendientes de fuente verificable.
 
