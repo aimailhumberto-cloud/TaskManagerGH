@@ -166,3 +166,8 @@ Seguimiento: cuatro acciones autorizadas para HB, pendientes y sin vencimiento i
 
 Antigravity esta trabajando en cambios de la aplicacion, segun HB. Este lote modifica solo datos y preserva historial.
 
+### Aclaraciones expresas de HB - moneda y visita
+
+HB aclara: "La moneda del precio es la moneda de Belice". Por tanto, Turbo pasa de BZD 2.25 a BZD 2.00 (dolar beliceno), diferencia BZD 0.25 y -11.11%. Esta confirmacion resuelve la duda de moneda anterior; siguen pendientes SKU/presentacion, canal/base del precio y vigencia.
+
+HB aclara: "Yo es mi visita al mercado de Humberto cuando yo vaya alla. Exacto." La visita es de [[Person - Humberto Bouche]] al mercado de Belice; el objetivo es que el conozca directamente los wholesalers, reservando tiempo para visitas y censo de cobertura/clientes. Queda resuelta la transcripcion ambigua anterior: no hay una persona llamada Deba asignada. No se ha confirmado fecha de viaje ni agenda.
