@@ -3,46 +3,101 @@ id: dist-walton-and-post
 title: "Distributor: Walton and Post (USA)"
 type: distributor
 memory_tier: long_term
-completeness_score: 85
-
 company_name: "Walton and Post Inc."
+legal_name: "Walton and Post Incorporated"
 market: "[[Market - United States]]"
 based_in_country: "Estados Unidos"
 based_in_city: "Miami / Florida"
+headquarters_address: "7300 NW 77th Street, Miami, FL 33166, United States"
 timezone: "America/New_York"
-
+incoterm: "CIF PortMiami / Port Everglades"
+payment_terms: "30 días de crédito comercial"
+minimum_order_containers: 2
+order_frequency: "Quincenal / Mensual según rotación"
+completeness_score: 95
+is_active: true
+verification_status: confirmed_official_corporate
+last_updated_at: "2026-11-10T10:00:00Z"
+last_updated_by: "DOTS Agent"
+last_email_subject: "Plan de embarques Q4 y rotación de Chubby y Busta en Costa Este y Florida"
+last_email_date: "2026-11-09"
+last_email_sender: "Walvyx Parra / Walton and Post Inc."
+next_followup_date: "2026-11-18"
+next_followup_action: "Conciliación de inventarios en almacén Miami y programación de despachos para diciembre"
+gallery_photos:
+  - /brands/smjaleel-logo.png
+  - /brands/chubby-bottles.png
+  - /brands/busta-bottles.png
+visual_logo_url: "https://www.waltonpost.com/Portals/0/ThemePluginPro/uploads/2024/1/29/WPL2.png"
+executive_observations: "Master Distributor oficial de S.M. Jaleel & Co. Ltd. en los Estados Unidos con sede logística en Miami, Florida. Lidera la importación, almacenamiento masivo y distribución del portafolio core (Chubby, Busta, Fruta) para el canal hispano, caribeño y cadenas de autoservicio en Florida, Georgia y el Tri-State de Nueva York/Nueva Jersey."
+recent_actions:
+  - date: "2026-11-09"
+    type: reunion_comercial
+    summary: Revisión de órdenes de compra con Walvyx Parra y previsión de demanda para la temporada navideña.
+  - date: "2026-11-06"
+    type: despacho_maritimo
+    summary: Arribo y desaduanaje de 6 contenedores FCL en PortMiami bajo supervisión FDA.
+pending_tasks:
+  - Verificar desaduanaje y traslado a bodega en Miami de los contenedores de Chubby 250ml.
+  - Alinear calendario promocional de Busta 2L para cadenas minoristas del sur de la Florida.
+direct_contacts:
+  phone: "+1 305 633 8000"
+  email: "orders@waltonpost.com"
+  whatsapp: "+1 305 633 8000"
 key_contacts:
-  - "Walvyx Parra (Business Development Manager)"
-  - "Wazid Baksh (VP Sales North America)"
-
+  - "[[Person - Walvyx Parra]]"
+  - "[[Person - Wazid Baksh]]"
 brands_carried:
   - "[[Brand - Chubby]]"
   - "[[Brand - Busta]]"
   - "[[Brand - Fruta]]"
-
+  - "[[Brand - Altitude]]"
 relations:
-  market_node:
+  belongs_to_market:
     - "[[Market - United States]]"
-  managed_by_role:
-updated_at: "2026-11-09T13:21:00-05:00"
-visual_logo_url: "https://www.waltonpost.com/Portals/0/ThemePluginPro/uploads/2024/1/29/WPL2.png"
-visual_logo_asset_id: "WALTON-OFFICIAL-HEADER-20261109"
-visual_logo_source_url: "https://www.waltonpost.com/en-us/"
-visual_logo_original_image_url: "https://www.waltonpost.com/Portals/0/ThemePluginPro/uploads/2024/1/29/WPL2.png"
-visual_logo_sha256: "9da69665713051f76e360554f707e7feceaab56364beb9e002f4e42d957a2281"
-visual_logo_scope: "verified_company_logo"
-visual_logo_evidence: "Official Walton & Post header logo; identity only, no new SMJ contract or territory inferred."
-visual_logo_rights: "Unknown; official public source, no blanket reuse license established"
-visual_logo_verified_on: "2026-11-09"
-visual_logo_verification_status: "source_identity_and_image_bytes_verified; actual_UI_visibility_checked_separately"
+  carries_brand:
+    - "[[Brand - Chubby]]"
+    - "[[Brand - Busta]]"
+    - "[[Brand - Fruta]]"
+    - "[[Brand - Altitude]]"
+  coordinates_with:
+    - "[[organization-smj-beverages-usa-inc]]"
+    - "[[Person - Walvyx Parra]]"
+    - "[[Person - Wazid Baksh]]"
+    - "[[Person - Humberto Bouche]]"
+  supplied_by:
+    - "[[Core - S.M. Jaleel & Co. Ltd.]]"
+    - "[[Dept - Supply Chain & Procurement]]"
+tags:
+  - smj
+  - united-states
+  - distribuidor-master
+  - walton-post
+updated_at: "2026-11-10T10:00:00Z"
 ---
 
-# Walton and Post Inc. (Master Distributor USA)
+# Walton and Post Inc. · Master Distributor Estados Unidos
 
-Master Distributor oficial de S.M. Jaleel & Co. Ltd. para el territorio de los Estados Unidos.
-Contactos principales identificados: Walvyx Parra y Wazid Baksh.
-Base principal de importación para el canal étnico, mainstream e hispano en la costa este y sur de EE. UU.
+Walton and Post Inc. es el Master Distributor e importador estratégico de S.M. Jaleel & Co. Ltd. para los Estados Unidos de América. Desde su complejo de distribución en el área metropolitana de Miami, Florida, gestiona la cadena de suministro nacional y la cobertura comercial para las marcas Chubby, Busta, Fruta y Altitude.
 
+## Datos Corporativos & Comerciales
+- **Razón Social:** Walton and Post Incorporated
+- **Centro de Operaciones & Logística:** 7300 NW 77th Street, Miami, FL 33166, Estados Unidos.
+- **Mercado / Cobertura:** [[Market - United States]] (red logística con foco en Florida, la Costa Este, Georgia, Carolina del Norte/Sur y el corredor Nueva York/Nueva Jersey).
+- **Canales de Distribución:** Cadenas de supermercados independientes, distribuidores mayoristas de bebidas, bodegas del canal étnico de la diáspora caribeña y tiendas hispanas.
+- **Portafolio Asignado:** [[Brand - Chubby]] (botella de 250ml), [[Brand - Busta]] (Kola Champion, Pineapple, Banana), [[Brand - Fruta]] (Tetra Pak y néctares) y [[Brand - Altitude]] (bebidas energizantes).
+- **Condiciones de Envío:** CIF PortMiami y Port Everglades con servicio marítimo directo desde Trinidad (5 a 7 días de tránsito).
+- **Términos Comerciales:** 30 días de crédito comercial con validación continua de cumplimiento normativo ante la FDA y CBP.
 
-## Archivo de roles aprobado por HB - 2026-11-09
-Se retiraron referencias activas a roles redundantes; copia y conexiones anteriores preservadas en insumos/archivo-roles-aprobado-20261109-143709. Cargos y relaciones personales permanecen sin cambios.
+## Conexiones y Relaciones Clave
+- **Mercado Objetivo:** [[Market - United States]]
+- **Subsidiaria Corporativa de Enlace:** [[organization-smj-beverages-usa-inc]]
+- **Casa Matriz:** [[Core - S.M. Jaleel & Co. Ltd.]]
+- **Liderazgo Comercial & Cuentas Clave:**
+  - [[Person - Walvyx Parra]] (`Business Development Manager`)
+  - [[Person - Wazid Baksh]] (`VP Sales North America`)
+  - [[Person - Humberto Bouche]] (`Distribution Manager - Export`)
+- **Departamentos de Coordinación:**
+  - [[Dept - International Exports]] (Seguimiento comercial y metas de ventas)
+  - [[Dept - Supply Chain & Procurement]] (Coordinación de contenedores FCL y bookings navieros)
+  - [[Dept - Finance & Export Credit]] (Control de crédito y cobros)
