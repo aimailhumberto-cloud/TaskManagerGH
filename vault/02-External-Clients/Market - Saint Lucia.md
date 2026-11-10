@@ -14,6 +14,7 @@ source_files:
 verification_status: identity_only_operational_scope_unverified
 audit_note: Minimal referenced-market record. Does not validate inherited brand assignments,
   company activity, shipments, contacts or HB management responsibility.
+iso_code: LC
 ---
 
 # Saint Lucia

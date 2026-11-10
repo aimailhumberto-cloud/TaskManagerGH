@@ -10,6 +10,7 @@ registry_verified: false
 tags:
   - smj
   - estructura-documentada
+iso_code: BB
 ---
 
 # Barbados
