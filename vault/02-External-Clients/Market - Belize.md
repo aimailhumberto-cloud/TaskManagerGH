@@ -19,6 +19,7 @@ relations:
   managed_by_role:
   distributors:
     - "[[Distributor - SanCas Belize]]"
+    - "[[Distributor - Nandos Belize]]"
   active_brands:
     - "[[Brand - Chubby]]"
     - "[[Brand - Fruta]]"
@@ -37,3 +38,7 @@ Se retiraron referencias activas a roles redundantes; copia y conexiones anterio
 
 ## Evidencia comercial - 2026-11-10
 Se archivaron seis artes promocionales de [[Distributor - SanCas Belize]] enviados por [[Person - Olivia Rampersad]] via WhatsApp. Incluyen Kool Kidz, Fruta, Busta, Double Day y sorteo. Detalle y limites de evidencia en el expediente del distribuidor; no constituyen compromisos de agenda de HB.
+
+
+## Segundo distribuidor identificado por HB - 2026-11-10
+Se incorpora [[Distributor - Nandos Belize]] como distribuidor adicional a SanCas por declaracion expresa de HB y correo historico reenviado por Olivia. La ficha distingue salida confirmada de agosto, contactos observados y datos pendientes. No implica exclusividad, nuevo pago ni compromiso aceptado.
