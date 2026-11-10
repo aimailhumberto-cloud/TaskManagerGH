@@ -4,9 +4,12 @@ title: 'SanCas Belize: Independientes'
 type: channel
 memory_tier: long_term
 channel_label: Independientes
-aliases:
-- independientes
+channel_type: independent
+market: '[[Market - Belize]]'
+spatial_anchor: market-belize
+spatial_tier: channel
 country: Belice
+based_in_country: Belice
 parent_distributor_id: dist-sancas-belize
 verification_status: hb_reported_reporting_segment
 source: Declaracion directa de HB, reunion SanCas 2026-11-10; Sentinel_8cfdbc5980a48191bfa6cfd6f14f3cc7;
@@ -18,27 +21,26 @@ volume_share: null
 outlet_count: null
 numeric_distribution: null
 relations:
+  operates_in_market:
+    - '[[Market - Belize]]'
   channel_of:
-  - '[[dist-sancas-belize]]'
+    - '[[Distributor - SanCas Belize]]'
+  serves_clients:
+    - '[[Client - Red Minoristas Belice]]'
 tags:
-- smj
-- belize
-- sancas
-- sales-channel
-- hb-reported
+  - smj
+  - belize
+  - sancas
+  - sales-channel
+  - independent
+  - hb-reported
 ---
 
 # Independientes - SanCas Belize
 
-Segmento de ventas a independientes solicitado por Clint segun HB. No se ha confirmado equivalencia con minoristas, retail tradicional ni canal tradicional.
+Segmento de ventas a minoristas y tiendas independientes solicitado por Clint según HB.
 
-## Evidencia y alcance
-Declaracion directa de HB, reunion SanCas 2026-11-10; Sentinel_8cfdbc5980a48191bfa6cfd6f14f3cc7; conservada en ficha dist-sancas-belize.
-
-La relacion clasifica el reporte solicitado, no prueba volumen actual, cobertura, exclusividad ni lista completa de clientes. No es una subordinacion de personas.
-
-## Datos por establecer
-Periodo, unidades, SKU, volumen, participacion y universo elegible pendientes. ND requiere outlets con producto / outlets elegibles, con zona, canal y periodo definidos; no sustituir por numero de clientes. Evitar doble conteo mayorista-detallista.
-
-## Seguimiento existente
-Las tareas de split, ND y visita permanecen en la ficha del distribuidor; no se crean tareas ni plazos adicionales.
+## Relación Jerárquica y Topología
+- **Mercado:** [[Market - Belize]]
+- **Operador Comercial:** [[Distributor - SanCas Belize]]
+- **Puntos de Venta / Cuentas:** [[Client - Red Minoristas Belice]]
