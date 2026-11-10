@@ -25,6 +25,11 @@ interface NodeData {
   targetY: number;
   radius: number;
   isDragged?: boolean;
+  isPinned?: boolean;
+  pinnedX?: number;
+  pinnedY?: number;
+  originalTargetX?: number;
+  originalTargetY?: number;
 }
 
 interface LinkData {
@@ -69,7 +74,15 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// Universal Dynamic Node Photos Cache (Soporta fotos en CUALQUIER nodo del universo)
+// Dynamic Node Photo Cache-Busting Helper
+function getPhotoUrlWithBust(url?: string | null, updatedAt?: string | number): string | null {
+  if (!url || typeof url !== 'string') return null;
+  const sep = url.includes('?') ? '&' : '?';
+  const bust = updatedAt ? `v=${encodeURIComponent(updatedAt)}` : `v=${Date.now()}`;
+  return `${url}${sep}${bust}`;
+}
+
+// Universal Dynamic Node Photos Cache (Soporta fotos en CUALQUIER nodo con refresco reactivo)
 const DYNAMIC_NODE_PHOTOS: Record<string, HTMLImageElement> = {};
 function getNodeCustomPhoto(node: NodeData): HTMLImageElement | null {
   const fm = node.frontmatter || {};
@@ -77,12 +90,13 @@ function getNodeCustomPhoto(node: NodeData): HTMLImageElement | null {
   if (!photoSrc || typeof photoSrc !== 'string') return null;
   if (typeof window === 'undefined') return null;
 
-  if (!DYNAMIC_NODE_PHOTOS[photoSrc]) {
+  const bustKey = `${photoSrc}__${fm.updated_at || fm.updatedAt || ''}`;
+  if (!DYNAMIC_NODE_PHOTOS[bustKey]) {
     const img = new Image();
-    img.src = photoSrc;
-    DYNAMIC_NODE_PHOTOS[photoSrc] = img;
+    img.src = getPhotoUrlWithBust(photoSrc, fm.updated_at || fm.updatedAt) || photoSrc;
+    DYNAMIC_NODE_PHOTOS[bustKey] = img;
   }
-  const cached = DYNAMIC_NODE_PHOTOS[photoSrc];
+  const cached = DYNAMIC_NODE_PHOTOS[bustKey];
   if (cached && cached.complete && cached.naturalWidth > 0) return cached;
   return null;
 }
@@ -1421,6 +1435,18 @@ export default function CerebroPage() {
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const initialDeckLoadedRef = useRef(false);
 
+  // Clean Executive Header, Search & Settings Modal
+  const [isSettingsMenuOpen, setIsSettingsMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [pinnedCount, setPinnedCount] = useState(0);
+
+  // Hierarchical Drill-Down & Breadcrumbs Navigation
+  const [drilldownStack, setDrilldownStack] = useState<{ id: string; title: string; type: string; category?: string }[]>([]);
+  const drilldownStackRef = useRef(drilldownStack);
+  drilldownStackRef.current = drilldownStack;
+  const lastTapTimeRef = useRef(0);
+  const dragStartMousePosRef = useRef({ x: 0, y: 0 });
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const nodesRef = useRef<NodeData[]>([]);
@@ -1651,10 +1677,15 @@ export default function CerebroPage() {
           y: existing.y,
           vx: existing.vx || 0,
           vy: existing.vy || 0,
-          targetX: target.x,
-          targetY: target.y,
+          targetX: existing.isPinned ? existing.pinnedX ?? target.x : target.x,
+          targetY: existing.isPinned ? existing.pinnedY ?? target.y : target.y,
+          originalTargetX: target.x,
+          originalTargetY: target.y,
           radius: nodeRadius,
           isDragged: existing.isDragged,
+          isPinned: existing.isPinned,
+          pinnedX: existing.pinnedX,
+          pinnedY: existing.pinnedY,
         };
       }
 
@@ -1666,8 +1697,11 @@ export default function CerebroPage() {
         vy: 0,
         targetX: target.x,
         targetY: target.y,
+        originalTargetX: target.x,
+        originalTargetY: target.y,
         radius: nodeRadius,
         isDragged: false,
+        isPinned: false,
       };
     });
 
@@ -1716,8 +1750,15 @@ export default function CerebroPage() {
 
       // 1. Physics Engine: Spring Pull + Anti-Overlap Collision Repulsion
       if (gravityActive) {
-        // A. Pull toward defined spacious target
+        // A. Pull toward defined spacious target (respecting manual pins)
         for (const n of nodes) {
+          if (n.isPinned) {
+            n.vx = 0;
+            n.vy = 0;
+            n.x = n.pinnedX ?? n.x;
+            n.y = n.pinnedY ?? n.y;
+            continue;
+          }
           if (!n.isDragged) {
             const dx = n.targetX - n.x;
             const dy = n.targetY - n.y;
@@ -1732,6 +1773,11 @@ export default function CerebroPage() {
 
         // 1. Kinetic Position Engine (Smooth Responsive Easing to Exact Mode Targets)
         for (const n of nodes) {
+          if (n.isPinned) {
+            n.x = n.pinnedX ?? n.x;
+            n.y = n.pinnedY ?? n.y;
+            continue;
+          }
           if (!n.isDragged) {
             const dx = n.targetX - n.x;
             const dy = n.targetY - n.y;
@@ -2041,12 +2087,31 @@ export default function CerebroPage() {
         const pulse = isWorking ? Math.sin(time * 4) * 6 : Math.sin(time * 1.5 + n.radius) * 2;
         const r = (n.radius + (isHovered ? 6 : 0) + pulse);
 
-        // Enfoque visual: atenuar sutilmente nodos ajenos a la conversación activa
+        // Enfoque visual: Jerarquía progresiva (Drill-down) y conversación activa
+        const currentDrill = drilldownStackRef.current.length > 0 ? drilldownStackRef.current[drilldownStackRef.current.length - 1] : null;
+        let isPartOfDrill = true;
+        if (currentDrill) {
+          if (currentDrill.type === 'brand') {
+            const bKey = currentDrill.title.toLowerCase();
+            isPartOfDrill = n.id.toLowerCase().includes(bKey) || 
+              (n.frontmatter?.brand || '').toLowerCase().includes(bKey) ||
+              (n.title || '').toLowerCase().includes(bKey);
+          } else if (currentDrill.type === 'department') {
+            const dKey = currentDrill.title.toLowerCase();
+            isPartOfDrill = n.id.toLowerCase().includes(dKey) || 
+              (n.department || n.frontmatter?.department || '').toLowerCase().includes(dKey) ||
+              (n.title || '').toLowerCase().includes(dKey);
+          }
+        }
+
         const isConnectedToFocus = !isFocusActive || n.id === activeEntityId || links.some(l => 
           (l.source === activeEntityId && l.target === n.id) || 
           (l.target === activeEntityId && l.source === n.id)
         );
-        if (isFocusActive && !isConnectedToFocus) {
+
+        if (!isPartOfDrill) {
+          ctx.globalAlpha = 0.15; // Suave atenuación de capas ajenas al drill-down activo
+        } else if (isFocusActive && !isConnectedToFocus) {
           ctx.globalAlpha = 0.30;
         } else {
           ctx.globalAlpha = 1.0;
@@ -2139,6 +2204,25 @@ export default function CerebroPage() {
         ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
         ctx.stroke();
 
+        // Physical Pin Halo & Indicator if Pinned
+        if (n.isPinned) {
+          ctx.save();
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = '#00F0FF';
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, r + 5, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+
+          ctx.save();
+          ctx.font = '12px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('📌', n.x + r * 0.72, n.y - r * 0.72);
+          ctx.restore();
+        }
+
         // Node Title Label
         ctx.font = isSelected || isHovered ? 'bold 12px sans-serif' : '11px sans-serif';
         ctx.fillStyle = isSelected || isHovered ? '#FFFFFF' : '#E5E7EB';
@@ -2166,7 +2250,147 @@ export default function CerebroPage() {
     };
   }, [mounted, stackedDeck, gravityActive, viewMode]);
 
-  // Direct Canvas Click Handler (Garantiza apertura de ficha ante cualquier toque o clic)
+    // Camera bounds clamping (prevents drifting into infinite void)
+  const clampCameraBounds = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const w = canvas.clientWidth || 800;
+    const h = canvas.clientHeight || 600;
+
+    transformRef.current.scale = Math.max(0.35, Math.min(2.5, transformRef.current.scale));
+    const maxOffsetX = w * 0.85;
+    const maxOffsetY = h * 0.85;
+    transformRef.current.x = Math.max(w / 2 - maxOffsetX, Math.min(w / 2 + maxOffsetX, transformRef.current.x));
+    transformRef.current.y = Math.max(h / 2 - maxOffsetY, Math.min(h / 2 + maxOffsetY, transformRef.current.y));
+  };
+
+  // Smart Animated Camera Focus & Centering
+  const handleCenterAndFit = (targetNode?: NodeData) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const w = canvas.clientWidth || 800;
+    const h = canvas.clientHeight || 600;
+
+    let targetX = w / 2;
+    let targetY = h / 2;
+    let targetScale = 0.72;
+
+    if (targetNode) {
+      targetScale = 1.05;
+      targetX = w / 2 - targetNode.x * targetScale;
+      targetY = h / 2 - targetNode.y * targetScale;
+    } else {
+      const visibleNodes = nodesRef.current.filter(n => n.type !== 'packaging' && n.type !== 'flavor');
+      if (visibleNodes.length > 0) {
+        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+        for (const n of visibleNodes) {
+          if (n.x < minX) minX = n.x;
+          if (n.x > maxX) maxX = n.x;
+          if (n.y < minY) minY = n.y;
+          if (n.y > maxY) maxY = n.y;
+        }
+        const spanX = Math.max(200, maxX - minX);
+        const spanY = Math.max(200, maxY - minY);
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const scaleX = (w * 0.75) / spanX;
+        const scaleY = (h * 0.75) / spanY;
+        targetScale = Math.max(0.42, Math.min(1.2, Math.min(scaleX, scaleY)));
+        targetX = w / 2 - centerX * targetScale;
+        targetY = h / 2 - centerY * targetScale;
+      }
+    }
+
+    const startX = transformRef.current.x;
+    const startY = transformRef.current.y;
+    const startScale = transformRef.current.scale;
+    const startTime = performance.now();
+    const duration = 380;
+
+    function animate(now: number) {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      transformRef.current.x = startX + (targetX - startX) * ease;
+      transformRef.current.y = startY + (targetY - startY) * ease;
+      transformRef.current.scale = startScale + (targetScale - startScale) * ease;
+      clampCameraBounds();
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    }
+    requestAnimationFrame(animate);
+  };
+
+  // Hierarchical Progressive Drill-down
+  const handleDrillInto = (node: NodeData) => {
+    if (node.type === 'brand') {
+      const nid = node.id.toLowerCase();
+      const bKey = nid.includes('chubby') ? 'chubby' :
+        nid.includes('busta') ? 'busta' :
+        nid.includes('fruta') ? 'fruta' :
+        nid.includes('oasis') ? 'oasis' :
+        nid.includes('altitude') ? 'altitude' : null;
+      if (bKey) {
+        handleSetCatalogScope(bKey as any);
+        const cleanTitle = node.title.replace(/^Brand\s*-\s*/i, '');
+        const newStack = [{ id: node.id, title: cleanTitle, type: 'brand' }];
+        setDrilldownStack(newStack);
+        drilldownStackRef.current = newStack;
+        handleCenterAndFit(node);
+      }
+    } else if (node.type === 'department') {
+      const nid = node.id.toLowerCase();
+      const dKey = nid.includes('export') ? 'exports' :
+        nid.includes('manufactur') ? 'manufacturing' :
+        nid.includes('supply') ? 'supply_chain' :
+        nid.includes('finance') ? 'finance' : 'organizations';
+      handleSetOrgScope(dKey as any);
+      const cleanTitle = node.title.replace(/^Dept\s*-\s*/i, '');
+      const newStack = [{ id: node.id, title: cleanTitle, type: 'department' }];
+      setDrilldownStack(newStack);
+      drilldownStackRef.current = newStack;
+      handleCenterAndFit(node);
+    }
+  };
+
+  const handlePopDrilldown = () => {
+    setDrilldownStack(prev => {
+      const next = prev.slice(0, -1);
+      drilldownStackRef.current = next;
+      if (next.length === 0) {
+        handleSetCatalogScope('collapsed');
+        handleSetOrgScope('collapsed');
+        handleCenterAndFit();
+      } else {
+        const top = next[next.length - 1];
+        const targetNode = nodesRef.current.find(n => n.id === top.id);
+        if (targetNode) handleCenterAndFit(targetNode);
+      }
+      return next;
+    });
+  };
+
+  const handleResetToUniverse = () => {
+    setDrilldownStack([]);
+    drilldownStackRef.current = [];
+    handleSetCatalogScope('collapsed');
+    handleSetOrgScope('collapsed');
+    handleCenterAndFit();
+  };
+
+  const handleUnpinAll = () => {
+    nodesRef.current.forEach(n => {
+      n.isPinned = false;
+      n.pinnedX = undefined;
+      n.pinnedY = undefined;
+      if (n.originalTargetX !== undefined) n.targetX = n.originalTargetX;
+      if (n.originalTargetY !== undefined) n.targetY = n.originalTargetY;
+    });
+    setPinnedCount(0);
+  };
+
+  // Direct Canvas Click Handler (Opens Card + Progressive Drill-down on Brands/Depts)
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -2186,6 +2410,45 @@ export default function CerebroPage() {
 
     if (clickedNode) {
       pushToStackedDeck(clickedNode);
+      if (clickedNode.type === 'brand' || clickedNode.type === 'department') {
+        handleDrillInto(clickedNode);
+      }
+    }
+  };
+
+  // Double Click: Unpin anchored nodes or Center View
+  const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const { x: tx, y: ty, scale } = transformRef.current;
+    const worldX = (mouseX - tx) / scale;
+    const worldY = (mouseY - ty) / scale;
+
+    const clickedNode = nodesRef.current.find(n => {
+      const dx = n.x - worldX;
+      const dy = n.y - worldY;
+      return Math.sqrt(dx * dx + dy * dy) <= Math.max(n.radius + 24, 44);
+    });
+
+    if (clickedNode) {
+      if (clickedNode.isPinned) {
+        clickedNode.isPinned = false;
+        clickedNode.pinnedX = undefined;
+        clickedNode.pinnedY = undefined;
+        if (clickedNode.originalTargetX !== undefined && clickedNode.originalTargetY !== undefined) {
+          clickedNode.targetX = clickedNode.originalTargetX;
+          clickedNode.targetY = clickedNode.originalTargetY;
+        }
+        setPinnedCount(nodesRef.current.filter(n => n.isPinned).length);
+      } else {
+        handleCenterAndFit(clickedNode);
+      }
+    } else {
+      handleCenterAndFit();
     }
   };
 
@@ -2196,6 +2459,8 @@ export default function CerebroPage() {
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
+
+    dragStartMousePosRef.current = { x: mouseX, y: mouseY };
 
     const { x: tx, y: ty, scale } = transformRef.current;
     const worldX = (mouseX - tx) / scale;
@@ -2212,7 +2477,6 @@ export default function CerebroPage() {
       clickedNode.isDragged = true;
       pushToStackedDeck(clickedNode);
 
-      // Auto-reveal associated distributor or market dynamically from live graph relations
       if (clickedNode.type === 'market') {
         const distNode = nodesRef.current.find(n => {
           if (n.type !== 'distributor') return false;
@@ -2269,9 +2533,9 @@ export default function CerebroPage() {
       const dy = mouseY - lastMousePosRef.current.y;
       transformRef.current.x += dx;
       transformRef.current.y += dy;
+      clampCameraBounds();
       lastMousePosRef.current = { x: mouseX, y: mouseY };
     } else {
-      // Hover Detection for Instant Floating Tooltip
       const { x: tx, y: ty, scale } = transformRef.current;
       const worldX = (mouseX - tx) / scale;
       const worldY = (mouseY - ty) / scale;
@@ -2290,9 +2554,26 @@ export default function CerebroPage() {
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (draggedNodeRef.current) {
-      draggedNodeRef.current.isDragged = false;
+      const node = draggedNodeRef.current;
+      node.isDragged = false;
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        const dist = Math.hypot(mouseX - dragStartMousePosRef.current.x, mouseY - dragStartMousePosRef.current.y);
+        // Physical Pinning on Intentional Drag (>15px)
+        if (dist > 15) {
+          node.isPinned = true;
+          node.pinnedX = node.x;
+          node.pinnedY = node.y;
+          node.targetX = node.x;
+          node.targetY = node.y;
+          setPinnedCount(nodesRef.current.filter(n => n.isPinned).length);
+        }
+      }
       draggedNodeRef.current = null;
     }
     isDraggingCanvasRef.current = false;
@@ -2301,10 +2582,22 @@ export default function CerebroPage() {
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
     e.preventDefault();
     const zoomFactor = e.deltaY < 0 ? 1.08 : 0.92;
-    transformRef.current.scale = Math.max(0.25, Math.min(3.0, transformRef.current.scale * zoomFactor));
+    const newScale = Math.max(0.35, Math.min(2.5, transformRef.current.scale * zoomFactor));
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const currentScale = transformRef.current.scale;
+    transformRef.current.x = mouseX - ((mouseX - transformRef.current.x) / currentScale) * newScale;
+    transformRef.current.y = mouseY - ((mouseY - transformRef.current.y) / currentScale) * newScale;
+    transformRef.current.scale = newScale;
+    clampCameraBounds();
   };
 
-  // Native Touch Gestures (Mobile Support: 1-finger pan, 2-finger pinch-zoom with midpoint compensation, tap detection)
+  // Native Touch Gestures (Mobile Support: 1-finger pan, 2-finger pinch-zoom, tap and double-tap detection)
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -2319,7 +2612,6 @@ export default function CerebroPage() {
       lastTouchPosRef.current = { x: clientX, y: clientY };
       touchMovedRef.current = false;
 
-      // Check if touching a node
       const { x: tx, y: ty, scale } = transformRef.current;
       const worldX = (clientX - tx) / scale;
       const worldY = (clientY - ty) / scale;
@@ -2338,7 +2630,6 @@ export default function CerebroPage() {
         isDraggingCanvasRef.current = true;
       }
     } else if (e.touches.length === 2) {
-      // Cancel 1-finger node drag
       if (draggedNodeRef.current) {
         draggedNodeRef.current.isDragged = false;
         draggedNodeRef.current = null;
@@ -2372,7 +2663,7 @@ export default function CerebroPage() {
 
       const startPos = touchStartPosRef.current;
       const distFromStart = Math.hypot(clientX - startPos.x, clientY - startPos.y);
-      if (distFromStart > 5) {
+      if (distFromStart > 6) {
         touchMovedRef.current = true;
       }
 
@@ -2387,6 +2678,7 @@ export default function CerebroPage() {
         const dy = clientY - lastTouchPosRef.current.y;
         transformRef.current.x += dx;
         transformRef.current.y += dy;
+        clampCameraBounds();
       }
       lastTouchPosRef.current = { x: clientX, y: clientY };
     } else if (e.touches.length === 2 && initialPinchDistRef.current && pinchCenterRef.current) {
@@ -2398,14 +2690,13 @@ export default function CerebroPage() {
 
       const currentDist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
       const pinchRatio = currentDist / initialPinchDistRef.current;
-      const newScale = Math.max(0.25, Math.min(3.0, initialPinchScaleRef.current * pinchRatio));
+      const newScale = Math.max(0.35, Math.min(2.5, initialPinchScaleRef.current * pinchRatio));
 
       const currentCenter = {
         x: (p0.x + p1.x) / 2,
         y: (p0.y + p1.y) / 2,
       };
 
-      // Zoom centered on gesture midpoint with drift compensation
       const prevScale = transformRef.current.scale;
       const worldMidX = (pinchCenterRef.current.x - transformRef.current.x) / prevScale;
       const worldMidY = (pinchCenterRef.current.y - transformRef.current.y) / prevScale;
@@ -2413,6 +2704,7 @@ export default function CerebroPage() {
       transformRef.current.scale = newScale;
       transformRef.current.x = currentCenter.x - worldMidX * newScale;
       transformRef.current.y = currentCenter.y - worldMidY * newScale;
+      clampCameraBounds();
 
       pinchCenterRef.current = currentCenter;
       initialPinchDistRef.current = currentDist;
@@ -2425,32 +2717,67 @@ export default function CerebroPage() {
     if (!canvas) return;
 
     if (e.touches.length === 0) {
-      // Gesture ended
       const duration = Date.now() - touchStartPosRef.current.time;
       const wasTap = !touchMovedRef.current && duration < 350;
 
+      const rect = canvas.getBoundingClientRect();
+      const tapX = lastTouchPosRef.current.x;
+      const tapY = lastTouchPosRef.current.y;
+      const { x: tx, y: ty, scale } = transformRef.current;
+      const worldX = (tapX - tx) / scale;
+      const worldY = (tapY - ty) / scale;
+
+      const tappedNode = nodesRef.current.find(n => {
+        const dx = n.x - worldX;
+        const dy = n.y - worldY;
+        return Math.sqrt(dx * dx + dy * dy) <= Math.max(n.radius + 24, 44);
+      });
+
       if (wasTap) {
-        // Tap on canvas - check if tapped on a node
-        const rect = canvas.getBoundingClientRect();
-        const tapX = lastTouchPosRef.current.x;
-        const tapY = lastTouchPosRef.current.y;
-        const { x: tx, y: ty, scale } = transformRef.current;
-        const worldX = (tapX - tx) / scale;
-        const worldY = (tapY - ty) / scale;
-
-        const tappedNode = nodesRef.current.find(n => {
-          const dx = n.x - worldX;
-          const dy = n.y - worldY;
-          return Math.sqrt(dx * dx + dy * dy) <= Math.max(n.radius + 24, 44);
-        });
-
-        if (tappedNode) {
-          pushToStackedDeck(tappedNode);
+        const now = Date.now();
+        const timeSinceLast = now - lastTapTimeRef.current;
+        if (timeSinceLast < 360) {
+          // Double Tap Detected!
+          if (tappedNode) {
+            if (tappedNode.isPinned) {
+              tappedNode.isPinned = false;
+              tappedNode.pinnedX = undefined;
+              tappedNode.pinnedY = undefined;
+              if (tappedNode.originalTargetX !== undefined && tappedNode.originalTargetY !== undefined) {
+                tappedNode.targetX = tappedNode.originalTargetX;
+                tappedNode.targetY = tappedNode.originalTargetY;
+              }
+              setPinnedCount(nodesRef.current.filter(n => n.isPinned).length);
+            } else {
+              handleCenterAndFit(tappedNode);
+            }
+          } else {
+            handleCenterAndFit();
+          }
+          lastTapTimeRef.current = 0;
+        } else {
+          lastTapTimeRef.current = now;
+          if (tappedNode) {
+            pushToStackedDeck(tappedNode);
+            if (tappedNode.type === 'brand' || tappedNode.type === 'department') {
+              handleDrillInto(tappedNode);
+            }
+          }
         }
       }
 
       if (draggedNodeRef.current) {
-        draggedNodeRef.current.isDragged = false;
+        const node = draggedNodeRef.current;
+        node.isDragged = false;
+        const dist = Math.hypot(tapX - touchStartPosRef.current.x, tapY - touchStartPosRef.current.time);
+        if (touchMovedRef.current) {
+          node.isPinned = true;
+          node.pinnedX = node.x;
+          node.pinnedY = node.y;
+          node.targetX = node.x;
+          node.targetY = node.y;
+          setPinnedCount(nodesRef.current.filter(n => n.isPinned).length);
+        }
         draggedNodeRef.current = null;
       }
       isDraggingCanvasRef.current = false;
@@ -2458,7 +2785,6 @@ export default function CerebroPage() {
       pinchCenterRef.current = null;
       touchMovedRef.current = false;
     } else if (e.touches.length === 1) {
-      // Transition from 2 fingers to 1 finger
       initialPinchDistRef.current = null;
       pinchCenterRef.current = null;
       const touch = e.touches[0];
@@ -2467,19 +2793,13 @@ export default function CerebroPage() {
       const clientY = touch.clientY - rect.top;
       lastTouchPosRef.current = { x: clientX, y: clientY };
       touchStartPosRef.current = { x: clientX, y: clientY, time: Date.now() };
-      touchMovedRef.current = true; // Was pinching, do not trigger tap
+      touchMovedRef.current = true;
       isDraggingCanvasRef.current = true;
     }
   };
 
   const resetView = () => {
-    if (containerRef.current) {
-      transformRef.current = {
-        x: containerRef.current.clientWidth / 2,
-        y: containerRef.current.clientHeight / 2,
-        scale: 0.72,
-      };
-    }
+    handleCenterAndFit();
   };
 
   // Stacked Deck Inspector (Multi-Abrir - Trae siempre al frente la ficha seleccionada y auto-encuadra la cámara)
@@ -2603,6 +2923,21 @@ export default function CerebroPage() {
     }
   };
 
+
+  // Instant Search Results Filter
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase().trim();
+    const pool = nodesRef.current.length > 0 ? nodesRef.current : (graphData?.nodes || []);
+    return pool.filter((n: any) => {
+      const title = (n.title || '').toLowerCase();
+      const id = (n.id || '').toLowerCase();
+      const job = (n.frontmatter?.job_title || '').toLowerCase();
+      const dept = (n.department || n.frontmatter?.department || '').toLowerCase();
+      return title.includes(q) || id.includes(q) || job.includes(q) || dept.includes(q);
+    });
+  }, [searchQuery, graphData]);
+
   const summary = useMemo(() => graphData?.summary || {
     totalNodes: 0,
     totalLinks: 0,
@@ -2613,6 +2948,26 @@ export default function CerebroPage() {
     distributorsCount: 0,
     brandsCount: 0,
   }, [graphData]);
+
+
+  // Global Keyboard Navigation (ESC to pop drill-down, close search or dismiss cards)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (searchQuery) {
+          setSearchQuery('');
+        } else if (isSettingsMenuOpen) {
+          setIsSettingsMenuOpen(false);
+        } else if (stackedDeck.length > 0) {
+          setStackedDeck([]);
+        } else if (drilldownStackRef.current.length > 0) {
+          handlePopDrilldown();
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [searchQuery, isSettingsMenuOpen, stackedDeck]);
 
   // Auditor de Salud de Memoria & Enlaces Rotos en Tiempo Real
   const linkHealthAudit = useMemo(() => {
@@ -2678,400 +3033,123 @@ export default function CerebroPage() {
       {/* Top Header Navigation & Executive HUD */}
       {/* Top Header Navigation & Executive HUD */}
       <header className="h-12 max-h-[48px] px-3 md:px-5 flex items-center justify-between border-b border-gray-800 bg-[#0B111E] z-50 shrink-0 relative shadow-md">
-        <div className="flex items-center gap-2 md:gap-4 min-w-0">
+        {/* Left: Brand & Node Count */}
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <Link
             href="/"
             className="text-xs uppercase font-bold tracking-wider text-gray-400 hover:text-white transition flex items-center gap-1 shrink-0"
             title="Volver a TaskManager HB"
           >
             <span>←</span>
-            <span className="hidden md:inline">TaskManager HB</span>
+            <span className="hidden lg:inline">TaskManager</span>
           </Link>
           <div className="h-4 w-px bg-gray-700 shrink-0" />
-          <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
-            <span className="text-xl md:text-2xl animate-spin shrink-0" style={{ animationDuration: '30s' }}>🌌</span>
-            <div className="min-w-0">
-              <h1 className="font-bold text-xs md:text-sm tracking-wide text-white flex items-center gap-1.5 truncate">
-                <span className="hidden sm:inline">S.M. Jaleel</span>
-                <span className="sm:hidden">SMJ</span>
-                <span className="text-sky-400 font-normal hidden md:inline">| Segundo Cerebro Vivo</span>
-                <span className="text-sky-400 font-normal md:hidden">| Cerebro</span>
-                <span className="hidden lg:inline px-2 py-0.5 text-[9px] font-mono bg-emerald-950 text-emerald-400 border border-emerald-800 rounded font-semibold items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block mr-1" />
-                  {viewMode === 'quadrants' ? 'MAPA CONTINENTAL' : viewMode === 'organigram' ? 'MODO ORGANIGRAMA' : 'CONSTELACIONES'}
-                </span>
-              </h1>
-            </div>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-lg md:text-xl shrink-0">🌌</span>
+            <h1 className="font-bold text-xs md:text-sm tracking-wide text-white truncate flex items-center gap-1.5">
+              <span>SMJ Cerebro</span>
+              <span className="hidden xl:inline text-sky-400 font-normal">| Segundo Cerebro Vivo</span>
+            </h1>
           </div>
-          {/* Active Node Count Badge */}
+          {/* Node Count Pill */}
           <span className="px-1.5 py-0.5 text-[9px] font-mono bg-sky-950 text-sky-300 border border-sky-800 rounded font-semibold shrink-0">
             {graphData?.nodes.length || summary.totalNodes} Nodos
           </span>
         </div>
 
-        {/* Mobile Header Right: Quick Ficha toggle & Collapsible Menu Trigger */}
-        <div className="flex items-center gap-1.5 md:hidden">
-          {/* Quick Dossier Counter Button */}
-          <button
-            onClick={() => {
-              if (stackedDeck.length === 0) {
-                const coreNode = nodesRef.current.find(n => n.type === 'core') || nodesRef.current[0];
-                if (coreNode) pushToStackedDeck(coreNode);
-              } else {
-                setStackedDeck([]);
-              }
-            }}
-            className={`min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1 transition ${
-              stackedDeck.length > 0
-                ? 'bg-sky-600 text-white border-sky-400 shadow-sm'
-                : 'bg-gray-800 text-gray-300 border-gray-700'
-            }`}
-            title="Fichas Ejecutivas"
-          >
-            <span>📋</span>
-            <span className="font-mono text-[11px] font-bold">({stackedDeck.length})</span>
-          </button>
+        {/* Center: Search Bar with Autocomplete Dropdown */}
+        <div className="hidden sm:flex relative flex-1 max-w-xs md:max-w-md mx-3">
+          <div className="flex items-center bg-gray-900/90 border border-gray-700 focus-within:border-sky-500 rounded-lg px-2.5 py-1 w-full transition shadow-inner">
+            <span className="text-gray-400 text-xs mr-2">🔍</span>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Buscar marca, filial, rol, persona..."
+              className="bg-transparent text-white text-xs placeholder-gray-500 focus:outline-none w-full font-mono"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="text-gray-400 hover:text-white text-xs px-1"
+              >
+                ✕
+              </button>
+            )}
+          </div>
 
-          {/* Compact Menu / Filter Button */}
-          <button
-            onClick={() => setIsMobileControlsOpen(!isMobileControlsOpen)}
-            className={`min-h-[36px] px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1 transition ${
-              isMobileControlsOpen
-                ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white border-sky-400 shadow'
-                : 'bg-gray-800 text-sky-300 border-sky-800/80 hover:bg-gray-700'
-            }`}
-            title="Abrir herramientas y filtros"
-            aria-expanded={isMobileControlsOpen}
-          >
-            <span>⚙️</span>
-            <span className="text-[11px]">Filtros</span>
-            <span className="text-[9px] font-mono">{isMobileControlsOpen ? '▲' : '▼'}</span>
-          </button>
+          {/* Search Results Dropdown */}
+          {searchResults.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1.5 max-h-72 overflow-y-auto bg-gray-950/98 border border-sky-500/80 rounded-xl shadow-2xl p-1.5 z-50 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100">
+              <div className="text-[10px] font-mono text-gray-400 uppercase px-2 py-1 border-b border-gray-800 mb-1 flex items-center justify-between">
+                <span>Resultados</span>
+                <span className="text-sky-400 font-bold">{searchResults.length}</span>
+              </div>
+              {searchResults.slice(0, 8).map(node => (
+                <div
+                  key={node.id}
+                  onClick={() => {
+                    pushToStackedDeck(node);
+                    handleCenterAndFit(node);
+                    setSearchQuery('');
+                  }}
+                  className="flex items-center justify-between p-2 rounded-lg hover:bg-sky-950/80 cursor-pointer text-xs transition border border-transparent hover:border-sky-800/60"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-base shrink-0">{(TYPE_CONFIG[node.type] || TYPE_CONFIG.department).icon}</span>
+                    <div className="min-w-0">
+                      <p className="font-bold text-white truncate">{node.title}</p>
+                      <p className="text-[10px] text-gray-400 font-mono">{(TYPE_CONFIG[node.type] || TYPE_CONFIG.department).label}</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-sky-400 font-mono shrink-0">Ver ➔</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Desktop Controls (hidden md:flex) */}
-        <div className="hidden md:flex items-center gap-2">
-          {/* Executive HUD Toggle Button */}
-          <button
-            onClick={() => setIsHudOpen(!isHudOpen)}
-            className={`px-3 py-1 rounded text-xs font-semibold border flex items-center gap-1.5 transition shadow-sm ${
-              isHudOpen
-                ? 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white border-sky-400'
-                : 'bg-gray-800 hover:bg-gray-700 text-sky-300 border-sky-800'
-            }`}
-            title="Plegar o desplegar cinta de indicadores ejecutivos"
-          >
-            <span>📊</span>
-            <span>HUD Ejecutivo</span>
-            <span className="text-[10px] ml-0.5 font-mono">{isHudOpen ? '▲' : '▼'}</span>
-          </button>
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-gray-900 p-0.5 rounded-lg border border-gray-700">
+        {/* Right: Quick Action Controls */}
+        <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+          {/* Desktop View Mode Switcher */}
+          <div className="hidden lg:flex items-center bg-gray-900 p-0.5 rounded-lg border border-gray-700 text-xs">
             <button
               onClick={() => handleSetViewMode('quadrants')}
-              className={`px-2.5 py-1 rounded text-xs transition ${
-                viewMode === 'quadrants'
-                  ? 'bg-sky-600 text-white font-semibold shadow'
-                  : 'text-gray-400 hover:text-white'
+              className={`px-2 py-1 rounded transition text-[11px] font-medium ${
+                viewMode === 'quadrants' ? 'bg-sky-600 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
               }`}
             >
               🧭 Cuadrantes
             </button>
             <button
               onClick={() => handleSetViewMode('constellations')}
-              className={`px-2.5 py-1 rounded text-xs transition ${
-                viewMode === 'constellations'
-                  ? 'bg-emerald-600 text-white font-semibold shadow'
-                  : 'text-gray-400 hover:text-white'
+              className={`px-2 py-1 rounded transition text-[11px] font-medium ${
+                viewMode === 'constellations' ? 'bg-emerald-600 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
               }`}
             >
               🌌 Constelaciones
             </button>
             <button
               onClick={() => handleSetViewMode('organigram')}
-              className={`px-2.5 py-1 rounded text-xs transition ${
-                viewMode === 'organigram'
-                  ? 'bg-purple-600 text-white font-semibold shadow'
-                  : 'text-gray-400 hover:text-white'
+              className={`px-2 py-1 rounded transition text-[11px] font-medium ${
+                viewMode === 'organigram' ? 'bg-purple-600 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
               }`}
             >
               🏛️ Organigrama
             </button>
           </div>
 
-          {/* Collapsible Dropdown for SKUs & Multipacks (Se va encogiendo y abriendo) */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setIsCatalogMenuOpen(!isCatalogMenuOpen);
-                setIsOrgMenuOpen(false);
-              }}
-              className={`px-2.5 py-1 rounded text-xs font-semibold border flex items-center gap-1.5 transition shadow-sm ${
-                catalogScope !== 'collapsed'
-                  ? 'bg-amber-600 hover:bg-amber-500 text-white border-amber-400'
-                  : 'bg-gray-800 hover:bg-gray-700 text-amber-300 border-amber-900/60'
-              }`}
-              title="Encoger o desplegar catálogo de SKUs y multipacks"
-            >
-              <span>📦</span>
-              <span>
-                SKUs & Multipacks:{' '}
-                <span className="font-mono text-white">
-                  {catalogScope === 'collapsed' ? 'Plegado (80)' : catalogScope === 'all' ? 'Todos (459)' : `${catalogScope.toUpperCase()} (Activo)`}
-                </span>
-              </span>
-              <span className="text-[10px] ml-0.5">{isCatalogMenuOpen ? '▲' : '▼'}</span>
-            </button>
+          {/* Centrar Button */}
+          <button
+            onClick={() => handleCenterAndFit()}
+            className="px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-sky-300 border border-sky-800/80 text-xs font-semibold flex items-center gap-1 transition shadow-sm active:scale-95"
+            title="Centrar y reencuadrar el mapa"
+          >
+            <span>🎯</span>
+            <span className="hidden sm:inline">Centrar</span>
+          </button>
 
-            {isCatalogMenuOpen && (
-              <div className="absolute top-full right-0 mt-1.5 w-72 bg-gray-950/98 border border-amber-500/60 rounded-xl shadow-2xl p-2 z-50 backdrop-blur animate-in fade-in zoom-in-95 duration-150">
-                <div className="text-[10px] font-mono uppercase text-gray-400 px-2 py-1 font-bold border-b border-gray-800 mb-1 flex items-center justify-between">
-                  <span>Catálogo ShopSMJ & Multipacks</span>
-                  <span className="text-amber-400 font-bold">379 Nodos</span>
-                </div>
-
-                <button
-                  onClick={() => handleSetCatalogScope('collapsed')}
-                  className={`w-full text-left px-2.5 py-1.5 rounded text-xs flex items-center justify-between transition ${
-                    catalogScope === 'collapsed'
-                      ? 'bg-amber-950/80 text-amber-200 font-bold border border-amber-800'
-                      : 'text-gray-300 hover:bg-gray-900'
-                  }`}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <span>📁</span>
-                    <span>Plegar Todo (Vista Limpia)</span>
-                  </span>
-                  <span className="text-[9px] font-mono bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-800">
-                    80 Nodos
-                  </span>
-                </button>
-
-                <div className="my-1 border-t border-gray-800/80" />
-                <div className="text-[9px] font-mono text-gray-400 px-2 py-0.5">Desplegar por Marca:</div>
-
-                {[
-                  { key: 'chubby', label: 'Chubby', sub: 'Kids PET', icon: '🥤', count: 20 },
-                  { key: 'busta', label: 'Busta', sub: 'Flavoured Soda', icon: '🍾', count: 36 },
-                  { key: 'fruta', label: 'Fruta', sub: 'Juices & Nectars', icon: '🍊', count: 81 },
-                  { key: 'oasis', label: 'Oasis', sub: 'Purified Water', icon: '💧', count: 35 },
-                  { key: 'altitude', label: 'Altitude', sub: 'Energy & Sport', icon: '⚡', count: 14 },
-                ].map((item) => (
-                  <button
-                    key={item.key}
-                    onClick={() => handleSetCatalogScope(item.key as any)}
-                    className={`w-full text-left px-2 py-1.5 rounded text-xs flex items-center justify-between transition ${
-                      catalogScope === item.key
-                        ? 'bg-amber-900/70 text-amber-200 font-bold border border-amber-700'
-                        : 'text-gray-300 hover:bg-gray-900'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5 truncate">
-                      <span>{item.icon}</span>
-                      <span className="font-semibold">{item.label}</span>
-                      <span className="text-[10px] text-gray-500 truncate">· {item.sub}</span>
-                    </span>
-                    <span className="text-[10px] font-mono text-amber-300/90 shrink-0">+{item.count}</span>
-                  </button>
-                ))}
-
-                <div className="my-1 border-t border-gray-800/80" />
-
-                <button
-                  onClick={() => handleSetCatalogScope('all')}
-                  className={`w-full text-left px-2.5 py-1.5 rounded text-xs flex items-center justify-between transition ${
-                    catalogScope === 'all'
-                      ? 'bg-amber-950/80 text-amber-200 font-bold border border-amber-800'
-                      : 'text-gray-300 hover:bg-gray-900'
-                  }`}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <span>🌐</span>
-                    <span>Desplegar Todos los SKUs</span>
-                  </span>
-                  <span className="text-[9px] font-mono bg-amber-950 text-amber-300 px-1.5 py-0.5 rounded border border-amber-800">
-                    459 Total
-                  </span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Collapsible Dropdown for Organization & Personnel (Estructura, Jefes, Subjefes & Personal) */}
-          <div className="relative">
-            <button
-              onClick={() => {
-                setIsOrgMenuOpen(!isOrgMenuOpen);
-                setIsCatalogMenuOpen(false);
-              }}
-              className={`px-2.5 py-1 rounded text-xs font-semibold border flex items-center gap-1.5 transition shadow-sm ${
-                orgScope !== 'collapsed'
-                  ? 'bg-indigo-600 hover:bg-indigo-500 text-white border-indigo-400'
-                  : 'bg-gray-800 hover:bg-gray-700 text-indigo-300 border-indigo-900/60'
-              }`}
-              title="Encoger o desplegar estructura jerárquica y personal"
-            >
-              <span>👥</span>
-              <span>
-                Estructura & Personal:{' '}
-                <span className="font-mono text-white">
-                  {orgScope === 'collapsed'
-                    ? 'Plegado (12)'
-                    : orgScope === 'all'
-                    ? 'Todos (54)'
-                    : orgScope === 'exports'
-                    ? 'Exportación (+21)'
-                    : orgScope === 'manufacturing'
-                    ? 'Manufactura (+12)'
-                    : orgScope === 'supply_chain'
-                    ? 'Supply Chain (+8)'
-                    : orgScope === 'finance'
-                    ? 'Finanzas (+6)'
-                    : 'Filiales (7)'}
-                </span>
-              </span>
-              <span className="text-[10px] ml-0.5">{isOrgMenuOpen ? '▲' : '▼'}</span>
-            </button>
-
-            {isOrgMenuOpen && (
-              <div className="absolute top-full right-0 mt-1.5 w-76 bg-gray-950/98 border border-indigo-500/60 rounded-xl shadow-2xl p-2 z-50 backdrop-blur animate-in fade-in zoom-in-95 duration-150">
-                <div className="text-[10px] font-mono uppercase text-gray-400 px-2 py-1 font-bold border-b border-gray-800 mb-1 flex items-center justify-between">
-                  <span>Jerarquía, Jefaturas & Personal</span>
-                  <span className="text-indigo-400 font-bold">54 Personas</span>
-                </div>
-
-                <button
-                  onClick={() => handleSetOrgScope('collapsed')}
-                  className={`w-full text-left px-2.5 py-1.5 rounded text-xs flex items-center justify-between transition ${
-                    orgScope === 'collapsed'
-                      ? 'bg-indigo-950/80 text-indigo-200 font-bold border border-indigo-800'
-                      : 'text-gray-300 hover:bg-gray-900'
-                  }`}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <span>📁</span>
-                    <span>Plegado (Liderazgo Clave / Vista Limpia)</span>
-                  </span>
-                  <span className="text-[9px] font-mono bg-emerald-950 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-800">
-                    12 Líderes
-                  </span>
-                </button>
-
-                <div className="my-1 border-t border-gray-800/80" />
-                <div className="text-[9px] font-mono text-gray-400 px-2 py-0.5">Desplegar Personal por Área:</div>
-
-                {[
-                  { key: 'exports', label: 'Exportaciones Internacionales', sub: 'Clint · Humberto · Olivia', icon: '🌐', count: 21 },
-                  { key: 'manufacturing', label: 'Manufactura & Planta Trinidad', sub: 'Rajesh Maharaj', icon: '🏭', count: 12 },
-                  { key: 'supply_chain', label: 'Supply Chain & Compras', sub: 'Sonia Harris', icon: '📦', count: 8 },
-                  { key: 'finance', label: 'Finanzas & Crédito Exportación', sub: 'Invoicing & Credit', icon: '💰', count: 6 },
-                  { key: 'organizations', label: 'Filiales & Organizaciones Globales', sub: '7 Sedes Internacionales', icon: '🏛️', count: 7 },
-                ].map((item) => (
-                  <button
-                    key={item.key}
-                    onClick={() => handleSetOrgScope(item.key as any)}
-                    className={`w-full text-left px-2 py-1.5 rounded text-xs flex items-center justify-between transition ${
-                      orgScope === item.key
-                        ? 'bg-indigo-900/70 text-indigo-200 font-bold border border-indigo-700'
-                        : 'text-gray-300 hover:bg-gray-900'
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5 truncate">
-                      <span>{item.icon}</span>
-                      <span className="font-semibold">{item.label}</span>
-                    </span>
-                    <span className="text-[10px] font-mono text-indigo-300/90 shrink-0">+{item.count}</span>
-                  </button>
-                ))}
-
-                <div className="my-1 border-t border-gray-800/80" />
-
-                <button
-                  onClick={() => handleSetOrgScope('all')}
-                  className={`w-full text-left px-2.5 py-1.5 rounded text-xs flex items-center justify-between transition ${
-                    orgScope === 'all'
-                      ? 'bg-indigo-950/80 text-indigo-200 font-bold border border-indigo-800'
-                      : 'text-gray-300 hover:bg-gray-900'
-                  }`}
-                >
-                  <span className="flex items-center gap-1.5">
-                    <span>👥</span>
-                    <span>Desplegar Todo el Personal</span>
-                  </span>
-                  <span className="text-[9px] font-mono bg-indigo-950 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-800">
-                    54 Total
-                  </span>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Categorized Quick Node Selector Dropdown with Optgroups */}
-          <div className="flex items-center gap-1 text-xs">
-            <select
-              defaultValue=""
-              onChange={e => {
-                if (!e.target.value) return;
-                const pool = graphData?.nodes || nodesRef.current;
-                const targetNode = pool.find((n: any) => n.id === e.target.value);
-                if (targetNode) {
-                  pushToStackedDeck(targetNode);
-                }
-                e.target.value = '';
-              }}
-              className="bg-gray-800 text-sky-300 border border-sky-700/60 rounded px-2 py-1 text-xs outline-none focus:border-sky-400 font-medium max-w-[210px]"
-            >
-              <option value="">📋 Abrir Ficha por Nombre...</option>
-              <optgroup label="🧃 Marcas Master SMJ">
-                {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'brand').map((n: any) => (
-                  <option key={n.id} value={n.id}>🧃 {n.title}</option>
-                ))}
-              </optgroup>
-              <optgroup label="🏛️ Filiales & Organizaciones Globales (7)">
-                {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'organization').map((n: any) => (
-                  <option key={n.id} value={n.id}>🏛️ {n.title}</option>
-                ))}
-              </optgroup>
-              <optgroup label="🌎 Mercados & Distribuidores">
-                {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'market' || n.type === 'distributor').map((n: any) => (
-                  <option key={n.id} value={n.id}>{(TYPE_CONFIG[n.type] || TYPE_CONFIG.department).icon} {n.title}</option>
-                ))}
-              </optgroup>
-              <optgroup label="🏢 Departamentos Centrales (4)">
-                {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'core' || n.type === 'department').map((n: any) => (
-                  <option key={n.id} value={n.id}>🏢 {n.title}</option>
-                ))}
-              </optgroup>
-              <optgroup label="👑 Jefaturas & Liderazgo C-Suite (12)">
-                {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'person' && (LEADER_IDS.has(n.id) || (n.hierarchy_level !== undefined && n.hierarchy_level <= 2))).map((n: any) => (
-                  <option key={n.id} value={n.id}>👑 {n.title}</option>
-                ))}
-              </optgroup>
-              <optgroup label="👥 Colaboradores & Personal Operativo (42)">
-                {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'person' && !(LEADER_IDS.has(n.id) || (n.hierarchy_level !== undefined && n.hierarchy_level <= 2))).map((n: any) => (
-                  <option key={n.id} value={n.id}>👤 {n.title}</option>
-                ))}
-              </optgroup>
-              <optgroup label="📦 Multipacks & Empaques (55)">
-                {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'packaging').map((n: any) => (
-                  <option key={n.id} value={n.id}>📦 {n.title}</option>
-                ))}
-              </optgroup>
-              <optgroup label="🏷️ SKUs & Presentaciones (204)">
-                {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'product_variant').map((n: any) => (
-                  <option key={n.id} value={n.id}>🏷️ {n.title}</option>
-                ))}
-              </optgroup>
-              <optgroup label="🍇 Sabores Registrados (105)">
-                {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'flavor').map((n: any) => (
-                  <option key={n.id} value={n.id}>🍇 {n.title}</option>
-                ))}
-              </optgroup>
-            </select>
-          </div>
-
-          {/* Lateral Dossier Toggle Button */}
+          {/* Fichas Deck Counter Button */}
           <button
             onClick={() => {
               if (stackedDeck.length === 0) {
@@ -3081,151 +3159,97 @@ export default function CerebroPage() {
                 setStackedDeck([]);
               }
             }}
-            title="Mostrar / Ocultar panel de fichas laterales"
-            className={`px-2.5 py-1 rounded text-xs font-semibold border flex items-center gap-1.5 transition ${
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1.5 transition active:scale-95 ${
               stackedDeck.length > 0
-                ? 'bg-sky-600 hover:bg-sky-500 text-white border-sky-500 shadow-md'
-                : 'bg-gray-800 hover:bg-gray-700 text-gray-300 border-gray-700'
+                ? 'bg-sky-600 text-white border-sky-400 shadow'
+                : 'bg-gray-800 text-gray-300 border-gray-700 hover:text-white'
             }`}
+            title="Abrir o cerrar fichas ejecutivas"
           >
             <span>📋</span>
-            <span>Fichas ({stackedDeck.length})</span>
+            <span className="hidden md:inline">Fichas</span>
+            <span className="font-mono text-[11px] font-bold">({stackedDeck.length})</span>
           </button>
 
-          {/* Market Filter */}
-          <div className="flex items-center text-xs">
-            <select
-              value={selectedMarket}
-              onChange={e => setSelectedMarket(e.target.value)}
-              className="bg-gray-800 text-gray-200 border border-gray-700 rounded px-2 py-1 text-xs outline-none focus:border-emerald-500 max-w-[125px]"
-            >
-              <option value="all">🌍 Todos Mercados</option>
-              <option value="panama">🇵🇦 Panamá</option>
-              <option value="belize">🇧🇿 Belice</option>
-              <option value="canada">🇨🇦 Canadá</option>
-              <option value="united states">🇺🇸 EE. UU.</option>
-            </select>
-          </div>
-
+          {/* Unified Settings Button */}
           <button
-            onClick={() => {
-              fetchGraph();
-              setStatusMessage('🔄 Bóveda sincronizada');
-              setTimeout(() => setStatusMessage(null), 2500);
-            }}
-            title="Recargar bóveda en vivo (refleja cambios de archivos MD de Dots)"
-            className="px-2.5 py-1 bg-sky-950/80 hover:bg-sky-900 border border-sky-700/80 rounded text-xs text-sky-300 font-semibold transition flex items-center gap-1 shadow"
+            onClick={() => setIsSettingsMenuOpen(!isSettingsMenuOpen)}
+            className={`px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1.5 transition shadow-sm active:scale-95 ${
+              isSettingsMenuOpen
+                ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white border-sky-400 shadow'
+                : 'bg-gray-800 text-sky-300 border-sky-800/80 hover:bg-gray-700'
+            }`}
+            title="Herramientas, capas de catálogo y ajustes del cerebro"
           >
-            <span>🔄</span> Sincronizar
-          </button>
-
-          <button
-            onClick={resetView}
-            title="Centrar vista"
-            className="px-2 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-xs text-gray-300 transition"
-          >
-            🎯
-          </button>
-
-          <button
-            onClick={() => setGravityActive(!gravityActive)}
-            title={gravityActive ? 'Pausar Flotación Orgánica' : 'Activar Flotación'}
-            className="px-2 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-xs text-gray-200 transition"
-          >
-            {gravityActive ? '🌊' : '⏸'}
-          </button>
-
-          <button
-            onClick={handleConsolidate}
-            disabled={isSubmitting}
-            className="px-3 py-1 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white rounded text-xs font-semibold shadow transition disabled:opacity-50 flex items-center gap-1.5"
-          >
-            <span>⚡</span> Consolidar
+            <span>⚙️</span>
+            <span className="hidden md:inline">Ajustes</span>
+            <span className="text-[10px] font-mono">{isSettingsMenuOpen ? '▲' : '▼'}</span>
           </button>
         </div>
       </header>
 
-      {/* Mobile Collapsible Controls Popover / Sheet */}
-      {isMobileControlsOpen && (
+      {/* Unified Settings & Controls Popover (Desktop Popover / Mobile Sheet) */}
+      {isSettingsMenuOpen && (
         <>
           <div
-            onClick={() => setIsMobileControlsOpen(false)}
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden animate-in fade-in duration-200"
+            onClick={() => setIsSettingsMenuOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 animate-in fade-in duration-150"
           />
-          <div className="fixed inset-x-0 top-12 z-50 bg-[#0B111E]/98 border-b border-gray-700 shadow-2xl p-4 max-h-[calc(100vh-48px)] overflow-y-auto space-y-3.5 backdrop-blur-xl md:hidden animate-in slide-in-from-top duration-200 text-xs">
+          <div className="fixed sm:absolute inset-x-0 sm:inset-x-auto sm:right-4 top-12 z-50 w-full sm:w-96 max-h-[calc(100vh-60px)] overflow-y-auto bg-gray-950/98 border border-sky-500/70 sm:rounded-2xl shadow-2xl p-4 space-y-4 backdrop-blur-xl animate-in slide-in-from-top-2 duration-150 text-xs">
             <div className="flex items-center justify-between pb-2 border-b border-gray-800">
-              <span className="font-bold text-white flex items-center gap-1.5">
-                <span>⚙️</span> Herramientas & Filtros Cerebro
+              <span className="font-bold text-white flex items-center gap-2 text-sm">
+                <span>⚙️</span> Ajustes & Control Cerebro
               </span>
               <button
-                onClick={() => setIsMobileControlsOpen(false)}
-                className="min-h-[36px] min-w-[36px] flex items-center justify-center rounded-lg bg-gray-800 text-gray-400 hover:text-white"
+                onClick={() => setIsSettingsMenuOpen(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 transition"
               >
                 ✕
               </button>
             </div>
 
-            {/* Quick Node Selector (Categorized) */}
+            {/* Quick Node Selector */}
             <div>
-              <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">Buscar / Abrir Ficha:</label>
+              <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">Ir a Ficha / Entidad:</label>
               <select
                 defaultValue=""
                 onChange={e => {
                   if (!e.target.value) return;
-                  const pool = graphData?.nodes || nodesRef.current;
+                  const pool = nodesRef.current.length > 0 ? nodesRef.current : (graphData?.nodes || []);
                   const targetNode = pool.find((n: any) => n.id === e.target.value);
                   if (targetNode) {
                     pushToStackedDeck(targetNode);
-                    setIsMobileControlsOpen(false);
+                    handleCenterAndFit(targetNode);
+                    setIsSettingsMenuOpen(false);
                   }
                   e.target.value = '';
                 }}
-                className="w-full bg-gray-800 text-sky-300 border border-sky-700/60 rounded-lg px-2.5 py-2 text-xs outline-none focus:border-sky-400 font-medium"
+                className="w-full bg-gray-900 text-sky-300 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-sky-400 font-medium"
               >
-                <option value="">📋 Seleccionar Ficha por Nombre...</option>
+                <option value="">📋 Seleccionar Entidad por Nombre...</option>
                 <optgroup label="🧃 Marcas Master SMJ">
-                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'brand').map((n: any) => (
+                  {(nodesRef.current.length > 0 ? nodesRef.current : (graphData?.nodes || [])).filter((n: any) => n.type === 'brand').map((n: any) => (
                     <option key={n.id} value={n.id}>🧃 {n.title}</option>
                   ))}
                 </optgroup>
-                <optgroup label="🏛️ Filiales & Organizaciones Globales (7)">
-                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'organization').map((n: any) => (
+                <optgroup label="🏛️ Filiales & Organizaciones Globales">
+                  {(nodesRef.current.length > 0 ? nodesRef.current : (graphData?.nodes || [])).filter((n: any) => n.type === 'organization').map((n: any) => (
                     <option key={n.id} value={n.id}>🏛️ {n.title}</option>
                   ))}
                 </optgroup>
                 <optgroup label="🌎 Mercados & Distribuidores">
-                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'market' || n.type === 'distributor').map((n: any) => (
+                  {(nodesRef.current.length > 0 ? nodesRef.current : (graphData?.nodes || [])).filter((n: any) => n.type === 'market' || n.type === 'distributor').map((n: any) => (
                     <option key={n.id} value={n.id}>{(TYPE_CONFIG[n.type] || TYPE_CONFIG.department).icon} {n.title}</option>
                   ))}
                 </optgroup>
-                <optgroup label="🏢 Departamentos Centrales (4)">
-                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'core' || n.type === 'department').map((n: any) => (
+                <optgroup label="🏢 Departamentos & Jefaturas">
+                  {(nodesRef.current.length > 0 ? nodesRef.current : (graphData?.nodes || [])).filter((n: any) => n.type === 'core' || n.type === 'department').map((n: any) => (
                     <option key={n.id} value={n.id}>🏢 {n.title}</option>
                   ))}
                 </optgroup>
-                <optgroup label="👑 Jefaturas & Liderazgo C-Suite (12)">
-                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'person' && (LEADER_IDS.has(n.id) || (n.hierarchy_level !== undefined && n.hierarchy_level <= 2))).map((n: any) => (
-                    <option key={n.id} value={n.id}>👑 {n.title}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="👥 Colaboradores & Personal Operativo (42)">
-                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'person' && !(LEADER_IDS.has(n.id) || (n.hierarchy_level !== undefined && n.hierarchy_level <= 2))).map((n: any) => (
+                <optgroup label="👑 Personas & Directivos">
+                  {(nodesRef.current.length > 0 ? nodesRef.current : (graphData?.nodes || [])).filter((n: any) => n.type === 'person').map((n: any) => (
                     <option key={n.id} value={n.id}>👤 {n.title}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="📦 Multipacks & Empaques (55)">
-                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'packaging').map((n: any) => (
-                    <option key={n.id} value={n.id}>📦 {n.title}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="🏷️ SKUs & Presentaciones (204)">
-                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'product_variant').map((n: any) => (
-                    <option key={n.id} value={n.id}>🏷️ {n.title}</option>
-                  ))}
-                </optgroup>
-                <optgroup label="🍇 Sabores Registrados (105)">
-                  {(graphData?.nodes || nodesRef.current).filter((n: any) => n.type === 'flavor').map((n: any) => (
-                    <option key={n.id} value={n.id}>🍇 {n.title}</option>
                   ))}
                 </optgroup>
               </select>
@@ -3233,28 +3257,28 @@ export default function CerebroPage() {
 
             {/* View Mode Selector */}
             <div>
-              <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">Modo de Visualización:</label>
-              <div className="grid grid-cols-3 gap-1.5 bg-gray-900 p-1 rounded-lg border border-gray-700">
+              <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">Modo de Perspectiva:</label>
+              <div className="grid grid-cols-3 gap-1 bg-gray-900 p-1 rounded-lg border border-gray-800">
                 <button
-                  onClick={() => { handleSetViewMode('quadrants'); setIsMobileControlsOpen(false); }}
+                  onClick={() => handleSetViewMode('quadrants')}
                   className={`py-1.5 rounded text-xs transition text-center ${
-                    viewMode === 'quadrants' ? 'bg-sky-600 text-white font-semibold shadow' : 'text-gray-400'
+                    viewMode === 'quadrants' ? 'bg-sky-600 text-white font-semibold shadow' : 'text-gray-400 hover:text-white'
                   }`}
                 >
                   🧭 Cuadrantes
                 </button>
                 <button
-                  onClick={() => { handleSetViewMode('constellations'); setIsMobileControlsOpen(false); }}
+                  onClick={() => handleSetViewMode('constellations')}
                   className={`py-1.5 rounded text-xs transition text-center ${
-                    viewMode === 'constellations' ? 'bg-emerald-600 text-white font-semibold shadow' : 'text-gray-400'
+                    viewMode === 'constellations' ? 'bg-emerald-600 text-white font-semibold shadow' : 'text-gray-400 hover:text-white'
                   }`}
                 >
                   🌌 Constelaciones
                 </button>
                 <button
-                  onClick={() => { handleSetViewMode('organigram'); setIsMobileControlsOpen(false); }}
+                  onClick={() => handleSetViewMode('organigram')}
                   className={`py-1.5 rounded text-xs transition text-center ${
-                    viewMode === 'organigram' ? 'bg-purple-600 text-white font-semibold shadow' : 'text-gray-400'
+                    viewMode === 'organigram' ? 'bg-purple-600 text-white font-semibold shadow' : 'text-gray-400 hover:text-white'
                   }`}
                 >
                   🏛️ Organigrama
@@ -3262,169 +3286,149 @@ export default function CerebroPage() {
               </div>
             </div>
 
-            {/* Market Filter */}
-            <div>
-              <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">Filtro de Mercado:</label>
-              <select
-                value={selectedMarket}
-                onChange={e => {
-                  setSelectedMarket(e.target.value);
-                  setIsMobileControlsOpen(false);
-                }}
-                className="w-full bg-gray-800 text-gray-200 border border-gray-700 rounded-lg px-2.5 py-2 text-xs outline-none focus:border-emerald-500"
-              >
-                <option value="all">🌍 Todos Mercados</option>
-                <option value="panama">🇵🇦 Panamá</option>
-                <option value="belize">🇧🇿 Belice</option>
-                <option value="canada">🇨🇦 Canadá</option>
-                <option value="united states">🇺🇸 EE. UU.</option>
-              </select>
-            </div>
-
-            {/* SKUs & Multipacks Scope */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] uppercase font-mono text-amber-400 block">SKUs & Multipacks:</label>
-                <span className="text-[9px] font-mono text-gray-400">{catalogScope === 'collapsed' ? 'Plegado (80)' : catalogScope === 'all' ? 'Todos (459)' : catalogScope.toUpperCase()}</span>
-              </div>
+            {/* Catálogo de Marcas & SKUs */}
+            <div className="space-y-1.5 pt-1 border-t border-gray-800">
+              <label className="text-[10px] uppercase font-mono text-gray-400 flex items-center justify-between">
+                <span>Catálogo de SKUs & Multipacks:</span>
+                <span className="text-amber-400 font-mono text-[9px]">
+                  {catalogScope === 'collapsed' ? 'Plegado (80 Nodos)' : catalogScope === 'all' ? 'Todos (379 Nodos)' : `${catalogScope.toUpperCase()} Activo`}
+                </span>
+              </label>
               <div className="grid grid-cols-2 gap-1.5">
                 <button
-                  onClick={() => { handleSetCatalogScope('collapsed'); setIsMobileControlsOpen(false); }}
-                  className={`py-1.5 px-2 rounded text-xs border text-left transition ${
-                    catalogScope === 'collapsed' ? 'bg-amber-950 text-amber-200 border-amber-600 font-bold' : 'bg-gray-800 text-gray-300 border-gray-700'
+                  onClick={() => handleSetCatalogScope('collapsed')}
+                  className={`px-2.5 py-1.5 rounded text-[11px] font-mono border text-left flex items-center justify-between ${
+                    catalogScope === 'collapsed' ? 'bg-amber-950/80 border-amber-500 text-amber-200 font-bold' : 'bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-800'
                   }`}
                 >
-                  📁 Plegar (80)
+                  <span>📁 Plegar Todo</span>
+                  <span className="text-[9px] text-gray-400">80 N</span>
                 </button>
                 <button
-                  onClick={() => { handleSetCatalogScope('all'); setIsMobileControlsOpen(false); }}
-                  className={`py-1.5 px-2 rounded text-xs border text-left transition ${
-                    catalogScope === 'all' ? 'bg-amber-950 text-amber-200 border-amber-600 font-bold' : 'bg-gray-800 text-gray-300 border-gray-700'
+                  onClick={() => handleSetCatalogScope('all')}
+                  className={`px-2.5 py-1.5 rounded text-[11px] font-mono border text-left flex items-center justify-between ${
+                    catalogScope === 'all' ? 'bg-amber-950/80 border-amber-500 text-amber-200 font-bold' : 'bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-800'
                   }`}
                 >
-                  🌐 Todos (459)
+                  <span>📦 Desplegar Todo</span>
+                  <span className="text-[9px] text-gray-400">379 N</span>
                 </button>
+              </div>
+              <div className="flex items-center gap-1 flex-wrap pt-1">
                 {[
-                  { key: 'chubby', label: '🥤 Chubby (+20)' },
-                  { key: 'busta', label: '🍾 Busta (+36)' },
-                  { key: 'fruta', label: '🍊 Fruta (+81)' },
-                  { key: 'oasis', label: '💧 Oasis (+35)' },
-                  { key: 'altitude', label: '⚡ Altitude (+14)' },
-                ].map((item) => (
+                  { key: 'chubby', label: 'Chubby' },
+                  { key: 'busta', label: 'Busta' },
+                  { key: 'fruta', label: 'Fruta' },
+                  { key: 'oasis', label: 'Oasis' },
+                  { key: 'altitude', label: 'Altitude' },
+                ].map(b => (
                   <button
-                    key={item.key}
-                    onClick={() => { handleSetCatalogScope(item.key as any); setIsMobileControlsOpen(false); }}
-                    className={`py-1.5 px-2 rounded text-xs border text-left transition ${
-                      catalogScope === item.key ? 'bg-amber-900/70 text-amber-200 border-amber-600 font-bold' : 'bg-gray-800 text-gray-300 border-gray-700'
+                    key={b.key}
+                    onClick={() => handleSetCatalogScope(catalogScope === b.key ? 'collapsed' : (b.key as any))}
+                    className={`px-2 py-1 rounded text-[10px] font-mono border transition ${
+                      catalogScope === b.key ? 'bg-amber-600 border-amber-400 text-white font-bold' : 'bg-gray-900 border-gray-800 text-gray-400 hover:text-white'
                     }`}
                   >
-                    {item.label}
+                    {b.label}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Estructura & Personal Scope */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-[10px] uppercase font-mono text-indigo-400 block">Estructura & Personal:</label>
-                <span className="text-[9px] font-mono text-gray-400">{orgScope === 'collapsed' ? 'Plegado (12)' : orgScope === 'all' ? 'Todos (54)' : orgScope.toUpperCase()}</span>
-              </div>
+            {/* Estructura & Personal */}
+            <div className="space-y-1.5 pt-1 border-t border-gray-800">
+              <label className="text-[10px] uppercase font-mono text-gray-400 flex items-center justify-between">
+                <span>Estructura y Personal:</span>
+                <span className="text-purple-400 font-mono text-[9px]">
+                  {orgScope === 'collapsed' ? 'Plegado (12 Nodos)' : orgScope === 'all' ? 'Todos (54 Personas)' : `${orgScope} Activo`}
+                </span>
+              </label>
               <div className="grid grid-cols-2 gap-1.5">
                 <button
-                  onClick={() => { handleSetOrgScope('collapsed'); setIsMobileControlsOpen(false); }}
-                  className={`py-1.5 px-2 rounded text-xs border text-left transition ${
-                    orgScope === 'collapsed' ? 'bg-indigo-950 text-indigo-200 border-indigo-600 font-bold' : 'bg-gray-800 text-gray-300 border-gray-700'
+                  onClick={() => handleSetOrgScope('collapsed')}
+                  className={`px-2.5 py-1.5 rounded text-[11px] font-mono border text-left flex items-center justify-between ${
+                    orgScope === 'collapsed' ? 'bg-purple-950/80 border-purple-500 text-purple-200 font-bold' : 'bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-800'
                   }`}
                 >
-                  📁 Liderazgo (12)
+                  <span>🏛️ Plegar Todo</span>
+                  <span className="text-[9px] text-gray-400">12 L</span>
                 </button>
                 <button
-                  onClick={() => { handleSetOrgScope('all'); setIsMobileControlsOpen(false); }}
-                  className={`py-1.5 px-2 rounded text-xs border text-left transition ${
-                    orgScope === 'all' ? 'bg-indigo-950 text-indigo-200 border-indigo-600 font-bold' : 'bg-gray-800 text-gray-300 border-gray-700'
+                  onClick={() => handleSetOrgScope('all')}
+                  className={`px-2.5 py-1.5 rounded text-[11px] font-mono border text-left flex items-center justify-between ${
+                    orgScope === 'all' ? 'bg-purple-950/80 border-purple-500 text-purple-200 font-bold' : 'bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-800'
                   }`}
                 >
-                  👥 Todo Personal (54)
+                  <span>👥 Desplegar Todo</span>
+                  <span className="text-[9px] text-gray-400">54 P</span>
                 </button>
-                {[
-                  { key: 'exports', label: '🌐 Exportación (+21)' },
-                  { key: 'manufacturing', label: '🏭 Manufactura (+12)' },
-                  { key: 'supply_chain', label: '📦 Supply Chain (+8)' },
-                  { key: 'finance', label: '💰 Finanzas (+6)' },
-                  { key: 'organizations', label: '🏛️ Filiales (+7)' },
-                ].map((item) => (
-                  <button
-                    key={item.key}
-                    onClick={() => { handleSetOrgScope(item.key as any); setIsMobileControlsOpen(false); }}
-                    className={`py-1.5 px-2 rounded text-xs border text-left transition ${
-                      orgScope === item.key ? 'bg-indigo-900/70 text-indigo-200 border-indigo-600 font-bold' : 'bg-gray-800 text-gray-300 border-gray-700'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
               </div>
             </div>
 
-            {/* Quick Actions Grid */}
-            <div>
-              <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">Acciones Rápidas:</label>
+            {/* Control de Física, Gravedad y Pines */}
+            <div className="space-y-2 pt-1 border-t border-gray-800">
+              <label className="text-[10px] uppercase font-mono text-gray-400 block">Física & Control de Nodos:</label>
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => {
-                    fetchGraph();
-                    setStatusMessage('🔄 Bóveda sincronizada');
-                    setTimeout(() => setStatusMessage(null), 2500);
-                  }}
-                  className="py-2 px-2.5 bg-sky-950/80 hover:bg-sky-900 border border-sky-700 rounded-lg text-xs text-sky-300 font-semibold flex items-center justify-center gap-1.5"
-                >
-                  <span>🔄</span> Sincronizar
-                </button>
-                <button
-                  onClick={() => {
-                    resetView();
-                    setIsMobileControlsOpen(false);
-                  }}
-                  className="py-2 px-2.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs text-gray-200 font-semibold flex items-center justify-center gap-1.5"
-                >
-                  <span>🎯</span> Centrar Vista
-                </button>
-                <button
                   onClick={() => setGravityActive(!gravityActive)}
-                  className="py-2 px-2.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs text-gray-200 font-semibold flex items-center justify-center gap-1.5"
-                >
-                  <span>{gravityActive ? '🌊 Flotación' : '⏸ Pausa'}</span>
-                </button>
-                <button
-                  onClick={() => setIsHudOpen(!isHudOpen)}
-                  className={`py-2 px-2.5 border rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 ${
-                    isHudOpen ? 'bg-indigo-900/80 text-white border-indigo-500' : 'bg-gray-800 text-gray-300 border-gray-700'
+                  className={`px-2.5 py-2 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+                    gravityActive ? 'bg-sky-950/80 border-sky-600 text-sky-300' : 'bg-gray-900 border-gray-800 text-gray-400'
                   }`}
                 >
-                  <span>📊 {isHudOpen ? 'Ocultar HUD' : 'Mostrar HUD'}</span>
+                  <span>{gravityActive ? '🌊' : '⏸'}</span>
+                  <span>{gravityActive ? 'Gravedad: Activa' : 'Gravedad: Pausada'}</span>
+                </button>
+
+                <button
+                  onClick={handleConsolidate}
+                  disabled={isSubmitting}
+                  className="px-2.5 py-2 rounded-lg border border-amber-600/70 bg-gradient-to-r from-amber-900/60 to-amber-800/60 hover:from-amber-800 hover:to-amber-700 text-amber-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition disabled:opacity-50"
+                >
+                  <span>⚡</span>
+                  <span>Consolidar Nodos</span>
                 </button>
               </div>
+
+              {pinnedCount > 0 && (
+                <button
+                  onClick={() => {
+                    handleUnpinAll();
+                  }}
+                  className="w-full py-2 px-3 rounded-lg bg-cyan-950/80 border border-cyan-500/70 text-cyan-200 text-xs font-mono font-bold flex items-center justify-center gap-1.5 hover:bg-cyan-900/80 transition"
+                >
+                  <span>📌</span>
+                  <span>Restaurar {pinnedCount} Nodos Anclados (Desanclar Todo)</span>
+                </button>
+              )}
             </div>
 
-            {/* Quick Session Consolidate */}
-            <div className="pt-2 border-t border-gray-800">
-              <button
-                onClick={() => {
-                  handleConsolidate();
-                  setIsMobileControlsOpen(false);
-                }}
-                disabled={isSubmitting}
-                className="w-full py-2.5 bg-gradient-to-r from-amber-600 to-amber-500 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-2"
-              >
-                <span>⚡</span> Consolidar Sesión de Trabajo
-              </button>
+            {/* HUD & Visual Tools */}
+            <div className="space-y-2 pt-1 border-t border-gray-800">
+              <label className="text-[10px] uppercase font-mono text-gray-400 block">Visualización & Herramientas:</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setIsHudOpen(!isHudOpen)}
+                  className={`py-1.5 px-2.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition ${
+                    isHudOpen ? 'bg-indigo-950/80 border-indigo-500 text-indigo-300' : 'bg-gray-900 border-gray-800 text-gray-400'
+                  }`}
+                >
+                  <span>📊</span>
+                  <span>{isHudOpen ? 'Ocultar HUD' : 'Mostrar HUD'}</span>
+                </button>
+
+                <button
+                  onClick={fetchGraph}
+                  className="py-1.5 px-2.5 rounded-lg border border-gray-700 bg-gray-900 hover:bg-gray-800 text-gray-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
+                >
+                  <span>🔄</span>
+                  <span>Sincronizar Vault</span>
+                </button>
+              </div>
             </div>
           </div>
         </>
       )}
 
-      {/* Executive Command Cockpit (HUD de 5 Cuadritos e Indicadores) */}
       {isHudOpen && (
         <section className="bg-[#090E1A]/95 border-b border-gray-800/80 px-5 py-2.5 z-40 shadow-xl backdrop-blur-md">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 max-w-[1920px] mx-auto">
@@ -3569,6 +3573,7 @@ export default function CerebroPage() {
           <canvas
             ref={canvasRef}
             onClick={handleCanvasClick}
+            onDoubleClick={handleCanvasDoubleClick}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -3579,6 +3584,60 @@ export default function CerebroPage() {
             onTouchCancel={handleTouchEnd}
             className="w-full h-full cursor-pointer block touch-none"
           />
+
+          {/* Hierarchical Progressive Breadcrumbs (P3/P4) */}
+          {drilldownStack.length > 0 && (
+            <div className="absolute top-3 left-3 z-30 flex items-center gap-2 bg-gray-950/95 border border-sky-500/70 rounded-xl px-3 py-1.5 backdrop-blur-xl shadow-2xl text-xs font-mono animate-in fade-in slide-in-from-top-2 pointer-events-auto">
+              <button
+                onClick={handlePopDrilldown}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-950 text-sky-300 border border-sky-700 hover:bg-sky-900 transition font-bold active:scale-95"
+                title="Volver al nivel anterior (o presiona Escape)"
+              >
+                <span>⬅</span>
+                <span>Atrás</span>
+              </button>
+              <div className="h-4 w-px bg-gray-700" />
+              <button
+                onClick={handleResetToUniverse}
+                className="text-gray-400 hover:text-white transition flex items-center gap-1"
+                title="Volver al Universo Completo"
+              >
+                <span>🌌</span>
+                <span className="hidden sm:inline">Universo SMJ</span>
+              </button>
+              {drilldownStack.map((item) => (
+                <span key={item.id} className="flex items-center gap-1 text-white">
+                  <span className="text-gray-500">›</span>
+                  <span className="text-amber-300 font-bold bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800 flex items-center gap-1">
+                    <span>{item.type === 'brand' ? '🧃' : '🏛️'}</span>
+                    <span>{item.title}</span>
+                  </span>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Bottom-Right Quick Controls: Unpin All + Centrar (P5/P6) */}
+          <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
+            {pinnedCount > 0 && (
+              <button
+                onClick={handleUnpinAll}
+                className="px-3 py-1.5 rounded-xl bg-gray-900/95 hover:bg-gray-800 border border-cyan-500/80 text-cyan-300 text-xs font-mono font-semibold shadow-2xl flex items-center gap-1.5 backdrop-blur transition active:scale-95 animate-in fade-in"
+                title="Restaurar todos los nodos anclados a sus órbitas originales"
+              >
+                <span>📌</span>
+                <span>Restaurar {pinnedCount} Anclados</span>
+              </button>
+            )}
+            <button
+              onClick={() => handleCenterAndFit()}
+              className="px-3 py-1.5 rounded-xl bg-gray-900/95 hover:bg-gray-800 border border-sky-500/80 text-sky-300 text-xs font-mono font-semibold shadow-2xl flex items-center gap-1.5 backdrop-blur transition active:scale-95"
+              title="Centrar y reencuadrar el grafo en pantalla"
+            >
+              <span>🎯</span>
+              <span>Centrar</span>
+            </button>
+          </div>
 
           {/* Floating Hover Tooltip (Sale SIEMPRE a un lado del círculo sin tapar el nodo) */}
           {hoveredNode && (() => {
@@ -3616,25 +3675,66 @@ export default function CerebroPage() {
                 }}
                 className="hidden md:block absolute z-40 bg-gray-950/98 border border-sky-500/80 shadow-2xl rounded-xl p-3.5 backdrop-blur-xl text-xs w-80 animate-in fade-in zoom-in-95 duration-150 pointer-events-auto select-none"
               >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span
-                    className="px-2 py-0.5 rounded text-[9px] font-mono font-bold text-white uppercase"
-                    style={{ backgroundColor: (TYPE_CONFIG[hoveredNode.type] || TYPE_CONFIG.department).bg }}
-                  >
-                    {(TYPE_CONFIG[hoveredNode.type] || TYPE_CONFIG.department).label}
-                  </span>
-                  {hoveredNode.completeness_score !== undefined && (
-                    <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800">
-                      {hoveredNode.completeness_score}% completitud
-                    </span>
-                  )}
-                  {hoveredNode.memory_tier === 'working' && (
-                    <span className="text-[9px] font-mono text-amber-300 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800 animate-pulse">
-                      TEMPORAL
-                    </span>
-                  )}
-                </div>
-                <h4 className="font-bold text-sm text-white leading-tight">{hoveredNode.title}</h4>
+                {(() => {
+                  const fm = hoveredNode.frontmatter || {};
+                  const nid = hoveredNode.id.toLowerCase();
+                  const photoSrc = fm.avatar_image || fm.photo_url || fm.visual_photo_url || fm.visual_logo_url ||
+                    (nid.includes('medimex') ? '/brands/medimex-logo.png' :
+                     nid.includes('sm-jaleel') || hoveredNode.type === 'core' ? '/brands/smjaleel-logo.png' :
+                     nid.includes('chubby') ? '/brands/chubby.png' :
+                     nid.includes('busta') ? '/brands/busta.png' :
+                     nid.includes('fruta') ? '/brands/fruta.png' :
+                     nid.includes('oasis') ? '/brands/oasis.png' :
+                     nid.includes('altitude') ? '/brands/altitude.png' : null);
+
+                  return (
+                    <div className="flex items-center gap-2.5 mb-2 border-b border-gray-800/80 pb-2">
+                      <div
+                        className="w-10 h-10 rounded-full border flex items-center justify-center shrink-0 overflow-hidden bg-gray-950 p-0.5 shadow"
+                        style={{ borderColor: (TYPE_CONFIG[hoveredNode.type] || TYPE_CONFIG.department).border }}
+                      >
+                        {photoSrc ? (
+                          <img
+                            src={getPhotoUrlWithBust(photoSrc, fm.updated_at || fm.updatedAt) || photoSrc}
+                            alt={hoveredNode.title}
+                            className="w-full h-full object-cover rounded-full"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <span className="text-base">{(TYPE_CONFIG[hoveredNode.type] || TYPE_CONFIG.department).icon}</span>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold text-white uppercase shrink-0"
+                            style={{ backgroundColor: (TYPE_CONFIG[hoveredNode.type] || TYPE_CONFIG.department).bg }}
+                          >
+                            {(TYPE_CONFIG[hoveredNode.type] || TYPE_CONFIG.department).label}
+                          </span>
+                          {hoveredNode.isPinned && (
+                            <span className="text-[8px] font-mono text-cyan-300 bg-cyan-950/80 px-1 py-0.5 rounded border border-cyan-800 flex items-center gap-0.5">
+                              <span>📌</span> Anclado
+                            </span>
+                          )}
+                          {hoveredNode.completeness_score !== undefined && (
+                            <span className="text-[8px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800">
+                              {hoveredNode.completeness_score}%
+                            </span>
+                          )}
+                        </div>
+                        <h4 className="font-bold text-xs text-white leading-tight truncate mt-0.5" title={hoveredNode.title}>
+                          {hoveredNode.title}
+                        </h4>
+                        {fm.job_title && (
+                          <p className="text-[10px] text-sky-400 font-mono truncate">{fm.job_title}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Dynamic Next-Layer Contextual Preview */}
                 <div className="mt-2 p-2 rounded-lg bg-gray-900/90 border border-gray-800 text-[11px] font-mono space-y-1">
@@ -3811,7 +3911,7 @@ export default function CerebroPage() {
                 const fm = node.frontmatter || {};
 
                 const nid = node.id.toLowerCase();
-                const logoSrc = fm.visual_logo_url || 
+                const photoSrc = fm.avatar_image || fm.photo_url || fm.visual_photo_url || fm.visual_logo_url || 
                   (nid.includes('medimex') ? '/brands/medimex-logo.png' :
                    nid.includes('sm-jaleel') || node.type === 'core' ? '/brands/smjaleel-logo.png' :
                    nid.includes('chubby') ? '/brands/chubby.png' :
@@ -3819,6 +3919,7 @@ export default function CerebroPage() {
                    nid.includes('fruta') ? '/brands/fruta.png' :
                    nid.includes('oasis') ? '/brands/oasis.png' :
                    nid.includes('altitude') ? '/brands/altitude.png' : null);
+                const logoSrc = photoSrc;
 
                 const flagEmoji = (node.type === 'market' && (fm.iso_code === 'TT' || nid.includes('trinidad'))) ? '🇹🇹' :
                   (node.type === 'market' && (fm.iso_code === 'PA' || nid.includes('panama'))) ? '🇵🇦' :
@@ -3870,8 +3971,15 @@ export default function CerebroPage() {
                           className="w-12 h-12 rounded-full flex items-center justify-center text-xl shadow-lg border-2 shrink-0 overflow-hidden bg-gray-950 p-1"
                           style={{ borderColor: cfg.border }}
                         >
-                          {logoSrc ? (
-                            <img src={logoSrc} alt={node.title} className="w-full h-full object-contain" />
+                          {photoSrc ? (
+                            <img
+                              src={getPhotoUrlWithBust(photoSrc, fm.updated_at || fm.updatedAt) || photoSrc}
+                              alt={node.title}
+                              className="w-full h-full object-cover rounded-full"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLElement).style.display = 'none';
+                              }}
+                            />
                           ) : (
                             <span>{flagEmoji || cfg.icon}</span>
                           )}
