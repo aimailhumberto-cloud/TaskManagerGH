@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import Link from 'next/link';
+import { searchBrainNodes, resolveBrainNode, humanNodeName, fitIdentityBounds } from '@/lib/smjIdentity';
 
 interface NodeData {
   id: string;
@@ -40,6 +41,7 @@ interface LinkData {
 }
 
 interface BrainGraphResponse {
+  allNodes?: any[];
   ok: boolean;
   nodes: any[];
   links: LinkData[];
@@ -154,7 +156,7 @@ const TECHNICAL_HEADER_REGEX = /^##\s+(?:Corporate evidence batch|Visual sources
 
 const FORENSIC_NOISE_LINE_REGEX = /^(?:Source package:|Sources:|No legal ownership percentages|Verified local bytes|Research identity:|Observed 2026-11-09|Uncorroborated legacy fields|Professional contexts are not|No live deployment|Recopilacion SMJ|Solo datos explicitamente transcritos|SHA256)/i;
 
-function renderInlineWithWikilinks(text: string, onWikilinkClick?: (target: string) => void) {
+function renderInlineWithWikilinks(text: string, onWikilinkClick?: (target: string) => void, resolveLabel?: (target: string) => string) {
   const parts = text.split(/(\[\[.*?\]\])/g);
   return parts.map((part, index) => {
     const match = part.match(/^\[\[(.*?)\]\]$/);
@@ -162,7 +164,7 @@ function renderInlineWithWikilinks(text: string, onWikilinkClick?: (target: stri
     const raw = match[1];
     const [target, alias] = raw.split('|');
     const cleanTarget = target.trim();
-    const display = (alias || target).trim();
+    const display = (alias || resolveLabel?.(cleanTarget) || target).trim();
 
     return (
       <button
@@ -201,7 +203,7 @@ function renderInlineWithWikilinks(text: string, onWikilinkClick?: (target: stri
   });
 }
 
-function renderFormattedBody(body: string, onWikilinkClick?: (target: string) => void) {
+function renderFormattedBody(body: string, onWikilinkClick?: (target: string) => void, resolveLabel?: (target: string) => string) {
   if (!body) return null;
 
   // Step 1: Strip simple and nested JSON blocks
@@ -263,22 +265,22 @@ function renderFormattedBody(body: string, onWikilinkClick?: (target: string) =>
         if (!trimmed) return <div key={idx} className="h-1" />;
         if (trimmed.startsWith('# ')) {
           return (
-            <h2 key={idx} className="text-sm font-bold text-sky-300 uppercase tracking-wide mt-2 mb-1">
-              {renderInlineWithWikilinks(trimmed.replace(/^#\s+/, ''), onWikilinkClick)}
+            <h2 key={idx} className="text-sm font-bold text-sky-300 tracking-wide mt-2 mb-1">
+              {renderInlineWithWikilinks(trimmed.replace(/^#\s+/, ''), onWikilinkClick, resolveLabel)}
             </h2>
           );
         }
         if (trimmed.startsWith('## ')) {
           return (
             <h3 key={idx} className="text-xs font-bold text-sky-400 uppercase tracking-wider mt-2.5 pt-1 border-t border-gray-800/80">
-              {renderInlineWithWikilinks(trimmed.replace(/^##\s+/, ''), onWikilinkClick)}
+              {renderInlineWithWikilinks(trimmed.replace(/^##\s+/, ''), onWikilinkClick, resolveLabel)}
             </h3>
           );
         }
         if (trimmed.startsWith('### ')) {
           return (
             <h4 key={idx} className="text-[11px] font-semibold text-emerald-300 mt-2">
-              {renderInlineWithWikilinks(trimmed.replace(/^###\s+/, ''), onWikilinkClick)}
+              {renderInlineWithWikilinks(trimmed.replace(/^###\s+/, ''), onWikilinkClick, resolveLabel)}
             </h4>
           );
         }
@@ -286,11 +288,11 @@ function renderFormattedBody(body: string, onWikilinkClick?: (target: string) =>
           return (
             <div key={idx} className="flex items-start gap-1.5 pl-2 text-gray-300">
               <span className="text-sky-400 text-[10px] mt-0.5">•</span>
-              <span>{renderInlineWithWikilinks(trimmed.replace(/^[-*]\s+/, ''), onWikilinkClick)}</span>
+              <span>{renderInlineWithWikilinks(trimmed.replace(/^[-*]\s+/, ''), onWikilinkClick, resolveLabel)}</span>
             </div>
           );
         }
-        return <p key={idx}>{renderInlineWithWikilinks(trimmed, onWikilinkClick)}</p>;
+        return <p key={idx}>{renderInlineWithWikilinks(trimmed, onWikilinkClick, resolveLabel)}</p>;
       })}
     </div>
   );
@@ -1544,6 +1546,8 @@ export default function CerebroPage() {
   const [selectedMarket, setSelectedMarket] = useState<string>('all');
   const [activeLens, setActiveLens] = useState<string>('global-core');
   const [stackedDeck, setStackedDeck] = useState<NodeData[]>([]);
+  const stackedDeckRef = useRef(stackedDeck);
+  stackedDeckRef.current = stackedDeck;
   const [quickInput, setQuickInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -1595,7 +1599,12 @@ export default function CerebroPage() {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const inspectorRef = useRef<HTMLDivElement | null>(null);
   const nodesRef = useRef<NodeData[]>([]);
+  const fullGraphRef = useRef<{nodes: any[]; links: LinkData[]}>({nodes: [], links: []});
+  const revealedNodeIdsRef = useRef(new Set<string>());
+  const focusNodeIdsRef = useRef<string[]>([]);
+  const cameraAnimationRef = useRef(0);
   const linksRef = useRef<LinkData[]>([]);
   const transformRef = useRef({ x: 0, y: 0, scale: 0.72 });
   const isDraggingCanvasRef = useRef(false);
@@ -1613,6 +1622,14 @@ export default function CerebroPage() {
   const touchMovedRef = useRef(false);
 
   useEffect(() => {
+    // Restore presentation preference only; never alter source hierarchy to reveal a person.
+    try {
+      const saved = localStorage.getItem('cerebro_org_scope');
+      if (saved && ['collapsed','all','exports','manufacturing','supply_chain','finance','organizations'].includes(saved)) {
+        orgScopeRef.current = saved as typeof orgScope;
+        setOrgScope(saved as typeof orgScope);
+      }
+    } catch {}
     setMounted(true);
     if (typeof window !== 'undefined' && window.innerWidth < 768) {
       setIsHudOpen(false);
@@ -1701,6 +1718,7 @@ export default function CerebroPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: BrainGraphResponse = await res.json();
       if (json.ok) {
+        fullGraphRef.current = {nodes: json.allNodes || json.nodes, links: json.links};
         setGraphData(json);
         setupNodesWithMode(json.nodes, json.links);
         setSyncError(null);
@@ -1773,7 +1791,9 @@ export default function CerebroPage() {
     const oScope = orgScopeOverride || orgScopeRef.current;
 
     // Filter nodes by both catalogScope and orgScope (hides granular clutter, keeps executive clarity)
-    const filteredRawNodes = rawNodes.filter((n: any) => {
+    const rawPool = [...new Map([...rawNodes, ...fullGraphRef.current.nodes.filter(n => revealedNodeIdsRef.current.has(n.id))].map(n => [n.id, n])).values()];
+    const filteredRawNodes = rawPool.filter((n: any) => {
+      if (revealedNodeIdsRef.current.has(n.id)) return true;
       // 1. Catalog sub-items filtering (SKUs, multipacks, flavors, lines)
       const isCatalogSub = n.type === 'flavor' || n.type === 'packaging' || n.type === 'product_line' || n.type === 'product_variant';
       if (isCatalogSub) {
@@ -1808,7 +1828,8 @@ export default function CerebroPage() {
     });
 
     const activeNodeIdSet = new Set(filteredRawNodes.map((n: any) => n.id));
-    const filteredRawLinks = rawLinks.filter((l: any) => {
+    const linkPool = [...new Map([...rawLinks, ...fullGraphRef.current.links].map(l => [`${l.source}->${l.target}:${l.relationType}`, l])).values()];
+    const filteredRawLinks = linkPool.filter((l: any) => {
       const s = typeof l.source === 'string' ? l.source : l.source.id;
       const t = typeof l.target === 'string' ? l.target : l.target.id;
       return activeNodeIdSet.has(s) && activeNodeIdSet.has(t);
@@ -1900,6 +1921,7 @@ export default function CerebroPage() {
   const handleSetOrgScope = (scope: 'collapsed' | 'all' | 'exports' | 'manufacturing' | 'supply_chain' | 'finance' | 'organizations') => {
     setOrgScope(scope);
     orgScopeRef.current = scope;
+    try { localStorage.setItem('cerebro_org_scope', scope); } catch {}
     setIsOrgMenuOpen(false);
     if (graphData) {
       setupNodesWithMode(graphData.nodes, graphData.links, catalogScopeRef.current, scope);
@@ -2435,7 +2457,8 @@ export default function CerebroPage() {
         ctx.fillStyle = isSelected || isHovered ? '#FFFFFF' : '#E5E7EB';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
-        const displayTitle = n.title.length > 25 ? n.title.slice(0, 23) + '…' : n.title;
+        const humanTitle = humanNodeName(n);
+        const displayTitle = humanTitle.length > 25 ? humanTitle.slice(0, 23) + '…' : humanTitle;
         ctx.fillText(displayTitle, n.x, n.y + r + 6);
 
         // Subtitle / Type Tag
@@ -2478,36 +2501,15 @@ export default function CerebroPage() {
     const w = canvas.clientWidth || 800;
     const h = canvas.clientHeight || 600;
 
-    let targetX = w / 2;
-    let targetY = h / 2;
-    let targetScale = 0.72;
-
-    const liveNode = targetNode ? nodesRef.current.find(n => n.id === targetNode.id) || targetNode : undefined;
-    if (liveNode && typeof liveNode.x === 'number' && !isNaN(liveNode.x)) {
-      targetScale = 1.05;
-      targetX = w / 2 - liveNode.x * targetScale;
-      targetY = h / 2 - liveNode.y * targetScale;
-    } else {
-      const visibleNodes = nodesRef.current.filter(n => n.type !== 'packaging' && n.type !== 'flavor');
-      if (visibleNodes.length > 0) {
-        let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-        for (const n of visibleNodes) {
-          if (n.x < minX) minX = n.x;
-          if (n.x > maxX) maxX = n.x;
-          if (n.y < minY) minY = n.y;
-          if (n.y > maxY) maxY = n.y;
-        }
-        const spanX = Math.max(200, maxX - minX);
-        const spanY = Math.max(200, maxY - minY);
-        const centerX = (minX + maxX) / 2;
-        const centerY = (minY + maxY) / 2;
-        const scaleX = (w * 0.75) / spanX;
-        const scaleY = (h * 0.75) / spanY;
-        targetScale = Math.max(0.42, Math.min(1.2, Math.min(scaleX, scaleY)));
-        targetX = w / 2 - centerX * targetScale;
-        targetY = h / 2 - centerY * targetScale;
-      }
-    }
+    const context = targetNode ? nodesRef.current.filter(n => focusNodeIdsRef.current.includes(n.id)) : nodesRef.current.filter(n => n.type !== 'packaging' && n.type !== 'flavor');
+    const mobile = window.innerWidth < 768;
+    const panelOverlaysCanvas = stackedDeckRef.current.length > 0 && (mobile || w > window.innerWidth - 400);
+    const fitted = fitIdentityBounds(context, w, h, panelOverlaysCanvas, mobile);
+    if (!fitted) return;
+    const targetX = fitted.x;
+    const targetY = fitted.y;
+    const targetScale = fitted.scale;
+    const cameraVersion = ++cameraAnimationRef.current;
 
     const startX = transformRef.current.x;
     const startY = transformRef.current.y;
@@ -2516,13 +2518,14 @@ export default function CerebroPage() {
     const duration = 380;
 
     function animate(now: number) {
+      if (cameraVersion !== cameraAnimationRef.current) return;
       const elapsed = now - startTime;
       const progress = Math.min(1, elapsed / duration);
       const ease = 1 - Math.pow(1 - progress, 3);
       transformRef.current.x = startX + (targetX - startX) * ease;
       transformRef.current.y = startY + (targetY - startY) * ease;
       transformRef.current.scale = startScale + (targetScale - startScale) * ease;
-      clampCameraBounds();
+      // This fit already respects the drawer; the global pan clamp would clip wide neighbor pairs.
       if (progress < 1) {
         requestAnimationFrame(animate);
       }
@@ -3032,33 +3035,33 @@ export default function CerebroPage() {
   };
 
   // Stacked Deck Inspector (Multi-Abrir - Trae siempre al frente la ficha seleccionada y auto-encuadra la cámara)
-  const pushToStackedDeck = (node: NodeData, bloomLayer: boolean = false) => {
-    setStackedDeck(prev => [node, ...prev.filter(d => d.id !== node.id)]);
+  const pushToStackedDeck = (node: NodeData, bloomLayer: boolean = false, sourceNodeId?: string) => {
+    const full = fullGraphRef.current;
+    const focusIds = new Set<string>([node.id]);
+    if (sourceNodeId) focusIds.add(sourceNodeId);
+    else for (const link of full.links) {
+      if (link.source === node.id) focusIds.add(link.target);
+      if (link.target === node.id) focusIds.add(link.source);
+    }
+    for (const id of focusIds) revealedNodeIdsRef.current.add(id);
+    focusNodeIdsRef.current = [...focusIds];
+    setupNodesWithMode(full.nodes, full.links);
+    const liveNode = nodesRef.current.find(n => n.id === node.id) || node;
+    const nextDeck = [liveNode, ...stackedDeckRef.current.filter(d => d.id !== node.id)];
+    stackedDeckRef.current = nextDeck;
+    setStackedDeck(nextDeck);
 
     // Auto-desplegar acordeones de detalle para visibilidad inmediata (Cero clics innecesarios)
     if (node.type === 'brand') setExpandedBrandInDossier(node.id);
     if (node.type === 'person') setExpandedLeaderInDossier(node.id);
     if (node.type === 'department') setExpandedDeptInDossier(node.id);
 
-    // Re-encuadre suave de cámara: centrar el nodo cliqueado en el área visible (Mobile: área superior sobre Bottom Sheet; Desktop: izquierda del drawer)
-    setTimeout(() => {
-      const containerW = containerRef.current?.clientWidth || (typeof window !== 'undefined' ? window.innerWidth : 1200);
-      const containerH = containerRef.current?.clientHeight || (typeof window !== 'undefined' ? window.innerHeight : 800);
-      const scale = transformRef.current.scale;
-
-      if (typeof window !== 'undefined' && window.innerWidth < 768) {
-        // Mobile: Bottom sheet occupies bottom area (up to 75-85vh). Focus on top visible canvas area (upper 40-50%)
-        const visibleH = Math.max(containerH * 0.42, 180);
-        transformRef.current.x = (containerW / 2) - (node.x * scale);
-        transformRef.current.y = (visibleH / 2) - (node.y * scale);
-      } else {
-        // Desktop: Right side panel occupies drawerW
-        const drawerW = 520;
-        const visibleW = Math.max(containerW - drawerW, 400);
-        transformRef.current.x = (visibleW / 2) - (node.x * scale);
-        transformRef.current.y = (containerH / 2) - (node.y * scale);
-      }
-    }, 40);
+    // Wait for the drawer's DOM update, then frame the existing selected node and its source/real neighbors.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      inspectorRef.current?.scrollTo({top: 0});
+      inspectorRef.current?.querySelector('h2')?.focus({preventScroll: true});
+      handleCenterAndFit(liveNode);
+    }));
 
     // Si se solicitó desplegar la capa correspondiente en el lienzo
     if (bloomLayer) {
@@ -3085,16 +3088,21 @@ export default function CerebroPage() {
     setStackedDeck(prev => prev.filter(d => d.id !== nodeId));
   };
 
-  const handleWikilinkClick = (linkName: string) => {
-    const clean = linkName.replace(/^\[\[|\]\]$/g, '').trim().toLowerCase();
-    const targetNode = nodesRef.current.find(
-      n => n.title.toLowerCase() === clean || n.id.toLowerCase() === clean
-    );
-    if (targetNode) {
-      pushToStackedDeck(targetNode);
+  const getWikilinkLabel = (linkName: string) => {
+    const result = resolveBrainNode(fullGraphRef.current.nodes, linkName);
+    return result.kind === 'found' ? humanNodeName(result.node) : linkName;
+  };
+
+  const handleWikilinkClick = (linkName: string, sourceNodeId?: string) => {
+    // Resolution is against canonical data, not the currently filtered canvas.
+    const result = resolveBrainNode(fullGraphRef.current.nodes, linkName);
+    if (result.kind === 'found') {
+      pushToStackedDeck(result.node as NodeData, false, sourceNodeId || stackedDeckRef.current[0]?.id);
     } else {
-      setStatusMessage(`Nodo '${linkName}' no encontrado en la bóveda aún.`);
-      setTimeout(() => setStatusMessage(null), 3000);
+      setStatusMessage(result.kind === 'ambiguous'
+        ? `Hay varias coincidencias para '${linkName}'. Selecciona la ficha por nombre e ID en la búsqueda.`
+        : `Nodo '${linkName}' no encontrado en la bóveda aún.`);
+      setTimeout(() => setStatusMessage(null), 4000);
     }
   };
 
@@ -3155,17 +3163,8 @@ export default function CerebroPage() {
 
   // Universal Instant Search across all 508 vault nodes (Point 8: Never hidden by market/org filter)
   const searchResults = useMemo(() => {
-    if (!searchQuery.trim()) return [];
-    const q = searchQuery.toLowerCase().trim();
-    const pool = (graphData as any)?.allNodes || graphData?.nodes || nodesRef.current || [];
-    return pool.filter((n: any) => {
-      const title = (n.title || '').toLowerCase();
-      const id = (n.id || '').toLowerCase();
-      const job = (n.frontmatter?.job_title || n.frontmatter?.role || '').toLowerCase();
-      const dept = (n.department || n.frontmatter?.department || '').toLowerCase();
-      const country = (n.country || n.frontmatter?.based_in_country || '').toLowerCase();
-      return title.includes(q) || id.includes(q) || job.includes(q) || dept.includes(q) || country.includes(q);
-    });
+    const pool = (graphData as any)?.allNodes || graphData?.nodes || [];
+    return searchBrainNodes(pool, searchQuery);
   }, [searchQuery, graphData]);
 
   const summary = useMemo(() => graphData?.summary || {
@@ -3336,7 +3335,7 @@ export default function CerebroPage() {
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-base shrink-0">{(TYPE_CONFIG[node.type] || TYPE_CONFIG.department).icon}</span>
                     <div className="min-w-0">
-                      <p className="font-bold text-white truncate">{node.title}</p>
+                      <p className="font-bold text-white truncate">{humanNodeName(node)}</p>
                       <p className="text-[10px] text-gray-400 font-mono">{(TYPE_CONFIG[node.type] || TYPE_CONFIG.department).label}</p>
                     </div>
                   </div>
@@ -4166,7 +4165,7 @@ export default function CerebroPage() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 overscroll-contain">
+              <div ref={inspectorRef} className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 overscroll-contain">
               {stackedDeck.map((node) => {
                 const cfg = TYPE_CONFIG[node.type] || TYPE_CONFIG.department;
                 const fm = node.frontmatter || {};
@@ -4265,7 +4264,7 @@ export default function CerebroPage() {
                               </span>
                             )}
                           </div>
-                          <h2 className="text-base font-bold text-white mt-1 truncate" title={node.title}>{node.title}</h2>
+                          <h2 tabIndex={-1} className="text-base font-bold text-white mt-1 truncate" title={node.id}>{humanNodeName(node)}</h2>
                           {fm.job_title && (
                             <p className="text-xs text-sky-400 font-mono truncate">{fm.job_title}</p>
                           )}
@@ -5303,7 +5302,7 @@ export default function CerebroPage() {
 
                     {/* Formatted Dossier Body */}
                     <div className="mb-3 bg-gray-900/60 p-3 rounded-lg border border-gray-800/80">
-                      {renderFormattedBody(node.body, handleWikilinkClick)}
+                      {renderFormattedBody(node.type === 'person' ? node.body.replace(/^#\s+[^\r\n]+/m, '# ' + humanNodeName(node)) : node.body, target => handleWikilinkClick(target, node.id), getWikilinkLabel)}
                     </div>
 
 
@@ -5332,10 +5331,12 @@ export default function CerebroPage() {
                           {node.links.map((linkName, i) => (
                             <button
                               key={i}
-                              onClick={() => handleWikilinkClick(linkName)}
+                              onClick={() => handleWikilinkClick(linkName, node.id)}
+                              title={linkName}
+                              data-canonical-target={linkName}
                               className="text-[11px] font-mono px-2 py-0.5 rounded bg-sky-950/70 border border-sky-800 text-sky-300 hover:bg-sky-900 hover:text-white transition"
                             >
-                              [[{linkName}]]
+                              {getWikilinkLabel(linkName)}
                             </button>
                           ))}
                         </div>
