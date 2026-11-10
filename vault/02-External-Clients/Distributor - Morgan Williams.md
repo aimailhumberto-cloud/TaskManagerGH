@@ -3,49 +3,81 @@ id: dist-morgan-williams
 title: "Distributor: Morgan Williams (Canada)"
 type: distributor
 memory_tier: long_term
-company_name: "Morgan Williams International Inc."
-legal_name: "Morgan Williams International Inc."
+company_name: Morgan Williams International Inc.
+legal_name: Morgan Williams International Inc.
 market: "[[Market - Canada]]"
-based_in_country: "Canadá"
-based_in_city: "Toronto / Ontario"
-headquarters_address: "6899 Financial Drive, Mississauga / Toronto, ON L5N 6V8, Canada"
-timezone: "America/Toronto"
-incoterm: "CIF Port of Montreal / Halifax"
-payment_terms: "30 días de crédito comercial"
+based_in_country: Canadá
+based_in_city: Toronto / Ontario
+headquarters_address: 6899 Financial Drive, Mississauga / Toronto, ON L5N 6V8, Canada
+timezone: America/Toronto
+incoterm: CIF Port of Montreal / Halifax
+payment_terms: 30 días de crédito comercial
 minimum_order_containers: 1
-order_frequency: "Mensual"
+order_frequency: Mensual
 completeness_score: 95
 is_active: true
 verification_status: confirmed_official_corporate
-last_updated_at: "2026-11-10T10:00:00Z"
-last_updated_by: "DOTS Agent"
-last_email_subject: "Activación nacional de Chubby Plushie y forecast de reposición Q4 Ontario"
-last_email_date: "2026-11-09"
-last_email_sender: "Jenna Hector / Morgan Williams International Inc."
-next_followup_date: "2026-11-19"
-next_followup_action: "Seguimiento a la campaña promocional Chubby Plushie y rotación en retail canadiense"
+last_updated_at: 2026-11-10T10:00:00Z
+last_updated_by: DOTS Agent
+last_email_subject: Activación nacional de Chubby Plushie y forecast de reposición Q4 Ontario
+last_email_date: 2026-11-09
+last_email_sender: Jenna Hector / Morgan Williams International Inc.
+next_followup_date: 2026-11-19
+next_followup_action: Seguimiento a la campaña promocional Chubby Plushie y
+  rotación en retail canadiense
 gallery_photos:
   - /brands/smjaleel-logo.png
   - /brands/chubby-bottles.png
   - /brands/busta-bottles.png
-visual_logo_url: "/brands/smjaleel-logo.png"
-executive_observations: "Socio distribuidor e importador de bebidas de S.M. Jaleel en el mercado canadiense con sede en Toronto, Ontario. Responsable de la comercialización de la línea Chubby (Tutti Frutti, Bubblegum, Purple Power, Poppin Pear) y Busta en supermercados de especialidad, canal étnico y grandes cadenas de retail de Canadá."
+visual_logo_url: /brands/smjaleel-logo.png
+executive_observations: Socio distribuidor e importador de bebidas de S.M.
+  Jaleel en el mercado canadiense con sede en Toronto, Ontario. Responsable de
+  la comercialización de la línea Chubby (Tutti Frutti, Bubblegum, Purple Power,
+  Poppin Pear) y Busta en supermercados de especialidad, canal étnico y grandes
+  cadenas de retail de Canadá.
 recent_actions:
-  - date: "2026-11-09"
+  - date: 2026-11-10
+    type: nueva_tarea_ejecutiva
+    summary: 'Nueva tarea asignada
+      [pt-dist-morgan-williams-chubby-verificar-envio-d-8bb2c1f0]: "Chubby:
+      verificar envio de muestras Mango y Apple con Tevin" (10:57 a. m.)'
+  - date: 2026-11-09
     type: activacion_marca
-    summary: Coordinación con Jenna Hector de la campaña de activación nacional Chubby Plushie en Ontario.
-  - date: "2026-11-05"
+    summary: Coordinación con Jenna Hector de la campaña de activación nacional
+      Chubby Plushie en Ontario.
+  - date: 2026-11-05
     type: revision_catalogo
-    summary: Actualización de SKUs de Chubby 24x250ml y Busta Kola Champagne Gold para distribución en Canadá.
+    summary: Actualización de SKUs de Chubby 24x250ml y Busta Kola Champagne Gold
+      para distribución en Canadá.
 pending_tasks:
-  - Consolidar el reporte de rotación de la campaña promocional Chubby Plushie en tiendas seleccionadas.
-  - Programar despacho de contenedor de 2,800 cajas Chubby vía Puerto de Halifax / Montreal.
+  - id: pt-dist-morgan-williams-chubby-verificar-envio-d-8bb2c1f0
+    title: "Chubby: verificar envio de muestras Mango y Apple con Tevin"
+    dueDate: 2026-11-10
+    priority: High
+    description: "Responsable: Humberto Bouche (HB). Seguimiento hoy 10 noviembre
+      2026 por la tarde, hora no especificada. Revisar si Tevin Bijadder
+      confirmo fecha de envio de muestras Chubby Mango y Apple a
+      Morgan-Williams. Si no hay confirmacion, preparar consulta por Teams y
+      mostrar destinatario y texto exacto a HB para aprobacion; NO enviar. No se
+      afirma que el envio o su fecha esten confirmados. Fuente: instruccion
+      explicita HB: Y lo de Chobi ponlo como una tarea de seguimiento. Si para
+      hoy en la tarde no tenemos seguimiento, yo le podemos mandar un chat a
+      Tevin en Teams."
+    country: Canada
+    status: Pending
+    completed: false
+    created_at: 2026-11-10T15:57:26.259Z
+    created_by: Chairman / Executive Office
+  - Consolidar el reporte de rotación de la campaña promocional Chubby Plushie
+    en tiendas seleccionadas.
+  - Programar despacho de contenedor de 2,800 cajas Chubby vía Puerto de Halifax
+    / Montreal.
 direct_contacts:
-  phone: "+1 905 677 3444"
-  email: "jenna@morganwilliams.ca"
-  whatsapp: "+1 905 677 3444"
+  phone: +1 905 677 3444
+  email: jenna@morganwilliams.ca
+  whatsapp: +1 905 677 3444
 key_contacts:
-  - "Jenna Hector"
+  - Jenna Hector
 brands_carried:
   - "[[Brand - Chubby]]"
   - "[[Brand - Busta]]"
@@ -66,7 +98,7 @@ tags:
   - canada
   - distribuidor-oficial
   - morgan-williams
-updated_at: "2026-11-10T10:00:00Z"
+updated_at: 2026-11-10T10:00:00Z
 ---
 
 # Morgan Williams International Inc. · Distribuidor Oficial Canadá
