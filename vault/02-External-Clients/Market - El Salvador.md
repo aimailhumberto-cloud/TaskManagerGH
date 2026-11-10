@@ -9,6 +9,7 @@ region: Central America
 relations:
   responsible_person:
     - "[[Person - Tomas Casas]]"
+    - "[[person-gabriela-trigueros]]"
 verification_status: Mercado y vínculo con Tomás confirmados directamente por HB
 source: "HB, conversación privada 2026-11-10:
   Sentinel_4e17890036ac81919a5fa05feffd78c4; corrección explícita posterior
@@ -35,7 +36,23 @@ hb_market_scope_confirmation_20261110:
   internal_review_kind: internal_reconciliation_not_commercial_deadline
   responsible_person_id: person-tomas-casas
   responsibility_status: reconfirmed_by_HB
-  gaby_relationship: Gaby reports to Tomas and covers El Salvador, per HB; identity unresolved
+  gaby_relationship: "Gabriela Trigueros (Gaby) reports to Tomas and covers El Salvador per HB; corporate identity resolved separately by Outlook worker."
+gabriela_identity_resolution_20261110:
+  canonical_person_id: person-gabriela-trigueros
+  identity_source: 'Corporate Outlook worker lookup reported by coordinator in source thread 01a1a96c-b06e-72d9-b51f-9e78a98ac0ea
+    on 2026-11-10: directory display name Gabriela Trigueros, email gabriela.trigueros@smjaleel.com, title Distributor
+    Operations Manager Central America, location El Salvador. Raw directory item ID and capture timestamp were not
+    supplied. This thread did not directly open the directory.'
+  relationship_source: 'HB direct statements: Sentinel_9d06b596cb7c81919935d87aa6790bc8 (2026-11-10T17:12:02.698126Z)
+    says Gaby reports to Tomas and covers El Salvador; Sentinel_1b444ccfc0048191962fc4dd1c6520c2 (17:21:44.402946Z)
+    identifies her as the Panama handover person working for Tomas. Explicit confirmation Sentinel_9bf709327fc48191a091e965bf25e018,
+    2026-11-10T17:32:53.234966Z: HB confirms this is Gaby, confirms reports to Tomas, and directs creation of her
+    person record.'
+  prior_name_spelling: Gabriela Tigueros
+  correct_corporate_name: Gabriela Trigueros
+  email_primary: gabriela.trigueros@smjaleel.com
+  directory_manager_observed: false
+  permanent_panama_responsibility_inferred: false
 ---
 
 # Market: El Salvador
@@ -54,3 +71,12 @@ HB directly reconfirms [[person-tomas-casas]] as responsible for this market. Th
 HB says Gaby reports to Tomás and covers El Salvador. Identity remains pending surname/corporate-email clarification. No Gaby person node, email, job title, Medimex equivalence or distributor assignment is inferred. The UI-displayed Walton assignment is not accepted as source data.
 
 Internal clarification/review: 2026-11-11; not a commercial deadline or a new task.
+
+
+## Gaby identity resolved - 2026-11-10
+
+Corporate Outlook worker lookup reported by coordinator in source thread 01a1a96c-b06e-72d9-b51f-9e78a98ac0ea on 2026-11-10: directory display name Gabriela Trigueros, email gabriela.trigueros@smjaleel.com, title Distributor Operations Manager Central America, location El Salvador. Raw directory item ID and capture timestamp were not supplied. This thread did not directly open the directory.
+
+HB direct statements: Sentinel_9d06b596cb7c81919935d87aa6790bc8 (2026-11-10T17:12:02.698126Z) says Gaby reports to Tomas and covers El Salvador; Sentinel_1b444ccfc0048191962fc4dd1c6520c2 (17:21:44.402946Z) identifies her as the Panama handover person working for Tomas. Explicit confirmation Sentinel_9bf709327fc48191a091e965bf25e018, 2026-11-10T17:32:53.234966Z: HB confirms this is Gaby, confirms reports to Tomas, and directs creation of her person record.
+
+Gaby is [[person-gabriela-trigueros]]. The prior unresolved-identity notes above are preserved as history and superseded by this corporate result. Correct surname: Trigueros; prior Tigueros spelling retained as an alias, not a duplicate identity. The reporting and El Salvador relationships are confirmed by HB; no directory organigram was shown. Panama-Handover MEDIMEX is event context only and does not create permanent Panama responsibility or change Tomas's recorded exception. No further identity question to HB is required. Internal source-review date: 2026-11-11, not a commercial deadline.
