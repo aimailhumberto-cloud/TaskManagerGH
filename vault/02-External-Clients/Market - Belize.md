@@ -16,6 +16,9 @@ primary_ports:
   - "Port of Belize City"
 transit_time_from_trinidad_days: 12
 relations:
+  responsible_person:
+    - "[[person-humberto-bouche]]"
+    - "[[person-clint-villafana]]"
   managed_by_role:
   distributors:
     - "[[Distributor - SanCas Belize]]"
@@ -25,6 +28,18 @@ relations:
     - "[[Brand - Fruta]]"
     - "[[Brand - Oasis]]"
 updated_at: "2026-11-09T11:48:00-05:00"
+hb_market_scope_confirmation_20261110:
+  source: HB direct statement, Sentinel_9d06b596cb7c81919935d87aa6790bc8, 2026-11-10T17:12:02.698126Z; read from
+    trusted user-message history and supplied by coordinator.
+  evidence_class: direct_HB_confirmation
+  confirmed_at: '2026-11-10T17:12:02.698126Z'
+  internal_review_date: '2026-11-11'
+  internal_review_kind: internal_reconciliation_not_commercial_deadline
+  responsible_person_ids:
+  - person-humberto-bouche
+  - person-clint-villafana
+  responsibility_status: HB_confirmed_conversation_context
+  tomas_excluded: true
 ---
 
 # Market: Belize
@@ -55,3 +70,12 @@ Fifteen source brand/presentation labels: CHUBBY 250ML; TURBO 370ML; OASIS KIDS 
 Anchor: Sheet1 A2:K2 records source item SMJ-33613022756 / CHUBBY REGGAE GOLD 24/250ML / 1&1 SUPERMARKET / salesperson OHER / Oct 1. This is historical observation only, not stock, exclusivity, current responsibility or channel classification. Salesperson code has not been resolved to a person. Numeric distribution cannot be calculated without an eligible-outlet denominator.
 
 Detailed audit: SMJ_Countries_Audit_20261110T165205Z/CHECKPOINT_2.md. Internal evidence-review checkpoint: 2026-11-11; this does not add or alter a commercial task or due date.
+
+
+## HB market responsibility confirmation - 2026-11-10
+
+HB direct statement, Sentinel_9d06b596cb7c81919935d87aa6790bc8, 2026-11-10T17:12:02.698126Z; read from trusted user-message history and supplied by coordinator.
+
+HB confirms Belize is outside Tomás's coverage and belongs to the working scope of [[person-humberto-bouche]] and [[person-clint-villafana]], interpreting the dictated phrase in its conversational context. These are commercial responsibility relationships, not new job titles, legal employment, exclusivity or a reporting-chain change. Existing SanCas/Nando distributor relationships and all historical product evidence remain intact.
+
+Internal clarification/review: 2026-11-11; not a commercial deadline or a new task.
