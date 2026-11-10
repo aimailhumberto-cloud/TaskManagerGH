@@ -16,7 +16,7 @@ direct_contacts:
   sales_email: sales@nandos.bz
   website: https://nandos.bz
   public_contact_source: https://nandos.bz/contact/
-  public_contact_verified_at: '2026-11-10'
+  public_contact_verified_at: 2026-11-10
 operational_thread_recipient: purchasing@cnldistributors.com
 relations:
   belongs_to_market:
@@ -29,6 +29,33 @@ tags:
   - belize
   - nandos
   - source-verified-partial
+pending_tasks:
+  - id: pt-dist-nandos-belize-nando-contactar-coordina-239d902a
+    title: "Nando: contactar, coordinar llamada y dar feedback a Clint"
+    priority: High
+    description: "Responsable: Humberto Bouche (HB). SIN FECHA LIMITE FIJADA. Clint
+      solicito contactar a Nando y devolverle feedback (correo Re: Belize - Hand
+      Over: Nando's, 10 noviembre 2026). Contacto verificado nandos@nandos.bz en
+      cadena original de Rebecca Sukal reenviada por Olivia y en web oficial;
+      sales@nandos.bz es buzón general alternativo. Preparar introduccion y
+      solicitar llamada; envio a Nando aun NO confirmado. Luego dar seguimiento
+      a su respuesta, coordinar llamada cuando haya disponibilidad y compartir
+      feedback con Clint. Correo de correccion a Clint/Olivia en curso, no
+      equivale a contacto con distribuidor. Fuente: solicitud explicita HB en
+      chat 10nov (Sentinel_909a2874828881919ad3a0b5341544d0), hilo Outlook
+      corporativo y https://nandos.bz/contact/. No asumir C&L=Nando, fecha de
+      llamada ni respuesta recibida."
+    country: BZ
+    status: Pending
+    completed: false
+    created_at: 2026-11-10T16:29:41.890Z
+    created_by: Chairman / Executive Office
+recent_actions:
+  - date: 2026-11-10
+    type: nueva_tarea_ejecutiva
+    summary: 'Nueva tarea asignada
+      [pt-dist-nandos-belize-nando-contactar-coordina-239d902a]: "Nando:
+      contactar, coordinar llamada y dar feedback a Clint" (11:29 a. m.)'
 ---
 
 # Nando's Wholesale LLP - Belize
