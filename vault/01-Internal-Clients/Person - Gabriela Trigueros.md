@@ -68,6 +68,19 @@ identity_evidence:
     raw_invitation_id: null
 internal_review_date: '2026-11-11'
 internal_review_kind: internal_source_reconciliation_not_commercial_deadline
+hb_costa_rica_scope_clarification_20261110:
+  source: 'HB direct statement Sentinel_6fe5aec437e881919158ac6a3b7decfa, 2026-11-10T18:02:45.701537Z: Central America
+    with Tomas and Gaby, except Costa Rica for Gaby. Contextual reading: Costa Rica remains with Tomas; Gabriela
+    is excluded there.'
+  evidence_class: direct_HB_statement_with_contextual_exception_reading
+  costa_rica_responsible_person_retained: person-tomas-casas
+  costa_rica_excluded_person: person-gabriela-trigueros
+  el_salvador_existing_tomas_gabriela_links_retained: true
+  belize_humberto_clint_exception_retained: true
+  panama_previous_tomas_exclusion_retained_pending_resolution: true
+  regional_statement_not_expanded_to_unverified_country_edges: true
+  internal_review_date: '2026-11-11'
+  internal_review_kind: internal_scope_review_not_commercial_deadline
 ---
 
 # Gabriela Trigueros (Gaby)
@@ -81,3 +94,12 @@ The corporate result spells Trigueros. The earlier spoken/transcript spelling Ti
 The Outlook worker verified that she organizes Panama-Handover MEDIMEX for 11 November with Humberto and Tomas among participants. That event does not establish permanent Panama ownership or reassign Panama to Tomas. No invitation was sent, forwarded, changed or accepted in this thread. Exact source IDs and capture times not supplied by the worker remain explicitly unknown.
 
 Internal source-review date: 2026-11-11; not a commercial deadline or an additional task.
+
+
+## HB clarification: Costa Rica excludes Gabriela - 2026-11-10
+
+HB direct statement Sentinel_6fe5aec437e881919158ac6a3b7decfa, 2026-11-10T18:02:45.701537Z: Central America with Tomas and Gaby, except Costa Rica for Gaby. Contextual reading: Costa Rica remains with Tomas; Gabriela is excluded there.
+
+Costa Rica remains linked to Tomas Casas. Gabriela Trigueros is explicitly outside that Costa Rica assignment; no Gabriela-Costa Rica edge is created, even as a generic reference. The existing El Salvador links to both people remain valid. The prior Belize exception (Humberto and Clint) and the prior Panama exclusion from Tomas remain separate and are not silently overridden by the regional phrase.
+
+Guatemala, Honduras and Nicaragua do not currently have market records in this reviewed vault. No country-by-country coverage is asserted for them from the regional wording alone. Jamaica remains linked to Tomas as separately confirmed; the Central America statement does not assign Jamaica to Gabriela. No exclusivity, product range, distributor or new job title follows from this clarification. Internal source-review date: 2026-11-11; not a commercial deadline.

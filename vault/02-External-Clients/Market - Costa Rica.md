@@ -26,6 +26,19 @@ visual_photo_verified_on: '2026-11-10'
 visual_photo_verification_status: source_code_identity_and_png_bytes_verified_UI_checked_separately
 visual_photo_rights: Flagcdn/Flagpedia provider terms and Wikimedia source attribution; no blanket rights conclusion
   recorded
+hb_costa_rica_scope_clarification_20261110:
+  source: 'HB direct statement Sentinel_6fe5aec437e881919158ac6a3b7decfa, 2026-11-10T18:02:45.701537Z: Central America
+    with Tomas and Gaby, except Costa Rica for Gaby. Contextual reading: Costa Rica remains with Tomas; Gabriela
+    is excluded there.'
+  evidence_class: direct_HB_statement_with_contextual_exception_reading
+  costa_rica_responsible_person_retained: person-tomas-casas
+  costa_rica_excluded_person: person-gabriela-trigueros
+  el_salvador_existing_tomas_gabriela_links_retained: true
+  belize_humberto_clint_exception_retained: true
+  panama_previous_tomas_exclusion_retained_pending_resolution: true
+  regional_statement_not_expanded_to_unverified_country_edges: true
+  internal_review_date: '2026-11-11'
+  internal_review_kind: internal_scope_review_not_commercial_deadline
 ---
 
 # Market: Costa Rica
@@ -33,3 +46,12 @@ visual_photo_rights: Flagcdn/Flagpedia provider terms and Wikimedia source attri
 HB confirmó este mercado dentro del alcance de [[Person - Tomas Casas]] el 10 de noviembre de 2026. 
 
 Distribuidores, marcas, condiciones comerciales y otros responsables pendientes de fuente verificable.
+
+
+## HB clarification: Costa Rica excludes Gabriela - 2026-11-10
+
+HB direct statement Sentinel_6fe5aec437e881919158ac6a3b7decfa, 2026-11-10T18:02:45.701537Z: Central America with Tomas and Gaby, except Costa Rica for Gaby. Contextual reading: Costa Rica remains with Tomas; Gabriela is excluded there.
+
+Costa Rica remains linked to Tomas Casas. Gabriela Trigueros is explicitly outside that Costa Rica assignment; no Gabriela-Costa Rica edge is created, even as a generic reference. The existing El Salvador links to both people remain valid. The prior Belize exception (Humberto and Clint) and the prior Panama exclusion from Tomas remain separate and are not silently overridden by the regional phrase.
+
+Guatemala, Honduras and Nicaragua do not currently have market records in this reviewed vault. No country-by-country coverage is asserted for them from the regional wording alone. Jamaica remains linked to Tomas as separately confirmed; the Central America statement does not assign Jamaica to Gabriela. No exclusivity, product range, distributor or new job title follows from this clarification. Internal source-review date: 2026-11-11; not a commercial deadline.
