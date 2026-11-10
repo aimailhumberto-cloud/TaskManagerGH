@@ -134,3 +134,17 @@ Material de referencia comercial de [[Market - Belize]] compartido por [[Person 
 
 ## WhatsApp SanCas contacts 2026-11-10
 Olivia shared Angelo, Aisha and Luisa Santos contact cards 08:36-08:37 and identified them as SanCas contacts at 08:38. HB explicitly requested linking these workers as his SanCas business contacts. Existing person records reused; no duplicate people created. Job titles, managers and hierarchy remain pending; HB question whether Luisa is GM has no confirmed answer yet. Card phones and source limits preserved in person evidence.
+
+
+## Analisis de inventario y seguimiento HB - 2026-11-10
+Fuente: Santiago Castillo Stock and Sales 02.11.2026.xlsx, original en OneDrive corporativo S.M. Jaleel & Company Limited, Attachments/Belize/SanCas/Sales/. Analisis de hojas y valores guardados; no se recalculo Excel. Corte de stock 31 octubre 2026; Summary A2 indica 3 noviembre aunque el nombre dice 02.11.2026. No representa stock actual al 10 noviembre.
+
+- Stock 18,975.609 cajas. Ventas agosto 1,018; septiembre 6,182.457; octubre 5,647.934 (-8.65% vs septiembre). Total agosto-octubre 12,848.391; promedio mensual 4,282.797. Cases Sold en Stock dd31-Oct es acumulado agosto-octubre, no octubre solo.
+- Riesgo de cobertura proyectada (Reorder Report): Busta Kola Champion 2L fila11 stock21/promedio23.333, sin recepcion noviembre-diciembre y cierre0; Green Punch355ml fila20 stock1/promedio7.667, noviembre0 y diciembre132; Banana500ml fila31 stock21.5/promedio29.5, noviembre0 y diciembre90; Chubby Pineapple250ml fila64 stock49/promedio43.667, cierre noviembre5.333 (~0.53 semanas); Frutopia Citrus Punch475ml fila99 cierre noviembre12.78 (~3.27 semanas). Formulas limitan negativos a cero: cero no prueba ausencia de demanda insatisfecha.
+- Sailing Summary: SO1428438/1438186, 2x40ft y 5037 cajas, sailing registrado1 noviembre, ETA prevista14 noviembre y despacho21 noviembre. SO1448455/1444353 ETD15 noviembre, ETA28 noviembre, despacho5 diciembre. SO1445126 ETD21 noviembre, ETA4 diciembre, despacho11 diciembre. Recepciones diciembre previstas7841 cajas. Son previsiones, no confirmacion de llegada/entrega.
+- Revisar baja rotacion aparente: Fruta315ml989 cajas vs promedio7/mes, Fruta200ml1041 vs31/mes, Frutopia2L176 vs2/mes. No inferir caducidad/perdida; comprobar periodos, lanzamientos y datos faltantes.
+- Calidad: SALES2026 enero-julio vacios/cero contradice enero-abril de hoja oculta2025 vs2026; no usar como anual completo. AX134 suma coberturas SKU (1489.53) y no es cobertura agregada; Summary G23 estima19.83 semanas. Tres nombres definidos con #REF! de impresion/filtro; no errores de celda guardados observados.
+
+Tarea directa para [[Person - Humberto Bouche]] autorizada por HB, pendiente, sin fecha limite inventada: SanCas Belize: validar inventario y ETA de reposicion. Task Manager ID ec3ac750-43ca-4908-9225-1ce51d1c37de; empresa business-sm-jaleel; categoria Belize / Santiago Castillo. Cinco pasos: stock SKU criticos, ETAs/disponibilidad, proximos embarques, baja rotacion y reconciliacion de datos. No duplicar tarea de forecast de tres anos e7cfc6c6-1fa8-487f-bc90-f573908b35d8. No se enviaron comunicaciones ni se aprobaron pedidos.
+
+Control de evidencia: este analisis no valida cifras, contactos, exclusividad ni compromisos anteriores de la ficha. Exclusividad territorial/por marca/canal pendiente de verificar frente al segundo distribuidor Nando's documentado; se conserva historial sin tratar esa exclusividad como probada.
