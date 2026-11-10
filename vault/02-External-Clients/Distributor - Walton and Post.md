@@ -45,8 +45,8 @@ direct_contacts:
   email: "orders@waltonpost.com"
   whatsapp: "+1 305 633 8000"
 key_contacts:
-  - "[[Person - Walvyx Parra]]"
-  - "[[Person - Wazid Baksh]]"
+  - "[[person-walvyx-parra]]"
+  - "[[person-wazid-baksh]]"
 brands_carried:
   - "[[Brand - Chubby]]"
   - "[[Brand - Busta]]"
@@ -62,8 +62,8 @@ relations:
     - "[[Brand - Altitude]]"
   coordinates_with:
     - "[[organization-smj-beverages-usa-inc]]"
-    - "[[Person - Walvyx Parra]]"
-    - "[[Person - Wazid Baksh]]"
+    - "[[person-walvyx-parra]]"
+    - "[[person-wazid-baksh]]"
     - "[[Person - Humberto Bouche]]"
   supplied_by:
     - "[[Core - S.M. Jaleel & Co. Ltd.]]"
@@ -94,8 +94,8 @@ Walton and Post Inc. es el Master Distributor e importador estratégico de S.M. 
 - **Subsidiaria Corporativa de Enlace:** [[organization-smj-beverages-usa-inc]]
 - **Casa Matriz:** [[Core - S.M. Jaleel & Co. Ltd.]]
 - **Liderazgo Comercial & Cuentas Clave:**
-  - [[Person - Walvyx Parra]] (`Business Development Manager`)
-  - [[Person - Wazid Baksh]] (`VP Sales North America`)
+  - [[person-walvyx-parra]] (`Business Development Manager`)
+  - [[person-wazid-baksh]] (`VP Sales North America`)
   - [[Person - Humberto Bouche]] (`Distribution Manager - Export`)
 - **Departamentos de Coordinación:**
   - [[Dept - International Exports]] (Seguimiento comercial y metas de ventas)

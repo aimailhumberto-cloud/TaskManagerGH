@@ -75,4 +75,4 @@ SMJ Beverages USA, Inc. es la subsidiaria corporativa de S.M. Jaleel & Co. Ltd. 
 - **Portafolio Asignado:** [[Brand - Chubby]], [[Brand - Busta]], [[Brand - Fruta]]
 - **Supervisión de Exportaciones:** [[Dept - International Exports]]
 - **Gestión de Mercadeo & Compras:** [[organization-smj-procurement-marketing-inc]]
-- **Liderazgo Comercial:** [[Person - Walvyx Parra]], [[Person - Wazid Baksh]], [[Person - Humberto Bouche]]
+- **Liderazgo Comercial:** [[person-walvyx-parra]], [[person-wazid-baksh]], [[Person - Humberto Bouche]]
