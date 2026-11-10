@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import SmjCompanyCenter from './SmjCompanyCenter';
 import LegacyProjectDetail from './LegacyProjectDetail';
 import ExecutiveTelemetryHero from './ExecutiveTelemetryHero';
@@ -239,6 +240,31 @@ export default function PublicHbWorkspace({ entry, initial }: { entry: Entry; in
         companies={view.companies}
         onSelectFilter={f => setKpiFilter(f)}
       />
+
+      {/* Executive Quick Access to Second Brain Tasks SSOT */}
+      <div className="mx-4 md:mx-6 mb-4 p-3.5 bg-gradient-to-r from-amber-500/10 via-[#111c2e] to-sky-500/10 border border-amber-500/30 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+        <div className="flex items-center gap-3">
+          <span className="p-2 rounded-lg bg-amber-500/20 text-amber-300 font-mono text-xs border border-amber-500/40 font-bold">
+            SSOT
+          </span>
+          <div>
+            <div className="text-xs font-bold text-slate-100 flex items-center gap-2">
+              <span>Executive Task Manager & Cuotas Distribuidores</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">DOTS CEREBRO</span>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              Accede a la vista unificada con cuotas verídicas, radar diario Panamá y ciclo DOTS en 5 fases.
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/tasks"
+          className="shrink-0 px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-xs flex items-center gap-1.5 shadow transition-colors"
+        >
+          <span>Abrir Tareas SSOT</span>
+          <span>→</span>
+        </Link>
+      </div>
 
       {notice && (
         <p role="status" className="tm-inline-notice">

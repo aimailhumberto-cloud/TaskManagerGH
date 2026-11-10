@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import type { UnifiedBrainTask, DistributorSummary } from '@/lib/smjBrainService';
 import TaskDotsModal from '@/components/TaskDotsModal';
 import TaskDossierModal from '@/components/TaskDossierModal';
@@ -222,6 +223,17 @@ export default function TasksPage() {
 
             {/* Quick Action Buttons */}
             <div className="flex items-center gap-2.5">
+              <Link
+                href="/cerebro"
+                className="px-3 py-1.5 rounded-lg border border-sky-500/40 bg-sky-950/40 hover:bg-sky-900/50 text-xs text-sky-300 flex items-center gap-1.5 transition-colors"
+                title="Abrir Segundo Cerebro 360°"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 2a9 9 0 019 9c0 3.87-2.69 7.1-6.4 8.48l-.6.22V22h-4v-2.3l-.6-.22A9.002 9.002 0 013 11a9 9 0 019-9z" />
+                </svg>
+                <span className="hidden sm:inline">Cerebro SMJ</span>
+              </Link>
+
               <button
                 onClick={() => fetchTasks(true)}
                 disabled={refreshing}

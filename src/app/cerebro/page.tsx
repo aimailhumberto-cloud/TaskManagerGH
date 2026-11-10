@@ -3266,12 +3266,12 @@ export default function CerebroPage() {
         {/* Left: Brand & Node Count */}
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <Link
-            href="/"
-            className="text-xs uppercase font-bold tracking-wider text-gray-400 hover:text-white transition flex items-center gap-1 shrink-0"
-            title="Volver a TaskManager HB"
+            href="/tasks"
+            className="text-xs uppercase font-bold tracking-wider text-amber-400 hover:text-amber-300 transition flex items-center gap-1.5 shrink-0 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded border border-amber-500/30"
+            title="Ir a TaskManager Ejecutivo (Tareas)"
           >
             <span>←</span>
-            <span className="hidden lg:inline">TaskManager</span>
+            <span>Tareas</span>
           </Link>
           <div className="h-4 w-px bg-gray-700 shrink-0" />
           <div className="flex items-center gap-1.5 min-w-0">
