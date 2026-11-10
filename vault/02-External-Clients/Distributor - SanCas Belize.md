@@ -171,6 +171,9 @@ customers_supplied:
   - Save-U Supermarket
   - Publics Supermarket
 relations:
+  has_channel:
+    - "[[channel-sancas-belize-wholesalers]]"
+    - "[[channel-sancas-belize-independents]]"
   belongs_to_market:
     - "[[Market - Belize]]"
   carries_brand:
@@ -281,3 +284,10 @@ Actualizacion 10 noviembre 2026: Olivia solicita forecast por marca y pack size:
 Fuente: Outlook SMJ, hilo Distribution Agreement - 3 Year Forecast | Santiago Castillo (Belize). Luisa10nov recibido11:09/enviado11:08; Olivia citado10:02/recibido11:02; zona de interfaz no verificada. Hilo completo leido, sin respuesta posterior observada en la revision.
 
 Seguimiento unico ID e7cfc6c6-1fa8-487f-bc90-f573908b35d8, conservado desde Task Manager anterior y reflejado en /tasks dentro de este distribuidor. No constituye una tarea adicional.
+
+
+## Canales de reporte confirmados por HB - 2026-11-10
+
+Se vinculan Mayoristas / wholesalers e Independientes como dos segmentos del reporte de ventas solicitado por Clint segun la reunion relatada por HB (Sentinel_8cfdbc5980a48191bfa6cfd6f14f3cc7). Es clasificacion de reporte; no afirma volumen, participacion, cobertura o censo ya medidos.
+
+Independientes no se equipara a canal tradicional, ni mayoristas a clientes minoristas. El censo de mayoristas y la ND siguen pendientes en las tareas existentes. No se crean tareas, visitas ni fechas nuevas. Los campos historicos de exclusividad y cifras comerciales de esta ficha no quedan validados por esta actualizacion.

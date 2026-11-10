@@ -131,3 +131,9 @@ Se enlazan ocho variantes existentes por coincidencia de marca, sabor y tamano c
 Juciful Kids Apple y Fruit Punch 200ml siguen documentados en el cuerpo, sin nodo de catalogo compatible encontrado. No se crean equivalencias inventadas ni se enlazan a Fruta por suposicion. La diferencia Classic 500ml en correo frente a Classic Cola 355ml en factura permanece abierta; enlace basado exclusivamente en la linea de factura.
 
 La UI local inspeccionada inicia catalogScope=collapsed y excluye product_variant, product_line, flavor y packaging, junto con enlaces cuyo destino queda oculto. Por ello el modo de catalogo Todos puede ser necesario para ver estas conexiones; no se ha probado la pantalla online en esta ejecucion. Cambiar el comportamiento de despliegue automatico requiere Antigravity, no edicion de datos.
+
+## Canales - corroboracion documental pendiente, 2026-11-10
+
+La coordinacion del trabajo de canales comunica un perfil historico atribuido a un trabajador de correo: 639 clientes, aproximadamente 17 mayoristas y el resto minoristas. El original de ese perfil, su fecha de corte y alcance no se han leido en este lote; estas cantidades no se registran como metricas verificadas ni vigentes.
+
+No se crean por ahora nodos de canal para Nando sobre esa referencia indirecta. Pendiente localizar y leer la fuente original antes de estructurar mayoristas/minoristas bajo este distribuidor. El nombre Wholesale LLP no prueba por si solo la composicion de clientes. Minoristas no equivale automaticamente a independientes o tradicional. No se traslada a Nando el split solicitado para SanCas. Tarea de contacto y diez relaciones historicas de productos conservadas.
