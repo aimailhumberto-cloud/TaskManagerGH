@@ -19,6 +19,18 @@ direct_contacts:
   public_contact_verified_at: 2026-11-10
 operational_thread_recipient: purchasing@cnldistributors.com
 relations:
+  shipment_name_size_match_2026_08:
+    - "[[variant-shopsmj-34773886206114]]"
+    - "[[variant-shopsmj-34773914484898]]"
+    - "[[variant-shopsmj-32441476808797]]"
+    - "[[variant-shopsmj-32441489195101]]"
+    - "[[variant-shopsmj-35329111326882]]"
+    - "[[variant-shopsmj-44194766061730]]"
+    - "[[variant-shopsmj-35329111851170]]"
+    - "[[variant-shopsmj-34773907472546]]"
+  shipment_product_lines_2026_08:
+    - "[[line-shopsmj-classic]]"
+    - "[[line-shopsmj-cole-cold]]"
   belongs_to_market:
     - "[[Market - Belize]]"
   coordinates_with:
@@ -112,3 +124,10 @@ Fuente: https://nandos.bz/contact/, lectura directa del HTML publicado el 10 nov
 
 ## Verificacion de publicacion - 2026-11-10
 La ficha existia en las dos copias locales pero no en el grafo online. Se sincronizo esta misma ficha, conservando ID dist-nandos-belize, su contenido previo y conexiones con Belice, Olivia y Humberto. La API online confirmo el nodo y enlaces; validacion visual pendiente por navegador integrado no disponible en esta ejecucion. No se crearon duplicados ni se afirmo exclusividad.
+
+## Conexiones de producto sustentadas - 2026-11-10
+Se enlazan ocho variantes existentes por coincidencia de marca, sabor y tamano con la factura historica SMJPM31592 del 4 agosto 2026: Classic Cola 355ml; Cole Cold Banana, Grape, Kola Champion, Pear y Pineapple 355ml; Cole Cold Cream Soda y Grape 2L. Las relaciones shipment_name_size_match_2026_08 y shipment_product_lines_2026_08 representan el embarque documentado de agosto, NO surtido actual, disponibilidad, exclusividad ni equivalencia confirmada de codigo SKU entre factura y tienda. El catalogo enlazado corresponde a ShopSMJ Trinidad; sus IDs son referencias del catalogo, no codigos de Nando.
+
+Juciful Kids Apple y Fruit Punch 200ml siguen documentados en el cuerpo, sin nodo de catalogo compatible encontrado. No se crean equivalencias inventadas ni se enlazan a Fruta por suposicion. La diferencia Classic 500ml en correo frente a Classic Cola 355ml en factura permanece abierta; enlace basado exclusivamente en la linea de factura.
+
+La UI local inspeccionada inicia catalogScope=collapsed y excluye product_variant, product_line, flavor y packaging, junto con enlaces cuyo destino queda oculto. Por ello el modo de catalogo Todos puede ser necesario para ver estas conexiones; no se ha probado la pantalla online en esta ejecucion. Cambiar el comportamiento de despliegue automatico requiere Antigravity, no edicion de datos.
