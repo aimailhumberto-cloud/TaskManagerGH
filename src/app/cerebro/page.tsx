@@ -1419,6 +1419,7 @@ export default function CerebroPage() {
   // Interactive Hover Tooltip State
   const [hoveredNode, setHoveredNode] = useState<NodeData | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const initialDeckLoadedRef = useRef(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1532,10 +1533,22 @@ export default function CerebroPage() {
 
         // Auto-refresh stacked deck with fresh node data from the vault (sync with Dots modifications)
         setStackedDeck(prev => {
-          if (prev.length === 0) {
-            const coreNode = json.nodes.find((n: any) => n.type === 'core' || n.id.includes('core-sm-jaleel')) || json.nodes[0];
-            return coreNode ? [coreNode] : [];
+          if (!initialDeckLoadedRef.current) {
+            initialDeckLoadedRef.current = true;
+            // On desktop (>= 768px), open Core node by default. On mobile (< 768px), start empty so user sees the full canvas!
+            const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+            if (isDesktop && prev.length === 0) {
+              const coreNode = json.nodes.find((n: any) => n.type === 'core' || n.id.includes('core-sm-jaleel')) || json.nodes[0];
+              return coreNode ? [coreNode] : [];
+            }
+            return prev;
           }
+
+          // If the user closed all cards (prev is empty), RESPECT user choice and keep it empty!
+          if (prev.length === 0) {
+            return [];
+          }
+
           return prev
             .map(card => {
               const fresh = json.nodes.find((n: any) => n.id === card.id);
