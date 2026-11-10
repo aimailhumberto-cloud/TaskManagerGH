@@ -103,3 +103,17 @@ Santiago Castillo Ltd. (SanCas) es el distribuidor líder e importador exclusivo
 - **Gerencia de Exportaciones:** [[Person - Humberto Bouche]] (`Distribution Manager - Export`)
 - **Abastecimiento y Despacho Marítimo:** [[Dept - Supply Chain & Procurement]], [[Dept - International Exports]]
 - **Validación de Crédito:** [[Dept - Finance & Export Credit]]
+
+
+## Fuente WhatsApp Olivia - 2026-11-10 - seis imagenes SanCas
+
+Fuente revisada: chat privado WhatsApp Olivia Rampersad, album reenviado de seis fotos, recibido 10 noviembre 2026 08:26-08:27 (hora mostrada en HBLaptop, Panama). Archivo principal en OneDrive corporativo: Brand Guidelines/SanCas Belize/2026-11-10; seis JPEG originales mas README_Olivia_2026-11-10.md y manifest.json. Copias locales verificadas por SHA256, sincronizacion remota pendiente de comprobar.
+
+- Kool Kidz: compra pack de ocho, recibe Doritos Nacho Cheese y Cheetos Crunchy. Sin vigencia impresa observada.
+- Fruta 1L: compra dos, recibe snack Donde Campechana o Aviones. Sin vigencia impresa observada.
+- Busta: compra cuatro sabores surtidos, recibe Busta Pineapple gratis. Sin vigencia impresa observada.
+- People's Store Double Day: 28 noviembre 2026, doble boleto Big Drive y sampling que incluye SMJ Busta.
+- SanCas Save U: sampling en Sancas Plaza, Belcan Bridge, 29-31 octubre; material pasado, ano no impreso.
+- Santiago Castillo/SanCas: sorteo 30 enero 2027 por compras de $75 de SanCas/PepsiCo; lista incluye Chubby y Busta. Moneda y terminos externos no verificados.
+
+Material de referencia comercial de [[Market - Belize]] compartido por [[Person - Olivia Rampersad]]. Los artes no prueban ejecucion de promociones ni resultados de ventas. HB respondio a las 08:29: 'wow the are all over' y 'I’m looking forward to work wiht them'. No hay nueva solicitud directa o compromiso aceptado que justifique tarea/evento. No se crearon tareas ni eventos a partir de fechas promocionales. Esta evidencia no valida ni altera otros campos historicos del expediente.

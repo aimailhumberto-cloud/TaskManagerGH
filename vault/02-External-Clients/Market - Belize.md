@@ -33,3 +33,7 @@ Mercado centroamericano miembro de CARICOM con ventaja arancelaria directa para 
 
 ## Archivo de roles aprobado por HB - 2026-11-09
 Se retiraron referencias activas a roles redundantes; copia y conexiones anteriores preservadas en insumos/archivo-roles-aprobado-20261109-143709. Cargos y relaciones personales permanecen sin cambios.
+
+
+## Evidencia comercial - 2026-11-10
+Se archivaron seis artes promocionales de [[Distributor - SanCas Belize]] enviados por [[Person - Olivia Rampersad]] via WhatsApp. Incluyen Kool Kidz, Fruta, Busta, Double Day y sorteo. Detalle y limites de evidencia en el expediente del distribuidor; no constituyen compromisos de agenda de HB.
