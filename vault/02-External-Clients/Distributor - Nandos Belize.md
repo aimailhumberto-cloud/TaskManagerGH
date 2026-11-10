@@ -2,13 +2,9 @@
 id: dist-nandos-belize
 title: "Distributor: Nando's Wholesale LLP (Belize)"
 type: distributor
-operator_subtype: wholesaler
 memory_tier: long_term
 company_name: NANDO'S WHOLESALE LLP
 market: "[[Market - Belize]]"
-spatial_anchor: market-belize
-spatial_tier: operator
-channel_type: wholesale
 based_in_country: Belize
 verification_status: user_confirmed_distributor_email_and_shipping_documents_observed
 updated_at: 2026-11-10T14:03:51.892Z
@@ -21,6 +17,12 @@ direct_contacts:
   website: https://nandos.bz
   public_contact_source: https://nandos.bz/contact/
   public_contact_verified_at: 2026-11-10
+  jony_name: Jony
+  jony_phone: +501 610 1122
+  jony_affiliation: Nando's, segun Olivia Rampersad
+  jony_title: No confirmado
+  jony_source: "Olivia Rampersad, Re: Belize - Hand Over: Nando's, 2026-11-10
+    11:58 UI Outlook; cadena completa leida por revisar_correos_clint"
 operational_thread_recipient: purchasing@cnldistributors.com
 relations:
   shipment_name_size_match_2026_08:
@@ -58,14 +60,25 @@ pending_tasks:
       completa el seguimiento comercial. Fuente: solicitud HB
       (Sentinel_909a2874828881919ad3a0b5341544d0), hilo Outlook y actualizacion
       de coordinacion del 10nov. Contactos contrastados con cadena reenviada por
-      Olivia y https://nandos.bz/contact/. No asumir C&L=Nando."
+      Olivia y https://nandos.bz/contact/. No asumir C&L=Nando. Actualizacion
+      10nov: Olivia respondio con Jony @ Nando's, telefono +501 610 1122 y los
+      buzones nandos@nandos.bz y purchasing@cnldistributors.com. Estos contactos
+      responden a la consulta interna; no son respuesta de Nando ni llamada
+      agendada. Mantener espera de respuesta a la presentacion; usar Jony como
+      contacto disponible si corresponde seguimiento autorizado. Cargo/apellido
+      de Jony y relacion juridica del buzon C&L no confirmados."
     country: BZ
     status: Pending
     completed: false
     created_at: 2026-11-10T16:29:41.890Z
     created_by: Chairman / Executive Office
-    updated_at: 2026-11-10T16:41:06.578Z
+    updated_at: 2026-11-10T17:09:20.916Z
 recent_actions:
+  - date: 2026-11-10
+    type: contactos_recibidos
+    summary: Olivia comparte Jony @ Nando's (+501 610 1122), nandos@nandos.bz y
+      purchasing@cnldistributors.com. Cadena completa verificada; pendiente
+      respuesta de Nando al correo introductorio. No se infiere C&L=Nando.
   - date: 2026-11-10
     type: email_enviado
     summary: Introduccion a Nando enviada y verificada a nandos@nandos.bz y
@@ -146,3 +159,9 @@ La UI local inspeccionada inicia catalogScope=collapsed y excluye product_varian
 La coordinacion del trabajo de canales comunica un perfil historico atribuido a un trabajador de correo: 639 clientes, aproximadamente 17 mayoristas y el resto minoristas. El original de ese perfil, su fecha de corte y alcance no se han leido en este lote; estas cantidades no se registran como metricas verificadas ni vigentes.
 
 No se crean por ahora nodos de canal para Nando sobre esa referencia indirecta. Pendiente localizar y leer la fuente original antes de estructurar mayoristas/minoristas bajo este distribuidor. El nombre Wholesale LLP no prueba por si solo la composicion de clientes. Minoristas no equivale automaticamente a independientes o tradicional. No se traslada a Nando el split solicitado para SanCas. Tarea de contacto y diez relaciones historicas de productos conservadas.
+
+## Contacto facilitado por Olivia - 2026-11-10
+
+Fuente: Outlook corporativo, asunto Re: Belize - Hand Over: Nando's; Olivia a las 11:58 segun UI. Worker revisar_correos_clint verifico mensaje y cadena completa. Texto observado: "Hi Humberto, Please see contacts from Nando’s I found"; "Jony @ Nando's", nandos@nandos.bz y purchasing@cnldistributors.com. Telefono mostrado con prefijo tipografico ±501 610 1122, normalizado como +501 610 1122 para Belice. No consta apellido ni cargo de Jony. Olivia lo vincula a Nando; la inclusion de purchasing@cnldistributors.com no prueba pertenencia corporativa ni equivalencia C&L=Nando.
+
+Mensaje anterior de Clint solicita a Olivia y Alanna compartir contactos; si no los tuvieran, indica a Humberto obtener numero de internet y llamar. La respuesta de Olivia aporta un contacto y debe considerarse antes de buscar otro. No hay adjuntos nuevos. El correo introductorio a nandos@nandos.bz y sales@nandos.bz sigue pendiente de respuesta; no se ha confirmado llamada ni plazo. No se envio ningun mensaje desde esta actualizacion.
