@@ -13,6 +13,10 @@ source_email_forward_date: 2026-11-10
 source_email_original_date: 2026-08-11
 direct_contacts:
   email: nandos@nandos.bz
+  sales_email: sales@nandos.bz
+  website: https://nandos.bz
+  public_contact_source: https://nandos.bz/contact/
+  public_contact_verified_at: '2026-11-10'
 operational_thread_recipient: purchasing@cnldistributors.com
 relations:
   belongs_to_market:
@@ -75,3 +79,9 @@ Fuentes: PDF corporativos enumerados arriba, lectura interna por analizar_adjunt
 
 ### Limites de conclusion
 Los documentos prueban factura y embarque historicos, no recepcion final, liquidacion, saldo, obligacion actual de HB o identidad CNL=Nandos. No se crearon tareas, pagos ni eventos. Terminos y domicilio quedan atribuidos a estos documentos de agosto, pendientes de confirmar si se necesitan como datos vigentes.
+
+## Contactos publicos verificados - 2026-11-10
+Fuente: https://nandos.bz/contact/, lectura directa del HTML publicado el 10 noviembre 2026. El cuerpo muestra sales@nandos.bz y la lista de contacto del pie muestra nandos@nandos.bz. Ambos son buzones de empresa, sin persona nominal identificada. Esto corrobora publicamente nandos@nandos.bz, que ya constaba como destinatario historico en el hilo de Rebecca Sukal citado arriba. No prueba que purchasing@cnldistributors.com sea equivalente ni autoriza fusionar C&L con Nando's.
+
+## Verificacion de publicacion - 2026-11-10
+La ficha existia en las dos copias locales pero no en el grafo online. Se sincronizo esta misma ficha, conservando ID dist-nandos-belize, su contenido previo y conexiones con Belice, Olivia y Humberto. La API online confirmo el nodo y enlaces; validacion visual pendiente por navegador integrado no disponible en esta ejecucion. No se crearon duplicados ni se afirmo exclusividad.
