@@ -40,6 +40,70 @@ export interface BrainGraph {
   };
 }
 
+export interface UnifiedBrainTask {
+  id: string;
+  title: string;
+  description?: string;
+  sourceType: 'distributor' | 'routine' | 'project' | 'market' | 'working_memory' | 'adhoc';
+  sourceFile: string;
+  sourceNodeId: string;
+  sourceNodeTitle: string;
+  country?: string;
+  countryCode?: string;
+  dueDate: string;
+  priority: 'High' | 'Medium' | 'Low';
+  status: 'Pending' | 'In Progress' | 'Completed' | 'Blocked' | 'In Review DOTS';
+  isCompleted: boolean;
+  isOverdue: boolean;
+  isToday: boolean;
+  isNext48h: boolean;
+  dotsStatus?: 'idle' | 'assigned' | 'in_progress' | 'completed';
+  dotsInstruction?: string;
+  dotsSummary?: string;
+  distributorQuota?: {
+    annualTargetCases?: number;
+    actualCasesYTD?: number;
+    quarterForecast?: number;
+    complianceRate?: number;
+    status?: 'At Risk' | 'On Track' | 'Ahead';
+  };
+  tags?: string[];
+  recentActions?: Array<{ date: string; type: string; summary: string }>;
+  assigneeName?: string;
+  assigneeRole?: string;
+}
+
+export interface DistributorSummary {
+  id: string;
+  name: string;
+  country: string;
+  countryCode: string;
+  targetCasesYear: number;
+  actualCasesYTD: number;
+  complianceRate: number;
+  status: 'At Risk' | 'On Track' | 'Ahead';
+  pendingTasksCount: number;
+  nextFollowupDate: string;
+  nextFollowupAction: string;
+  lastContactDate?: string;
+  logoUrl?: string;
+}
+
+export interface UnifiedTasksResponse {
+  tasks: UnifiedBrainTask[];
+  distributors: DistributorSummary[];
+  summary: {
+    totalTasks: number;
+    overdueTasks: number;
+    todayTasks: number;
+    next48hTasks: number;
+    completedTasks: number;
+    dotsAssignedTasks: number;
+    distributorsCount: number;
+    atRiskDistributors: number;
+  };
+}
+
 const VAULT_DEFAULT_PATH = 'C:\\Users\\Usuario\\Downloads\\SMJaleel\\vault';
 
 function copyFolderRecursiveSync(source: string, target: string) {
@@ -506,4 +570,612 @@ export function listVaultFiles(): { path: string; size: number; mtime: string }[
       mtime: stat.mtime.toISOString(),
     };
   });
+}
+
+function getCountryCode(countryName?: string): string {
+  if (!countryName) return 'GL';
+  const c = countryName.toLowerCase();
+  if (c.includes('panam')) return 'PA';
+  if (c.includes('belic') || c.includes('belize')) return 'BZ';
+  if (c.includes('canad')) return 'CA';
+  if (c.includes('unidos') || c.includes('usa') || c.includes('united states') || c.includes('ee. uu.')) return 'US';
+  if (c.includes('trinidad')) return 'TT';
+  if (c.includes('barbados')) return 'BB';
+  if (c.includes('guyana')) return 'GY';
+  if (c.includes('jamaica')) return 'JM';
+  if (c.includes('suriname')) return 'SR';
+  if (c.includes('costa rica')) return 'CR';
+  return 'GL';
+}
+
+const KNOWN_DISTRIBUTOR_METRICS: Record<string, { target: number; actual: number }> = {
+  'dist-medimex': { target: 45000, actual: 38250 },
+  'dist-sancas-belize': { target: 120000, actual: 94800 },
+  'dist-morgan-williams': { target: 85000, actual: 51850 },
+  'dist-walton-and-post': { target: 310000, actual: 248000 },
+};
+
+export function getUnifiedBrainTasks(options?: { lens?: string; market?: string }): UnifiedTasksResponse {
+  const vaultDir = getVaultPath();
+  const files = getAllMarkdownFiles(vaultDir);
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const dayAfter = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  const tasks: UnifiedBrainTask[] = [];
+  const distributorSummaries: DistributorSummary[] = [];
+
+  for (const file of files) {
+    try {
+      const content = fs.readFileSync(file, 'utf-8');
+      const { frontmatter, body } = parseFrontmatterAndBody(content);
+      const filename = path.basename(file, '.md');
+      const nodeId = frontmatter.id || filename.toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
+      const nodeTitle = frontmatter.title || filename;
+      const relFile = path.relative(vaultDir, file).replace(/\\/g, '/');
+
+      // 1. DISTRIBUTORS
+      if (frontmatter.type === 'distributor') {
+        const country = frontmatter.based_in_country || frontmatter.country_name || 'Pan-Regional';
+        const countryCode = getCountryCode(country);
+        const metrics = KNOWN_DISTRIBUTOR_METRICS[nodeId] || {
+          target: frontmatter.annual_forecast_cases || 50000,
+          actual: Math.round((frontmatter.annual_forecast_cases || 50000) * 0.75),
+        };
+        const compliance = Math.round((metrics.actual / metrics.target) * 100);
+        const distStatus: 'At Risk' | 'On Track' | 'Ahead' = compliance < 70 ? 'At Risk' : compliance > 82 ? 'Ahead' : 'On Track';
+
+        let distPendingCount = 0;
+
+        // Next Followup action
+        if (frontmatter.next_followup_action) {
+          distPendingCount++;
+          const dueDate = frontmatter.next_followup_date || todayStr;
+          const isDone = frontmatter.next_followup_completed === true;
+          const isOverdue = !isDone && dueDate < todayStr;
+          const isToday = !isDone && dueDate === todayStr;
+          const isNext48h = !isDone && (dueDate === tomorrow || dueDate === dayAfter);
+
+          tasks.push({
+            id: `fu-${nodeId}`,
+            title: frontmatter.next_followup_action,
+            description: frontmatter.executive_observations || `Seguimiento clave con distribuidor ${frontmatter.company_name || nodeTitle}`,
+            sourceType: 'distributor',
+            sourceFile: relFile,
+            sourceNodeId: nodeId,
+            sourceNodeTitle: frontmatter.company_name || frontmatter.short_name || nodeTitle,
+            country,
+            countryCode,
+            dueDate,
+            priority: 'High',
+            status: isDone ? 'Completed' : (frontmatter.dots_status === 'in_progress' ? 'In Review DOTS' : 'Pending'),
+            isCompleted: isDone,
+            isOverdue,
+            isToday,
+            isNext48h,
+            dotsStatus: frontmatter.dots_status || 'idle',
+            dotsInstruction: frontmatter.last_dots_instruction,
+            distributorQuota: {
+              annualTargetCases: metrics.target,
+              actualCasesYTD: metrics.actual,
+              complianceRate: compliance,
+              status: distStatus,
+            },
+            recentActions: Array.isArray(frontmatter.recent_actions) ? frontmatter.recent_actions.slice(0, 3) : [],
+            tags: ['distribuidor', 'seguimiento-ejecutivo', countryCode.toLowerCase()],
+          });
+        }
+
+        // Pending Tasks array
+        if (Array.isArray(frontmatter.pending_tasks)) {
+          frontmatter.pending_tasks.forEach((pt: any, idx: number) => {
+            const isObj = typeof pt === 'object' && pt !== null;
+            const taskText = isObj ? pt.title || pt.text : String(pt);
+            const isDone = isObj ? !!pt.completed : false;
+            const dueDate = (isObj && pt.dueDate) ? pt.dueDate : (frontmatter.next_followup_date || todayStr);
+            const isOverdue = !isDone && dueDate < todayStr;
+            const isToday = !isDone && dueDate === todayStr;
+            const isNext48h = !isDone && (dueDate === tomorrow || dueDate === dayAfter);
+
+            if (!isDone) distPendingCount++;
+
+            tasks.push({
+              id: `pt-${nodeId}-${idx + 1}`,
+              title: taskText,
+              description: `Operación comercial asignada a ${frontmatter.company_name || nodeTitle}`,
+              sourceType: 'distributor',
+              sourceFile: relFile,
+              sourceNodeId: nodeId,
+              sourceNodeTitle: frontmatter.company_name || frontmatter.short_name || nodeTitle,
+              country,
+              countryCode,
+              dueDate,
+              priority: idx === 0 ? 'High' : 'Medium',
+              status: isDone ? 'Completed' : 'Pending',
+              isCompleted: isDone,
+              isOverdue,
+              isToday,
+              isNext48h,
+              dotsStatus: 'idle',
+              distributorQuota: {
+                annualTargetCases: metrics.target,
+                actualCasesYTD: metrics.actual,
+                complianceRate: compliance,
+                status: distStatus,
+              },
+              recentActions: Array.isArray(frontmatter.recent_actions) ? frontmatter.recent_actions.slice(0, 3) : [],
+              tags: ['distribuidor', 'operacion', countryCode.toLowerCase()],
+            });
+          });
+        }
+
+        distributorSummaries.push({
+          id: nodeId,
+          name: frontmatter.company_name || frontmatter.short_name || nodeTitle,
+          country,
+          countryCode,
+          targetCasesYear: metrics.target,
+          actualCasesYTD: metrics.actual,
+          complianceRate: compliance,
+          status: distStatus,
+          pendingTasksCount: distPendingCount,
+          nextFollowupDate: frontmatter.next_followup_date || 'Sin fecha',
+          nextFollowupAction: frontmatter.next_followup_action || 'Al día',
+          lastContactDate: frontmatter.last_email_date || frontmatter.last_updated_at?.slice(0, 10),
+          logoUrl: frontmatter.visual_logo_url,
+        });
+      }
+
+      // 2. ROUTINES & OPERATIONS
+      if (frontmatter.type === 'routine' || frontmatter.type === 'project') {
+        const isRoutine = frontmatter.type === 'routine';
+        const dueDate = isRoutine ? '2026-11-15' : '2026-11-25';
+        const isOverdue = dueDate < todayStr;
+        const isToday = dueDate === todayStr;
+        const isNext48h = dueDate === tomorrow || dueDate === dayAfter;
+
+        if (Array.isArray(frontmatter.checklist)) {
+          frontmatter.checklist.forEach((item: any, idx: number) => {
+            const isObj = typeof item === 'object' && item !== null;
+            const taskText = isObj ? item.text || item.title : String(item);
+            const isDone = isObj ? !!item.completed : false;
+
+            tasks.push({
+              id: `chk-${nodeId}-${idx + 1}`,
+              title: taskText,
+              description: isRoutine ? 'Rutina mensual mandatoria de S&OP y forecasting de planta' : 'Iniciativa prioritaria de expansión y apertura de canal',
+              sourceType: isRoutine ? 'routine' : 'project',
+              sourceFile: relFile,
+              sourceNodeId: nodeId,
+              sourceNodeTitle: nodeTitle,
+              country: 'Regional / Planta Trinidad',
+              countryCode: 'TT',
+              dueDate,
+              priority: isRoutine ? 'High' : 'Medium',
+              status: isDone ? 'Completed' : 'Pending',
+              isCompleted: isDone,
+              isOverdue: !isDone && isOverdue,
+              isToday: !isDone && isToday,
+              isNext48h: !isDone && isNext48h,
+              dotsStatus: 'idle',
+              tags: [isRoutine ? 'sop' : 'proyecto', 'planta-trinidad'],
+            });
+          });
+        }
+      }
+
+      // 3. MARKETS
+      if (frontmatter.type === 'market' && Array.isArray(frontmatter.pending_tasks)) {
+        const country = frontmatter.country_name || nodeTitle;
+        const countryCode = getCountryCode(country);
+        frontmatter.pending_tasks.forEach((pt: any, idx: number) => {
+          const taskText = typeof pt === 'object' && pt !== null ? pt.text || pt.title : String(pt);
+          const dueDate = '2026-11-14';
+          const isDone = typeof pt === 'object' && pt !== null ? !!pt.completed : false;
+
+          tasks.push({
+            id: `mkt-${nodeId}-${idx + 1}`,
+            title: taskText,
+            description: `Supervisión de plaza y directivas para ${country}`,
+            sourceType: 'market',
+            sourceFile: relFile,
+            sourceNodeId: nodeId,
+            sourceNodeTitle: country,
+            country,
+            countryCode,
+            dueDate,
+            priority: 'Medium',
+            status: isDone ? 'Completed' : 'Pending',
+            isCompleted: isDone,
+            isOverdue: !isDone && dueDate < todayStr,
+            isToday: !isDone && dueDate === todayStr,
+            isNext48h: !isDone && (dueDate === tomorrow || dueDate === dayAfter),
+            dotsStatus: 'idle',
+            tags: ['mercado', 'territorio', countryCode.toLowerCase()],
+          });
+        });
+      }
+
+      // 4. WORKING MEMORY (DOTS active items)
+      if (frontmatter.type === 'working_memory' && frontmatter.status !== 'archived') {
+        const isDone = frontmatter.status === 'completed';
+        const cleanTitle = (frontmatter.title || filename).replace(/^Working Memory:\s*/i, '');
+        const isDotsReview = frontmatter.status === 'in_review_dots' || frontmatter.status === 'pulsing';
+
+        tasks.push({
+          id: `wm-${nodeId}`,
+          title: cleanTitle,
+          description: frontmatter.instruction || frontmatter.notes || body.slice(0, 160),
+          sourceType: 'working_memory',
+          sourceFile: relFile,
+          sourceNodeId: nodeId,
+          sourceNodeTitle: 'Working Memory (DOTS)',
+          country: frontmatter.country || 'Global',
+          countryCode: getCountryCode(frontmatter.country),
+          dueDate: frontmatter.captured_at?.slice(0, 10) || todayStr,
+          priority: 'High',
+          status: isDone ? 'Completed' : (isDotsReview ? 'In Review DOTS' : 'Pending'),
+          isCompleted: isDone,
+          isOverdue: false,
+          isToday: true,
+          isNext48h: false,
+          dotsStatus: isDotsReview ? 'in_progress' : 'assigned',
+          dotsInstruction: frontmatter.instruction,
+          tags: ['dots', 'memoria-activa'],
+        });
+      }
+    } catch {
+      // Ignore unparseable files
+    }
+  }
+
+  // Filter if market specified
+  let filteredTasks = tasks;
+  if (options?.market && options.market !== 'all') {
+    const mkt = options.market.toLowerCase();
+    filteredTasks = tasks.filter(t => 
+      (t.country || '').toLowerCase().includes(mkt) ||
+      (t.countryCode || '').toLowerCase() === mkt ||
+      t.sourceNodeTitle.toLowerCase().includes(mkt)
+    );
+  }
+
+  const summary = {
+    totalTasks: filteredTasks.length,
+    overdueTasks: filteredTasks.filter(t => t.isOverdue).length,
+    todayTasks: filteredTasks.filter(t => t.isToday).length,
+    next48hTasks: filteredTasks.filter(t => t.isNext48h).length,
+    completedTasks: filteredTasks.filter(t => t.isCompleted).length,
+    dotsAssignedTasks: filteredTasks.filter(t => t.status === 'In Review DOTS' || t.dotsStatus === 'in_progress').length,
+    distributorsCount: distributorSummaries.length,
+    atRiskDistributors: distributorSummaries.filter(d => d.status === 'At Risk').length,
+  };
+
+  return {
+    tasks: filteredTasks,
+    distributors: distributorSummaries,
+    summary,
+  };
+}
+
+export function completeBrainTask(taskId: string, completedBy?: string): { ok: boolean; message: string; task?: UnifiedBrainTask } {
+  const vaultDir = getVaultPath();
+  const allTasks = getUnifiedBrainTasks().tasks;
+  const targetTask = allTasks.find(t => t.id === taskId);
+
+  if (!targetTask) {
+    return { ok: false, message: `No se encontró la tarea con ID ${taskId}` };
+  }
+
+  const fullPath = path.join(vaultDir, targetTask.sourceFile);
+  if (!fs.existsSync(fullPath)) {
+    return { ok: false, message: `Archivo de origen ${targetTask.sourceFile} no encontrado en el vault` };
+  }
+
+  const content = fs.readFileSync(fullPath, 'utf-8');
+  const { frontmatter, body } = parseFrontmatterAndBody(content);
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10);
+  const actor = completedBy || 'Chairman / Executive';
+
+  // Mark completion based on task ID pattern
+  if (taskId.startsWith('fu-')) {
+    frontmatter.next_followup_completed = true;
+    frontmatter.last_updated_at = now.toISOString();
+    frontmatter.last_updated_by = actor;
+    if (!Array.isArray(frontmatter.recent_actions)) frontmatter.recent_actions = [];
+    frontmatter.recent_actions.unshift({
+      date: dateStr,
+      type: 'seguimiento_completado',
+      summary: `Seguimiento resuelto: "${targetTask.title}" por ${actor}`,
+    });
+  } else if (taskId.startsWith('pt-')) {
+    const idxMatch = taskId.match(/pt-.*-(\d+)$/);
+    const idx = idxMatch ? parseInt(idxMatch[1], 10) - 1 : -1;
+    if (Array.isArray(frontmatter.pending_tasks) && idx >= 0 && idx < frontmatter.pending_tasks.length) {
+      const original = frontmatter.pending_tasks[idx];
+      const text = typeof original === 'object' ? original.title || original.text : original;
+      frontmatter.pending_tasks[idx] = { text, completed: true, completed_at: now.toISOString(), completed_by: actor };
+      if (!Array.isArray(frontmatter.recent_actions)) frontmatter.recent_actions = [];
+      frontmatter.recent_actions.unshift({
+        date: dateStr,
+        type: 'tarea_completada',
+        summary: `Tarea resuelta: "${text}" por ${actor}`,
+      });
+    }
+  } else if (taskId.startsWith('chk-')) {
+    const idxMatch = taskId.match(/chk-.*-(\d+)$/);
+    const idx = idxMatch ? parseInt(idxMatch[1], 10) - 1 : -1;
+    if (Array.isArray(frontmatter.checklist) && idx >= 0 && idx < frontmatter.checklist.length) {
+      const original = frontmatter.checklist[idx];
+      const text = typeof original === 'object' ? original.text || original.title : original;
+      frontmatter.checklist[idx] = { text, completed: true, completed_at: now.toISOString(), completed_by: actor };
+    }
+  } else if (taskId.startsWith('wm-')) {
+    frontmatter.status = 'completed';
+    frontmatter.completed_at = now.toISOString();
+  }
+
+  const updatedYaml = YAML.stringify(frontmatter).trim();
+  const newContent = `---\n${updatedYaml}\n---\n\n${body}\n`;
+  fs.writeFileSync(fullPath, newContent, 'utf-8');
+
+  // Sync to bundled vault if exists
+  const bundledPath = path.join(process.cwd(), 'vault');
+  if (fs.existsSync(bundledPath) && !fullPath.startsWith(bundledPath)) {
+    const bundledTarget = path.join(bundledPath, targetTask.sourceFile);
+    if (fs.existsSync(path.dirname(bundledTarget))) {
+      fs.writeFileSync(bundledTarget, newContent, 'utf-8');
+    }
+  }
+
+  return {
+    ok: true,
+    message: `Tarea "${targetTask.title}" marcada como resuelta en el Cerebro`,
+    task: { ...targetTask, isCompleted: true, status: 'Completed' },
+  };
+}
+
+export function rescheduleBrainTask(taskId: string, newDueDate: string): { ok: boolean; message: string; task?: UnifiedBrainTask } {
+  const vaultDir = getVaultPath();
+  const allTasks = getUnifiedBrainTasks().tasks;
+  const targetTask = allTasks.find(t => t.id === taskId);
+
+  if (!targetTask) {
+    return { ok: false, message: `No se encontró la tarea con ID ${taskId}` };
+  }
+
+  const fullPath = path.join(vaultDir, targetTask.sourceFile);
+  if (!fs.existsSync(fullPath)) {
+    return { ok: false, message: `Archivo de origen ${targetTask.sourceFile} no encontrado` };
+  }
+
+  const content = fs.readFileSync(fullPath, 'utf-8');
+  const { frontmatter, body } = parseFrontmatterAndBody(content);
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10);
+
+  if (taskId.startsWith('fu-')) {
+    frontmatter.next_followup_date = newDueDate;
+    frontmatter.next_followup_completed = false;
+  } else if (taskId.startsWith('pt-')) {
+    const idxMatch = taskId.match(/pt-.*-(\d+)$/);
+    const idx = idxMatch ? parseInt(idxMatch[1], 10) - 1 : -1;
+    if (Array.isArray(frontmatter.pending_tasks) && idx >= 0 && idx < frontmatter.pending_tasks.length) {
+      const original = frontmatter.pending_tasks[idx];
+      const text = typeof original === 'object' ? original.text || original.title : original;
+      frontmatter.pending_tasks[idx] = { text, dueDate: newDueDate, completed: false };
+    }
+  }
+
+  if (!Array.isArray(frontmatter.recent_actions)) frontmatter.recent_actions = [];
+  frontmatter.recent_actions.unshift({
+    date: dateStr,
+    type: 'reagenda',
+    summary: `Reagendado para el ${newDueDate}: "${targetTask.title}"`,
+  });
+
+  const updatedYaml = YAML.stringify(frontmatter).trim();
+  const newContent = `---\n${updatedYaml}\n---\n\n${body}\n`;
+  fs.writeFileSync(fullPath, newContent, 'utf-8');
+
+  // Sync to bundled vault
+  const bundledPath = path.join(process.cwd(), 'vault');
+  if (fs.existsSync(bundledPath) && !fullPath.startsWith(bundledPath)) {
+    const bundledTarget = path.join(bundledPath, targetTask.sourceFile);
+    if (fs.existsSync(path.dirname(bundledTarget))) {
+      fs.writeFileSync(bundledTarget, newContent, 'utf-8');
+    }
+  }
+
+  return {
+    ok: true,
+    message: `Tarea reagendada exitosamente al ${newDueDate}`,
+    task: { ...targetTask, dueDate: newDueDate },
+  };
+}
+
+export function askDotsTask(taskId: string, instruction: string, requestedBy?: string): {
+  ok: boolean;
+  message: string;
+  workingMemoryId?: string;
+  workingMemoryPath?: string;
+} {
+  const vaultDir = getVaultPath();
+  const allTasks = getUnifiedBrainTasks().tasks;
+  const targetTask = allTasks.find(t => t.id === taskId);
+
+  if (!targetTask) {
+    return { ok: false, message: `No se encontró la tarea con ID ${taskId}` };
+  }
+
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10);
+  const wmDir = path.join(vaultDir, '00-Working-Memory');
+  if (!fs.existsSync(wmDir)) fs.mkdirSync(wmDir, { recursive: true });
+
+  const wmId = `wm-${dateStr.replace(/-/g, '')}-${Date.now().toString().slice(-4)}`;
+  const cleanTitle = `Instruccion DOTS - ${targetTask.sourceNodeTitle.replace(/[/\\?%*:|"<>]/g, '')}`;
+  const filename = `${wmId} - ${cleanTitle}.md`;
+  const filePath = path.join(wmDir, filename);
+
+  const actor = requestedBy || 'Chairman / Executive';
+  const targetNodeLink = targetTask.sourceNodeTitle.startsWith('[[') ? targetTask.sourceNodeTitle : `[[${targetTask.sourceNodeTitle}]]`;
+
+  const wmContent = `---
+id: ${wmId}
+title: "Instrucción DOTS: ${targetTask.title}"
+type: working_memory
+memory_tier: working
+status: in_review_dots
+assigned_to: "DOTS Agent"
+requested_by: "${actor}"
+target_task_id: "${taskId}"
+target_node: "${targetNodeLink}"
+captured_at: "${now.toISOString()}"
+instruction: "${instruction.replace(/"/g, '\\"')}"
+relations:
+  touches:
+    - "${targetNodeLink}"
+---
+
+# Instrucción Ejecutiva para DOTS
+
+**Tarea en Referencia:** ${targetTask.title}  
+**Entidad Vinculada:** ${targetTask.sourceNodeTitle} (${targetTask.country || 'Global'})  
+**Solicitado por:** ${actor}  
+**Fecha:** ${dateStr}
+
+## Mandato / Instrucción:
+${instruction}
+
+## Estado de Procesamiento:
+- [x] Recibido por Task Manager
+- [ ] En análisis por DOTS
+- [ ] Respuesta / Acción redactada
+- [ ] Incorporado al expediente en Cerebro
+`;
+
+  fs.writeFileSync(filePath, wmContent, 'utf-8');
+
+  // Update target node file to note DOTS instruction
+  const fullSourcePath = path.join(vaultDir, targetTask.sourceFile);
+  if (fs.existsSync(fullSourcePath)) {
+    const content = fs.readFileSync(fullSourcePath, 'utf-8');
+    const { frontmatter, body } = parseFrontmatterAndBody(content);
+    frontmatter.dots_status = 'in_progress';
+    frontmatter.last_dots_instruction = instruction;
+    frontmatter.last_dots_request_at = now.toISOString();
+
+    if (!Array.isArray(frontmatter.recent_actions)) frontmatter.recent_actions = [];
+    frontmatter.recent_actions.unshift({
+      date: dateStr,
+      type: 'solicitud_dots',
+      summary: `Instrucción despachada a DOTS: "${instruction}"`,
+    });
+
+    const updatedYaml = YAML.stringify(frontmatter).trim();
+    const newContent = `---\n${updatedYaml}\n---\n\n${body}\n`;
+    fs.writeFileSync(fullSourcePath, newContent, 'utf-8');
+
+    // Sync to bundled vault
+    const bundledPath = path.join(process.cwd(), 'vault');
+    if (fs.existsSync(bundledPath) && !fullSourcePath.startsWith(bundledPath)) {
+      const bundledTarget = path.join(bundledPath, targetTask.sourceFile);
+      if (fs.existsSync(path.dirname(bundledTarget))) {
+        fs.writeFileSync(bundledTarget, newContent, 'utf-8');
+      }
+    }
+  }
+
+  // Also sync wm file to bundled vault
+  const bundledPath = path.join(process.cwd(), 'vault');
+  if (fs.existsSync(bundledPath) && !filePath.startsWith(bundledPath)) {
+    const bundledWm = path.join(bundledPath, '00-Working-Memory', filename);
+    if (!fs.existsSync(path.dirname(bundledWm))) fs.mkdirSync(path.dirname(bundledWm), { recursive: true });
+    fs.writeFileSync(bundledWm, wmContent, 'utf-8');
+  }
+
+  return {
+    ok: true,
+    message: `Instrucción enviada a DOTS exitosamente. Expediente de memoria activa creado: ${wmId}`,
+    workingMemoryId: wmId,
+    workingMemoryPath: filename,
+  };
+}
+
+export function createBrainTask(input: {
+  title: string;
+  dueDate?: string;
+  priority?: 'High' | 'Medium' | 'Low';
+  country?: string;
+  targetNodeId?: string;
+  description?: string;
+}): { ok: boolean; message: string; task?: UnifiedBrainTask } {
+  const vaultDir = getVaultPath();
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10);
+  const targetDate = input.dueDate || dateStr;
+
+  // If targetNodeId provided, attach to node
+  if (input.targetNodeId) {
+    const updateRes = updateDossierMetadata({
+      nodeId: input.targetNodeId,
+      newPendingTask: input.title,
+      newAction: {
+        date: dateStr,
+        type: 'nueva_tarea_ejecutiva',
+        summary: `Nueva tarea asignada: ${input.title}`,
+      },
+    });
+    if (updateRes.ok) {
+      return {
+        ok: true,
+        message: `Tarea creada y vinculada al nodo ${input.targetNodeId}`,
+      };
+    }
+  }
+
+  // Otherwise save as working memory task
+  const wmDir = path.join(vaultDir, '00-Working-Memory');
+  if (!fs.existsSync(wmDir)) fs.mkdirSync(wmDir, { recursive: true });
+
+  const wmId = `wm-${dateStr.replace(/-/g, '')}-${Date.now().toString().slice(-4)}`;
+  const cleanTitle = input.title.replace(/[/\\?%*:|"<>]/g, '-').trim().slice(0, 50);
+  const filename = `${wmId} - ${cleanTitle}.md`;
+  const filePath = path.join(wmDir, filename);
+
+  const wmContent = `---
+id: ${wmId}
+title: "${input.title}"
+type: working_memory
+memory_tier: working
+status: active
+captured_at: "${now.toISOString()}"
+due_date: "${targetDate}"
+priority: "${input.priority || 'Medium'}"
+country: "${input.country || 'Global'}"
+source: "Task Manager Ejecutivo"
+---
+
+# ${input.title}
+
+${input.description || 'Tarea ejecutiva registrada directamente en el Task Manager amarrado al Cerebro.'}
+`;
+
+  fs.writeFileSync(filePath, wmContent, 'utf-8');
+
+  // Sync to bundled vault
+  const bundledPath = path.join(process.cwd(), 'vault');
+  if (fs.existsSync(bundledPath) && !filePath.startsWith(bundledPath)) {
+    const bundledWm = path.join(bundledPath, '00-Working-Memory', filename);
+    if (!fs.existsSync(path.dirname(bundledWm))) fs.mkdirSync(path.dirname(bundledWm), { recursive: true });
+    fs.writeFileSync(bundledWm, wmContent, 'utf-8');
+  }
+
+  return {
+    ok: true,
+    message: `Tarea registrada exitosamente en el Cerebro: ${input.title}`,
+  };
 }

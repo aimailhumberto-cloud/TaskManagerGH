@@ -240,7 +240,37 @@ export default function CalendarPage() {
       const usersRes = await fetch('/api/users', { headers });
       const usersData = await usersRes.json();
 
-      setRawTasks(Array.isArray(tasksData) ? tasksData.map(normalizeTask) : []);
+      let brainTasksMapped: any[] = [];
+      try {
+        const brainRes = await fetch('/api/agent/tasks');
+        const brainData = await brainRes.json();
+        if (brainData.ok && Array.isArray(brainData.tasks)) {
+          brainTasksMapped = brainData.tasks.map((bt: any) => ({
+            id: bt.id,
+            title: `[${bt.countryCode || 'GL'}] ${bt.sourceNodeTitle}: ${bt.title}`,
+            description: bt.description || '',
+            type: 'One-shot',
+            steps: [],
+            companyId: 'business-sm-jaleel',
+            assigneeId: 'person-dots',
+            status: bt.isCompleted ? 'Completed' : 'Pending',
+            priority: bt.priority || 'High',
+            origin: 'Manual',
+            dueDate: bt.dueDate ? (bt.dueDate.includes('T') ? bt.dueDate : `${bt.dueDate}T12:00:00Z`) : '',
+            attachments: [],
+            activityLog: [],
+          }));
+        }
+      } catch (e) {
+        console.error("Error reading brain tasks in calendar:", e);
+      }
+
+      const mergedTasks = [
+        ...(Array.isArray(tasksData) ? tasksData.map(normalizeTask) : []),
+        ...brainTasksMapped,
+      ];
+
+      setRawTasks(mergedTasks);
       setRawCompanies(Array.isArray(companiesData) ? companiesData : []);
       setRawPeople(Array.isArray(peopleData) ? peopleData : []);
       setUsersList(Array.isArray(usersData) ? usersData : []);
