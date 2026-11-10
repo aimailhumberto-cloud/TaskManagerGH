@@ -29,7 +29,7 @@ recent_actions:
     summary: Asignación prioritaria de lote en planta South Oropouche para pedidos de Panamá (MEDIMEX) y Belice (SanCas).
   - date: "2026-11-08"
     type: forecast_revision
-    summary: Aprobación de corrida de sabores principales: Banana, Orange Tango y Purple Power.
+    summary: "Aprobación de corrida de sabores principales: Banana, Orange Tango y Purple Power."
 pending_tasks:
   - Monitorear despacho del lote de 2,200 cajas Chubby 250ml hacia Manzanillo/Balboa.
   - Revisar disponibilidad de tapas rosca plásticas de 28mm en planta para corrida de diciembre.
