@@ -12,6 +12,13 @@ tags:
 - smj
 - organigrama-observado
 relations:
+  direct_reports:
+    - "[[person-annika-jack]]"
+    - "[[person-arianna-williams]]"
+    - "[[person-darren-harrilal]]"
+    - "[[person-dylon-miller]]"
+    - "[[person-johann-corneille]]"
+    - "[[person-joy-bachan]]"
   reports_to:
   - '[[Person - Sonia Harris]]'
 person_evidence_audit:
@@ -53,3 +60,10 @@ Datos no observados: correo, telefono, preferencias y otros permanecen desconoci
 - Uncorroborated legacy fields and legacy completeness percentages remain unverified; see person_evidence_audit. Historical text and aliases are preserved.
 Sources: C:\Users\Usuario\Downloads\SMJaleel\insumos\carga-inicial-2026-11-09\SM_Jaleel_organigrama_observado_2026-11-09.md; C:\Users\Usuario\Downloads\SMJaleel\insumos\carga-inicial-2026-11-09\SM_Jaleel_recopilacion_2026-11-09.md.
 Professional contexts are not employment, market ownership or hierarchy. No live deployment or code change is part of this update.
+
+
+## Teams partial branch checkpoint - 2026-11-10
+
+STRUCTURE_REPORT.md, TEAMS-20261110-CUSTOMS-10, consolidated 2026-11-10 14:58 UTC; recorded from the hierarchy audit worker's Teams UI observations. This thread did not access Teams.
+
+Six observed direct-report entries are now linked: Annika Jack, Arianna Williams, Darren Harrilal, Dylon Miller, Johann Corneille, Joy Bachan. Six further entries remain unread. Preserve 12 displayed reports as a directory count, not a complete verified employee inventory. Laptop use remains paused pending HB/coordinator continuation. Internal source-review checkpoint: 2026-11-11; not an employee or commercial commitment.
