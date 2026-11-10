@@ -63,6 +63,15 @@ relations:
   distributed_by:
     - "[[Distributor - Walton and Post]]"
 updated_at: "2026-11-10T10:00:00Z"
+visual_coordinates:
+  x: 340
+  y: -420
+visual_layout:
+  version: hb-spatial-20261110-v1
+  zone: portfolio
+  scope: presentation_only_not_business_relation
+  source: HB authorization for reversible visual map reconfiguration, 2026-11-10
+  updated_at: '2026-11-10T17:27:21.870748+00:00'
 ---
 
 # Brand: Altitude · Bebida Isotónica Deportiva & Energizante Funcional

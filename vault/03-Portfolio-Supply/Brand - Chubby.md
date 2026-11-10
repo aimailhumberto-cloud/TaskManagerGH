@@ -76,6 +76,15 @@ relations:
     - "[[Distributor - Walton and Post]]"
     - "[[Distributor - Morgan Williams]]"
 updated_at: "2026-11-10T10:00:00Z"
+visual_coordinates:
+  x: -340
+  y: -420
+visual_layout:
+  version: hb-spatial-20261110-v1
+  zone: portfolio
+  scope: presentation_only_not_business_relation
+  source: HB authorization for reversible visual map reconfiguration, 2026-11-10
+  updated_at: '2026-11-10T17:27:21.934685+00:00'
 ---
 
 # Brand: Chubby · Gaseosa Infantil Ícono Mundial
