@@ -2,23 +2,23 @@
 id: wm-20261109-002
 title: "Working Memory: Gira Comercial Belice SanCas Diciembre 2026"
 type: working_memory
-memory_tier: working
+memory_tier: long_term
 completeness_score: 90
-
-source: "Outlook corporativo humberto.bouche@smjaleel.com — Correo Olivia Rampersad 06/11/2026"
+source: Outlook corporativo humberto.bouche@smjaleel.com — Correo Olivia
+  Rampersad 06/11/2026
 counterparty_person: "[[Person - Olivia Rampersad]]"
 market: "[[Market - Belize]]"
 distributor: "[[Distributor - SanCas Belize]]"
-priority: "High"
-tentative_date: "Primera semana de Diciembre 2026"
-
+priority: High
+tentative_date: Primera semana de Diciembre 2026
 summary: >
-  Olivia Rampersad contactó a SanCas en Belice confirmando disponibilidad para una visita comercial
-  en la primera semana de diciembre 2026, con una introducción inicial programada para el martes 10 de noviembre.
-  Se debe coordinar la agenda entre Olivia y Humberto Bouche para evaluar la expansión de Chubby y Busta.
-
+  Olivia Rampersad contactó a SanCas en Belice confirmando disponibilidad para
+  una visita comercial en la primera semana de diciembre 2026, con una
+  introducción inicial programada para el martes 10 de noviembre. Se debe
+  coordinar la agenda entre Olivia y Humberto Bouche para evaluar la expansión
+  de Chubby y Busta.
 relations:
-  role:
+  role: null
   persons:
     - "[[Person - Olivia Rampersad]]"
     - "[[Person - Humberto Bouche]]"
@@ -27,7 +27,11 @@ relations:
     - "[[Distributor - SanCas Belize]]"
   market:
     - "[[Market - Belize]]"
-updated_at: "2026-11-09T13:21:00-05:00"
+updated_at: 2026-11-09T13:21:00-05:00
+status: consolidated
+promoted_at: 2026-11-10T15:44:53.431Z
+promoted_session: session-20261110-431
+last_updated_at: 2026-11-10T15:44:53.431Z
 ---
 
 # Gira Comercial Belice (SanCas) — Diciembre 2026
