@@ -29,6 +29,30 @@ relations:
     - "[[Market - US - New York]]"
     - "[[Market - US - Florida]]"
 updated_at: 2026-11-09T22:42:24.346Z
+pending_tasks:
+  - id: pt-market-united-states-usa-vivir-verificar-inte-c94cc1a9
+    title: "USA VIVIR: verificar interes comercial de PDA y siguiente paso"
+    dueDate: 2026-11-13
+    priority: Medium
+    description: "Responsable: HB. Olivia, Labels - USA & Canada (In Progress),
+      10nov2026 12:36 UI Outlook, informa etiquetas VIVIR conformes USA
+      terminadas y PDA como cliente interesado; contacto Stephanie L, identidad
+      completa por verificar. Confirmar situacion comercial y siguiente paso,
+      sin inferir pedido, volumen, compromiso de compra ni asignar PDA a Walton
+      u otro distribuidor. Revision INTERNA 13nov por la tarde, no plazo
+      prometido por cliente. Fuente: correo corporativo completo leido por
+      worker revisar_correos_clint, reportado a coordinacion."
+    country: US
+    status: Pending
+    completed: false
+    created_at: 2026-11-10T17:44:39.812Z
+    created_by: Chairman / Executive Office
+recent_actions:
+  - date: 2026-11-10
+    type: nueva_tarea_ejecutiva
+    summary: 'Nueva tarea asignada
+      [pt-market-united-states-usa-vivir-verificar-inte-c94cc1a9]: "USA VIVIR:
+      verificar interes comercial de PDA y siguiente paso" (12:44 p. m.)'
 ---
 
 # Market: United States

@@ -37,6 +37,12 @@ executive_observations: Socio distribuidor e importador de bebidas de S.M.
   cadenas de retail de Canadá.
 recent_actions:
   - date: 2026-11-10
+    type: nueva_tarea_ejecutiva
+    summary: 'Nueva tarea asignada
+      [pt-dist-morgan-williams-morgan-williams-dar-segu-0b0f3d97]:
+      "Morgan-Williams: dar seguimiento al forecast Chubby Mango Q1 2027" (12:44
+      p. m.)'
+  - date: 2026-11-10
     type: actualizacion_seguimiento
     summary: "Tevin estima despacho muestras Mango/Apple jueves12 o viernes13nov.
       Olivia informa Mango enviadas: no se presume mismo lote; verificar.
@@ -55,6 +61,24 @@ recent_actions:
     summary: Actualización de SKUs de Chubby 24x250ml y Busta Kola Champagne Gold
       para distribución en Canadá.
 pending_tasks:
+  - id: pt-dist-morgan-williams-morgan-williams-dar-segu-0b0f3d97
+    title: "Morgan-Williams: dar seguimiento al forecast Chubby Mango Q1 2027"
+    dueDate: 2026-11-13
+    priority: Medium
+    description: "Responsable: HB. Olivia, Labels - USA & Canada (In Progress),
+      10nov2026 12:36 UI Outlook, informa que MW presentara Chubby Mango a
+      ventas/clientes y dara forecast en Q1 2027. Contactos indicados Stephanie
+      L, Lynette M y Christine K, identidades completas por verificar. Registrar
+      estado y acordar siguiente punto de contacto sin inferir pedido, volumen o
+      fecha exacta de forecast. Revision INTERNA 13nov por la tarde, no plazo
+      comercial ni vencimiento del forecast. La afirmacion sobre muestras ya
+      enviadas se contrasta en tarea Chubby existente con estimado posterior de
+      Tevin; no duplicar seguimiento de despacho."
+    country: CA
+    status: Pending
+    completed: false
+    created_at: 2026-11-10T17:44:38.164Z
+    created_by: Chairman / Executive Office
   - id: pt-dist-morgan-williams-chubby-verificar-envio-d-8bb2c1f0
     title: "Chubby: verificar envio de muestras Mango y Apple con Tevin"
     dueDate: 2026-11-13
