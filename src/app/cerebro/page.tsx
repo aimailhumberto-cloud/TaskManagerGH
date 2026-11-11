@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { getMarketDistributors, marketDistributorLabel, distributorDisplayName } from '@/lib/marketDistributors';
 import { searchBrainNodes, resolveBrainNode, humanNodeName, fitIdentityBounds } from '@/lib/smjIdentity';
 import { computeNativeLayout, LayoutResult, mergeLayoutConfig, LayoutConfig } from '@/lib/cerebroLayout';
+import { contactTarget, contactDistributors } from '@/lib/contactLayer';
+import { ContactLayer } from '@/components/ContactLayer';
 
 interface NodeData {
   id: string;
@@ -1642,7 +1644,7 @@ export default function CerebroPage() {
   const nativeLayoutConfigRef = useRef<Record<string, any>>({});
 
   // Granular Catalog & Multi-packs Collapsible Control
-  const [catalogScope, setCatalogScope] = useState<'collapsed' | 'all' | 'chubby' | 'busta' | 'fruta' | 'oasis' | 'altitude'>('collapsed');
+  const [catalogScope, setCatalogScope] = useState<string>('collapsed');
   const catalogScopeRef = useRef(catalogScope);
   catalogScopeRef.current = catalogScope;
   const [isCatalogMenuOpen, setIsCatalogMenuOpen] = useState(false);
@@ -1777,15 +1779,19 @@ export default function CerebroPage() {
 
   const getNodeTarget = (node: any, modeOverride?: 'brujula' | 'version-1-ajustada' | 'quadrants' | 'constellations' | 'organigram') => {
     const activeMode = modeOverride || viewModeRef.current;
+    const baseTarget = (targetNode: any) => {
     if (activeMode === 'brujula' || activeMode === 'version-1-ajustada') {
-      const cached = nativeLayoutCacheRef.current.get(node.id);
+      const cached = nativeLayoutCacheRef.current.get(targetNode.id);
       if (cached) return cached;
       // Fallback a cuadrantes si aún no corre el layout
-      return assignQuadrantTarget(node);
+      return assignQuadrantTarget(targetNode);
     }
-    if (activeMode === 'quadrants') return assignQuadrantTarget(node);
-    if (activeMode === 'organigram') return assignOrganigramTarget(node);
-    return assignClusterTarget(node);
+    if (activeMode === 'quadrants') return assignQuadrantTarget(targetNode);
+    if (activeMode === 'organigram') return assignOrganigramTarget(targetNode);
+    return assignClusterTarget(targetNode);
+    };
+    const all = fullGraphRef.current.nodes.length ? fullGraphRef.current.nodes : nodesRef.current;
+    return contactTarget(node, all, baseTarget) || baseTarget(node);
   };
 
   const recomputeNativeLayout = (mode: 'brujula' | 'version-1-ajustada', currentNodes: any[], allRawNodes: any[]) => {
@@ -1913,6 +1919,8 @@ export default function CerebroPage() {
 
       // 2. Organization / Staff filtering (People & Operational Employees)
       if (n.type === 'person') {
+        // Distributor contacts are a commercial layer, independent of staff visibility.
+        if (contactDistributors(n, fullGraphRef.current.nodes.length ? fullGraphRef.current.nodes : rawPool).length) return true;
         const isLeader = isNodeLeader(n);
         if (oScope === 'collapsed') {
           // In collapsed mode: show only C-Suite, VP and Key Managers (12 people), hide 42 operational staff
@@ -2023,7 +2031,7 @@ export default function CerebroPage() {
     setPinnedCount(initialized.filter(n => n.isPinned).length);
   };
 
-  const handleSetCatalogScope = (scope: 'collapsed' | 'all' | 'chubby' | 'busta' | 'fruta' | 'oasis' | 'altitude') => {
+  const handleSetCatalogScope = (scope: string) => {
     setCatalogScope(scope);
     catalogScopeRef.current = scope;
     setIsCatalogMenuOpen(false);
@@ -2703,12 +2711,7 @@ export default function CerebroPage() {
   // Hierarchical Progressive Drill-down
   const handleDrillInto = (node: NodeData) => {
     if (node.type === 'brand') {
-      const nid = node.id.toLowerCase();
-      const bKey = nid.includes('chubby') ? 'chubby' :
-        nid.includes('busta') ? 'busta' :
-        nid.includes('fruta') ? 'fruta' :
-        nid.includes('oasis') ? 'oasis' :
-        nid.includes('altitude') ? 'altitude' : null;
+      const bKey = node.id.replace(/^brand-/i, '').toLowerCase();
       if (bKey) {
         handleSetCatalogScope(bKey as any);
         const cleanTitle = node.title.replace(/^Brand\s*-\s*/i, '');
@@ -3233,13 +3236,7 @@ export default function CerebroPage() {
     // Si se solicitó desplegar la capa correspondiente en el lienzo
     if (bloomLayer) {
       if (node.type === 'brand') {
-        const id = node.id.toLowerCase();
-        if (id.includes('chubby')) handleSetCatalogScope('chubby');
-        else if (id.includes('fruta')) handleSetCatalogScope('fruta');
-        else if (id.includes('busta')) handleSetCatalogScope('busta');
-        else if (id.includes('oasis')) handleSetCatalogScope('oasis');
-        else if (id.includes('altitude')) handleSetCatalogScope('altitude');
-        else handleSetCatalogScope('all');
+        handleSetCatalogScope(node.id.replace(/^brand-/i, '').toLowerCase());
       } else if (node.type === 'department' || node.type === 'person') {
         const id = node.id.toLowerCase();
         if (id.includes('export') || id.includes('clint') || id.includes('bouche') || id.includes('olivia')) handleSetOrgScope('exports');
@@ -3765,13 +3762,7 @@ export default function CerebroPage() {
                 </button>
               </div>
               <div className="flex items-center gap-1 flex-wrap pt-1">
-                {[
-                  { key: 'chubby', label: 'Chubby' },
-                  { key: 'busta', label: 'Busta' },
-                  { key: 'fruta', label: 'Fruta' },
-                  { key: 'oasis', label: 'Oasis' },
-                  { key: 'altitude', label: 'Altitude' },
-                ].map(b => (
+                {(graphData?.allNodes || graphData?.nodes || []).filter((n: any) => n.type === 'brand').map((n: any) => ({ key: n.id.replace(/^brand-/i, '').toLowerCase(), label: n.frontmatter?.brand_name || n.title.replace(/^Brand:\s*/i, '') })).map(b => (
                   <button
                     key={b.key}
                     onClick={() => handleSetCatalogScope(catalogScope === b.key ? 'collapsed' : (b.key as any))}
@@ -3997,7 +3988,7 @@ export default function CerebroPage() {
                   <span>📦</span> Portafolio & Supply
                 </span>
                 <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-teal-950 text-teal-300 border border-teal-800">
-                  5 Marcas Máster
+                  {graphData?.summary.brandsCount ?? '—'} Marcas Máster
                 </span>
               </div>
               <div className="flex items-baseline justify-between">
@@ -4867,6 +4858,13 @@ export default function CerebroPage() {
                       );
                     })()}
 
+                    <ContactLayer
+                      node={node}
+                      nodes={graphData?.allNodes || graphData?.nodes || nodesRef.current || []}
+                      links={graphData?.links || linksRef.current || []}
+                      onOpen={(target, sourceId) => pushToStackedDeck(target as NodeData, false, sourceId)}
+                    />
+
                     {/* Ficha Ejecutiva Especializada para Distribuidores (100% Datos, 0 Opiniones) */}
                     {node.type === 'distributor' && (
                       <div className="bg-gradient-to-br from-emerald-950/80 via-gray-900 to-gray-950 border border-emerald-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
@@ -5015,7 +5013,8 @@ export default function CerebroPage() {
                       const allNodes = graphData?.nodes || nodesRef.current || [];
                       const allLinks = graphData?.links || linksRef.current || [];
                       const pName = node.title.replace('Person: ', '');
-                      const isLeader = isNodeLeader(node);
+                      const isCommercialContact = contactDistributors(node, graphData?.allNodes || allNodes, allLinks).length > 0;
+                      const isLeader = !isCommercialContact && isNodeLeader(node);
 
                       // Find direct reports (subordinates or people linked to this leader)
                       const directReports = allNodes.filter((n: any) => {
@@ -5037,7 +5036,7 @@ export default function CerebroPage() {
                           <div className="bg-gradient-to-br from-indigo-950/80 via-gray-900 to-gray-950 border border-indigo-500/50 rounded-xl p-3.5 text-xs space-y-2.5 shadow-lg">
                             <div className="flex items-center gap-2 text-indigo-400 font-bold uppercase tracking-wider text-[10px]">
                               <span>👤</span>
-                              <span>Ficha de Perfil Ejecutivo & Línea de Mando</span>
+                              <span>{isCommercialContact ? 'Contacto comercial' : 'Ficha de Perfil Ejecutivo & Línea de Mando'}</span>
                               {isLeader && (
                                 <span className="ml-auto px-1.5 py-0.5 text-[9px] bg-amber-950 border border-amber-700 text-amber-300 rounded font-mono font-bold">
                                   👑 Liderazgo L{node.hierarchy_level ?? 2}
@@ -5268,7 +5267,7 @@ export default function CerebroPage() {
 
                     {node.type === 'brand' && (() => {
                       const brandKey = node.id.replace('brand-', '').toLowerCase();
-                      const allCatalogNodes = graphData?.nodes || [];
+                      const allCatalogNodes = graphData?.allNodes || graphData?.nodes || [];
                       const brandSubNodes = allCatalogNodes.filter((n: any) => {
                         const isSub = n.type === 'flavor' || n.type === 'packaging' || n.type === 'product_line' || n.type === 'product_variant';
                         if (!isSub) return false;
@@ -5284,17 +5283,11 @@ export default function CerebroPage() {
                           {/* Quick Master Brands Switcher Bar */}
                           <div className="flex items-center gap-1.5 p-1.5 bg-gray-950/90 border border-gray-800 rounded-lg overflow-x-auto">
                             <span className="text-[10px] text-gray-500 font-mono pl-1 shrink-0">Marcas:</span>
-                            {[
-                              { id: 'brand-chubby', label: 'Chubby', icon: '🥤' },
-                              { id: 'brand-busta', label: 'Busta', icon: '🍾' },
-                              { id: 'brand-fruta', label: 'Fruta', icon: '🍊' },
-                              { id: 'brand-oasis', label: 'Oasis', icon: '💧' },
-                              { id: 'brand-altitude', label: 'Altitude', icon: '⚡' },
-                            ].map(b => (
+                            {allCatalogNodes.filter((n: any) => n.type === 'brand').map((b: any) => (
                               <button
                                 key={b.id}
                                 onClick={() => {
-                                  const targetBrand = (graphData?.nodes || nodesRef.current).find((n: any) => n.id === b.id);
+                                  const targetBrand = allCatalogNodes.find((n: any) => n.id === b.id);
                                   if (targetBrand) pushToStackedDeck(targetBrand);
                                 }}
                                 className={`px-2 py-0.5 rounded text-[10px] font-mono flex items-center gap-1 transition shrink-0 ${
@@ -5303,8 +5296,7 @@ export default function CerebroPage() {
                                     : 'text-gray-400 hover:text-white hover:bg-gray-800'
                                 }`}
                               >
-                                <span>{b.icon}</span>
-                                <span>{b.label}</span>
+                                <span>{b.frontmatter?.brand_name || b.title.replace(/^Brand:\s*/i, '')}</span>
                               </button>
                             ))}
                           </div>
