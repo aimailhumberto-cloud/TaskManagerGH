@@ -7,6 +7,8 @@ import { searchBrainNodes, resolveBrainNode, humanNodeName, fitIdentityBounds } 
 import { computeNativeLayout, LayoutResult, mergeLayoutConfig, LayoutConfig } from '@/lib/cerebroLayout';
 import { contactTarget, contactDistributors } from '@/lib/contactLayer';
 import { ContactLayer } from '@/components/ContactLayer';
+import { brandCatalogNodes, packagingDescription } from '@/lib/portfolioConnections';
+import { PortfolioConnections } from '@/components/PortfolioConnections';
 
 interface NodeData {
   id: string;
@@ -3214,6 +3216,9 @@ export default function CerebroPage() {
       if (link.target === node.id) focusIds.add(link.source);
     }
     for (const id of focusIds) revealedNodeIdsRef.current.add(id);
+    if (node.type === 'brand') {
+      for (const child of brandCatalogNodes(node.id, full.nodes, full.links)) revealedNodeIdsRef.current.add(child.id);
+    }
     focusNodeIdsRef.current = [...focusIds];
     setupNodesWithMode(full.nodes, full.links);
     const liveNode = nodesRef.current.find(n => n.id === node.id) || node;
@@ -3993,9 +3998,9 @@ export default function CerebroPage() {
               </div>
               <div className="flex items-baseline justify-between">
                 <span className="text-sm font-bold text-white font-mono">
-                  204 <span className="text-[10px] text-gray-400 font-normal">SKUs</span> · 55 <span className="text-[10px] text-gray-400 font-normal">Packs</span>
+                  {(graphData?.allNodes || graphData?.nodes || []).filter(n => n.type === 'product_variant').length} <span className="text-[10px] text-gray-400 font-normal">SKUs</span> · {(graphData?.allNodes || graphData?.nodes || []).filter(n => n.type === 'packaging').length} <span className="text-[10px] text-gray-400 font-normal">Packs</span>
                 </span>
-                <span className="text-[10px] text-teal-300 font-mono">105 Sabores</span>
+                <span className="text-[10px] text-teal-300 font-mono">{(graphData?.allNodes || graphData?.nodes || []).filter(n => n.type === 'flavor').length} Sabores</span>
               </div>
               <div className="mt-1 flex items-center justify-between text-[9px] text-gray-400 font-mono">
                 <span>Estiba: <strong>2,800 cajas</strong> / cont 40ft</span>
@@ -4864,6 +4869,12 @@ export default function CerebroPage() {
                       links={graphData?.links || linksRef.current || []}
                       onOpen={(target, sourceId) => pushToStackedDeck(target as NodeData, false, sourceId)}
                     />
+                    <PortfolioConnections
+                      node={node}
+                      nodes={graphData?.allNodes || graphData?.nodes || nodesRef.current || []}
+                      links={graphData?.links || linksRef.current || []}
+                      onOpen={(target, sourceId) => pushToStackedDeck(target as NodeData, false, sourceId)}
+                    />
 
                     {/* Ficha Ejecutiva Especializada para Distribuidores (100% Datos, 0 Opiniones) */}
                     {node.type === 'distributor' && (
@@ -5268,11 +5279,7 @@ export default function CerebroPage() {
                     {node.type === 'brand' && (() => {
                       const brandKey = node.id.replace('brand-', '').toLowerCase();
                       const allCatalogNodes = graphData?.allNodes || graphData?.nodes || [];
-                      const brandSubNodes = allCatalogNodes.filter((n: any) => {
-                        const isSub = n.type === 'flavor' || n.type === 'packaging' || n.type === 'product_line' || n.type === 'product_variant';
-                        if (!isSub) return false;
-                        return (n.id || '').toLowerCase().includes(brandKey) || (n.title || '').toLowerCase().includes(brandKey);
-                      });
+                      const brandSubNodes = brandCatalogNodes(node.id, allCatalogNodes, graphData?.links || []);
                       const packNodes = brandSubNodes.filter(n => n.type === 'packaging');
                       const variantNodes = brandSubNodes.filter(n => n.type === 'product_variant');
                       const flavorNodes = brandSubNodes.filter(n => n.type === 'flavor');
@@ -5312,7 +5319,7 @@ export default function CerebroPage() {
                               </div>
                             )}
                             <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-                              <div><span className="text-gray-400">Planta de Origen:</span> <span className="text-white font-medium">{fm.manufacturing_plant ? String(fm.manufacturing_plant).replace(/[[\]]/g, '') : 'South Oropouche, Trinidad'}</span></div>
+                              <div><span className="text-gray-400">Planta de Origen:</span> <span className="text-white font-medium">{fm.manufacturing_plant ? String(fm.manufacturing_plant).replace(/[[\]]/g, '') : 'Por confirmar'}</span></div>
                               <div><span className="text-gray-400">Categoría:</span> <span className="text-white font-medium">{fm.category || 'Bebidas SMJ'}</span></div>
                               {fm.shelf_life_months && (
                                 <div><span className="text-gray-400">Vida Útil:</span> <span className="text-emerald-400 font-medium">{fm.shelf_life_months} meses</span></div>
@@ -5356,7 +5363,7 @@ export default function CerebroPage() {
                                       {packNodes.map((p: any) => (
                                         <button
                                           key={p.id}
-                                          onClick={() => pushToStackedDeck(p)}
+                                          onClick={() => pushToStackedDeck(p, false, node.id)}
                                           className="text-left text-[11px] font-mono px-2 py-1 rounded bg-gray-900/90 border border-gray-800 hover:border-amber-500 text-gray-200 hover:text-white transition truncate flex items-center justify-between"
                                         >
                                           <span className="truncate">📦 {p.title}</span>
@@ -5377,7 +5384,7 @@ export default function CerebroPage() {
                                       {variantNodes.map((v: any) => (
                                         <button
                                           key={v.id}
-                                          onClick={() => pushToStackedDeck(v)}
+                                          onClick={() => pushToStackedDeck(v, false, node.id)}
                                           className="text-left text-[11px] font-mono px-2 py-1 rounded bg-gray-900/90 border border-gray-800 hover:border-sky-500 text-gray-200 hover:text-white transition truncate flex items-center justify-between"
                                         >
                                           <span className="truncate">🏷️ {v.title}</span>
@@ -5431,9 +5438,11 @@ export default function CerebroPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
                           <div className="col-span-2"><span className="text-gray-400">Descripción:</span> <span className="text-white font-bold">{node.title}</span></div>
-                          <div><span className="text-gray-400">Tipo de Envase:</span> <span className="text-amber-300">{node.title.toLowerCase().includes('bottle') ? 'Botella PET' : node.title.toLowerCase().includes('can') ? 'Lata' : 'Empaque Primario'}</span></div>
-                          <div><span className="text-gray-400">Configuración:</span> <span className="text-emerald-400">{node.title.toLowerCase().includes('case 24') ? 'Caja x 24' : node.title.toLowerCase().includes('case 6') ? 'Caja x 6' : node.title.toLowerCase().includes('case 12') ? 'Caja x 12' : 'Embalaje Estándar'}</span></div>
-                          <div className="col-span-2"><span className="text-gray-400">Origen de Ingesta:</span> <span className="text-gray-300">Catálogo ShopSMJ 2026-11-09</span></div>
+                          <div><span className="text-gray-400">Tipo de Envase:</span> <span className="text-amber-300">{packagingDescription(fm).container}</span></div>
+                          <div><span className="text-gray-400">Configuración:</span> <span className="text-emerald-400">{packagingDescription(fm).configuration}</span></div>
+                          <div><span className="text-gray-400">Contenido por unidad:</span> <span className="text-white">{packagingDescription(fm).size}</span></div>
+                          <div className="col-span-2"><span className="text-gray-400">Fuente:</span> <span className="text-gray-300">{fm.source || 'Por documentar'}</span></div>
+                          {fm.visual_photo_scope === 'linked_unit_reference_not_case_photo' && <p className="col-span-2 text-gray-300">Imagen de la unidad de referencia; la caja no está fotografiada.</p>}
                         </div>
                       </div>
                     )}
@@ -5445,10 +5454,10 @@ export default function CerebroPage() {
                           <span>Ficha de SKU & Presentación Comercial</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-                          <div className="col-span-2"><span className="text-gray-400">SKU:</span> <span className="text-white font-bold">{node.title}</span></div>
-                          <div><span className="text-gray-400">ID Bóveda:</span> <span className="text-sky-300 break-all">{node.id}</span></div>
-                          <div><span className="text-gray-400">Planta Matriz:</span> <span className="text-amber-300">South Oropouche, Trinidad</span></div>
-                          <div className="col-span-2"><span className="text-gray-400">Fuente:</span> <span className="text-gray-300">ShopSMJ E-Commerce & Retail Ingest</span></div>
+                          <div className="col-span-2"><span className="text-gray-400">Código en la fuente:</span> <span className="text-white font-bold">{fm.sku_raw || fm.source_item_code || 'No publicado'}</span></div>
+                          <div><span className="text-gray-400">Presentación:</span> <span className="text-sky-300">{fm.size_raw || 'Por documentar'}</span></div>
+                          <div><span className="text-gray-400">Unidades/Caja:</span> <span className="text-amber-300">{fm.units_per_case_raw || 'Por documentar'}</span></div>
+                          <div className="col-span-2"><span className="text-gray-400">Fuente:</span> <span className="text-gray-300">{fm.source || 'Por documentar'}</span></div>
                         </div>
                       </div>
                     )}

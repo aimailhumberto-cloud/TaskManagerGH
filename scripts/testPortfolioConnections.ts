@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {brandCatalogNodes,portfolioNeighbors,packagingDescription} from '../src/lib/portfolioConnections';
+const nodes=[{id:'brand-turbo',type:'brand'},{id:'line',type:'product_line'},{id:'pack',type:'packaging'},{id:'sku',type:'product_variant'},{id:'same-name',title:'Turbo unrelated item',type:'packaging'},{id:'country',type:'market'}];
+const links=[{source:'line',target:'brand-turbo',relationType:'belongs_to_brand'},{source:'pack',target:'line',relationType:'belongs_to_line'},{source:{id:'sku'},target:{id:'line'},relationType:'belongs_to_line'},{source:'brand-turbo',target:'country',relationType:'active_in_markets'},{source:'same-name',target:'brand-turbo',relationType:'references'}];
+assert.deepEqual(brandCatalogNodes('brand-turbo',nodes,links).map(n=>n.id).sort(),['line','pack','sku']);
+assert.deepEqual(portfolioNeighbors('country',nodes,links).map(n=>n.id),['brand-turbo']);
+assert.ok(!portfolioNeighbors('brand-turbo',nodes,links).some(n=>n.id==='same-name'));
+assert.deepEqual(packagingDescription({container_raw:'Bottles',units_per_case_raw:'24',size_raw:'330ml'}),{container:'Botella',configuration:'Caja x 24',size:'330ml'});
+assert.equal(packagingDescription({container_raw:'Not stated',units_per_case_raw:'24'}).container,'No especificado');
+assert.equal(packagingDescription({}).configuration,'No especificada');
+assert.deepEqual(brandCatalogNodes('brand-turbo',nodes,[...links,{source:'line',target:'sku',relationType:'belongs_to_line'}]).map(n=>n.id).sort(),['line','pack','sku']);
+console.log('PASS: explicit portfolio traversal, inverse country links, no name inference, cycle termination and source-based package display');
