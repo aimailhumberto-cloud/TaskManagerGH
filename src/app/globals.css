@@ -462,3 +462,18 @@ button.tm-telemetry-card:hover {transform:translateY(-2px);border-color:rgba(233
 /* Puntos de leyenda: conservan un color propio y visible */
 .cerebro-lux [class*="w-2"][class*="h-2"][class*="bg-sky-"], .cerebro-lux [class*="w-2"][class*="h-2"][class*="bg-blue-"] { background-color: #7fb0d6 !important; }
 .cerebro-lux [class*="w-2"][class*="h-2"][class*="bg-purple-"], .cerebro-lux [class*="w-2"][class*="h-2"][class*="bg-indigo-"], .cerebro-lux [class*="w-2"][class*="h-2"][class*="bg-violet-"] { background-color: #a99bd8 !important; }
+
+/* Panel de cifras: una sola fila compacta que se desplaza, en vez de una rejilla alta */
+.cerebro-lux .cerebro-hud-strip > div { flex: 1 0 236px; min-width: 236px; padding: 10px 12px !important; }
+.cerebro-lux .cerebro-hud-strip { scroll-snap-type: x proximity; }
+.cerebro-lux .cerebro-hud-strip > div { scroll-snap-align: start; }
+.cerebro-lux section { padding-top: 8px !important; padding-bottom: 8px !important; }
+@media (max-width: 1099px) { .cerebro-lux .cerebro-hud-strip > div { flex-basis: 220px; } }
+
+/* Ficha lateral: titulo editorial, insignias de tipo en oro, tarjeta sin borde de color */
+.cerebro-lux .cerebro-card-title { font-family: var(--lux-serif) !important; font-weight: 600 !important; letter-spacing: 0.005em; word-break: break-word; }
+.cerebro-lux aside span.uppercase[style*="background"] { background: rgba(233, 188, 110, 0.12) !important; color: var(--lux-gold-soft) !important; border: 1px solid rgba(233, 188, 110, 0.38); border-radius: 999px; padding: 2px 9px; letter-spacing: 0.12em; font-size: 10.5px; }
+.cerebro-lux aside div[style*="border-color"] { border-color: rgba(233, 188, 110, 0.22) !important; background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012)) !important; }
+.cerebro-lux aside div[style*="border-color"] > div:first-child { border-bottom-color: rgba(233, 188, 110, 0.16) !important; }
+.cerebro-lux aside [class*="text-emerald-"] { color: #86d6b0 !important; }
+.cerebro-lux aside [class*="bg-emerald-"], .cerebro-lux aside [class*="border-emerald-"] { background-color: rgba(134, 214, 176, 0.08) !important; border-color: rgba(134, 214, 176, 0.3) !important; }

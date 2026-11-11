@@ -1677,7 +1677,7 @@ export default function CerebroPage() {
   const [expandedLeaderInDossier, setExpandedLeaderInDossier] = useState<string | null>(null);
 
   // Executive Command Cockpit (HUD) State
-  const [isHudOpen, setIsHudOpen] = useState(true);
+  const [isHudOpen, setIsHudOpen] = useState(() => typeof window === 'undefined' ? true : window.innerWidth >= 1100);
 
   // Mobile Collapsible Controls State
   const [isMobileControlsOpen, setIsMobileControlsOpen] = useState(false);
@@ -1712,6 +1712,9 @@ export default function CerebroPage() {
   const expansionsRef = useRef(new Map<string, string[]>());
   const selectedNodeIdRef = useRef<string | null>(null);
   const lastGraphTextRef = useRef('');
+  const capLimitRef = useRef(new Map<string, number>());
+  const cappedInfoRef = useRef(new Map<string, number>());
+  const lastPillClickRef = useRef(0);
   const fetchInFlightRef = useRef(false);
   const focusNodeIdsRef = useRef<string[]>([]);
   const cameraAnimationRef = useRef(0);
@@ -2686,6 +2689,23 @@ export default function CerebroPage() {
             ctx.fillText(cfg.label.toUpperCase().split('').join('\u200A'), n.x, n.y + r + 24);
           }
         }
+        // Burbuja "+N mas": hay mas nodos en este nivel; un clic en ella trae los siguientes
+        const hiddenCount = cappedInfoRef.current.get(n.id);
+        if (hiddenCount && isOpen) {
+          const py = n.y + (n.radius || 24) + 46;
+          ctx.beginPath();
+          ctx.roundRect(n.x - 38, py - 11, 76, 22, 11);
+          ctx.fillStyle = 'rgba(233, 188, 110, 0.16)';
+          ctx.fill();
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = 'rgba(233, 188, 110, 0.75)';
+          ctx.stroke();
+          ctx.font = '600 11px system-ui, -apple-system, "Segoe UI", sans-serif';
+          ctx.fillStyle = '#F3DFA6';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`+${hiddenCount} más`, n.x, py);
+        }
         ctx.globalAlpha = 1.0;
       }
 
@@ -2855,6 +2875,29 @@ export default function CerebroPage() {
     });
   };
 
+  // Burbuja "+N mas" bajo un nodo abierto con nivel recortado: devuelve el nodo si el punto cae en ella.
+  const findPillAtClientPoint = (clientX: number, clientY: number): NodeData | undefined => {
+    const canvas = canvasRef.current;
+    if (!canvas || cappedInfoRef.current.size === 0) return undefined;
+    const rect = canvas.getBoundingClientRect();
+    const { x: tx, y: ty, scale } = transformRef.current;
+    const worldX = (clientX - rect.left - tx) / scale;
+    const worldY = (clientY - rect.top - ty) / scale;
+    return nodesRef.current.find(n => {
+      if (!cappedInfoRef.current.has(n.id)) return false;
+      const cy = n.y + (n.radius || 24) + 46;
+      return Math.abs(worldX - n.x) <= 40 && Math.abs(worldY - cy) <= 12;
+    });
+  };
+
+  const showMoreOfNode = (node: NodeData) => {
+    const now = Date.now();
+    if (now - lastPillClickRef.current < 500) return;
+    lastPillClickRef.current = now;
+    capLimitRef.current.set(node.id, (capLimitRef.current.get(node.id) || MAX_NODES_PER_OPEN) + MAX_NODES_PER_OPEN);
+    pushToStackedDeck(node);
+  };
+
   const unpinNode = (node: NodeData) => {
     node.isPinned = false;
     node.pinnedX = undefined;
@@ -2889,7 +2932,11 @@ export default function CerebroPage() {
         if (child !== id && order.indexOf(child) > openedAt) queue.push(child);
       }
     }
-    for (const id of closed) expansionsRef.current.delete(id);
+    for (const id of closed) {
+      expansionsRef.current.delete(id);
+      capLimitRef.current.delete(id);
+      cappedInfoRef.current.delete(id);
+    }
     rebuildRevealed();
 
     const full = fullGraphRef.current;
@@ -2927,6 +2974,8 @@ export default function CerebroPage() {
   // Vista por defecto: todo cerrado, sin fichas, camara encuadrada.
   const resetToDefaultView = () => {
     expansionsRef.current.clear();
+    capLimitRef.current.clear();
+    cappedInfoRef.current.clear();
     rebuildRevealed();
     selectedNodeIdRef.current = null;
     stackedDeckRef.current = [];
@@ -2955,12 +3004,18 @@ export default function CerebroPage() {
       e.clientY - rect.top - dragStartMousePosRef.current.y
     );
     if (moved > 6) return; // fue un arrastre, no un clic
+    const pillNode = findPillAtClientPoint(e.clientX, e.clientY);
+    if (pillNode) {
+      showMoreOfNode(pillNode);
+      return;
+    }
     const clickedNode = findNodeAtClientPoint(e.clientX, e.clientY) || hoveredNodeRef.current;
     selectedNodeIdRef.current = clickedNode ? clickedNode.id : null;
   };
 
   // Doble clic: abre o cierra el nodo. Mayus + doble clic desfija. En el fondo: vista por defecto.
   const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (findPillAtClientPoint(e.clientX, e.clientY)) return;
     const clickedNode = findNodeAtClientPoint(e.clientX, e.clientY);
     if (!clickedNode) {
       resetToDefaultView();
@@ -3357,13 +3412,12 @@ export default function CerebroPage() {
         deeper = deeper.filter(d => nodeLevel(d.type) === nearest);
       }
       deeper.sort((x, y) => String(x.title || x.id).localeCompare(String(y.title || y.id)));
-      const shown = deeper.slice(0, MAX_NODES_PER_OPEN);
-      for (const d of shown) broughtIds.add(d.id);
       void totalDeeper;
-      if (shown.length < deeper.length) {
-        setStatusMessage(`Mostrando ${shown.length} de ${deeper.length} nodos de este nivel. Usa la búsqueda para ir a uno específico.`);
-        setTimeout(() => setStatusMessage(null), 4500);
-      }
+      const limit = capLimitRef.current.get(node.id) || MAX_NODES_PER_OPEN;
+      const shown = deeper.slice(0, limit);
+      for (const d of shown) broughtIds.add(d.id);
+      if (shown.length < deeper.length) cappedInfoRef.current.set(node.id, deeper.length - shown.length);
+      else cappedInfoRef.current.delete(node.id);
       focusIds.clear();
       for (const id of broughtIds) focusIds.add(id);
     }
@@ -3504,6 +3558,16 @@ export default function CerebroPage() {
   // Global Keyboard Navigation (ESC to pop drill-down, close search or dismiss cards)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+      if (e.key === 'Enter' && !typing && selectedNodeIdRef.current) {
+        const sel = nodesRef.current.find(n => n.id === selectedNodeIdRef.current);
+        if (sel) {
+          e.preventDefault();
+          toggleNodeOpen(sel);
+        }
+        return;
+      }
       if (e.key === 'Escape') {
         if (searchQuery) {
           setSearchQuery('');
@@ -3511,6 +3575,12 @@ export default function CerebroPage() {
           setIsSettingsMenuOpen(false);
         } else if (stackedDeck.length > 0) {
           setStackedDeck([]);
+        } else if (expansionsRef.current.size > 0) {
+          // Cierra la ultima capa abierta
+          const lastId = [...expansionsRef.current.keys()].pop() as string;
+          const last = nodesRef.current.find(n => n.id === lastId);
+          if (last) collapseNode(last);
+          else resetToDefaultView();
         } else if (drilldownStackRef.current.length > 0) {
           handlePopDrilldown();
         }
@@ -3518,7 +3588,7 @@ export default function CerebroPage() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [searchQuery, isSettingsMenuOpen, stackedDeck]);
+  }, [searchQuery, isSettingsMenuOpen, stackedDeck, graphData]);
 
   // Auditor de Salud de Memoria & Enlaces Rotos en Tiempo Real
   const linkHealthAudit = useMemo(() => {
@@ -4021,7 +4091,7 @@ export default function CerebroPage() {
 
       {isHudOpen && (
         <section className="bg-[#090E1A]/95 border-b border-gray-800/80 px-5 py-2.5 z-40 shadow-xl backdrop-blur-md">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 max-w-[1920px] mx-auto">
+          <div className="cerebro-hud-strip flex gap-3 max-w-[1920px] mx-auto overflow-x-auto pb-1">
             
             {/* Widget 1: Salud de Memoria & Enlaces Rotos */}
             <div className={`p-2.5 rounded-xl border backdrop-blur transition-all ${
@@ -4038,14 +4108,13 @@ export default function CerebroPage() {
                     ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
                     : 'bg-amber-950 text-amber-300 border border-amber-800 animate-pulse'
                 }`}>
-                  {linkHealthAudit.brokenCount === 0 ? '100% Coherente' : `${linkHealthAudit.brokenCount} Rotos`}
+                  {linkHealthAudit.brokenCount === 0 ? 'Coherente' : `${linkHealthAudit.brokenCount} Rotos`}
                 </span>
               </div>
               <div className="flex items-baseline justify-between">
                 <span className="text-sm font-bold text-white font-mono">
                   {linkHealthAudit.brokenCount === 0 ? '0 Enlaces Rotos' : `${linkHealthAudit.brokenCount} Enlaces Rotos`}
                 </span>
-                <span className="text-[10px] text-gray-400 font-mono">0 Fugas Auditadas</span>
               </div>
               <div className="mt-1 text-[9px] text-gray-400 truncate font-mono">
                 {linkHealthAudit.brokenCount === 0 ? 'Sinapsis íntegras en bóveda' : `Faltan: ${linkHealthAudit.brokenSample.join(', ')}`}
@@ -4103,7 +4172,7 @@ export default function CerebroPage() {
               </div>
               <div className="mt-1 flex items-center justify-between text-[9px] text-gray-400 font-mono">
                 <span>{contactStats.verifiedEmails} Emails Verificados</span>
-                <span className="text-sky-400 font-semibold">100% Contacto</span>
+                <span className="text-sky-400 font-semibold">{contactStats.leaders + contactStats.operational > 0 ? Math.round((contactStats.verifiedEmails / (contactStats.leaders + contactStats.operational)) * 100) : 0}% con correo</span>
               </div>
             </div>
 
@@ -4126,7 +4195,12 @@ export default function CerebroPage() {
                 </span>
               </div>
               <div className="mt-1 flex items-center justify-between text-[9px] text-gray-400 font-mono">
-                <span>Portafolio 78% · Personal 15% · Red 7%</span>
+                <span>{(() => {
+                  const all = graphData?.allNodes || graphData?.nodes || [];
+                  const total = all.length || 1;
+                  const pct = (types: string[]) => Math.round((all.filter(n => types.includes(n.type)).length / total) * 100);
+                  return `Portafolio ${pct(['brand', 'product_line', 'flavor', 'packaging', 'product_variant', 'catalog_listing'])}% · Personal ${pct(['person'])}% · Red ${pct(['market', 'distributor', 'operator', 'channel', 'customer', 'client_group', 'client', 'country'])}%`;
+                })()}</span>
               </div>
             </div>
 
@@ -4484,9 +4558,8 @@ export default function CerebroPage() {
               <div className="flex items-center justify-between px-4 py-2.5 md:py-3 border-b border-gray-800 bg-gray-900/90 sticky top-0 z-10 shadow shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                    <span>Fichas Ejecutivas ({stackedDeck.length})</span>
+                    <span>{stackedDeck.length > 1 ? `Fichas (${stackedDeck.length})` : 'Ficha'}</span>
                   </span>
-                  <span className="hidden sm:inline text-[10px] text-gray-400">· Vista 360° en Vivo</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {/* Thumb-Accessible Close Button (min 44x44px touch target on mobile) */}
@@ -4602,7 +4675,7 @@ export default function CerebroPage() {
                               </span>
                             )}
                           </div>
-                          <h2 tabIndex={-1} className="text-base font-bold text-white mt-1 truncate" title={node.id}>{humanNodeName(node)}</h2>
+                          <h2 tabIndex={-1} className="cerebro-card-title mt-1.5 text-xl leading-snug text-white" title={node.id}>{humanNodeName(node).replace(/^[A-Za-z][A-Za-z &]{2,22}(?::\s+|\s+-\s+)/, '')}</h2>
                           {fm.job_title && (
                             <p className="text-xs text-sky-400 font-mono truncate">{fm.job_title}</p>
                           )}
