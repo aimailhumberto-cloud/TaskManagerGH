@@ -1699,6 +1699,8 @@ export default function CerebroPage() {
   // asi que cerrar un nodo retira su nivel (antes la lista solo crecia).
   const expansionsRef = useRef(new Map<string, string[]>());
   const selectedNodeIdRef = useRef<string | null>(null);
+  const lastGraphTextRef = useRef('');
+  const fetchInFlightRef = useRef(false);
   const focusNodeIdsRef = useRef<string[]>([]);
   const cameraAnimationRef = useRef(0);
   const linksRef = useRef<LinkData[]>([]);
@@ -1829,14 +1831,24 @@ export default function CerebroPage() {
   };
 
   const fetchGraph = async () => {
+    if (typeof document !== 'undefined' && document.hidden && lastGraphTextRef.current) return;
+    if (fetchInFlightRef.current) return;
+    fetchInFlightRef.current = true;
     try {
       const res = await fetch(
         `/api/agent/brain?market=${encodeURIComponent(selectedMarket)}&lens=${encodeURIComponent(activeLens)}&_t=${Date.now()}`,
         { cache: 'no-store' }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json: BrainGraphResponse = await res.json();
+      const text = await res.text();
+      if (text === lastGraphTextRef.current) {
+        // Nada cambio en el vault: no se reacomoda el lienzo.
+        setSyncError(null);
+        return;
+      }
+      const json: BrainGraphResponse = JSON.parse(text);
       if (json.ok) {
+        lastGraphTextRef.current = text;
         if ((json as any).layouts) {
           nativeLayoutConfigRef.current = (json as any).layouts;
         }
@@ -1887,11 +1899,14 @@ export default function CerebroPage() {
       }
     } catch (e: any) {
       setSyncError('Fallo de conexión con el Segundo Cerebro. Mostrando vista local.');
+    } finally {
+      fetchInFlightRef.current = false;
     }
   };
 
   useEffect(() => {
     if (!mounted) return;
+    lastGraphTextRef.current = '';
     fetchGraph();
     // Live synchronization with Dots agent and vault modifications every 3.5s
     const interval = setInterval(fetchGraph, 3500);
@@ -2017,10 +2032,11 @@ export default function CerebroPage() {
         };
       }
 
+      const bloomOrigin = selectedNodeIdRef.current ? existingMap.get(selectedNodeIdRef.current) : undefined;
       return {
         ...n,
-        x: saved ? saved.x : target.x + (Math.random() - 0.5) * 15,
-        y: saved ? saved.y : target.y + (Math.random() - 0.5) * 15,
+        x: saved ? saved.x : (bloomOrigin ? bloomOrigin.x : target.x) + (Math.random() - 0.5) * 15,
+        y: saved ? saved.y : (bloomOrigin ? bloomOrigin.y : target.y) + (Math.random() - 0.5) * 15,
         vx: 0,
         vy: 0,
         targetX: isPinned && pinnedX !== undefined ? pinnedX : target.x,
@@ -2082,7 +2098,8 @@ export default function CerebroPage() {
 
       // 1. Physics Engine: Spring Pull + Anti-Overlap Collision Repulsion
       if (gravityActive) {
-        // A. Pull toward defined spacious target (respecting manual pins)
+        // A. Resorte amortiguado hacia el destino: los nodos grandes pesan mas y llegan con calma,
+        //    los pequenos llegan rapido con un rebote corto. Sin vaiven permanente: al llegar, reposan.
         for (const n of nodes) {
           if (n.isPinned) {
             n.vx = 0;
@@ -2091,39 +2108,25 @@ export default function CerebroPage() {
             n.y = n.pinnedY ?? n.y;
             continue;
           }
-          if (!n.isDragged) {
-            const dx = n.targetX - n.x;
-            const dy = n.targetY - n.y;
-            n.vx = (n.vx || 0) * 0.72 + dx * 0.045;
-            n.vy = (n.vy || 0) * 0.72 + dy * 0.045;
-
-            // Subtle organic floating wave
-            const floatOffset = Math.sin(time + (n.hierarchy_level || 1)) * 0.3;
-            n.vy += floatOffset;
-          }
-        }
-
-        // 1. Kinetic Position Engine (Smooth Responsive Easing to Exact Mode Targets)
-        for (const n of nodes) {
-          if (n.isPinned) {
-            n.x = n.pinnedX ?? n.x;
-            n.y = n.pinnedY ?? n.y;
+          if (n.isDragged) {
+            n.vx = 0;
+            n.vy = 0;
             continue;
           }
-          if (!n.isDragged) {
-            const dx = n.targetX - n.x;
-            const dy = n.targetY - n.y;
-
-            // Ultra-responsive glide towards target (16% per frame = ~250ms convergence)
-            n.x += dx * 0.16;
-            n.y += dy * 0.16;
-
-            // Subtle organic floating wave
-            if (gravityActive) {
-              const floatOffset = Math.sin(time * 1.6 + (n.hierarchy_level || 1)) * 0.35;
-              n.y += floatOffset;
-            }
+          const mass = Math.max(0.7, (n.radius || 24) / 24);
+          const stiffness = 0.085 / mass;
+          const damping = 0.78;
+          const dx = n.targetX - n.x;
+          const dy = n.targetY - n.y;
+          n.vx = ((n.vx || 0) + dx * stiffness) * damping;
+          n.vy = ((n.vy || 0) + dy * stiffness) * damping;
+          if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05 && Math.abs(n.vx) < 0.02 && Math.abs(n.vy) < 0.02) {
+            n.vx = 0;
+            n.vy = 0;
+            continue;
           }
+          n.x += n.vx;
+          n.y += n.vy;
         }
 
         // Point 10: Anti-Overlap Collision Repulsion (Physical safety margins between adjacent nodes)
@@ -2160,7 +2163,13 @@ export default function CerebroPage() {
       ctx.scale(dpr, dpr);
 
       // Deep space canvas background
-      ctx.fillStyle = '#060A12';
+      ctx.fillStyle = '#05070C';
+      ctx.fillRect(0, 0, cssWidth, cssHeight);
+      const vignette = ctx.createRadialGradient(cssWidth / 2, cssHeight / 2, 0, cssWidth / 2, cssHeight / 2, Math.max(cssWidth, cssHeight) * 0.75);
+      vignette.addColorStop(0, 'rgba(30, 41, 66, 0.55)');
+      vignette.addColorStop(0.55, 'rgba(12, 16, 28, 0.35)');
+      vignette.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = vignette;
       ctx.fillRect(0, 0, cssWidth, cssHeight);
 
       // 3. Camera Transform
@@ -2170,11 +2179,11 @@ export default function CerebroPage() {
       ctx.scale(scale, scale);
 
       // Starfield grid
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.035)';
+      ctx.fillStyle = 'rgba(217, 185, 106, 0.05)';
       for (let gx = -1600; gx <= 1600; gx += 80) {
         for (let gy = -1600; gy <= 1600; gy += 80) {
           ctx.beginPath();
-          ctx.arc(gx, gy, 1.2, 0, Math.PI * 2);
+          ctx.arc(gx, gy, 0.9, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -2462,10 +2471,10 @@ export default function CerebroPage() {
 
           // LÍNEAS VIVAS ENERGIZADAS (Conexiones Directas de la Entidad Activa)
           ctx.save();
-          ctx.strokeStyle = '#38BDF8';
-          ctx.lineWidth = 2.8;
-          ctx.shadowColor = '#38BDF8';
-          ctx.shadowBlur = 10;
+          ctx.strokeStyle = 'rgba(217, 185, 106, 0.85)';
+          ctx.lineWidth = 1.5;
+          ctx.shadowColor = 'rgba(217, 185, 106, 0.6)';
+          ctx.shadowBlur = 8;
           ctx.beginPath();
           ctx.moveTo(s.x, s.y);
           ctx.lineTo(t.x, t.y);
@@ -2476,17 +2485,17 @@ export default function CerebroPage() {
           const pOffset = (time * 0.16) % 1;
           const px = s.x + (t.x - s.x) * pOffset;
           const py = s.y + (t.y - s.y) * pOffset;
-          ctx.fillStyle = '#FFFFFF';
+          ctx.fillStyle = '#FFF4D6';
           ctx.beginPath();
-          ctx.arc(px, py, 3.8, 0, Math.PI * 2);
+          ctx.arc(px, py, 2.2, 0, Math.PI * 2);
           ctx.fill();
 
           const pOffset2 = (time * 0.16 + 0.5) % 1;
           const px2 = s.x + (t.x - s.x) * pOffset2;
           const py2 = s.y + (t.y - s.y) * pOffset2;
-          ctx.fillStyle = '#38BDF8';
+          ctx.fillStyle = '#D9B96A';
           ctx.beginPath();
-          ctx.arc(px2, py2, 2.8, 0, Math.PI * 2);
+          ctx.arc(px2, py2, 1.6, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -2497,7 +2506,8 @@ export default function CerebroPage() {
         const isSelected = n.id === selectedNodeIdRef.current || stackedDeck.some(d => d.id === n.id);
         const isHovered = activeHover?.id === n.id;
         const isWorking = n.memory_tier === 'working';
-        const pulse = isWorking ? Math.sin(time * 4) * 6 : Math.sin(time * 1.5 + n.radius) * 2;
+        const isOpen = expansionsRef.current.has(n.id);
+        const pulse = isWorking ? Math.sin(time * 4) * 3 : 0;
         const r = (n.radius + (isHovered ? 6 : 0) + pulse);
 
         // Enfoque visual: Jerarquía progresiva (Drill-down) y conversación activa
@@ -2533,7 +2543,7 @@ export default function CerebroPage() {
         // Outer Glow Ring
         const glowRadius = r + (isSelected ? 18 : isHovered ? 14 : 8);
         const grad = ctx.createRadialGradient(n.x, n.y, r * 0.4, n.x, n.y, glowRadius);
-        grad.addColorStop(0, isHovered ? '#38BDF8' : cfg.glow);
+        grad.addColorStop(0, isSelected || isHovered ? 'rgba(217, 185, 106, 0.55)' : cfg.glow);
         grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
         ctx.beginPath();
         ctx.arc(n.x, n.y, glowRadius, 0, Math.PI * 2);
@@ -2611,44 +2621,61 @@ export default function CerebroPage() {
         drawGlassDomeOverlay(ctx, n.x, n.y, r);
 
         // Metallic Rim Border
-        ctx.lineWidth = isSelected ? 3.5 : isHovered ? 3 : 2;
-        ctx.strokeStyle = isSelected ? '#FFFFFF' : isHovered ? '#38BDF8' : cfg.border;
+        ctx.lineWidth = isSelected ? 2.5 : isHovered ? 2.2 : 1.5;
+        ctx.strokeStyle = isSelected ? '#F3DFA6' : isHovered ? '#D9B96A' : cfg.border;
         ctx.beginPath();
         ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
         ctx.stroke();
+
+        // Anillo fino dorado: este nodo tiene su nivel abierto (doble clic lo cierra)
+        if (isOpen) {
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = 'rgba(217, 185, 106, 0.9)';
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, r + 6, 0, Math.PI * 2);
+          ctx.stroke();
+        }
 
         // Physical Pin Halo & Indicator if Pinned
         if (n.isPinned) {
           ctx.save();
           ctx.lineWidth = 2.5;
-          ctx.strokeStyle = '#00F0FF';
-          ctx.setLineDash([4, 3]);
+          ctx.strokeStyle = 'rgba(217, 185, 106, 0.7)';
+          ctx.setLineDash([2, 4]);
           ctx.beginPath();
           ctx.arc(n.x, n.y, r + 5, 0, Math.PI * 2);
           ctx.stroke();
           ctx.restore();
 
           ctx.save();
-          ctx.font = '12px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText('📌', n.x + r * 0.72, n.y - r * 0.72);
+          ctx.fillStyle = '#D9B96A';
+          ctx.beginPath();
+          ctx.arc(n.x + r * 0.72, n.y - r * 0.72, 3.5, 0, Math.PI * 2);
+          ctx.fill();
           ctx.restore();
         }
 
         // Node Title Label
-        ctx.font = isSelected || isHovered ? 'bold 12px sans-serif' : '11px sans-serif';
-        ctx.fillStyle = isSelected || isHovered ? '#FFFFFF' : '#E5E7EB';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        const humanTitle = humanNodeName(n);
-        const displayTitle = humanTitle.length > 25 ? humanTitle.slice(0, 23) + '…' : humanTitle;
-        ctx.fillText(displayTitle, n.x, n.y + r + 6);
+        // Etiquetas segun zoom: de lejos solo se nombran los nodos principales; al acercar aparecen las demas.
+        const emphasized = isSelected || isHovered || isOpen;
+        const isMinorNode = (n.radius || 24) < 22;
+        const showTitle = emphasized || (isFocusActive && isConnectedToFocus) || scale >= (isMinorNode ? 1.0 : 0.5);
+        if (showTitle) {
+          ctx.font = emphasized ? '600 13px Georgia, "Times New Roman", serif' : '12px system-ui, -apple-system, "Segoe UI", sans-serif';
+          ctx.fillStyle = emphasized ? '#F7EFD9' : 'rgba(229, 231, 235, 0.88)';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          const humanTitle = humanNodeName(n);
+          const displayTitle = humanTitle.length > 25 ? humanTitle.slice(0, 23) + '…' : humanTitle;
+          ctx.fillText(displayTitle, n.x, n.y + r + 7);
 
-        // Subtitle / Type Tag
-        ctx.font = '9px monospace';
-        ctx.fillStyle = isHovered ? '#38BDF8' : cfg.border;
-        ctx.fillText(cfg.label.toUpperCase(), n.x, n.y + r + 20);
+          // Tipo de nodo: solo al acercar o al enfocar
+          if (emphasized || scale >= 0.95) {
+            ctx.font = '500 9px system-ui, -apple-system, "Segoe UI", sans-serif';
+            ctx.fillStyle = emphasized ? '#D9B96A' : 'rgba(148, 163, 184, 0.8)';
+            ctx.fillText(cfg.label.toUpperCase().split('').join('\u200A'), n.x, n.y + r + 24);
+          }
+        }
         ctx.globalAlpha = 1.0;
       }
 
@@ -3457,7 +3484,7 @@ export default function CerebroPage() {
 
   // Directorio Humano y Canales de Contacto Directo
   const contactStats = useMemo(() => {
-    if (!graphData) return { leaders: 12, operational: 42, activeWhatsapps: 32, verifiedEmails: 44 };
+    if (!graphData) return { leaders: 0, operational: 0, activeWhatsapps: 0, verifiedEmails: 0 };
     const people = graphData.nodes.filter(n => n.type === 'person');
     let leaders = 0;
     let whatsapps = 0;
@@ -3469,25 +3496,26 @@ export default function CerebroPage() {
       if (p.frontmatter?.whatsapp || p.frontmatter?.phone_mobile) whatsapps++;
       if (p.frontmatter?.email_primary) emails++;
     }
-    const totalP = Math.max(people.length, 54);
-    const totalLeaders = Math.max(leaders, 12);
+    // Cifras reales del vault, sin minimos.
     return {
-      leaders: totalLeaders,
-      operational: Math.max(totalP - totalLeaders, 42),
-      activeWhatsapps: Math.max(whatsapps, 32),
-      verifiedEmails: Math.max(emails, 44),
+      leaders,
+      operational: people.length - leaders,
+      activeWhatsapps: whatsapps,
+      verifiedEmails: emails,
     };
   }, [graphData]);
 
   // Telemetría de Memoria Viva y Cierre S&OP
   const workingMemoryStats = useMemo(() => {
-    if (!graphData) return { activeCount: 2, avgCompleteness: 88 };
+    if (!graphData) return { activeCount: 0, avgCompleteness: 0, scoredCount: 0 };
     const wmNodes = graphData.nodes.filter(n => n.memory_tier === 'working');
-    const totalCompleteness = graphData.nodes.reduce((acc, n) => acc + (n.completeness_score || 70), 0);
-    const avg = Math.round(totalCompleteness / Math.max(graphData.nodes.length, 1));
+    // Promedio solo sobre los nodos que traen puntaje; los que no lo traen no se inventan.
+    const scored = graphData.nodes.filter(n => typeof n.completeness_score === 'number');
+    const avg = scored.length ? Math.round(scored.reduce((acc, n) => acc + (n.completeness_score as number), 0) / scored.length) : 0;
     return {
       activeCount: Math.max(wmNodes.length, summary.workingMemoryCount || 0),
-      avgCompleteness: Math.max(avg, 85),
+      avgCompleteness: avg,
+      scoredCount: scored.length,
     };
   }, [graphData, summary]);
 
