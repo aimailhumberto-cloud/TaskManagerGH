@@ -1928,11 +1928,10 @@ export default function CerebroPage() {
   useEffect(() => {
     if (!graphData || initialFitDoneRef.current) return;
     initialFitDoneRef.current = true;
-    const t = setTimeout(() => {
+    setTimeout(() => {
       updateCanvasDimensions();
       handleCenterAndFit();
     }, 450);
-    return () => clearTimeout(t);
   }, [graphData]);
 
   useEffect(() => {
