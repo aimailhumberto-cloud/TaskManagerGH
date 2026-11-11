@@ -20,4 +20,6 @@ for(const base of [{x:-400,y:120},{x:250,y:-600},{x:0,y:0}]){
 }
 const q={id:'other-contact',type:'person',frontmatter:{relations:{contact_for:['[[dist-b]]']}}};
 assert.notDeepEqual(contactTarget(p,[...ns,q],()=>({x:0,y:0})),contactTarget(q,[...ns,q],()=>({x:0,y:0})));
+const inheritedAnchor={...q,spatial_anchor:'market-belize'};
+assert.notDeepEqual(contactTarget(p,[...ns,inheritedAnchor],()=>({x:0,y:0})),contactTarget(inheritedAnchor,[...ns,inheritedAnchor],()=>({x:0,y:0})));
 console.log('PASS: multiple distributors, canonical edges, contacts separate from reporting, shared channels, stable adjacent positions and sibling separation');

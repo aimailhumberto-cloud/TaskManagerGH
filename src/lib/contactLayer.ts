@@ -44,7 +44,9 @@ export function contactTarget(person: ContactNode, nodes: ContactNode[], baseTar
   if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return null;
   const siblings = distributorContacts(parent.id, nodes).filter(n => {
     const own = String(n.frontmatter?.spatial_anchor || n.spatial_anchor || '').replace(/^\[\[|\]\]$/g, '');
-    return !own || own === parent.id;
+    const ownParents = contactDistributors(n, nodes);
+    const ownParent = ownParents.find(p => p.id === own) || [...ownParents].sort((a, b) => a.id.localeCompare(b.id))[0];
+    return ownParent?.id === parent.id;
   });
   const index = Math.max(0, siblings.findIndex(n => n.id === person.id));
   return { x: point.x + (point.x < 0 ? -1 : 1) * (100 + Math.floor(index / 6) * 84), y: point.y + 72 + (index % 6) * 70 };
