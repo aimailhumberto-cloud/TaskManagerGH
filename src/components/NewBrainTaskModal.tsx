@@ -12,7 +12,7 @@ interface NewBrainTaskModalProps {
 
 export default function NewBrainTaskModal({ distributors, isOpen, onClose, onCreated }: NewBrainTaskModalProps) {
   const [title, setTitle] = useState('');
-  const [dueDate, setDueDate] = useState(new Date().toISOString().slice(0, 10));
+  const [dueDate, setDueDate] = useState(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Panama', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()));
   const [priority, setPriority] = useState<'High' | 'Medium' | 'Low'>('High');
   const [targetNodeId, setTargetNodeId] = useState('');
   const [country, setCountry] = useState('Panamá');

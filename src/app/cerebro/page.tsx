@@ -3507,7 +3507,7 @@ export default function CerebroPage() {
           action: 'remember_working',
           title: quickInput.slice(0, 40),
           content: quickInput,
-          links: ['[[Role - Export Manager - NA & CA]]', '[[Core - S.M. Jaleel & Co. Ltd.]]'],
+          links: ['[[Person - Humberto Bouche]]', '[[Core - S.M. Jaleel & Co. Ltd.]]'],
         }),
       });
       if (res.ok) {

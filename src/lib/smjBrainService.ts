@@ -796,8 +796,14 @@ export function getUnifiedBrainTasks(options?: { lens?: string; market?: string 
         let distStatus: 'At Risk' | 'On Track' | 'Ahead' | 'Unspecified' = 'Unspecified';
 
         if (targetCases !== undefined && actualCases !== undefined && targetCases > 0) {
+          // complianceRate = avance contra la meta ANUAL; el semáforo compara contra el ritmo esperado a la fecha.
           complianceRate = Math.round((actualCases / targetCases) * 100);
-          distStatus = complianceRate < 70 ? 'At Risk' : complianceRate > 82 ? 'Ahead' : 'On Track';
+          const mNum = Number(todayStr.slice(5, 7));
+          const dNum = Number(todayStr.slice(8, 10));
+          const dim = new Date(Number(todayStr.slice(0, 4)), mNum, 0).getDate();
+          const elapsed = Math.max((mNum - 1 + dNum / dim) / 12, 1 / 12); // mínimo un mes para no marcar riesgo en enero
+          const pace = actualCases / (targetCases * elapsed);
+          distStatus = pace < 0.7 ? 'At Risk' : pace >= 1 ? 'Ahead' : 'On Track';
         }
 
         const isVerified = frontmatter.verification_status === 'confirmed_official_corporate' ||
@@ -817,6 +823,9 @@ export function getUnifiedBrainTasks(options?: { lens?: string; market?: string 
           const isNext48h = !isDone && !!dueDate && (dueDate === tomorrowStr || dueDate === dayAfterStr);
 
           const fuTaskId = generateTaskId(nodeId, 'fu', frontmatter.next_followup_action);
+          // El estado DOTS pertenece a la tarea que se le pidió (dots_task_id); sin ese dato se asume el seguimiento.
+          const fuDotsApplies = !frontmatter.dots_task_id || frontmatter.dots_task_id === fuTaskId;
+          const fuDotsActive = fuDotsApplies && (frontmatter.dots_status === 'solicitado' || frontmatter.dots_status === 'in_progress');
 
           tasks.push({
             id: fuTaskId,
@@ -830,14 +839,14 @@ export function getUnifiedBrainTasks(options?: { lens?: string; market?: string 
             countryCode,
             dueDate,
             priority: 'High',
-            status: isDone ? 'Completed' : (frontmatter.dots_status === 'solicitado' || frontmatter.dots_status === 'in_progress' ? 'In Review DOTS' : 'Pending'),
+            status: isDone ? 'Completed' : (fuDotsActive ? 'In Review DOTS' : 'Pending'),
             isCompleted: isDone,
             isOverdue,
             isToday,
             isNext48h,
-            dotsStatus: frontmatter.dots_status || 'idle',
-            dotsStage: frontmatter.dots_stage || (frontmatter.dots_status === 'in_progress' ? 'en_analisis' : undefined),
-            dotsInstruction: frontmatter.last_dots_instruction,
+            dotsStatus: fuDotsApplies ? (frontmatter.dots_status || 'idle') : 'idle',
+            dotsStage: fuDotsApplies ? (frontmatter.dots_stage || (frontmatter.dots_status === 'in_progress' ? 'en_analisis' : undefined)) : undefined,
+            dotsInstruction: fuDotsApplies ? frontmatter.last_dots_instruction : undefined,
             distributorQuota: targetCases !== undefined || actualCases !== undefined ? {
               annualTargetCases: targetCases,
               actualCasesYTD: actualCases,
@@ -863,6 +872,8 @@ export function getUnifiedBrainTasks(options?: { lens?: string; market?: string 
             if (!isDone) distPendingCount++;
 
             const taskId = generateTaskId(nodeId, 'pt', pt, idx + 1);
+            const ptDotsHere = !isDone && frontmatter.dots_task_id === taskId;
+            const ptDotsActive = ptDotsHere && (frontmatter.dots_status === 'solicitado' || frontmatter.dots_status === 'in_progress');
 
             tasks.push({
               id: taskId,
@@ -876,13 +887,14 @@ export function getUnifiedBrainTasks(options?: { lens?: string; market?: string 
               countryCode,
               dueDate,
               priority: (isObj && pt.priority) ? pt.priority : (idx === 0 ? 'High' : 'Medium'),
-              status: isDone ? 'Completed' : 'Pending',
+              status: isDone ? 'Completed' : (ptDotsActive ? 'In Review DOTS' : 'Pending'),
               isCompleted: isDone,
               isOverdue,
               isToday,
               isNext48h,
-              dotsStatus: isObj && pt.dotsStatus ? pt.dotsStatus : 'idle',
-              dotsStage: isObj && pt.dotsStage ? pt.dotsStage : undefined,
+              dotsStatus: isObj && pt.dotsStatus ? pt.dotsStatus : (ptDotsHere ? (frontmatter.dots_status || 'idle') : 'idle'),
+              dotsStage: isObj && pt.dotsStage ? pt.dotsStage : (ptDotsHere ? frontmatter.dots_stage : undefined),
+              dotsInstruction: ptDotsHere ? frontmatter.last_dots_instruction : undefined,
               distributorQuota: targetCases !== undefined || actualCases !== undefined ? {
                 annualTargetCases: targetCases,
                 actualCasesYTD: actualCases,
@@ -920,7 +932,8 @@ export function getUnifiedBrainTasks(options?: { lens?: string; market?: string 
 
         let routineDueDate: string | undefined = undefined;
         if (isRoutine && typeof frontmatter.due_day_of_month === 'number') {
-          const dayNum = String(frontmatter.due_day_of_month).padStart(2, '0');
+          const dimNow = new Date(Number(todayStr.slice(0, 4)), Number(todayStr.slice(5, 7)), 0).getDate();
+          const dayNum = String(Math.min(Math.max(Math.round(frontmatter.due_day_of_month), 1), dimNow)).padStart(2, '0');
           const ym = todayStr.slice(0, 7);
           routineDueDate = `${ym}-${dayNum}`;
         } else if (frontmatter.target_date) {
@@ -933,8 +946,12 @@ export function getUnifiedBrainTasks(options?: { lens?: string; market?: string 
           frontmatter.checklist.forEach((item: any, idx: number) => {
             const isObj = typeof item === 'object' && item !== null;
             const taskText = isObj ? item.text || item.title : String(item);
-            const isDone = isObj ? !!item.completed : false;
-            const itemDueDate = isObj && item.dueDate ? item.dueDate : routineDueDate;
+            let isDone = isObj ? !!item.completed : false;
+            // Rutina mensual: lo completado en un mes anterior se renueva en el mes en curso.
+            if (isDone && isRoutine && isObj && item.completed_at && String(item.completed_at).slice(0, 7) < todayStr.slice(0, 7)) {
+              isDone = false;
+            }
+            const itemDueDate = isObj && item.dueDate && !(isRoutine && String(item.dueDate).slice(0, 7) < todayStr.slice(0, 7)) ? item.dueDate : routineDueDate;
 
             const isOverdue = !isDone && !!itemDueDate && itemDueDate < todayStr;
             const isToday = !isDone && !!itemDueDate && itemDueDate === todayStr;
@@ -1005,8 +1022,44 @@ export function getUnifiedBrainTasks(options?: { lens?: string; market?: string 
         });
       }
 
+      // 3b. OTROS NODOS con pending_tasks (marca, departamento, organización, core, país, grupo...)
+      if (!['distributor', 'market', 'working_memory', 'routine', 'project'].includes(String(frontmatter.type)) && Array.isArray(frontmatter.pending_tasks)) {
+        const gCountry = frontmatter.based_in_country || frontmatter.country_name || frontmatter.country || 'Global';
+        const gCode = getCountryCode(gCountry);
+        frontmatter.pending_tasks.forEach((pt: any, idx: number) => {
+          const isObj = typeof pt === 'object' && pt !== null;
+          const taskText = isObj ? pt.title || pt.text : String(pt);
+          if (!taskText) return;
+          const isDone = isObj ? !!pt.completed : false;
+          const dueDate = isObj && pt.dueDate ? pt.dueDate : undefined;
+          const taskId = generateTaskId(nodeId, 'pt', pt, idx + 1);
+          const dotsHere = !isDone && frontmatter.dots_task_id === taskId;
+          tasks.push({
+            id: taskId,
+            title: taskText,
+            description: isObj && pt.description ? pt.description : `Pendiente de ${nodeTitle}`,
+            sourceType: 'adhoc',
+            sourceFile: relFile,
+            sourceNodeId: nodeId,
+            sourceNodeTitle: nodeTitle,
+            country: gCountry,
+            countryCode: gCode,
+            dueDate,
+            priority: isObj && pt.priority ? pt.priority : 'Medium',
+            status: isDone ? 'Completed' : (dotsHere ? 'In Review DOTS' : 'Pending'),
+            isCompleted: isDone,
+            isOverdue: !isDone && !!dueDate && dueDate < todayStr,
+            isToday: !isDone && !!dueDate && dueDate === todayStr,
+            isNext48h: !isDone && !!dueDate && (dueDate === tomorrowStr || dueDate === dayAfterStr),
+            dotsStatus: dotsHere ? (frontmatter.dots_status || 'idle') : 'idle',
+            dotsStage: dotsHere ? frontmatter.dots_stage : undefined,
+            tags: [String(frontmatter.type || 'nodo')],
+          });
+        });
+      }
+
       // 4. WORKING MEMORY (DOTS active items)
-      if (frontmatter.type === 'working_memory' && frontmatter.status !== 'archived') {
+      if (frontmatter.type === 'working_memory' && frontmatter.status !== 'archived' && frontmatter.status !== 'consolidated') {
         const isDone = frontmatter.status === 'completed';
         const cleanTitle = (frontmatter.title || filename).replace(/^Working Memory:\s*/i, '');
         const isDotsReview = frontmatter.status === 'in_review_dots' || frontmatter.status === 'pulsing' || frontmatter.lifecycle_stage === 'solicitado';
@@ -1296,6 +1349,7 @@ export function askDotsTask(taskId: string, instruction: string, requestedBy?: s
     const upd = updateNoteFile(fullSourcePath, (frontmatter) => {
       frontmatter.dots_status = 'solicitado';
       frontmatter.dots_stage = 'solicitado';
+      frontmatter.dots_task_id = taskId;
       frontmatter.last_dots_instruction = instruction;
       frontmatter.last_dots_request_at = nowIso;
       pushRecentAction(frontmatter, {
@@ -1362,6 +1416,90 @@ ${instruction}
     workingMemoryId: wmId,
     workingMemoryPath: filename,
   };
+}
+
+export const DOTS_STAGES = ['solicitado', 'recibido', 'en_analisis', 'borrador_listo', 'aprobado_resuelto'] as const;
+export type DotsStage = typeof DOTS_STAGES[number];
+
+/**
+ * Avanza una instrucción de DOTS por su ciclo de vida (solicitado → recibido → en_analisis → borrador_listo → aprobado_resuelto).
+ * Actualiza la nota de memoria de trabajo (estado + casillas) y el expediente de origen.
+ * Reconoce la nota por su id (wm-...) o por el id de la tarea a la que responde.
+ */
+export function advanceDotsStage(input: { workingMemoryId?: string; taskId?: string; stage: string; draft?: string; updatedBy?: string }): { ok: boolean; message: string; stage?: string } {
+  const stage = input.stage as DotsStage;
+  const stageIdx = DOTS_STAGES.indexOf(stage);
+  if (stageIdx < 0) {
+    return { ok: false, message: `Etapa '${input.stage}' no válida. Usa: ${DOTS_STAGES.join(', ')}.` };
+  }
+  if (!input.workingMemoryId && !input.taskId) {
+    return { ok: false, message: 'Falta workingMemoryId o taskId.' };
+  }
+
+  const vaultDir = getVaultPath();
+  const wmDir = path.join(vaultDir, '00-Working-Memory');
+  const files = fs.existsSync(wmDir) ? getAllMarkdownFiles(wmDir) : [];
+  let wmFile: string | null = null;
+  for (const f of files) {
+    const note = readNoteStrict(f);
+    if (!note.ok) continue;
+    const fm = note.frontmatter;
+    if ((input.workingMemoryId && fm.id === input.workingMemoryId) ||
+        (!input.workingMemoryId && input.taskId && fm.target_task_id === input.taskId && fm.status !== 'completed' && fm.status !== 'consolidated')) {
+      wmFile = f;
+      if (input.workingMemoryId) break;
+    }
+  }
+  if (!wmFile) {
+    return { ok: false, message: 'No se encontró la instrucción de DOTS indicada.' };
+  }
+
+  const { dateStr, timeStr } = getPanamaDate();
+  const nowIso = new Date().toISOString();
+  const actor = input.updatedBy || 'DOTS Agent';
+  let targetTaskId = '';
+
+  const upd = updateNoteFile(wmFile, (fm, body) => {
+    targetTaskId = String(fm.target_task_id || '');
+    fm.lifecycle_stage = stage;
+    fm.status = stage === 'aprobado_resuelto' ? 'completed' : 'in_review_dots';
+    if (stage === 'aprobado_resuelto') fm.completed_at = nowIso;
+    fm.last_updated_at = nowIso;
+    fm.last_updated_by = actor;
+    let newBody = body.split('\n').map(line => {
+      const m = line.match(/^- \[[ x]\] \*\*(\d)\./);
+      if (!m) return line;
+      const n = Number(m[1]);
+      return line.replace(/^- \[[ x]\]/, n <= stageIdx + 1 ? '- [x]' : '- [ ]');
+    }).join('\n');
+    if (input.draft && input.draft.trim()) {
+      newBody += `\n\n## Borrador / Entregable (${dateStr} ${timeStr})\n${input.draft.trim()}\n`;
+    }
+    return { body: newBody };
+  });
+  if (!upd.ok) return { ok: false, message: upd.error };
+  syncToBundledVault(path.relative(vaultDir, wmFile), upd.content);
+
+  // Reflejar la etapa en el expediente de origen (mejor esfuerzo).
+  if (targetTaskId) {
+    try {
+      const target = getUnifiedBrainTasks().tasks.find(t => t.id === targetTaskId);
+      if (target) {
+        const srcPath = path.join(vaultDir, target.sourceFile);
+        if (fs.existsSync(srcPath)) {
+          const srcUpd = updateNoteFile(srcPath, (fm) => {
+            if (fm.dots_task_id && fm.dots_task_id !== targetTaskId) return;
+            fm.dots_stage = stage;
+            fm.dots_status = stage === 'solicitado' ? 'solicitado' : stage === 'aprobado_resuelto' ? 'completed' : 'in_progress';
+            pushRecentAction(fm, { date: dateStr, type: 'avance_dots', summary: `DOTS avanzó a [${stage}] (${timeStr})` });
+          });
+          if (srcUpd.ok) syncToBundledVault(target.sourceFile, srcUpd.content);
+        }
+      }
+    } catch {}
+  }
+
+  return { ok: true, message: `Instrucción de DOTS avanzada a '${stage}'.`, stage };
 }
 
 /** Busca el archivo de un nodo: id exacto, título exacto, nombre de archivo exacto; solo si no hay, coincidencia parcial ÚNICA. */

@@ -9,6 +9,10 @@ import NewBrainTaskModal from '@/components/NewBrainTaskModal';
 
 type ActiveTab = 'radar' | 'distributors' | 'markets' | 'universe' | 'calendar';
 
+function panamaToday(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Panama', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState<UnifiedBrainTask[]>([]);
   const [distributors, setDistributors] = useState<DistributorSummary[]>([]);
@@ -101,9 +105,11 @@ export default function TasksPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
+        showToast(`No se pudo guardar: ${data?.error || data?.message || 'error del servidor'}`);
         fetchTasks(true);
       }
     } catch {
+      showToast('No se pudo guardar: sin conexión con el servidor');
       fetchTasks(true);
     }
   };
@@ -111,7 +117,8 @@ export default function TasksPage() {
   // 2. Reschedule task (+1d, +3d, +1w)
   const handleReschedule = async (task: UnifiedBrainTask, daysToAdd: number) => {
     setActiveRescheduleId(null);
-    const curr = new Date(task.dueDate || new Date());
+    const baseDay = task.dueDate ? String(task.dueDate).slice(0, 10) : panamaToday();
+    const curr = new Date(`${baseDay}T12:00:00Z`);
     const nextDate = new Date(curr.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
     const newDueDate = nextDate.toISOString().slice(0, 10);
 
@@ -121,7 +128,7 @@ export default function TasksPage() {
     showToast(`Tarea reagendada al ${newDueDate}`);
 
     try {
-      await fetch('/api/agent/tasks', {
+      const res = await fetch('/api/agent/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -130,7 +137,13 @@ export default function TasksPage() {
           newDueDate,
         }),
       });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok) {
+        showToast(`No se pudo reagendar: ${data?.error || data?.message || 'error del servidor'}`);
+        fetchTasks(true);
+      }
     } catch {
+      showToast('No se pudo reagendar: sin conexión con el servidor');
       fetchTasks(true);
     }
   };
@@ -389,7 +402,7 @@ export default function TasksPage() {
                         Para Hoy ({todayTasks.length})
                       </h2>
                     </div>
-                    <span className="text-xs font-mono text-slate-500">{new Date().toISOString().slice(0, 10)}</span>
+                    <span className="text-xs font-mono text-slate-500">{panamaToday()}</span>
                   </div>
                   {todayTasks.length === 0 ? (
                     <div className="p-6 rounded-xl border border-[#1b273d] bg-[#0c1424] text-center text-xs text-slate-400">

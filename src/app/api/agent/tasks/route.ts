@@ -5,6 +5,7 @@ import {
   rescheduleBrainTask,
   askDotsTask,
   createBrainTask,
+  advanceDotsStage,
 } from '@/lib/smjBrainService';
 
 export const dynamic = 'force-dynamic';
@@ -86,6 +87,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(result, { status: result.ok ? 200 : 404, headers: CORS_HEADERS });
     }
 
+    if (action === 'advance_dots') {
+      const { workingMemoryId, taskId, stage, draft, updatedBy } = body;
+      if (!stage || (!workingMemoryId && !taskId)) {
+        return NextResponse.json(
+          { ok: false, error: 'stage y (workingMemoryId o taskId) son requeridos para advance_dots' },
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+      const result = advanceDotsStage({ workingMemoryId, taskId, stage, draft, updatedBy });
+      return NextResponse.json(result, { status: result.ok ? 200 : 404, headers: CORS_HEADERS });
+    }
+
     if (action === 'create') {
       const { title, dueDate, priority, country, targetNodeId, description } = body;
       if (!title) {
@@ -99,7 +112,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { ok: false, error: `Acción '${action}' no reconocida. Usa 'complete', 'reschedule', 'ask_dots' o 'create'.` },
+      { ok: false, error: `Acción '${action}' no reconocida. Usa 'complete', 'reschedule', 'ask_dots', 'advance_dots' o 'create'.` },
       { status: 400, headers: CORS_HEADERS }
     );
   } catch (error: any) {
