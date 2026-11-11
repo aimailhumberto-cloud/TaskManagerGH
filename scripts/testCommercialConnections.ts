@@ -23,4 +23,5 @@ assert.equal(commercialConnections(outlet,nodes,links).find(c=>c.node.id==='pers
 assert.deepEqual(contactTarget({id:'unassigned',type:'person'},nodes,()=>({x:0,y:0})),null);
 assert.equal(searchBrainNodes([{id:'person-country',title:'Person: Someone',type:'person',frontmatter:{based_in_country:'Canada'}},market],'Canada')[0].id,'market');
 assert.deepEqual(packagingDescription({volume_value:19,volume_unit:'oz_as_published',units_per_case:12}),{container:'No especificado',configuration:'Caja x 12',size:'19 oz'});
+assert.equal(commercialConnections({...d,frontmatter:{relations:{carries_brand:['brand']}}},[d,{id:'brand',type:'brand'}],[])[0].node.id,'brand');
 console.log('PASS: typed commercial relationships, historical labels, deduplication and multiple outlet/distributor contact anchors');

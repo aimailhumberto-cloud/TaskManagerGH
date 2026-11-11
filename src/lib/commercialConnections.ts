@@ -8,6 +8,7 @@ labels.research_accounts='Cuenta en investigación · proveedor por verificar'; 
 labels.carries_line='Línea publicada en catálogo'; supported.add('carries_line');
 labels.documented_product_lines='Línea documentada'; supported.add('documented_product_lines');
 labels.coordinates_with='Coordinación SMJ'; supported.add('coordinates_with');
+for(const key of ['carries_brand','carries_brands','active_brands']){labels[key]='Marca documentada';supported.add(key);}
 /** Resolve only typed links or declared relations, never proximity or a country-name guess. */
 export function commercialConnections(node:IdentityNode,nodes:IdentityNode[],links:ContactLink[]){
  const grouped=new Map<string,Set<string>>();const byId=new Map(nodes.map(n=>[n.id,n]));
