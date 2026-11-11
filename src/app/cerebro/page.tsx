@@ -3524,7 +3524,7 @@ export default function CerebroPage() {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col w-screen h-screen bg-[#060A12] text-gray-100 overflow-hidden font-sans">
+    <div className="cerebro-lux fixed inset-0 z-[60] flex flex-col w-screen h-screen bg-[#060A12] text-gray-100 overflow-hidden font-sans">
       {/* Top Header Navigation & Executive HUD */}
       {/* Top Header Navigation & Executive HUD */}
       <header className="h-12 max-h-[48px] px-3 md:px-5 flex items-center justify-between border-b border-gray-800 bg-[#0B111E] z-50 shrink-0 relative shadow-md">
@@ -3540,7 +3540,6 @@ export default function CerebroPage() {
           </Link>
           <div className="h-4 w-px bg-gray-700 shrink-0" />
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-lg md:text-xl shrink-0">🌌</span>
             <h1 className="font-bold text-xs md:text-sm tracking-wide text-white truncate flex items-center gap-1.5">
               <span>SMJ Cerebro</span>
               <span className="hidden xl:inline text-sky-400 font-normal">| Segundo Cerebro Vivo</span>
@@ -3563,7 +3562,6 @@ export default function CerebroPage() {
         {/* Center: Search Bar with Autocomplete Dropdown */}
         <div className="hidden sm:flex relative flex-1 max-w-xs md:max-w-md mx-3">
           <div className="flex items-center bg-gray-900/90 border border-gray-700 focus-within:border-sky-500 rounded-lg px-2.5 py-1 w-full transition shadow-inner">
-            <span className="text-gray-400 text-xs mr-2">🔍</span>
             <input
               type="text"
               value={searchQuery}
@@ -3605,7 +3603,7 @@ export default function CerebroPage() {
                       <p className="text-[10px] text-gray-400 font-mono">{(TYPE_CONFIG[node.type] || TYPE_CONFIG.department).label}</p>
                     </div>
                   </div>
-                  <span className="text-[10px] text-sky-400 font-mono shrink-0">Ver ➔</span>
+                  <span className="text-[10px] text-sky-400 font-mono shrink-0">Ver →</span>
                 </div>
               ))}
             </div>
@@ -3664,7 +3662,6 @@ export default function CerebroPage() {
             className="px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-sky-300 border border-sky-800/80 text-xs font-semibold flex items-center gap-1 transition shadow-sm active:scale-95"
             title="Centrar y reencuadrar el mapa"
           >
-            <span>🎯</span>
             <span className="hidden sm:inline">Centrar</span>
           </button>
 
@@ -3685,7 +3682,6 @@ export default function CerebroPage() {
             }`}
             title="Abrir o cerrar fichas ejecutivas"
           >
-            <span>📋</span>
             <span className="hidden md:inline">Fichas</span>
             <span className="font-mono text-[11px] font-bold">({stackedDeck.length})</span>
           </button>
@@ -3700,7 +3696,6 @@ export default function CerebroPage() {
             }`}
             title="Herramientas, capas de catálogo y ajustes del cerebro"
           >
-            <span>⚙️</span>
             <span className="hidden md:inline">Ajustes</span>
             <span className="text-[10px] font-mono">{isSettingsMenuOpen ? '▲' : '▼'}</span>
           </button>
@@ -3732,7 +3727,7 @@ export default function CerebroPage() {
           <div className="fixed sm:absolute inset-x-0 sm:inset-x-auto sm:right-4 top-12 z-50 w-full sm:w-96 max-h-[calc(100vh-60px)] overflow-y-auto bg-gray-950/98 border border-sky-500/70 sm:rounded-2xl shadow-2xl p-4 space-y-4 backdrop-blur-xl animate-in slide-in-from-top-2 duration-150 text-xs">
             <div className="flex items-center justify-between pb-2 border-b border-gray-800">
               <span className="font-bold text-white flex items-center gap-2 text-sm">
-                <span>⚙️</span> Ajustes & Control Cerebro
+                Ajustes & Control Cerebro
               </span>
               <button
                 onClick={() => setIsSettingsMenuOpen(false)}
@@ -3760,34 +3755,34 @@ export default function CerebroPage() {
                 }}
                 className="w-full bg-gray-900 text-sky-300 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-sky-400 font-medium"
               >
-                <option value="">📋 Seleccionar Entidad por Nombre...</option>
+                <option value="">Seleccionar Entidad por Nombre...</option>
                 {(() => {
                   const fullCatalog = (graphData as any)?.allNodes || graphData?.nodes || nodesRef.current || [];
                   return (
                     <>
-                      <optgroup label="🧃 Marcas Master SMJ">
+                      <optgroup label="Marcas Master SMJ">
                         {fullCatalog.filter((n: any) => n.type === 'brand').map((n: any) => (
-                          <option key={n.id} value={n.id}>🧃 {n.title}</option>
+                          <option key={n.id} value={n.id}>{n.title}</option>
                         ))}
                       </optgroup>
-                      <optgroup label="🏛️ Filiales & Organizaciones Globales">
+                      <optgroup label="Filiales & Organizaciones Globales">
                         {fullCatalog.filter((n: any) => n.type === 'organization').map((n: any) => (
-                          <option key={n.id} value={n.id}>🏛️ {n.title}</option>
+                          <option key={n.id} value={n.id}>{n.title}</option>
                         ))}
                       </optgroup>
-                      <optgroup label="🌎 Mercados, Canales, Operadores & Clientes">
+                      <optgroup label="Mercados, Canales, Operadores & Clientes">
                         {fullCatalog.filter((n: any) => n.type === 'market' || n.type === 'distributor' || n.type === 'operator' || n.type === 'channel' || n.type === 'customer' || n.type === 'client_group' || n.type === 'client').map((n: any) => (
                           <option key={n.id} value={n.id}>{(TYPE_CONFIG[n.type] || TYPE_CONFIG.department).icon} {n.title}</option>
                         ))}
                       </optgroup>
-                      <optgroup label="🏢 Departamentos & Jefaturas">
+                      <optgroup label="Departamentos & Jefaturas">
                         {fullCatalog.filter((n: any) => n.type === 'core' || n.type === 'department').map((n: any) => (
-                          <option key={n.id} value={n.id}>🏢 {n.title}</option>
+                          <option key={n.id} value={n.id}>{n.title}</option>
                         ))}
                       </optgroup>
-                      <optgroup label="👑 Personas & Directivos">
+                      <optgroup label="Personas & Directivos">
                         {fullCatalog.filter((n: any) => n.type === 'person').map((n: any) => (
-                          <option key={n.id} value={n.id}>👤 {n.title}</option>
+                          <option key={n.id} value={n.id}>{n.title}</option>
                         ))}
                       </optgroup>
                     </>
@@ -3850,7 +3845,7 @@ export default function CerebroPage() {
                     catalogScope === 'collapsed' ? 'bg-amber-950/80 border-amber-500 text-amber-200 font-bold' : 'bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-800'
                   }`}
                 >
-                  <span>📁 Plegar Todo</span>
+                  <span>Plegar Todo</span>
                   <span className="text-[9px] text-gray-400">80 N</span>
                 </button>
                 <button
@@ -3859,7 +3854,7 @@ export default function CerebroPage() {
                     catalogScope === 'all' ? 'bg-amber-950/80 border-amber-500 text-amber-200 font-bold' : 'bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-800'
                   }`}
                 >
-                  <span>📦 Desplegar Todo</span>
+                  <span>Desplegar Todo</span>
                   <span className="text-[9px] text-gray-400">379 N</span>
                 </button>
               </div>
@@ -3893,7 +3888,7 @@ export default function CerebroPage() {
                     orgScope === 'collapsed' ? 'bg-purple-950/80 border-purple-500 text-purple-200 font-bold' : 'bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-800'
                   }`}
                 >
-                  <span>🏛️ Plegar Todo</span>
+                  <span>Plegar Todo</span>
                   <span className="text-[9px] text-gray-400">12 L</span>
                 </button>
                 <button
@@ -3902,7 +3897,7 @@ export default function CerebroPage() {
                     orgScope === 'all' ? 'bg-purple-950/80 border-purple-500 text-purple-200 font-bold' : 'bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-800'
                   }`}
                 >
-                  <span>👥 Desplegar Todo</span>
+                  <span>Desplegar Todo</span>
                   <span className="text-[9px] text-gray-400">54 P</span>
                 </button>
               </div>
@@ -3918,7 +3913,6 @@ export default function CerebroPage() {
                     gravityActive ? 'bg-sky-950/80 border-sky-600 text-sky-300' : 'bg-gray-900 border-gray-800 text-gray-400'
                   }`}
                 >
-                  <span>{gravityActive ? '🌊' : '⏸'}</span>
                   <span>{gravityActive ? 'Gravedad: Activa' : 'Gravedad: Pausada'}</span>
                 </button>
 
@@ -3927,7 +3921,6 @@ export default function CerebroPage() {
                   disabled={isSubmitting}
                   className="px-2.5 py-2 rounded-lg border border-amber-600/70 bg-gradient-to-r from-amber-900/60 to-amber-800/60 hover:from-amber-800 hover:to-amber-700 text-amber-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition disabled:opacity-50"
                 >
-                  <span>⚡</span>
                   <span>Consolidar Nodos</span>
                 </button>
               </div>
@@ -3939,7 +3932,6 @@ export default function CerebroPage() {
                   }}
                   className="w-full py-2 px-3 rounded-lg bg-cyan-950/80 border border-cyan-500/70 text-cyan-200 text-xs font-mono font-bold flex items-center justify-center gap-1.5 hover:bg-cyan-900/80 transition"
                 >
-                  <span>📌</span>
                   <span>Restaurar {pinnedCount} Nodos Anclados (Desanclar Todo)</span>
                 </button>
               )}
@@ -3955,7 +3947,6 @@ export default function CerebroPage() {
                     isHudOpen ? 'bg-indigo-950/80 border-indigo-500 text-indigo-300' : 'bg-gray-900 border-gray-800 text-gray-400'
                   }`}
                 >
-                  <span>📊</span>
                   <span>{isHudOpen ? 'Ocultar HUD' : 'Mostrar HUD'}</span>
                 </button>
 
@@ -3963,7 +3954,6 @@ export default function CerebroPage() {
                   onClick={fetchGraph}
                   className="py-1.5 px-2.5 rounded-lg border border-gray-700 bg-gray-900 hover:bg-gray-800 text-gray-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
                 >
-                  <span>🔄</span>
                   <span>Sincronizar Vault</span>
                 </button>
               </div>
@@ -3984,7 +3974,7 @@ export default function CerebroPage() {
             }`}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400 font-bold flex items-center gap-1">
-                  <span>🧠</span> Salud Memoria
+                  Salud Memoria
                 </span>
                 <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold ${
                   linkHealthAudit.brokenCount === 0
@@ -4001,7 +3991,7 @@ export default function CerebroPage() {
                 <span className="text-[10px] text-gray-400 font-mono">0 Fugas Auditadas</span>
               </div>
               <div className="mt-1 text-[9px] text-gray-400 truncate font-mono">
-                {linkHealthAudit.brokenCount === 0 ? '✅ Sinapsis íntegras en bóveda' : `⚠️ Faltan: ${linkHealthAudit.brokenSample.join(', ')}`}
+                {linkHealthAudit.brokenCount === 0 ? 'Sinapsis íntegras en bóveda' : `Faltan: ${linkHealthAudit.brokenSample.join(', ')}`}
               </div>
             </div>
 
@@ -4009,7 +3999,7 @@ export default function CerebroPage() {
             <div className="p-2.5 rounded-xl bg-gray-900/80 border border-amber-500/40 hover:border-amber-500/70 backdrop-blur transition-all">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold flex items-center gap-1">
-                  <span>⚡</span> Memoria Viva & S&OP
+                  Memoria Viva & S&OP
                 </span>
                 <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-800">
                   {workingMemoryStats.activeCount} en tránsito
@@ -4040,7 +4030,7 @@ export default function CerebroPage() {
             <div className="p-2.5 rounded-xl bg-gray-900/80 border border-sky-500/40 hover:border-sky-500/70 backdrop-blur transition-all">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-sky-400 font-bold flex items-center gap-1">
-                  <span>👥</span> Directorio Humano
+                  Directorio Humano
                 </span>
                 <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-sky-950 text-sky-300 border border-sky-800">
                   {contactStats.leaders + contactStats.operational} Total
@@ -4051,11 +4041,11 @@ export default function CerebroPage() {
                   {contactStats.leaders} <span className="text-[10px] text-gray-400 font-normal">Líderes</span> · {contactStats.operational} <span className="text-[10px] text-gray-400 font-normal">Staff</span>
                 </span>
                 <span className="text-[10px] text-emerald-400 font-mono">
-                  💬 {contactStats.activeWhatsapps} WA
+                  {contactStats.activeWhatsapps} WA
                 </span>
               </div>
               <div className="mt-1 flex items-center justify-between text-[9px] text-gray-400 font-mono">
-                <span>✉️ {contactStats.verifiedEmails} Emails Verificados</span>
+                <span>{contactStats.verifiedEmails} Emails Verificados</span>
                 <span className="text-sky-400 font-semibold">100% Contacto</span>
               </div>
             </div>
@@ -4064,7 +4054,7 @@ export default function CerebroPage() {
             <div className="p-2.5 rounded-xl bg-gray-900/80 border border-indigo-500/40 hover:border-indigo-500/70 backdrop-blur transition-all">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400 font-bold flex items-center gap-1">
-                  <span>🌐</span> Red & Sinapsis
+                  Red & Sinapsis
                 </span>
                 <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" /> Live Vault
@@ -4087,7 +4077,7 @@ export default function CerebroPage() {
             <div className="p-2.5 rounded-xl bg-gray-900/80 border border-teal-500/40 hover:border-teal-500/70 backdrop-blur transition-all">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-teal-400 font-bold flex items-center gap-1">
-                  <span>📦</span> Portafolio & Supply
+                  Portafolio & Supply
                 </span>
                 <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-teal-950 text-teal-300 border border-teal-800">
                   {graphData?.summary.brandsCount ?? '—'} Marcas Máster
@@ -4136,7 +4126,7 @@ export default function CerebroPage() {
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-950 text-sky-300 border border-sky-700 hover:bg-sky-900 transition font-bold active:scale-95"
                 title="Volver al nivel anterior (o presiona Escape)"
               >
-                <span>⬅</span>
+                <span>←</span>
                 <span>Atrás</span>
               </button>
               <div className="h-4 w-px bg-gray-700" />
@@ -4145,14 +4135,13 @@ export default function CerebroPage() {
                 className="text-gray-400 hover:text-white transition flex items-center gap-1"
                 title="Volver al Universo Completo"
               >
-                <span>🌌</span>
                 <span className="hidden sm:inline">Universo SMJ</span>
               </button>
               {drilldownStack.map((item) => (
                 <span key={item.id} className="flex items-center gap-1 text-white">
                   <span className="text-gray-500">›</span>
                   <span className="text-amber-300 font-bold bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800 flex items-center gap-1">
-                    <span>{item.type === 'brand' ? '🧃' : '🏛️'}</span>
+                    
                     <span>{item.title}</span>
                   </span>
                 </span>
@@ -4168,7 +4157,6 @@ export default function CerebroPage() {
                 className="px-3 py-1.5 rounded-xl bg-gray-900/95 hover:bg-gray-800 border border-cyan-500/80 text-cyan-300 text-xs font-mono font-semibold shadow-2xl flex items-center gap-1.5 backdrop-blur transition active:scale-95 animate-in fade-in"
                 title="Restaurar todos los nodos anclados a sus órbitas originales"
               >
-                <span>📌</span>
                 <span>Restaurar {pinnedCount} Anclados</span>
               </button>
             )}
@@ -4177,7 +4165,6 @@ export default function CerebroPage() {
               className="px-3 py-1.5 rounded-xl bg-gray-900/95 hover:bg-gray-800 border border-sky-500/80 text-sky-300 text-xs font-mono font-semibold shadow-2xl flex items-center gap-1.5 backdrop-blur transition active:scale-95"
               title="Centrar y reencuadrar el grafo en pantalla"
             >
-              <span>🎯</span>
               <span>Centrar</span>
             </button>
           </div>
@@ -4260,7 +4247,7 @@ export default function CerebroPage() {
                           </span>
                           {hoveredNode.isPinned && (
                             <span className="text-[8px] font-mono text-cyan-300 bg-cyan-950/80 px-1 py-0.5 rounded border border-cyan-800 flex items-center gap-0.5">
-                              <span>📌</span> Anclado
+                              Anclado
                             </span>
                           )}
                           {hoveredNode.completeness_score !== undefined && (
@@ -4284,13 +4271,13 @@ export default function CerebroPage() {
                 <div className="mt-2 p-2 rounded-lg bg-gray-900/90 border border-gray-800 text-[11px] font-mono space-y-1">
                   {hoveredNode.type === 'brand' && (
                     <div>
-                      <span className="text-amber-400 font-bold block text-[10px] uppercase">📦 Siguiente Capa (Catálogo):</span>
+                      <span className="text-amber-400 font-bold block text-[10px] uppercase">Siguiente Capa (Catálogo):</span>
                       <span className="text-gray-300">Formato: 250ml / Packs · 6 Sabores · Estiba 2,800 cajas/cont</span>
                     </div>
                   )}
                   {hoveredNode.type === 'market' && (
                     <div>
-                      <span className="text-teal-400 font-bold block text-[10px] uppercase">🤝 Siguiente Capa (Distribuidor):</span>
+                      <span className="text-teal-400 font-bold block text-[10px] uppercase">Siguiente Capa (Distribuidor):</span>
                       <span className="text-gray-200">
                         {marketDistributorLabel(getMarketDistributors(
                           hoveredNode.id,
@@ -4302,7 +4289,7 @@ export default function CerebroPage() {
                   )}
                   {hoveredNode.type === 'distributor' && (
                     <div>
-                      <span className="text-emerald-400 font-bold block text-[10px] uppercase">🌎 Siguiente Capa (Territorio):</span>
+                      <span className="text-emerald-400 font-bold block text-[10px] uppercase">Siguiente Capa (Territorio):</span>
                       <span className="text-gray-200">
                         {hoveredNode.id.includes('medimex') || hoveredNode.id.includes('panama') ? 'Panamá · Chubby, Fruta & Busta' :
                          hoveredNode.id.includes('sancas') ? 'Belice (CARICOM) · Chubby & Fruta' :
@@ -4312,7 +4299,7 @@ export default function CerebroPage() {
                   )}
                   {hoveredNode.type === 'person' && (
                     <div>
-                      <span className="text-sky-400 font-bold block text-[10px] uppercase">👥 Siguiente Capa (Equipo):</span>
+                      <span className="text-sky-400 font-bold block text-[10px] uppercase">Siguiente Capa (Equipo):</span>
                       <span className="text-gray-200">
                         {hoveredNode.frontmatter?.job_title || 'Cargo Ejecutivo'} · {hoveredNode.frontmatter?.based_in_city || 'HQ'}
                       </span>
@@ -4320,7 +4307,7 @@ export default function CerebroPage() {
                   )}
                   {hoveredNode.type === 'department' && (
                     <div>
-                      <span className="text-purple-400 font-bold block text-[10px] uppercase">🏢 Siguiente Capa (Estructura):</span>
+                      <span className="text-purple-400 font-bold block text-[10px] uppercase">Siguiente Capa (Estructura):</span>
                       <span className="text-gray-200">Personal Operativo y Líneas de Reporte</span>
                     </div>
                   )}
@@ -4336,7 +4323,7 @@ export default function CerebroPage() {
                     className="py-1.5 px-2 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-1 transition"
                     title="Abrir ficha ejecutiva completa en panel lateral"
                   >
-                    <span>📋 Ficha 360°</span>
+                    <span>Ficha 360°</span>
                   </button>
                   <button
                     onClick={(e) => {
@@ -4346,7 +4333,7 @@ export default function CerebroPage() {
                     className="py-1.5 px-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-1 transition"
                     title="Desplegar siguiente capa directamente en el lienzo"
                   >
-                    <span>🚀 Ver Capa ▼</span>
+                    <span>Ver Capa ▼</span>
                   </button>
                 </div>
               </div>
@@ -4358,7 +4345,6 @@ export default function CerebroPage() {
             onSubmit={handleRememberWorking}
             className="hidden md:flex absolute top-4 left-4 items-center gap-2 bg-gray-900/90 border border-gray-700 rounded-lg px-3 py-2 shadow-2xl backdrop-blur z-20 w-96 max-w-[90vw]"
           >
-            <span className="text-amber-400 text-sm">⚡</span>
             <input
               type="text"
               value={quickInput}
@@ -4441,7 +4427,6 @@ export default function CerebroPage() {
               <div className="flex items-center justify-between px-4 py-2.5 md:py-3 border-b border-gray-800 bg-gray-900/90 sticky top-0 z-10 shadow shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                    <span>📋</span>
                     <span>Fichas Ejecutivas ({stackedDeck.length})</span>
                   </span>
                   <span className="hidden sm:inline text-[10px] text-gray-400">· Vista 360° en Vivo</span>
@@ -4584,7 +4569,6 @@ export default function CerebroPage() {
                       <div className="mb-3 bg-gradient-to-r from-emerald-950/40 via-slate-900 to-sky-950/40 border border-emerald-500/30 rounded-xl p-3 shadow-lg">
                         <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold mb-2">
                           <span className="flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                             <span>Ruta Comercial & Topología (4 Capas)</span>
                           </span>
                           <span className="text-gray-400 text-[9px] font-mono">
@@ -4594,19 +4578,19 @@ export default function CerebroPage() {
                         <div className="flex flex-wrap items-center gap-1.5 text-xs font-mono">
                           {/* 1. Mercado */}
                           <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700/80 text-emerald-300 font-semibold text-[10px]">
-                            🌎 {fm.country_name || fm.based_in_country || fm.country || 'Mercado Internacional'}
+                            {fm.country_name || fm.based_in_country || fm.country || 'Mercado Internacional'}
                           </span>
                           <span className="text-gray-500">→</span>
                           {/* 2. Canal */}
                           <span className="px-2 py-0.5 rounded bg-teal-950 border border-teal-700/80 text-teal-300 font-semibold text-[10px]">
-                            🛣️ {fm.channel_label || fm.channel_type || (node.type === 'channel' ? node.title : 'Canal Directo')}
+                            {fm.channel_label || fm.channel_type || (node.type === 'channel' ? node.title : 'Canal Directo')}
                           </span>
                           {/* 3. Operador / Suministrador */}
                           {(fm.parent_distributor_id || fm.supplied_by || node.type === 'distributor' || node.type === 'operator') && (
                             <>
                               <span className="text-gray-500">→</span>
                               <span className="px-2 py-0.5 rounded bg-sky-950 border border-sky-700/80 text-sky-300 font-semibold text-[10px]">
-                                📦 {fm.company_name || fm.supplied_by || (node.type === 'distributor' ? node.title : 'Operador Asignado')}
+                                {fm.company_name || fm.supplied_by || (node.type === 'distributor' ? node.title : 'Operador Asignado')}
                               </span>
                             </>
                           )}
@@ -4636,21 +4620,20 @@ export default function CerebroPage() {
                     <div className="mb-3 bg-gradient-to-r from-sky-950/80 via-gray-950 to-indigo-950/80 border border-sky-500/40 rounded-xl p-3 shadow-inner">
                       <div className="flex items-center justify-between text-[10px] font-mono uppercase text-sky-400 font-bold mb-2">
                         <span className="flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                           <span>Actividad registrada</span>
                         </span>
                         <span className="text-gray-400 text-[9px]">Datos de la ficha</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                         <div className="bg-gray-900/80 p-2 rounded border border-gray-800">
-                          <span className="text-[10px] text-gray-400 block">🕒 Última Actualización:</span>
+                          <span className="text-[10px] text-gray-400 block">Última Actualización:</span>
                           <span className="text-white font-semibold text-[11px]">
                             {(fm.last_updated_at || fm.updated_at) ? new Date(fm.last_updated_at || fm.updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Sin fecha registrada'}
                           </span>
                           <span className="text-[9px] text-sky-400 block truncate">Por: {fm.last_updated_by || 'No documentado'}</span>
                         </div>
                         <div className="bg-gray-900/80 p-2 rounded border border-gray-800">
-                          <span className="text-[10px] text-gray-400 block">✉️ Último correo registrado:</span>
+                          <span className="text-[10px] text-gray-400 block">Último correo registrado:</span>
                           <span className="text-white font-semibold text-[11px] truncate block" title={fm.last_email_subject || 'No consta en esta ficha'}>
                             {fm.last_email_subject || 'No consta en esta ficha'}
                           </span>
@@ -4661,7 +4644,7 @@ export default function CerebroPage() {
                         {(fm.next_followup_action || fm.next_followup_date) && (
                           <div className="col-span-2 bg-gray-900/80 p-2 rounded border border-gray-800 flex items-center justify-between">
                             <div className="min-w-0 pr-2">
-                              <span className="text-[10px] text-gray-400 block">🎯 Próximo Hito / Seguimiento:</span>
+                              <span className="text-[10px] text-gray-400 block">Próximo Hito / Seguimiento:</span>
                               <span className="text-amber-300 font-semibold text-[11px] truncate block">
                                 {fm.next_followup_action || 'Seguimiento operativo general'}
                               </span>
@@ -4681,7 +4664,6 @@ export default function CerebroPage() {
                       <div className="mb-3 bg-gray-950/80 border border-gray-800 rounded-xl p-3 shadow-lg">
                         <div className="flex items-center justify-between text-[11px] font-mono font-bold text-sky-400 mb-2">
                           <span className="flex items-center gap-1.5">
-                            <span>📸</span>
                             <span>Registro Visual & Evidencia Fotográfica ({galleryPhotos.length})</span>
                           </span>
                           <span className="text-[9px] text-gray-500 uppercase tracking-wider">Activos en Vivo</span>
@@ -4715,7 +4697,6 @@ export default function CerebroPage() {
                     <div className="mb-3 bg-gradient-to-r from-sky-950/70 via-gray-900 to-indigo-950/70 border border-sky-600/40 rounded-xl p-3 shadow-lg">
                       <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-sky-400 font-bold mb-2">
                         <span className="flex items-center gap-1.5">
-                          <span>⚡</span>
                           <span>Hub de Acciones Ejecutivas Inmediatas</span>
                         </span>
                         <span className="text-gray-400">Canales Directos</span>
@@ -4728,7 +4709,6 @@ export default function CerebroPage() {
                             rel="noreferrer"
                             className="px-2.5 py-1.5 bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 border border-emerald-700/80 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition shadow truncate"
                           >
-                            <span>💬</span>
                             <span className="truncate">Escribir WhatsApp</span>
                           </a>
                         ) : (
@@ -4739,7 +4719,6 @@ export default function CerebroPage() {
                             }}
                             className="px-2.5 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-300 border border-gray-700 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition truncate"
                           >
-                            <span>💬</span>
                             <span className="truncate">Pedir WhatsApp</span>
                           </button>
                         )}
@@ -4749,7 +4728,6 @@ export default function CerebroPage() {
                             href={`mailto:${contactEmail}?subject=${encodeURIComponent(`Actualización Operativa SM Jaleel - ${node.title}`)}&body=${encodeURIComponent(`Estimado equipo,\n\nFavor remitir confirmación y actualización operativa respecto a ${node.title}.\n\nSaludos cordiales,\nDirección Ejecutiva de Exportaciones SM Jaleel`)}`}
                             className="px-2.5 py-1.5 bg-sky-900/80 hover:bg-sky-800 text-sky-200 border border-sky-700/80 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition shadow truncate"
                           >
-                            <span>✉️</span>
                             <span className="truncate">Enviar Correo</span>
                           </a>
                         ) : (
@@ -4760,19 +4738,17 @@ export default function CerebroPage() {
                             }}
                             className="px-2.5 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-300 border border-gray-700 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition truncate"
                           >
-                            <span>✉️</span>
                             <span className="truncate">Pedir Correo</span>
                           </button>
                         )}
 
                         <button
                           onClick={() => {
-                            setStatusMessage(`🤖 Solicitud enviada a Dots: "Actualizar inventario, forecast y acuerdos para ${node.title}"`);
+                            setStatusMessage(`Solicitud enviada a Dots: "Actualizar inventario, forecast y acuerdos para ${node.title}"`);
                             setTimeout(() => setStatusMessage(null), 4000);
                           }}
                           className="col-span-2 px-3 py-1.5 bg-indigo-900/70 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/80 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition shadow"
                         >
-                          <span>🤖</span>
                           <span className="truncate">Solicitar a Dots Actualizar Estatus & Tareas</span>
                         </button>
                       </div>
@@ -4783,7 +4759,6 @@ export default function CerebroPage() {
                       <div className="mb-3 bg-gradient-to-br from-amber-950/40 via-gray-900/90 to-gray-950 border border-amber-500/40 rounded-xl p-3.5 shadow-lg">
                         <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold mb-1.5">
                           <span className="flex items-center gap-1.5">
-                            <span>📝</span>
                             <span>Observaciones Estratégicas & Status Operacional</span>
                           </span>
                           <span className="px-1.5 py-0.2 text-[9px] bg-amber-950 border border-amber-800 text-amber-300 rounded font-mono font-bold">
@@ -4801,7 +4776,6 @@ export default function CerebroPage() {
                       <div className="mb-3 bg-gray-950/80 border border-gray-800 rounded-xl p-3.5 shadow-lg">
                         <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-sky-400 font-bold mb-2.5">
                           <span className="flex items-center gap-1.5">
-                            <span>⏱️</span>
                             <span>Bitácora de Acciones & Logs Registrados</span>
                           </span>
                           <span className="text-[9px] text-gray-400 font-mono">Últimas 72h</span>
@@ -4829,7 +4803,7 @@ export default function CerebroPage() {
                               ? 'text-teal-300 bg-teal-950/80 border-teal-800/60'
                               : 'text-amber-300 bg-amber-950/80 border-amber-800/60';
 
-                            const iconEmoji = isEmail ? '✉️' : isMeeting ? '🤝' : isLogistics ? '📦' : isCall ? '📞' : '📝';
+                            const iconEmoji = '•';
 
                             return (
                               <div key={idx} className="relative group">
@@ -4858,7 +4832,6 @@ export default function CerebroPage() {
                       <div className="mb-3 bg-gray-950/80 border border-emerald-900/50 rounded-xl p-3 shadow-lg">
                         <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold mb-2">
                           <span className="flex items-center gap-1.5">
-                            <span>📋</span>
                             <span>Tareas & Pendientes Operativos ({fm.pending_tasks.length})</span>
                           </span>
                           <span className="px-1.5 py-0.2 text-[9px] bg-emerald-950 border border-emerald-800 text-emerald-300 rounded font-mono font-bold">
@@ -4870,7 +4843,6 @@ export default function CerebroPage() {
                             const taskText = typeof taskItem === 'object' ? (taskItem.task || taskItem.description || JSON.stringify(taskItem)) : String(taskItem);
                             return (
                               <div key={idx} className="flex items-start gap-2 p-1.5 rounded bg-gray-900/80 border border-gray-800 text-[11px] font-mono">
-                                <span className="text-emerald-400 mt-0.5 shrink-0">☑️</span>
                                 <span className="text-gray-200 leading-snug">{taskText}</span>
                               </div>
                             );
@@ -4936,7 +4908,6 @@ export default function CerebroPage() {
                         <div className="bg-gradient-to-r from-emerald-950/80 to-sky-950/80 border border-emerald-500/60 rounded-xl p-3 mb-3 shadow-lg">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5">
-                              <span className="text-xl">🌎</span>
                               <div>
                                 <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold block">
                                   Territorio de Mercado Asignado
@@ -4984,7 +4955,6 @@ export default function CerebroPage() {
                       <div className="bg-gradient-to-br from-emerald-950/80 via-gray-900 to-gray-950 border border-emerald-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center justify-between text-emerald-400 font-bold uppercase tracking-wider text-[10px]">
                           <span className="flex items-center gap-1.5">
-                            <span>🤝</span>
                             <span>Ficha del distribuidor</span>
                           </span>
                           <span className="px-1.5 py-0.5 text-[9px] bg-emerald-950 border border-emerald-700 text-emerald-300 rounded font-mono font-bold">
@@ -5024,8 +4994,8 @@ export default function CerebroPage() {
                         <div className="pt-2 border-t border-gray-800 flex flex-wrap items-center justify-between gap-1 text-[11px] font-mono">
                           <span className="text-gray-400">Canales Directos:</span>
                           <div className="flex items-center gap-2">
-                            {fm.phone_main && <span className="text-white">📞 {fm.phone_main}</span>}
-                            {fm.email_orders && <a href={`mailto:${fm.email_orders}`} className="text-teal-400 hover:underline">✉️ {fm.email_orders}</a>}
+                            {fm.phone_main && <span className="text-white">{fm.phone_main}</span>}
+                            {fm.email_orders && <a href={`mailto:${fm.email_orders}`} className="text-teal-400 hover:underline">{fm.email_orders}</a>}
                           </div>
                         </div>
                       </div>
@@ -5036,7 +5006,6 @@ export default function CerebroPage() {
                       <div className="bg-gradient-to-br from-teal-950/80 via-gray-900 to-gray-950 border border-teal-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center justify-between text-teal-400 font-bold uppercase tracking-wider text-[10px]">
                           <span className="flex items-center gap-1.5">
-                            <span>🌎</span>
                             <span>Ficha de Mercado Exterior & Operaciones</span>
                           </span>
                           <span className="px-1.5 py-0.5 text-[9px] bg-teal-950 border border-teal-700 text-teal-300 rounded font-mono font-bold">
@@ -5078,7 +5047,6 @@ export default function CerebroPage() {
                     {node.type === 'core' && (
                       <div className="bg-gradient-to-br from-amber-950/80 via-gray-900 to-gray-950 border border-amber-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center gap-2 text-amber-400 font-bold uppercase tracking-wider text-[10px]">
-                          <span>🏛️</span>
                           <span>Ficha Institucional · Casa Matriz SM Jaleel & Co. Ltd.</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
@@ -5099,7 +5067,6 @@ export default function CerebroPage() {
                     {node.type === 'organization' && (
                       <div className="bg-gradient-to-br from-emerald-950/80 via-gray-900 to-gray-950 border border-emerald-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center gap-2 text-emerald-400 font-bold uppercase tracking-wider text-[10px]">
-                          <span>🏛️</span>
                           <span>Ficha Institucional · Filial Corporativa Internacional</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
@@ -5149,11 +5116,10 @@ export default function CerebroPage() {
                         <div className="space-y-3 mb-3">
                           <div className="bg-gradient-to-br from-indigo-950/80 via-gray-900 to-gray-950 border border-indigo-500/50 rounded-xl p-3.5 text-xs space-y-2.5 shadow-lg">
                             <div className="flex items-center gap-2 text-indigo-400 font-bold uppercase tracking-wider text-[10px]">
-                              <span>👤</span>
                               <span>{isCommercialContact ? 'Contacto comercial' : 'Ficha de Perfil Ejecutivo & Línea de Mando'}</span>
                               {isLeader && (
                                 <span className="ml-auto px-1.5 py-0.5 text-[9px] bg-amber-950 border border-amber-700 text-amber-300 rounded font-mono font-bold">
-                                  👑 Liderazgo L{node.hierarchy_level ?? 2}
+                                  Liderazgo L{node.hierarchy_level ?? 2}
                                 </span>
                               )}
                             </div>
@@ -5184,7 +5150,6 @@ export default function CerebroPage() {
                                 className="w-full flex items-center justify-between text-xs font-bold text-indigo-300 hover:text-indigo-200 transition select-none"
                               >
                                 <div className="flex items-center gap-2">
-                                  <span>👥</span>
                                   <span>Equipo a Cargo & Reportes Directos ({directReports.length})</span>
                                 </div>
                                 <span className="text-[11px] px-2 py-0.5 rounded bg-indigo-950 border border-indigo-800 text-indigo-300 font-mono">
@@ -5200,7 +5165,7 @@ export default function CerebroPage() {
                                       onClick={() => pushToStackedDeck(sub)}
                                       className="w-full text-left text-[11px] font-mono px-2 py-1.5 rounded bg-gray-900/90 border border-gray-800 hover:border-indigo-400 text-gray-200 hover:text-white transition flex items-center justify-between"
                                     >
-                                      <span className="truncate">👤 {sub.title.replace('Person: ', '')} {sub.frontmatter?.job_title ? `· ${sub.frontmatter.job_title}` : ''}</span>
+                                      <span className="truncate">{sub.title.replace('Person: ', '')} {sub.frontmatter?.job_title ? `· ${sub.frontmatter.job_title}` : ''}</span>
                                       <span className="text-[9px] text-indigo-400 shrink-0 ml-1">→</span>
                                     </button>
                                   ))}
@@ -5268,7 +5233,6 @@ export default function CerebroPage() {
                         <div className="space-y-3 mb-3">
                           <div className="bg-gradient-to-br from-blue-950/80 via-gray-900 to-gray-950 border border-blue-500/50 rounded-xl p-3.5 text-xs space-y-2.5 shadow-lg">
                             <div className="flex items-center gap-2 text-sky-400 font-bold uppercase tracking-wider text-[10px]">
-                              <span>🏢</span>
                               <span>Ficha Departamental Corporativa</span>
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
@@ -5291,7 +5255,6 @@ export default function CerebroPage() {
                               className="w-full flex items-center justify-between text-xs font-bold text-sky-300 hover:text-sky-200 transition select-none"
                             >
                               <div className="flex items-center gap-2">
-                                <span>👥</span>
                                 <span>Equipo & Colaboradores ({deptMembers.length} personas)</span>
                               </div>
                               <span className="text-[11px] px-2 py-0.5 rounded bg-sky-950 border border-sky-800 text-sky-300 font-mono">
@@ -5304,7 +5267,7 @@ export default function CerebroPage() {
                                 {deptLeaders.length > 0 && (
                                   <div>
                                     <div className="text-[10px] font-mono uppercase text-sky-400 font-bold mb-1.5 flex items-center justify-between">
-                                      <span>👑 Jefatura & Liderazgo ({deptLeaders.length})</span>
+                                      <span>Jefatura & Liderazgo ({deptLeaders.length})</span>
                                       <span className="text-[9px] text-gray-500">Clic para abrir</span>
                                     </div>
                                     <div className="space-y-1">
@@ -5314,7 +5277,7 @@ export default function CerebroPage() {
                                           onClick={() => pushToStackedDeck(p)}
                                           className="w-full text-left text-[11px] font-mono px-2.5 py-1.5 rounded bg-sky-950/60 border border-sky-800/80 hover:border-sky-400 text-white transition flex items-center justify-between"
                                         >
-                                          <span className="truncate">👤 <strong>{p.title.replace('Person: ', '')}</strong> {p.frontmatter?.job_title ? `· ${p.frontmatter.job_title}` : ''}</span>
+                                          <span className="truncate"><strong>{p.title.replace('Person: ', '')}</strong> {p.frontmatter?.job_title ? `· ${p.frontmatter.job_title}` : ''}</span>
                                           <span className="text-sky-400 text-xs ml-1">→</span>
                                         </button>
                                       ))}
@@ -5325,7 +5288,7 @@ export default function CerebroPage() {
                                 {deptStaff.length > 0 && (
                                   <div>
                                     <div className="text-[10px] font-mono uppercase text-gray-400 font-bold mb-1.5 flex items-center justify-between">
-                                      <span>📋 Colaboradores & Especialistas ({deptStaff.length})</span>
+                                      <span>Colaboradores & Especialistas ({deptStaff.length})</span>
                                       <span className="text-[9px] text-gray-500">Clic para abrir</span>
                                     </div>
                                     <div className="grid grid-cols-1 gap-1 max-h-48 overflow-y-auto pr-1">
@@ -5335,7 +5298,7 @@ export default function CerebroPage() {
                                           onClick={() => pushToStackedDeck(p)}
                                           className="text-left text-[11px] font-mono px-2 py-1 rounded bg-gray-900/90 border border-gray-800 hover:border-sky-500 text-gray-200 hover:text-white transition truncate flex items-center justify-between"
                                         >
-                                          <span className="truncate">👤 {p.title.replace('Person: ', '')} {p.frontmatter?.job_title ? `· ${p.frontmatter.job_title}` : ''}</span>
+                                          <span className="truncate">{p.title.replace('Person: ', '')} {p.frontmatter?.job_title ? `· ${p.frontmatter.job_title}` : ''}</span>
                                           <span className="text-[9px] text-sky-400 shrink-0 ml-1">→</span>
                                         </button>
                                       ))}
@@ -5347,7 +5310,7 @@ export default function CerebroPage() {
                                   onClick={() => handleSetOrgScope(deptKey as any)}
                                   className="w-full py-1.5 px-3 bg-sky-900/60 hover:bg-sky-800 border border-sky-600 rounded text-sky-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
                                 >
-                                  <span>🚀 Desplegar Equipo en el Lienzo</span>
+                                  <span>Desplegar Equipo en el Lienzo</span>
                                 </button>
                               </div>
                             )}
@@ -5359,7 +5322,6 @@ export default function CerebroPage() {
                     {node.type === 'customer' && (
                       <div className="bg-gradient-to-br from-cyan-950/80 via-gray-900 to-gray-950 border border-cyan-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center gap-2 text-cyan-400 font-bold uppercase tracking-wider text-[10px]">
-                          <span>🛒</span>
                           <span>Ficha de Cliente Clave / Gran Cuenta</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
@@ -5413,7 +5375,6 @@ export default function CerebroPage() {
 
                           <div className="bg-gradient-to-br from-orange-950/80 via-gray-900 to-gray-950 border border-orange-500/50 rounded-xl p-3.5 text-xs space-y-2.5 shadow-lg">
                             <div className="flex items-center gap-2 text-orange-400 font-bold uppercase tracking-wider text-[10px]">
-                              <span>🧃</span>
                               <span>Ficha de Portafolio de Marca & Producción</span>
                             </div>
                             {fm.tagline && (
@@ -5446,7 +5407,6 @@ export default function CerebroPage() {
                               className="w-full flex items-center justify-between text-xs font-bold text-amber-300 hover:text-amber-200 transition select-none"
                             >
                               <div className="flex items-center gap-2">
-                                <span>📦</span>
                                 <span>Catálogo de SKUs & Multipacks ({brandSubNodes.length} ítems)</span>
                               </div>
                               <span className="text-[11px] px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-300 font-mono">
@@ -5469,7 +5429,7 @@ export default function CerebroPage() {
                                           onClick={() => pushToStackedDeck(p, false, node.id)}
                                           className="text-left text-[11px] font-mono px-2 py-1 rounded bg-gray-900/90 border border-gray-800 hover:border-amber-500 text-gray-200 hover:text-white transition truncate flex items-center justify-between"
                                         >
-                                          <span className="truncate">📦 {p.title}</span>
+                                          <span className="truncate">{p.title}</span>
                                           <span className="text-[9px] text-amber-400 shrink-0 ml-1">→</span>
                                         </button>
                                       ))}
@@ -5490,7 +5450,7 @@ export default function CerebroPage() {
                                           onClick={() => pushToStackedDeck(v, false, node.id)}
                                           className="text-left text-[11px] font-mono px-2 py-1 rounded bg-gray-900/90 border border-gray-800 hover:border-sky-500 text-gray-200 hover:text-white transition truncate flex items-center justify-between"
                                         >
-                                          <span className="truncate">🏷️ {v.title}</span>
+                                          <span className="truncate">{v.title}</span>
                                           <span className="text-[9px] text-sky-400 shrink-0 ml-1">→</span>
                                         </button>
                                       ))}
@@ -5510,7 +5470,7 @@ export default function CerebroPage() {
                                           onClick={() => pushToStackedDeck(fl)}
                                           className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-300 hover:bg-emerald-900 transition"
                                         >
-                                          🍇 {fl.title.replace(/^Flavor\s*-\s*/i, '')}
+                                          {fl.title.replace(/^Flavor\s*-\s*/i, '')}
                                         </button>
                                       ))}
                                     </div>
@@ -5523,7 +5483,7 @@ export default function CerebroPage() {
                                     onClick={() => handleSetCatalogScope(catalogScope === brandKey ? 'collapsed' : brandKey as any)}
                                     className="text-xs px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded shadow transition flex items-center gap-1"
                                   >
-                                    <span>{catalogScope === brandKey ? '📁 Plegar del Lienzo' : '🚀 Desplegar en Lienzo'}</span>
+                                    <span>{catalogScope === brandKey ? 'Plegar del Lienzo' : 'Desplegar en Lienzo'}</span>
                                   </button>
                                 </div>
                               </div>
@@ -5536,7 +5496,6 @@ export default function CerebroPage() {
                     {node.type === 'packaging' && (
                       <div className="bg-gradient-to-br from-amber-950/80 via-gray-900 to-gray-950 border border-amber-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center gap-2 text-amber-400 font-bold uppercase tracking-wider text-[10px]">
-                          <span>📦</span>
                           <span>Ficha de Formato de Empaque & Multi-Pack</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
@@ -5553,7 +5512,6 @@ export default function CerebroPage() {
                     {node.type === 'product_variant' && (
                       <div className="bg-gradient-to-br from-sky-950/80 via-gray-900 to-gray-950 border border-sky-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center gap-2 text-sky-400 font-bold uppercase tracking-wider text-[10px]">
-                          <span>🏷️</span>
                           <span>Ficha de SKU & Presentación Comercial</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
@@ -5568,7 +5526,6 @@ export default function CerebroPage() {
                     {node.type === 'flavor' && (
                       <div className="bg-gradient-to-br from-emerald-950/80 via-gray-900 to-gray-950 border border-emerald-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center gap-2 text-emerald-400 font-bold uppercase tracking-wider text-[10px]">
-                          <span>🍇</span>
                           <span>Ficha de Formulación de Sabor SMJ</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
@@ -5582,7 +5539,6 @@ export default function CerebroPage() {
                     {(node.type === 'routine' || node.type === 'working_memory') && (
                       <div className="bg-gradient-to-br from-amber-950/80 via-gray-900 to-gray-950 border border-amber-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center gap-2 text-amber-400 font-bold uppercase tracking-wider text-[10px]">
-                          <span>⚡</span>
                           <span>Memoria Operativa S&OP & Cadencia de Negocio</span>
                         </div>
                         <div className="text-[11px] font-mono space-y-1">
@@ -5647,7 +5603,7 @@ export default function CerebroPage() {
 
                     {/* Action Bar for Dots */}
                     <div className="mb-3 p-2 bg-sky-950/40 border border-sky-900 rounded-lg flex items-center justify-between text-xs">
-                      <span className="text-sky-300 font-mono text-[11px]">🤖 Dots Agent Ready</span>
+                      <span className="text-sky-300 font-mono text-[11px]">Dots Agent Ready</span>
                       <button
                         onClick={() => {
                           setStatusMessage(`Petición enviada a Dots para enriquecer "${node.title}"`);
@@ -5710,7 +5666,7 @@ export default function CerebroPage() {
           className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white py-3.5 px-2.5 rounded-l-xl shadow-2xl text-xs font-bold z-30 items-center gap-1.5 transition select-none cursor-pointer border border-sky-400"
           title="Abrir Ficha Lateral Ejecutiva"
         >
-          <span>📋 Abrir Ficha Lateral</span>
+          <span>Abrir Ficha Lateral</span>
         </button>
       )}
       </div>
