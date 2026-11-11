@@ -26,5 +26,6 @@ export function packagingDescription(fm:Record<string,any>){
  const raw=String(fm.container_raw||fm.container_type||'');
  const container=raw==='Bottles'?'Botella':raw==='Cans'?'Lata':!raw||raw==='Not stated'?'No especificado':raw;
  const units=fm.units_per_case_raw??fm.units_per_case;
- return {container,configuration:units&&units!=='Not stated'?`Caja x ${units}`:'No especificada',size:fm.size_raw||'No especificado'};
+ const size=fm.size_raw||(typeof fm.volume_value==='number'&&fm.volume_unit?`${fm.volume_value} ${String(fm.volume_unit).replace('_as_published','')}`:'No especificado');
+ return {container,configuration:units&&units!=='Not stated'?`Caja x ${units}`:'No especificada',size};
 }

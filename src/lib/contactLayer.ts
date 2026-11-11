@@ -16,17 +16,21 @@ function refIds(value: unknown, nodes: ContactNode[]): string[] {
 }
 
 /** A commercial contact can belong to several distributors. This is not reporting hierarchy. */
-export function contactDistributors(person: ContactNode, nodes: ContactNode[], links: ContactLink[] = []): ContactNode[] {
+export function contactEntities(person: ContactNode, nodes: ContactNode[], links: ContactLink[] = []): ContactNode[] {
   if (person.type !== 'person') return [];
   const ids = new Set(refIds(person.frontmatter?.relations?.contact_for, nodes));
   for (const n of nodes) {
-    if (n.type === 'distributor' && refIds(n.frontmatter?.relations?.has_contact, nodes).includes(person.id)) ids.add(n.id);
+    if (['distributor','customer','outlet','client_group','client','channel'].includes(n.type||'') && refIds(n.frontmatter?.relations?.has_contact, nodes).includes(person.id)) ids.add(n.id);
   }
   for (const l of links) {
     if (end(l.source) === person.id && l.relationType === 'contact_for') ids.add(end(l.target));
     if (end(l.target) === person.id && l.relationType === 'has_contact') ids.add(end(l.source));
   }
-  return nodes.filter(n => n.type === 'distributor' && ids.has(n.id));
+  return nodes.filter(n => ['distributor','customer','outlet','client_group','client','channel'].includes(n.type||'') && ids.has(n.id));
+}
+
+export function contactDistributors(person: ContactNode, nodes: ContactNode[], links: ContactLink[] = []): ContactNode[] {
+  return contactEntities(person,nodes,links).filter(n=>n.type==='distributor');
 }
 
 export function distributorContacts(id: string, nodes: ContactNode[], links: ContactLink[] = []): ContactNode[] {
@@ -36,15 +40,15 @@ export function distributorContacts(id: string, nodes: ContactNode[], links: Con
 
 /** Overlay only the contact's target; each existing layout keeps all its other targets. */
 export function contactTarget(person: ContactNode, nodes: ContactNode[], baseTarget: (n: ContactNode) => { x: number; y: number }): { x: number; y: number } | null {
-  const parents = contactDistributors(person, nodes);
+  const parents = contactEntities(person, nodes);
   if (!parents.length) return null;
   const anchor = String(person.frontmatter?.spatial_anchor || person.spatial_anchor || '').replace(/^\[\[|\]\]$/g, '');
   const parent = parents.find(n => n.id === anchor) || [...parents].sort((a, b) => a.id.localeCompare(b.id))[0];
   const point = baseTarget(parent);
   if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return null;
-  const siblings = distributorContacts(parent.id, nodes).filter(n => {
+  const siblings = nodes.filter(n=>n.type==='person'&&contactEntities(n,nodes).some(p=>p.id===parent.id)).sort((a,b)=>a.id.localeCompare(b.id)).filter(n => {
     const own = String(n.frontmatter?.spatial_anchor || n.spatial_anchor || '').replace(/^\[\[|\]\]$/g, '');
-    const ownParents = contactDistributors(n, nodes);
+    const ownParents = contactEntities(n, nodes);
     const ownParent = ownParents.find(p => p.id === own) || [...ownParents].sort((a, b) => a.id.localeCompare(b.id))[0];
     return ownParent?.id === parent.id;
   });

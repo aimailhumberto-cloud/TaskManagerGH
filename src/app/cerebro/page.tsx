@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { getMarketDistributors, marketDistributorLabel, distributorDisplayName } from '@/lib/marketDistributors';
 import { searchBrainNodes, resolveBrainNode, humanNodeName, fitIdentityBounds } from '@/lib/smjIdentity';
 import { computeNativeLayout, LayoutResult, mergeLayoutConfig, LayoutConfig } from '@/lib/cerebroLayout';
-import { contactTarget, contactDistributors } from '@/lib/contactLayer';
+import { contactTarget, contactEntities } from '@/lib/contactLayer';
 import { ContactLayer } from '@/components/ContactLayer';
 import { brandCatalogNodes, packagingDescription } from '@/lib/portfolioConnections';
 import { PortfolioConnections } from '@/components/PortfolioConnections';
+import { CommercialConnections } from '@/components/CommercialConnections';
 
 interface NodeData {
   id: string;
@@ -325,6 +326,8 @@ const TYPE_CONFIG: Record<
   operator: { label: 'Operador / Mayorista', icon: '📦', bg: '#0284C7', border: '#38BDF8', glow: 'rgba(14, 165, 233, 0.75)' },
   distributor: { label: 'Distribuidor', icon: '🤝', bg: '#0F766E', border: '#2DD4BF', glow: 'rgba(20, 184, 166, 0.75)' },
   customer: { label: 'Customer Retail', icon: '🛒', bg: '#0369A1', border: '#38BDF8', glow: 'rgba(14, 165, 233, 0.75)' },
+  outlet: { label: 'Outlet / Punto de atención', icon: '🛒', bg: '#0369A1', border: '#38BDF8', glow: 'rgba(14, 165, 233, 0.75)' },
+  catalog_listing: { label: 'Referencia de catálogo', icon: '🏷️', bg: '#0284C7', border: '#38BDF8', glow: 'rgba(14, 165, 233, 0.75)' },
   client_group: { label: 'Grupo de Clientes', icon: '🏬', bg: '#2563EB', border: '#93C5FD', glow: 'rgba(37, 99, 235, 0.75)' },
   client: { label: 'Cliente / Cuenta Clave', icon: '🛒', bg: '#0284C7', border: '#38BDF8', glow: 'rgba(14, 165, 233, 0.75)' },
   organization: { label: 'Filial Corporativa', icon: '🏛️', bg: '#065F46', border: '#34D399', glow: 'rgba(16, 185, 129, 0.75)' },
@@ -1922,7 +1925,7 @@ export default function CerebroPage() {
       // 2. Organization / Staff filtering (People & Operational Employees)
       if (n.type === 'person') {
         // Distributor contacts are a commercial layer, independent of staff visibility.
-        if (contactDistributors(n, fullGraphRef.current.nodes.length ? fullGraphRef.current.nodes : rawPool).length) return true;
+        if (contactEntities(n, fullGraphRef.current.nodes.length ? fullGraphRef.current.nodes : rawPool).length) return true;
         const isLeader = isNodeLeader(n);
         if (oScope === 'collapsed') {
           // In collapsed mode: show only C-Suite, VP and Key Managers (12 people), hide 42 operational staff
@@ -4540,25 +4543,25 @@ export default function CerebroPage() {
                       <div className="flex items-center justify-between text-[10px] font-mono uppercase text-sky-400 font-bold mb-2">
                         <span className="flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                          <span>Telemetría & Estatus en Vivo</span>
+                          <span>Actividad registrada</span>
                         </span>
-                        <span className="text-gray-400 text-[9px]">Sincronizado vía DOTS</span>
+                        <span className="text-gray-400 text-[9px]">Datos de la ficha</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                         <div className="bg-gray-900/80 p-2 rounded border border-gray-800">
                           <span className="text-[10px] text-gray-400 block">🕒 Última Actualización:</span>
                           <span className="text-white font-semibold text-[11px]">
-                            {fm.last_updated_at ? new Date(fm.last_updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Reciente'}
+                            {(fm.last_updated_at || fm.updated_at) ? new Date(fm.last_updated_at || fm.updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Sin fecha registrada'}
                           </span>
-                          <span className="text-[9px] text-sky-400 block truncate">Por: {fm.last_updated_by || 'DOTS Agent'}</span>
+                          <span className="text-[9px] text-sky-400 block truncate">Por: {fm.last_updated_by || 'No documentado'}</span>
                         </div>
                         <div className="bg-gray-900/80 p-2 rounded border border-gray-800">
-                          <span className="text-[10px] text-gray-400 block">✉️ Último Correo Leído:</span>
-                          <span className="text-white font-semibold text-[11px] truncate block" title={fm.last_email_subject || 'Sin correos nuevos'}>
-                            {fm.last_email_subject || 'Bandeja al día'}
+                          <span className="text-[10px] text-gray-400 block">✉️ Último correo registrado:</span>
+                          <span className="text-white font-semibold text-[11px] truncate block" title={fm.last_email_subject || 'No consta en esta ficha'}>
+                            {fm.last_email_subject || 'No consta en esta ficha'}
                           </span>
                           <span className="text-[9px] text-emerald-400 block truncate">
-                            {fm.last_email_date ? `${fm.last_email_date} · ` : ''}{fm.last_email_sender || (fm.email_orders || fm.email_primary || 'Contacto directo')}
+                            {fm.last_email_date ? `${fm.last_email_date} · ` : ''}{fm.last_email_sender || 'Remitente no documentado'}
                           </span>
                         </div>
                         {(fm.next_followup_action || fm.next_followup_date) && (
@@ -4863,12 +4866,18 @@ export default function CerebroPage() {
                       );
                     })()}
 
-                    <ContactLayer
+                    <CommercialConnections
                       node={node}
                       nodes={graphData?.allNodes || graphData?.nodes || nodesRef.current || []}
                       links={graphData?.links || linksRef.current || []}
                       onOpen={(target, sourceId) => pushToStackedDeck(target as NodeData, false, sourceId)}
                     />
+                    {node.type === 'person' && <ContactLayer
+                      node={node}
+                      nodes={graphData?.allNodes || graphData?.nodes || nodesRef.current || []}
+                      links={graphData?.links || linksRef.current || []}
+                      onOpen={(target, sourceId) => pushToStackedDeck(target as NodeData, false, sourceId)}
+                    />}
                     <PortfolioConnections
                       node={node}
                       nodes={graphData?.allNodes || graphData?.nodes || nodesRef.current || []}
@@ -4882,10 +4891,10 @@ export default function CerebroPage() {
                         <div className="flex items-center justify-between text-emerald-400 font-bold uppercase tracking-wider text-[10px]">
                           <span className="flex items-center gap-1.5">
                             <span>🤝</span>
-                            <span>Ficha Ejecutiva de Distribución Exclusiva</span>
+                            <span>Ficha del distribuidor</span>
                           </span>
                           <span className="px-1.5 py-0.5 text-[9px] bg-emerald-950 border border-emerald-700 text-emerald-300 rounded font-mono font-bold">
-                            {fm.is_active !== false ? 'Activo / Oficial' : 'Inactivo / Histórico'}
+                            {fm.commercial_status_label || (fm.is_active !== false ? 'Vinculado' : 'Por verificar / Histórico')}
                           </span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
@@ -5024,7 +5033,7 @@ export default function CerebroPage() {
                       const allNodes = graphData?.nodes || nodesRef.current || [];
                       const allLinks = graphData?.links || linksRef.current || [];
                       const pName = node.title.replace('Person: ', '');
-                      const isCommercialContact = contactDistributors(node, graphData?.allNodes || allNodes, allLinks).length > 0;
+                      const isCommercialContact = contactEntities(node, graphData?.allNodes || allNodes, allLinks).length > 0;
                       const isLeader = !isCommercialContact && isNodeLeader(node);
 
                       // Find direct reports (subordinates or people linked to this leader)

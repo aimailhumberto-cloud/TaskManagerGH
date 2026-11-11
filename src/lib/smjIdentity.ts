@@ -15,7 +15,14 @@ export function canonicalPool<T extends IdentityNode>(pool: T[]): T[] {
 }
 export function searchBrainNodes<T extends IdentityNode>(pool:T[], query:string):T[] {
   const q=normalizeBrainText(query);if(!q)return [];
-  return canonicalPool(pool).filter(n=>[...names(n),normalizeBrainText(n.frontmatter?.job_title || n.frontmatter?.role),normalizeBrainText(n.department || n.frontmatter?.department),normalizeBrainText(n.country || n.frontmatter?.based_in_country)].some(value=>value.includes(q)));
+  const rank=(n:T)=>{
+    const title=normalizeBrainText(n.title).replace(/^(?:person|persona|market|distributor|customer|brand|linea)\s*[:\-]\s*/,'');
+    if(title===q||names(n).includes(q))return 0;
+    if(title.startsWith(q))return 1;
+    if(names(n).some(name=>name.includes(q)))return 2;
+    return 3;
+  };
+  return canonicalPool(pool).filter(n=>[...names(n),normalizeBrainText(n.frontmatter?.job_title || n.frontmatter?.role),normalizeBrainText(n.department || n.frontmatter?.department),normalizeBrainText(n.country || n.frontmatter?.based_in_country)].some(value=>value.includes(q))).sort((a,b)=>rank(a)-rank(b));
 }
 export function resolveBrainNode<T extends IdentityNode>(pool:T[], raw:string):{kind:'found';node:T}|{kind:'ambiguous';candidates:T[]}|{kind:'missing'} {
   const clean=raw.replace(/^\[\[|\]\]$/g,'').split('|')[0].trim();const q=normalizeBrainText(clean);
