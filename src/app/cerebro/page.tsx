@@ -360,6 +360,18 @@ const LEADER_IDS = new Set([
 ]);
 
 // Dynamic helper to identify leaders / directors / managers created by DOTS
+// Niveles del Cerebro: 0 nucleo, 1 primer anillo (vista por defecto), luego cada capa mas profunda.
+const NODE_LEVEL: Record<string, number> = {
+  core: 0,
+  market: 1, brand: 1, department: 1, working_memory: 1, project: 1, routine: 1,
+  organization: 2, distributor: 2, operator: 2, product_line: 2, site: 2, country: 2, group: 2, catalog_listing: 2, consolidation_session: 2,
+  channel: 3, customer: 3, client_group: 3, client: 3, flavor: 3, person: 3, role: 3,
+  packaging: 4,
+  product_variant: 5,
+};
+const nodeLevel = (type?: string) => NODE_LEVEL[type || ''] ?? 3;
+const MAX_NODES_PER_OPEN = 24;
+
 function isNodeLeader(node: any): boolean {
   if (!node) return false;
   const id = (node.id || '').toLowerCase();
@@ -1875,10 +1887,8 @@ export default function CerebroPage() {
             initialDeckLoadedRef.current = true;
             // On desktop (>= 768px), open Core node by default. On mobile (< 768px), start empty so user sees the full canvas!
             const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
-            if (isDesktop && prev.length === 0) {
-              const coreNode = json.nodes.find((n: any) => n.type === 'core' || n.id.includes('core-sm-jaleel')) || json.nodes[0];
-              return coreNode ? [coreNode] : [];
-            }
+            // La vista por defecto arranca limpia: sin ficha abierta hasta el primer doble clic.
+            void isDesktop;
             return prev;
           }
 
@@ -1931,39 +1941,27 @@ export default function CerebroPage() {
     const rawPool = [...new Map([...rawNodes, ...fullGraphRef.current.nodes.filter(n => revealedNodeIdsRef.current.has(n.id))].map(n => [n.id, n])).values()];
     const filteredRawNodes = rawPool.filter((n: any) => {
       if (revealedNodeIdsRef.current.has(n.id)) return true;
-      // 1. Catalog sub-items filtering (SKUs, multipacks, flavors, lines)
+      // Vista por defecto: nucleo y primer anillo. Lo demas aparece al abrir un nodo (doble clic).
+      if (nodeLevel(n.type) <= 1) return true;
+
+      // Catalogo: el menu de Ajustes puede desplegar una marca o todo.
       const isCatalogSub = n.type === 'flavor' || n.type === 'packaging' || n.type === 'product_line' || n.type === 'product_variant';
       if (isCatalogSub) {
-        if (cScope === 'collapsed') return false; // Plegado = hide sub-SKUs
-        if (cScope === 'all') return true; // Desplegar todo
+        if (cScope === 'collapsed') return false;
+        if (cScope === 'all') return true;
         const id = (n.id || '').toLowerCase();
         const title = (n.title || '').toLowerCase();
         return id.includes(cScope) || title.includes(cScope);
       }
 
-      // 2. Organization / Staff filtering (People & Operational Employees)
+      // Organizacion: el menu de Ajustes puede desplegar un departamento o todo.
+      if (oScope === 'collapsed') return false;
+      if (oScope === 'all') return true;
       if (n.type === 'person') {
-        // Distributor contacts are a commercial layer, independent of staff visibility.
-        if (contactEntities(n, fullGraphRef.current.nodes.length ? fullGraphRef.current.nodes : rawPool).length) return true;
-        const isLeader = isNodeLeader(n);
-        if (oScope === 'collapsed') {
-          // In collapsed mode: show only C-Suite, VP and Key Managers (12 people), hide 42 operational staff
-          return isLeader;
-        }
-        if (oScope === 'all') return true;
-        if (oScope === 'organizations') return isLeader;
-        // If department scope: show leaders + staff of that department
-        const dept = getPersonDeptCategory(n);
-        return isLeader || dept === oScope;
+        if (oScope === 'organizations') return isNodeLeader(n);
+        return getPersonDeptCategory(n) === oScope;
       }
-
-      // Organizations: Always keep
-      if (n.type === 'organization') {
-        return true;
-      }
-
-      // 3. Always keep Core, Master Brands, Markets, Distributors, Departments, Routines
-      return true;
+      return oScope === 'organizations' && n.type === 'organization';
     });
 
     const activeNodeIdSet = new Set(filteredRawNodes.map((n: any) => n.id));
@@ -2715,7 +2713,8 @@ export default function CerebroPage() {
     const context = targetNode ? nodesRef.current.filter(n => focusNodeIdsRef.current.includes(n.id)) : nodesRef.current.filter(n => n.type !== 'packaging' && n.type !== 'flavor');
     const mobile = window.innerWidth < 768;
     const panelOverlaysCanvas = stackedDeckRef.current.length > 0 && (mobile || w > window.innerWidth - 400);
-    const fitted = fitIdentityBounds(context, w, h, panelOverlaysCanvas, mobile);
+    // Se encuadra por destino (donde van a quedar los nodos), no por donde estan mientras brotan.
+    const fitted = fitIdentityBounds(context.map(n => ({ x: Number.isFinite(n.targetX) ? n.targetX : n.x, y: Number.isFinite(n.targetY) ? n.targetY : n.y })), w, h, panelOverlaysCanvas, mobile);
     if (!fitted) return;
     const targetX = fitted.x;
     const targetY = fitted.y;
@@ -2902,9 +2901,6 @@ export default function CerebroPage() {
       return;
     }
     pushToStackedDeck(node);
-    if (node.type === 'brand' || node.type === 'department') {
-      handleDrillInto(node);
-    }
   };
 
   // Vista por defecto: todo cerrado, sin fichas, camara encuadrada.
@@ -2914,8 +2910,18 @@ export default function CerebroPage() {
     selectedNodeIdRef.current = null;
     stackedDeckRef.current = [];
     setStackedDeck([]);
-    handleResetToUniverse();
+    setDrilldownStack([]);
+    drilldownStackRef.current = [];
+    setCatalogScope('collapsed');
+    catalogScopeRef.current = 'collapsed';
+    setOrgScope('collapsed');
+    orgScopeRef.current = 'collapsed';
+    try { localStorage.setItem('cerebro_org_scope', 'collapsed'); } catch {}
     setupNodesWithMode(graphData?.nodes || fullGraphRef.current.nodes, fullGraphRef.current.links, 'collapsed', 'collapsed');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      updateCanvasDimensions();
+      handleCenterAndFit();
+    }));
   };
 
   // Un clic: solo selecciona y resalta conexiones. No agrega nada al lienzo.
@@ -3306,9 +3312,38 @@ export default function CerebroPage() {
       if (link.source === node.id) focusIds.add(link.target);
       if (link.target === node.id) focusIds.add(link.source);
     }
-    const broughtIds = new Set<string>(focusIds);
-    if (node.type === 'brand') {
-      for (const child of brandCatalogNodes(node.id, full.nodes, full.links)) broughtIds.add(child.id);
+    const broughtIds = new Set<string>([node.id]);
+    if (sourceNodeId) {
+      broughtIds.add(sourceNodeId);
+    } else {
+      // Solo el siguiente nivel: vecinos mas profundos que este nodo. Si son muchos, la capa mas cercana y con tope.
+      const typeById = new Map<string, any>(full.nodes.map((n: any) => [n.id, n]));
+      const myLevel = nodeLevel(node.type);
+      const candidates = new Map<string, any>();
+      for (const id of focusIds) {
+        const other = typeById.get(id);
+        if (other && id !== node.id && nodeLevel(other.type) > myLevel) candidates.set(id, other);
+      }
+      if (node.type === 'brand') {
+        for (const child of brandCatalogNodes(node.id, full.nodes, full.links)) {
+          if (nodeLevel(child.type) > myLevel) candidates.set(child.id, child);
+        }
+      }
+      let deeper = [...candidates.values()];
+      const totalDeeper = deeper.length;
+      if (deeper.length > 14) {
+        const nearest = Math.min(...deeper.map(d => nodeLevel(d.type)));
+        deeper = deeper.filter(d => nodeLevel(d.type) === nearest);
+      }
+      deeper.sort((x, y) => String(x.title || x.id).localeCompare(String(y.title || y.id)));
+      const shown = deeper.slice(0, MAX_NODES_PER_OPEN);
+      for (const d of shown) broughtIds.add(d.id);
+      if (shown.length < totalDeeper) {
+        setStatusMessage(`Mostrando ${shown.length} de ${totalDeeper} conexiones de este nivel. Abre un nodo para seguir bajando.`);
+        setTimeout(() => setStatusMessage(null), 4500);
+      }
+      focusIds.clear();
+      for (const id of broughtIds) focusIds.add(id);
     }
     // Reabrir un nodo ya abierto conserva su orden de apertura y suma lo nuevo.
     for (const id of expansionsRef.current.get(node.id) || []) broughtIds.add(id);

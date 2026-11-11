@@ -458,3 +458,7 @@ button.tm-telemetry-card:hover {transform:translateY(-2px);border-color:rgba(233
   .cerebro-lux aside { animation: none; }
   .cerebro-lux button, .cerebro-lux a { transition: none !important; }
 }
+
+/* Puntos de leyenda: conservan un color propio y visible */
+.cerebro-lux [class*="w-2"][class*="h-2"][class*="bg-sky-"], .cerebro-lux [class*="w-2"][class*="h-2"][class*="bg-blue-"] { background-color: #7fb0d6 !important; }
+.cerebro-lux [class*="w-2"][class*="h-2"][class*="bg-purple-"], .cerebro-lux [class*="w-2"][class*="h-2"][class*="bg-indigo-"], .cerebro-lux [class*="w-2"][class*="h-2"][class*="bg-violet-"] { background-color: #a99bd8 !important; }
