@@ -364,9 +364,9 @@ const LEADER_IDS = new Set([
 const NODE_LEVEL: Record<string, number> = {
   core: 0,
   market: 1, brand: 1, department: 1, working_memory: 1, project: 1, routine: 1,
-  organization: 2, distributor: 2, operator: 2, product_line: 2, site: 2, country: 2, group: 2, catalog_listing: 2, consolidation_session: 2,
-  channel: 3, customer: 3, client_group: 3, client: 3, flavor: 3, person: 3, role: 3,
-  packaging: 4,
+  organization: 2, distributor: 2, operator: 2, product_line: 2, site: 2, country: 2, group: 2, consolidation_session: 2,
+  channel: 3, customer: 3, client_group: 3, client: 3, outlet: 3, flavor: 3, person: 3, role: 3,
+  packaging: 4, catalog_listing: 4,
   product_variant: 5,
 };
 const nodeLevel = (type?: string) => NODE_LEVEL[type || ''] ?? 3;
