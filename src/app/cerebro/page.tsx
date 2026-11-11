@@ -3349,8 +3349,9 @@ export default function CerebroPage() {
       deeper.sort((x, y) => String(x.title || x.id).localeCompare(String(y.title || y.id)));
       const shown = deeper.slice(0, MAX_NODES_PER_OPEN);
       for (const d of shown) broughtIds.add(d.id);
-      if (shown.length < totalDeeper) {
-        setStatusMessage(`Mostrando ${shown.length} de ${totalDeeper} conexiones de este nivel. Abre un nodo para seguir bajando.`);
+      void totalDeeper;
+      if (shown.length < deeper.length) {
+        setStatusMessage(`Mostrando ${shown.length} de ${deeper.length} nodos de este nivel. Usa la búsqueda para ir a uno específico.`);
         setTimeout(() => setStatusMessage(null), 4500);
       }
       focusIds.clear();
