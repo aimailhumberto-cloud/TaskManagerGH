@@ -1695,6 +1695,10 @@ export default function CerebroPage() {
   const nodesRef = useRef<NodeData[]>([]);
   const fullGraphRef = useRef<{nodes: any[]; links: LinkData[]}>({nodes: [], links: []});
   const revealedNodeIdsRef = useRef(new Set<string>());
+  // Capas abiertas: nodo -> ids que ese nodo trajo al lienzo. Lo visible se deriva de aqui,
+  // asi que cerrar un nodo retira su nivel (antes la lista solo crecia).
+  const expansionsRef = useRef(new Map<string, string[]>());
+  const selectedNodeIdRef = useRef<string | null>(null);
   const focusNodeIdsRef = useRef<string[]>([]);
   const cameraAnimationRef = useRef(0);
   const linksRef = useRef<LinkData[]>([]);
@@ -2428,7 +2432,7 @@ export default function CerebroPage() {
 
       // 5. Draw Synaptic Links with High-Energy Photons
       // Modo Enfoque Dinámico: Si hay una entidad activa (por clic en ficha o hover), NADA MÁS se ven las líneas vivas conectadas a ella!
-      const activeEntityId = stackedDeck.length > 0 ? stackedDeck[0].id : activeHover?.id;
+      const activeEntityId = selectedNodeIdRef.current || (stackedDeck.length > 0 ? stackedDeck[0].id : activeHover?.id);
       const isFocusActive = !!activeEntityId;
 
       for (const link of links) {
@@ -2490,7 +2494,7 @@ export default function CerebroPage() {
       // 6. Draw Celestial Nodes
       for (const n of nodes) {
         const cfg = TYPE_CONFIG[n.type] || TYPE_CONFIG.department;
-        const isSelected = stackedDeck.some(d => d.id === n.id);
+        const isSelected = n.id === selectedNodeIdRef.current || stackedDeck.some(d => d.id === n.id);
         const isHovered = activeHover?.id === n.id;
         const isWorking = n.memory_tier === 'working';
         const pulse = isWorking ? Math.sin(time * 4) * 6 : Math.sin(time * 1.5 + n.radius) * 2;
@@ -2781,66 +2785,138 @@ export default function CerebroPage() {
     setPinnedCount(0);
   };
 
-  // Direct Canvas Click Handler (Opens Card + Progressive Drill-down on Brands/Depts)
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    const { x: tx, y: ty, scale } = transformRef.current;
-    const worldX = (mouseX - tx) / scale;
-    const worldY = (mouseY - ty) / scale;
-
-    const clickedNode = nodesRef.current.find(n => {
-      const dx = n.x - worldX;
-      const dy = n.y - worldY;
-      return Math.sqrt(dx * dx + dy * dy) <= Math.max(n.radius + 24, 44);
-    }) || hoveredNodeRef.current;
-
-    if (clickedNode) {
-      pushToStackedDeck(clickedNode);
-      if (clickedNode.type === 'brand' || clickedNode.type === 'department') {
-        handleDrillInto(clickedNode);
-      }
+  const rebuildRevealed = () => {
+    const next = new Set<string>();
+    for (const [id, brought] of expansionsRef.current) {
+      next.add(id);
+      for (const b of brought) next.add(b);
     }
+    revealedNodeIdsRef.current = next;
   };
 
-  // Double Click: Unpin anchored nodes or Center View
-  const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const findNodeAtClientPoint = (clientX: number, clientY: number): NodeData | undefined => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return undefined;
     const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
     const { x: tx, y: ty, scale } = transformRef.current;
-    const worldX = (mouseX - tx) / scale;
-    const worldY = (mouseY - ty) / scale;
-
-    const clickedNode = nodesRef.current.find(n => {
+    const worldX = (clientX - rect.left - tx) / scale;
+    const worldY = (clientY - rect.top - ty) / scale;
+    return nodesRef.current.find(n => {
       const dx = n.x - worldX;
       const dy = n.y - worldY;
       return Math.sqrt(dx * dx + dy * dy) <= Math.max(n.radius + 24, 44);
     });
+  };
 
-    if (clickedNode) {
-      if (clickedNode.isPinned) {
-        clickedNode.isPinned = false;
-        clickedNode.pinnedX = undefined;
-        clickedNode.pinnedY = undefined;
-        if (clickedNode.originalTargetX !== undefined && clickedNode.originalTargetY !== undefined) {
-          clickedNode.targetX = clickedNode.originalTargetX;
-          clickedNode.targetY = clickedNode.originalTargetY;
-        }
-        setPinnedCount(nodesRef.current.filter(n => n.isPinned).length);
-      } else {
-        handleCenterAndFit(clickedNode);
-      }
-    } else {
-      handleCenterAndFit();
+  const unpinNode = (node: NodeData) => {
+    node.isPinned = false;
+    node.pinnedX = undefined;
+    node.pinnedY = undefined;
+    if (node.originalTargetX !== undefined && node.originalTargetY !== undefined) {
+      node.targetX = node.originalTargetX;
+      node.targetY = node.originalTargetY;
     }
+    try {
+      const stored = localStorage.getItem('cerebro_pinned_positions');
+      if (stored) {
+        const map = JSON.parse(stored);
+        delete map[node.id];
+        localStorage.setItem('cerebro_pinned_positions', JSON.stringify(map));
+      }
+    } catch {}
+    setPinnedCount(nodesRef.current.filter(n => n.isPinned).length);
+  };
+
+  // Cierra un nodo abierto: retira su nivel, todo lo que se abrio despues colgando de el, y sus fichas.
+  const collapseNode = (node: NodeData) => {
+    const order = [...expansionsRef.current.keys()];
+    const closed = new Set<string>();
+    const queue = [node.id];
+    while (queue.length) {
+      const id = queue.pop() as string;
+      if (closed.has(id) || !expansionsRef.current.has(id)) continue;
+      closed.add(id);
+      const openedAt = order.indexOf(id);
+      for (const child of expansionsRef.current.get(id) || []) {
+        // Solo cascada hacia lo abierto despues: un vecino abierto antes es el padre, no un hijo.
+        if (child !== id && order.indexOf(child) > openedAt) queue.push(child);
+      }
+    }
+    for (const id of closed) expansionsRef.current.delete(id);
+    rebuildRevealed();
+
+    const full = fullGraphRef.current;
+    const closedTypes = new Set(full.nodes.filter(n => closed.has(n.id)).map(n => n.type));
+    if (closedTypes.has('brand')) {
+      setCatalogScope('collapsed');
+      catalogScopeRef.current = 'collapsed';
+    }
+    if (closedTypes.has('department')) {
+      setOrgScope('collapsed');
+      orgScopeRef.current = 'collapsed';
+      try { localStorage.setItem('cerebro_org_scope', 'collapsed'); } catch {}
+    }
+    const nextStack = drilldownStackRef.current.filter(d => !closed.has(d.id));
+    drilldownStackRef.current = nextStack;
+    setDrilldownStack(nextStack);
+
+    const nextDeck = stackedDeckRef.current.filter(d => !closed.has(d.id));
+    stackedDeckRef.current = nextDeck;
+    setStackedDeck(nextDeck);
+
+    selectedNodeIdRef.current = node.id;
+    setupNodesWithMode(graphData?.nodes || full.nodes, full.links);
+  };
+
+  // Doble clic / doble toque: abre el siguiente nivel y la ficha lateral; repetido, los cierra.
+  const toggleNodeOpen = (node: NodeData) => {
+    if (expansionsRef.current.has(node.id)) {
+      collapseNode(node);
+      return;
+    }
+    pushToStackedDeck(node);
+    if (node.type === 'brand' || node.type === 'department') {
+      handleDrillInto(node);
+    }
+  };
+
+  // Vista por defecto: todo cerrado, sin fichas, camara encuadrada.
+  const resetToDefaultView = () => {
+    expansionsRef.current.clear();
+    rebuildRevealed();
+    selectedNodeIdRef.current = null;
+    stackedDeckRef.current = [];
+    setStackedDeck([]);
+    handleResetToUniverse();
+    setupNodesWithMode(graphData?.nodes || fullGraphRef.current.nodes, fullGraphRef.current.links, 'collapsed', 'collapsed');
+  };
+
+  // Un clic: solo selecciona y resalta conexiones. No agrega nada al lienzo.
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const moved = Math.hypot(
+      e.clientX - rect.left - dragStartMousePosRef.current.x,
+      e.clientY - rect.top - dragStartMousePosRef.current.y
+    );
+    if (moved > 6) return; // fue un arrastre, no un clic
+    const clickedNode = findNodeAtClientPoint(e.clientX, e.clientY) || hoveredNodeRef.current;
+    selectedNodeIdRef.current = clickedNode ? clickedNode.id : null;
+  };
+
+  // Doble clic: abre o cierra el nodo. Mayus + doble clic desfija. En el fondo: vista por defecto.
+  const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const clickedNode = findNodeAtClientPoint(e.clientX, e.clientY);
+    if (!clickedNode) {
+      resetToDefaultView();
+      return;
+    }
+    if (e.shiftKey && clickedNode.isPinned) {
+      unpinNode(clickedNode);
+      return;
+    }
+    toggleNodeOpen(clickedNode);
   };
 
   // Mouse Handlers & Instant Hover Tooltip Detection
@@ -3138,30 +3214,15 @@ export default function CerebroPage() {
         if (timeSinceLast < 360) {
           // Double Tap Detected!
           if (tappedNode) {
-            if (tappedNode.isPinned) {
-              tappedNode.isPinned = false;
-              tappedNode.pinnedX = undefined;
-              tappedNode.pinnedY = undefined;
-              if (tappedNode.originalTargetX !== undefined && tappedNode.originalTargetY !== undefined) {
-                tappedNode.targetX = tappedNode.originalTargetX;
-                tappedNode.targetY = tappedNode.originalTargetY;
-              }
-              setPinnedCount(nodesRef.current.filter(n => n.isPinned).length);
-            } else {
-              handleCenterAndFit(tappedNode);
-            }
+            toggleNodeOpen(tappedNode);
           } else {
-            handleCenterAndFit();
+            resetToDefaultView();
           }
           lastTapTimeRef.current = 0;
         } else {
           lastTapTimeRef.current = now;
-          if (tappedNode) {
-            pushToStackedDeck(tappedNode);
-            if (tappedNode.type === 'brand' || tappedNode.type === 'department') {
-              handleDrillInto(tappedNode);
-            }
-          }
+          // Un toque: solo selecciona.
+          selectedNodeIdRef.current = tappedNode ? tappedNode.id : null;
         }
       }
 
@@ -3218,10 +3279,15 @@ export default function CerebroPage() {
       if (link.source === node.id) focusIds.add(link.target);
       if (link.target === node.id) focusIds.add(link.source);
     }
-    for (const id of focusIds) revealedNodeIdsRef.current.add(id);
+    const broughtIds = new Set<string>(focusIds);
     if (node.type === 'brand') {
-      for (const child of brandCatalogNodes(node.id, full.nodes, full.links)) revealedNodeIdsRef.current.add(child.id);
+      for (const child of brandCatalogNodes(node.id, full.nodes, full.links)) broughtIds.add(child.id);
     }
+    // Reabrir un nodo ya abierto conserva su orden de apertura y suma lo nuevo.
+    for (const id of expansionsRef.current.get(node.id) || []) broughtIds.add(id);
+    expansionsRef.current.set(node.id, [...broughtIds]);
+    rebuildRevealed();
+    selectedNodeIdRef.current = node.id;
     focusNodeIdsRef.current = [...focusIds];
     setupNodesWithMode(full.nodes, full.links);
     const liveNode = nodesRef.current.find(n => n.id === node.id) || node;
@@ -4322,7 +4388,7 @@ export default function CerebroPage() {
               </span>
             </div>
             <div className="text-[10px] text-gray-500 pt-0.5">
-              Pasa el cursor para resumen leve · Clic para abrir ficha detallada a la derecha · Arrastra o haz Zoom
+              Clic para seleccionar · Doble clic para abrir nivel y ficha · Doble clic otra vez para cerrar · Doble clic en el fondo para volver al inicio
             </div>
           </div>
         </div>
