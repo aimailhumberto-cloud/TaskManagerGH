@@ -192,7 +192,10 @@ Todas las rutas cuelgan de `$TASKMANAGER_URL` (producción: `https://taskmanager
 | | | `ask_dots` (`taskId`, `instruction`, `requestedBy`) | Crear una instrucción para DOTS. |
 | | | `advance_dots` (`workingMemoryId` o `taskId`, `stage`, `draft`) | Avanzar el ciclo de vida de una instrucción. |
 | | | `create` (`title`, `dueDate`, `priority`, `country`, `targetNodeId`, `description`) | Crear una tarea. Con `targetNodeId` la guarda en ese nodo (id exacto o nombre único); sin él, la crea como nota de memoria de trabajo. |
-| `/api/agent/brain` | GET | | Topología del Cerebro (nodos, enlaces, jerarquía). |
+| `/api/agent/brain` | GET | (sin parámetros) | Topología completa: nodos con su texto y encabezado íntegros, enlaces, jerarquía. Es la consulta pesada (varios MB); úsala solo si necesitas leer muchos expedientes a la vez. |
+| | | `?node=<id>` | **Un solo nodo** con cuerpo y encabezado completos. Es la forma normal de leer un expediente. |
+| | | `?version=1` | Firma del vault (casi 0 KB). Si no cambió desde la última vez, no hace falta releer nada. |
+| | | `?view=lite` | Mapa liviano para dibujar (sin cuerpos ni campos de procedencia). |
 | `/api/agent/brain` | POST | `remember_working` | Guardar una memoria temporal. |
 | | | `consolidate_session` | Consolidar memoria (ver reglas arriba). |
 | | | `update_dossier` | Actualizar una ficha: último correo, próximo seguimiento, observaciones, nueva acción, nueva tarea pendiente. |
