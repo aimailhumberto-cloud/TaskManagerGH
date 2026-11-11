@@ -2456,6 +2456,13 @@ export default function CerebroPage() {
       const activeEntityId = selectedNodeIdRef.current || (stackedDeck.length > 0 ? stackedDeck[0].id : activeHover?.id);
       const isFocusActive = !!activeEntityId;
 
+      // Cuantos nodos estan conectados al foco: con muchos, las etiquetas solo salen al acercar (evita el amontonamiento).
+      let focusConnectedCount = 0;
+      if (isFocusActive) {
+        for (const l of links) {
+          if (l.source === activeEntityId || l.target === activeEntityId) focusConnectedCount++;
+        }
+      }
       for (const link of links) {
         const s = nodeMap.get(link.source);
         const t = nodeMap.get(link.target);
@@ -2671,7 +2678,7 @@ export default function CerebroPage() {
         // Etiquetas segun zoom: de lejos solo se nombran los nodos principales; al acercar aparecen las demas.
         const emphasized = isSelected || isHovered || isOpen;
         const isMinorNode = (n.radius || 24) < 22;
-        const showTitle = emphasized || (isFocusActive && isConnectedToFocus) || scale >= (isMinorNode ? 1.0 : 0.5);
+        const showTitle = emphasized || (isFocusActive && isConnectedToFocus && (focusConnectedCount <= 10 || scale >= 1.1)) || scale >= (isMinorNode ? 1.0 : 0.5);
         if (showTitle) {
           ctx.font = emphasized ? '600 13px Georgia, "Times New Roman", serif' : '12px system-ui, -apple-system, "Segoe UI", sans-serif';
           ctx.fillStyle = emphasized ? '#F7EFD9' : 'rgba(229, 231, 235, 0.88)';

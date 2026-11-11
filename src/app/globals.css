@@ -477,3 +477,6 @@ button.tm-telemetry-card:hover {transform:translateY(-2px);border-color:rgba(233
 .cerebro-lux aside div[style*="border-color"] > div:first-child { border-bottom-color: rgba(233, 188, 110, 0.16) !important; }
 .cerebro-lux aside [class*="text-emerald-"] { color: #86d6b0 !important; }
 .cerebro-lux aside [class*="bg-emerald-"], .cerebro-lux aside [class*="border-emerald-"] { background-color: rgba(134, 214, 176, 0.08) !important; border-color: rgba(134, 214, 176, 0.3) !important; }
+
+/* El titulo de la ficha recibe foco por codigo (accesibilidad) pero sin recuadro */
+.cerebro-lux .cerebro-card-title:focus, .cerebro-lux aside h2:focus { outline: none !important; box-shadow: none !important; }
