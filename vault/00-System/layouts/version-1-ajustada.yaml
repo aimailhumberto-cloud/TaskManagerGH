@@ -1,0 +1,109 @@
+view: version-1-ajustada
+version: 1
+center_node: core-sm-jaleel
+axes:
+  west:
+    label: MERCADO
+    angle: 180
+    span: 110
+    order_from_center:
+      - outlet
+      - channel
+      - distributor
+      - country
+  north:
+    label: PORTAFOLIO
+    angle: 90
+    span: 80
+    order_from_center:
+      - brand
+      - line
+      - flavor
+      - packaging
+  east:
+    label: ORGANIZACION
+    angle: 0
+    span: 90
+    order_from_center:
+      - chairman
+      - ceo
+      - head
+      - person
+  south:
+    label: SUPPLY
+    angle: 270
+    span: 70
+    order_from_center:
+      - site
+      - supplier
+      - logistics
+column_order:
+  - country
+  - distributor
+  - channel
+  - outlet
+  - core
+  - chairman
+  - ceo
+  - head
+  - person
+north_rows:
+  - brand
+  - line
+  - flavor
+  - packaging
+south_rows:
+  - site
+  - supplier
+  - logistics
+country_order:
+  - belize
+  - panama
+  - usa
+  - canada
+  - trinidad
+  - costa-rica
+  - el-salvador
+  - jamaica
+  - barbados
+  - saint-lucia
+  - guyana
+  - suriname
+  - south-africa
+country_tags:
+  belize: BZ
+  panama: PA
+  usa: US
+  canada: CA
+  trinidad: TT
+  costa-rica: CR
+  el-salvador: SV
+  barbados: BB
+  guyana: GY
+  saint-lucia: LC
+  suriname: SR
+  jamaica: JM
+  south-africa: ZA
+brand_order:
+  - brand-chubby
+  - brand-fruta
+  - brand-busta
+  - brand-oasis
+  - brand-altitude
+spacing:
+  ring_base: 190
+  ring_step: 150
+  min_node_gap: 52
+  column_width: 230
+  row_height: 58
+  lane_padding: 24
+  tray_gap: 64
+visible_layers:
+  - core
+  - market
+  - portfolio
+  - organization
+  - supply
+  - projects
+  - cognitive
+  - unplaced

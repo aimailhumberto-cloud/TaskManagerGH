@@ -10,7 +10,7 @@ spatial_anchor: market-belize
 spatial_tier: channel
 country: Belice
 based_in_country: Belice
-parent_distributor_id: dist-sancas-belize
+parent_distributor_id: "[[Distributor: SanCas (Belize)]]"
 verification_status: hb_reported_reporting_segment
 source: Declaracion directa de HB, reunion SanCas 2026-11-10;
   Sentinel_8cfdbc5980a48191bfa6cfd6f14f3cc7; conservada en ficha
@@ -41,8 +41,8 @@ tags:
 serves_clients:
   - Client - Brodies Belize
   - Client - Red Mayoristas Independientes Belice
-last_updated_at: 2026-11-10T17:13:55.065Z
-last_updated_by: DOTS Agent (Topology Reconfiguration)
+last_updated_at: 2026-11-11T10:35:31.243Z
+last_updated_by: DOTS Agent (Assign Parent)
 ---
 
 # Mayoristas / wholesalers - SanCas Belize

@@ -1566,3 +1566,155 @@ export function reconfigureNodeTopology(input: {
     message: `Topología y espacio reconfigurados exitosamente para '${target.title}' [ID: ${target.id}].`,
   };
 }
+
+export function assignNodeParent(input: {
+  nodeId: string;
+  parentId: string;
+  field?: 'parent_id' | 'parent_distributor_id' | 'parent_distributor' | 'market' | 'brand' | 'location' | 'department' | 'reports_to' | 'supplied_by';
+}): { ok: boolean; message: string } {
+  const vaultDir = getVaultPath();
+  const allNodes = loadBrainGraph().nodes;
+  const target = allNodes.find(n => n.id === input.nodeId || n.id.toLowerCase() === input.nodeId.toLowerCase());
+  if (!target) {
+    return { ok: false, message: `No se encontró el nodo con ID ${input.nodeId}` };
+  }
+
+  // Verificar que el parentId existe en el grafo
+  const parentNode = allNodes.find(n => n.id === input.parentId || n.id.toLowerCase() === input.parentId.toLowerCase());
+  if (!parentNode) {
+    return { ok: false, message: `No se encontró el nodo padre con ID '${input.parentId}' en el Cerebro. No se inventan relaciones.` };
+  }
+
+  const filePath = target.filePath;
+  if (!fs.existsSync(filePath)) {
+    return { ok: false, message: `Archivo de nodo no encontrado en disco: ${filePath}` };
+  }
+
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const { frontmatter, body } = parseFrontmatterAndBody(content);
+
+  const field = input.field || 'parent_id';
+  if (field === 'reports_to') {
+    frontmatter.relations = frontmatter.relations || {};
+    frontmatter.relations.reports_to = [`[[${parentNode.title}]]`];
+  } else {
+    frontmatter[field] = input.parentId.startsWith('[[') ? input.parentId : `[[${parentNode.title}]]`;
+  }
+
+  frontmatter.last_updated_at = new Date().toISOString();
+  frontmatter.last_updated_by = 'DOTS Agent (Assign Parent)';
+
+  const updatedYaml = YAML.stringify(frontmatter).trim();
+  const newContent = `---\n${updatedYaml}\n---\n\n${body.trim()}\n`;
+
+  fs.writeFileSync(filePath, newContent, 'utf-8');
+
+  // Verificar
+  const verified = fs.readFileSync(filePath, 'utf-8');
+  if (!verified.includes(target.id)) {
+    return { ok: false, message: 'Falla al verificar la persistencia física en disco.' };
+  }
+
+  syncToBundledVault(path.relative(vaultDir, filePath), newContent);
+
+  return {
+    ok: true,
+    message: `Padre '${parentNode.title}' asignado exitosamente al nodo '${target.title}' en el campo '${field}'.`,
+  };
+}
+
+export function getLayoutConfig(view: string): { ok: boolean; config: any } {
+  const vaultDir = getVaultPath();
+  const layoutPath = path.join(vaultDir, '00-System', 'layouts', `${view}.yaml`);
+  const bundledPath = path.join(process.cwd(), 'vault', '00-System', 'layouts', `${view}.yaml`);
+
+  let targetPath = fs.existsSync(layoutPath) ? layoutPath : (fs.existsSync(bundledPath) ? bundledPath : null);
+  if (!targetPath) {
+    return { ok: false, config: null };
+  }
+
+  try {
+    const raw = fs.readFileSync(targetPath, 'utf-8');
+    const parsed = YAML.parse(raw);
+    return { ok: true, config: parsed };
+  } catch (err: any) {
+    return { ok: false, config: null };
+  }
+}
+
+export function updateLayoutConfig(view: string, updates: Record<string, any>): { ok: boolean; message: string; config?: any } {
+  const vaultDir = getVaultPath();
+  const dirPath = path.join(vaultDir, '00-System', 'layouts');
+  const historyDir = path.join(dirPath, 'history');
+  fs.mkdirSync(historyDir, { recursive: true });
+
+  const filePath = path.join(dirPath, `${view}.yaml`);
+  const bundledPath = path.join(process.cwd(), 'vault', '00-System', 'layouts', `${view}.yaml`);
+
+  let currentConfig: any = {};
+  if (fs.existsSync(filePath)) {
+    try {
+      currentConfig = YAML.parse(fs.readFileSync(filePath, 'utf-8')) || {};
+      // Guardar copia histórica antes de escribir
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const historyFile = path.join(historyDir, `${view}-${timestamp}.yaml`);
+      fs.copyFileSync(filePath, historyFile);
+    } catch {}
+  } else if (fs.existsSync(bundledPath)) {
+    try {
+      currentConfig = YAML.parse(fs.readFileSync(bundledPath, 'utf-8')) || {};
+    } catch {}
+  }
+
+  // Deep merge updates
+  const merged = {
+    ...currentConfig,
+    ...updates,
+    spacing: { ...(currentConfig.spacing || {}), ...(updates.spacing || {}) },
+    axes: { ...(currentConfig.axes || {}), ...(updates.axes || {}) },
+    country_tags: { ...(currentConfig.country_tags || {}), ...(updates.country_tags || {}) },
+    updated_at: new Date().toISOString(),
+    updated_by: 'DOTS Agent (Layout Engine Reconfiguration)',
+  };
+
+  const newYaml = YAML.stringify(merged).trim();
+  fs.writeFileSync(filePath, newYaml + '\n', 'utf-8');
+
+  // Write-Verify-Read
+  const verified = fs.readFileSync(filePath, 'utf-8');
+  const parsed = YAML.parse(verified);
+  if (!parsed || parsed.view !== view) {
+    return { ok: false, message: 'Falla al verificar la escritura física de la configuración del layout.' };
+  }
+
+  syncToBundledVault(path.relative(vaultDir, filePath), newYaml + '\n');
+
+  return {
+    ok: true,
+    message: `Configuración del layout '${view}' actualizada y verificada exitosamente.`,
+    config: parsed,
+  };
+}
+
+export function resetLayoutConfig(view: string): { ok: boolean; message: string; config?: any } {
+  const vaultDir = getVaultPath();
+  const dirPath = path.join(vaultDir, '00-System', 'layouts');
+  const filePath = path.join(dirPath, `${view}.yaml`);
+  const bundledPath = path.join(process.cwd(), 'vault', '00-System', 'layouts', `${view}.yaml`);
+
+  if (!fs.existsSync(bundledPath)) {
+    return { ok: false, message: `No existe configuración base para '${view}'.` };
+  }
+
+  const baseContent = fs.readFileSync(bundledPath, 'utf-8');
+  fs.mkdirSync(dirPath, { recursive: true });
+  fs.writeFileSync(filePath, baseContent, 'utf-8');
+
+  syncToBundledVault(path.relative(vaultDir, filePath), baseContent);
+
+  return {
+    ok: true,
+    message: `Configuración del layout '${view}' restaurada al estado base.`,
+    config: YAML.parse(baseContent),
+  };
+}

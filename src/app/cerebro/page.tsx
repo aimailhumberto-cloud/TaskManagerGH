@@ -4,6 +4,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { getMarketDistributors, marketDistributorLabel, distributorDisplayName } from '@/lib/marketDistributors';
 import { searchBrainNodes, resolveBrainNode, humanNodeName, fitIdentityBounds } from '@/lib/smjIdentity';
+import { computeNativeLayout, LayoutResult, mergeLayoutConfig, LayoutConfig } from '@/lib/cerebroLayout';
 
 interface NodeData {
   id: string;
@@ -1631,9 +1632,14 @@ export default function CerebroPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [gravityActive, setGravityActive] = useState(true);
-  const [viewMode, setViewMode] = useState<'quadrants' | 'constellations' | 'organigram'>('quadrants');
-  const viewModeRef = useRef<'quadrants' | 'constellations' | 'organigram'>(viewMode);
+  const [viewMode, setViewMode] = useState<'brujula' | 'version-1-ajustada' | 'quadrants' | 'constellations' | 'organigram'>('brujula');
+  const viewModeRef = useRef<'brujula' | 'version-1-ajustada' | 'quadrants' | 'constellations' | 'organigram'>(viewMode);
   viewModeRef.current = viewMode;
+
+  // Cache del resultado del layout nativo y decoraciones
+  const nativeLayoutCacheRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  const nativeLayoutDecorRef = useRef<any[]>([]);
+  const nativeLayoutConfigRef = useRef<Record<string, any>>({});
 
   // Granular Catalog & Multi-packs Collapsible Control
   const [catalogScope, setCatalogScope] = useState<'collapsed' | 'all' | 'chubby' | 'busta' | 'fruta' | 'oasis' | 'altitude'>('collapsed');
@@ -1769,16 +1775,35 @@ export default function CerebroPage() {
     };
   }, [mounted]);
 
-  const getNodeTarget = (node: any, modeOverride?: 'quadrants' | 'constellations' | 'organigram') => {
+  const getNodeTarget = (node: any, modeOverride?: 'brujula' | 'version-1-ajustada' | 'quadrants' | 'constellations' | 'organigram') => {
     const activeMode = modeOverride || viewModeRef.current;
+    if (activeMode === 'brujula' || activeMode === 'version-1-ajustada') {
+      const cached = nativeLayoutCacheRef.current.get(node.id);
+      if (cached) return cached;
+      // Fallback a cuadrantes si aún no corre el layout
+      return assignQuadrantTarget(node);
+    }
     if (activeMode === 'quadrants') return assignQuadrantTarget(node);
     if (activeMode === 'organigram') return assignOrganigramTarget(node);
     return assignClusterTarget(node);
   };
 
-  const handleSetViewMode = (mode: 'quadrants' | 'constellations' | 'organigram') => {
+  const recomputeNativeLayout = (mode: 'brujula' | 'version-1-ajustada', currentNodes: any[], allRawNodes: any[]) => {
+    if (!currentNodes.length) return;
+    const viewCfg = nativeLayoutConfigRef.current[mode];
+    const mergedCfg = mergeLayoutConfig(mode, viewCfg);
+    const result = computeNativeLayout(mode, currentNodes, allRawNodes, mergedCfg);
+    nativeLayoutCacheRef.current = result.positions;
+    nativeLayoutDecorRef.current = result.decor;
+  };
+
+  const handleSetViewMode = (mode: 'brujula' | 'version-1-ajustada' | 'quadrants' | 'constellations' | 'organigram') => {
     setViewMode(mode);
     viewModeRef.current = mode;
+    if (mode === 'brujula' || mode === 'version-1-ajustada') {
+      const all = fullGraphRef.current.nodes.length ? fullGraphRef.current.nodes : nodesRef.current;
+      recomputeNativeLayout(mode, nodesRef.current, all);
+    }
     if (nodesRef.current) {
       nodesRef.current.forEach((n) => {
         const target = getNodeTarget(n, mode);
@@ -1797,6 +1822,9 @@ export default function CerebroPage() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json: BrainGraphResponse = await res.json();
       if (json.ok) {
+        if ((json as any).layouts) {
+          nativeLayoutConfigRef.current = (json as any).layouts;
+        }
         fullGraphRef.current = {nodes: json.allNodes || json.nodes, links: json.links};
         setGraphData(json);
         setupNodesWithMode(json.nodes, json.links);
@@ -1915,6 +1943,12 @@ export default function CerebroPage() {
     });
 
     const existingMap = new Map(nodesRef.current.map(n => [n.id, n]));
+
+    // Precomputar layout nativo si el modo actual es brujula o version-1-ajustada
+    if (viewModeRef.current === 'brujula' || viewModeRef.current === 'version-1-ajustada') {
+      const all = fullGraphRef.current.nodes.length ? fullGraphRef.current.nodes : filteredRawNodes;
+      recomputeNativeLayout(viewModeRef.current, filteredRawNodes, all);
+    }
 
     // Point 10: Persistent positions stored in localStorage
     let savedPositions: Record<string, { x: number; y: number }> = {};
@@ -2129,7 +2163,60 @@ export default function CerebroPage() {
       }
 
       // 4. Mode-Specific Backdrop Graphics
-      if (viewMode === 'quadrants') {
+      if (viewMode === 'brujula' || viewMode === 'version-1-ajustada') {
+        // Dibujar decoraciones nativas (ejes, anillos, carriles, etiquetas de país [BZ], bandejas)
+        const decorList = nativeLayoutDecorRef.current || [];
+        for (const d of decorList) {
+          if (d.kind === 'ring' && typeof d.r === 'number') {
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 6]);
+            ctx.beginPath();
+            ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          } else if (d.kind === 'axis-label' && d.text) {
+            ctx.font = 'bold 11px monospace';
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.85)';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(d.text, d.x, d.y);
+          } else if (d.kind === 'lane') {
+            if (d.w && d.h) {
+              ctx.fillStyle = d.dim ? 'rgba(255, 255, 255, 0.015)' : 'rgba(56, 189, 248, 0.025)';
+              ctx.fillRect(d.x, d.y, d.w, d.h);
+              ctx.strokeStyle = d.dim ? 'rgba(255, 255, 255, 0.05)' : 'rgba(56, 189, 248, 0.12)';
+              ctx.lineWidth = 0.8;
+              ctx.strokeRect(d.x, d.y, d.w, d.h);
+            }
+            if (d.tag) {
+              ctx.font = 'bold 10px monospace';
+              ctx.fillStyle = '#38BDF8';
+              ctx.textAlign = 'right';
+              ctx.fillText(`${d.tag} ${d.text || ''}`, d.x - 12, (d.y || 0) + (d.h ? d.h / 2 : 0));
+            }
+          } else if (d.kind === 'column-label' && d.text) {
+            ctx.font = 'bold 9px monospace';
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
+            ctx.textAlign = 'center';
+            ctx.fillText(d.text, d.x, d.y);
+          } else if (d.kind === 'tray' && d.w && d.h) {
+            ctx.fillStyle = d.dim ? 'rgba(15, 23, 42, 0.4)' : 'rgba(239, 68, 68, 0.04)';
+            ctx.fillRect(d.x, d.y, d.w, d.h);
+            ctx.strokeStyle = d.dim ? 'rgba(100, 116, 139, 0.25)' : 'rgba(239, 68, 68, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.strokeRect(d.x, d.y, d.w, d.h);
+            ctx.setLineDash([]);
+            if (d.text) {
+              ctx.font = 'bold 9px monospace';
+              ctx.fillStyle = d.dim ? 'rgba(148, 163, 184, 0.7)' : 'rgba(248, 113, 113, 0.9)';
+              ctx.textAlign = 'left';
+              ctx.fillText(d.text, d.x + 8, d.y + 14);
+            }
+          }
+        }
+      } else if (viewMode === 'quadrants') {
         drawAmericasMapBackdrop(ctx);
 
         // Top Brands Shelf
@@ -3431,12 +3518,20 @@ export default function CerebroPage() {
           {/* Desktop View Mode Switcher */}
           <div className="hidden lg:flex items-center bg-gray-900 p-0.5 rounded-lg border border-gray-700 text-xs">
             <button
-              onClick={() => handleSetViewMode('quadrants')}
+              onClick={() => handleSetViewMode('brujula')}
               className={`px-2 py-1 rounded transition text-[11px] font-medium ${
-                viewMode === 'quadrants' ? 'bg-sky-600 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
+                viewMode === 'brujula' ? 'bg-sky-600 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
               }`}
             >
-              🧭 Cuadrantes
+              [BR] Brújula
+            </button>
+            <button
+              onClick={() => handleSetViewMode('version-1-ajustada')}
+              className={`px-2 py-1 rounded transition text-[11px] font-medium ${
+                viewMode === 'version-1-ajustada' ? 'bg-sky-600 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              [V1] V1 Ajustada
             </button>
             <button
               onClick={() => handleSetViewMode('constellations')}
@@ -3444,7 +3539,7 @@ export default function CerebroPage() {
                 viewMode === 'constellations' ? 'bg-emerald-600 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
               }`}
             >
-              🌌 Constelaciones
+              Constelaciones
             </button>
             <button
               onClick={() => handleSetViewMode('organigram')}
@@ -3452,7 +3547,15 @@ export default function CerebroPage() {
                 viewMode === 'organigram' ? 'bg-purple-600 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
               }`}
             >
-              🏛️ Organigrama
+              Organigrama
+            </button>
+            <button
+              onClick={() => handleSetViewMode('quadrants')}
+              className={`px-2 py-1 rounded transition text-[11px] font-medium ${
+                viewMode === 'quadrants' ? 'bg-slate-700 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Cuadrantes
             </button>
           </div>
 
@@ -3597,14 +3700,22 @@ export default function CerebroPage() {
             {/* View Mode Selector */}
             <div>
               <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">Modo de Perspectiva:</label>
-              <div className="grid grid-cols-3 gap-1 bg-gray-900 p-1 rounded-lg border border-gray-800">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-1 bg-gray-900 p-1 rounded-lg border border-gray-800">
                 <button
-                  onClick={() => handleSetViewMode('quadrants')}
+                  onClick={() => handleSetViewMode('brujula')}
                   className={`py-1.5 rounded text-xs transition text-center ${
-                    viewMode === 'quadrants' ? 'bg-sky-600 text-white font-semibold shadow' : 'text-gray-400 hover:text-white'
+                    viewMode === 'brujula' ? 'bg-sky-600 text-white font-semibold shadow' : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  🧭 Cuadrantes
+                  [BR] Brújula
+                </button>
+                <button
+                  onClick={() => handleSetViewMode('version-1-ajustada')}
+                  className={`py-1.5 rounded text-xs transition text-center ${
+                    viewMode === 'version-1-ajustada' ? 'bg-sky-600 text-white font-semibold shadow' : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  [V1] V1 Ajustada
                 </button>
                 <button
                   onClick={() => handleSetViewMode('constellations')}
@@ -3612,7 +3723,7 @@ export default function CerebroPage() {
                     viewMode === 'constellations' ? 'bg-emerald-600 text-white font-semibold shadow' : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  🌌 Constelaciones
+                  Constelaciones
                 </button>
                 <button
                   onClick={() => handleSetViewMode('organigram')}
@@ -3620,7 +3731,7 @@ export default function CerebroPage() {
                     viewMode === 'organigram' ? 'bg-purple-600 text-white font-semibold shadow' : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  🏛️ Organigrama
+                  Organigrama
                 </button>
               </div>
             </div>
@@ -4181,8 +4292,18 @@ export default function CerebroPage() {
           {/* Canvas Footer Legend (Desktop Only) */}
           <div className="hidden md:block absolute bottom-4 left-4 p-3 bg-gray-900/90 border border-gray-800 rounded-lg text-xs space-y-1.5 backdrop-blur shadow-lg z-10 pointer-events-none">
             <div className="font-semibold text-gray-400 text-[10px] uppercase tracking-wider flex items-center gap-2">
-              <span>{viewMode === 'quadrants' ? '🧭 Cuadrantes (América Izq · Marcas Arriba · HQ Centro)' : viewMode === 'organigram' ? '🏛️ Estructura Jerárquica L0 - L4' : '🌌 Constelaciones por Afinidad'}</span>
-              <span className="text-sky-400 font-mono">| Anti-Solapamiento Activo</span>
+              <span>
+                {viewMode === 'brujula'
+                  ? '[BR] Brújula Nativa (Mercado Oeste · Portafolio Norte · Org Este · Supply Sur)'
+                  : viewMode === 'version-1-ajustada'
+                  ? '[V1] V1 Ajustada (Columnas Verticales · Carriles por País)'
+                  : viewMode === 'quadrants'
+                  ? 'Cuadrantes (América Izq · Marcas Arriba · HQ Centro)'
+                  : viewMode === 'organigram'
+                  ? 'Estructura Jerárquica L0 - L4'
+                  : 'Constelaciones por Afinidad'}
+              </span>
+              <span className="text-sky-400 font-mono">| Layout Dinámico Activo</span>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <span className="flex items-center gap-1.5">
