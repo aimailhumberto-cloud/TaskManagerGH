@@ -1889,7 +1889,6 @@ export default function CerebroPage() {
             const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
             // La vista por defecto arranca limpia y encuadrada: sin ficha abierta hasta el primer doble clic.
             void isDesktop;
-            requestAnimationFrame(() => requestAnimationFrame(() => handleCenterAndFit()));
             return prev;
           }
 
@@ -1923,6 +1922,18 @@ export default function CerebroPage() {
     const interval = setInterval(fetchGraph, 3500);
     return () => clearInterval(interval);
   }, [mounted, selectedMarket, activeLens]);
+
+  // Encuadre inicial: cuando llega el primer grafo y el lienzo ya tiene tamano, se ajusta la camara una vez.
+  const initialFitDoneRef = useRef(false);
+  useEffect(() => {
+    if (!graphData || initialFitDoneRef.current) return;
+    initialFitDoneRef.current = true;
+    const t = setTimeout(() => {
+      updateCanvasDimensions();
+      handleCenterAndFit();
+    }, 450);
+    return () => clearTimeout(t);
+  }, [graphData]);
 
   useEffect(() => {
     viewModeRef.current = viewMode;
