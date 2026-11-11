@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import YAML from 'yaml';
+import { updateNoteFile, writeNoteFile, readNoteStrict, parseNoteStrict, atomicWriteFile, pushRecentAction, uniqueWorkingMemoryId } from './vaultFiles';
 
 export interface BrainNode {
   id: string;
@@ -471,34 +472,31 @@ export function saveWorkingMemory(input: {
   const wmDir = path.join(vaultDir, '00-Working-Memory');
   if (!fs.existsSync(wmDir)) fs.mkdirSync(wmDir, { recursive: true });
 
-  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const id = `wm-${dateStr}-${Date.now().toString().slice(-4)}`;
-  const cleanTitle = input.title.replace(/[/\\?%*:|"<>]/g, '-').trim();
+  const { dateStr: panamaDate, timeStr } = getPanamaDate();
+  const id = uniqueWorkingMemoryId(panamaDate, timeStr);
+  const cleanTitle = input.title.replace(/[/\\?%*:|"<>]/g, '-').trim().slice(0, 80);
   const filename = `${id} - ${cleanTitle}.md`;
   const filePath = path.join(wmDir, filename);
 
-  const formattedLinks = input.links.map(l => (l.startsWith('[[') ? l : `[[${l}]]`));
+  const formattedLinks = (input.links || []).map(l => (l.startsWith('[[') ? l : `[[${l}]]`));
+  const nowIso = new Date().toISOString();
 
-  const mdContent = `---
-id: ${id}
-title: "Working Memory: ${input.title}"
-type: working_memory
-memory_tier: working
-status: pulsing
-captured_at: "${new Date().toISOString()}"
-source: "${input.source || 'Dots Agent (Voice / Chat)'}"
-relations:
-  touches:
-${formattedLinks.map(l => `    - "${l}"`).join('\n')}
-updated_at: "${new Date().toISOString()}"
----
+  const written = writeNoteFile(filePath, {
+    id,
+    title: `Working Memory: ${input.title}`,
+    type: 'working_memory',
+    memory_tier: 'working',
+    status: 'pulsing',
+    captured_at: nowIso,
+    source: input.source || 'Dots Agent (Voice / Chat)',
+    relations: { touches: formattedLinks },
+    updated_at: nowIso,
+  }, `# ${input.title}\n\n${input.content}`);
 
-# ${input.title}
-
-${input.content}
-`;
-
-  fs.writeFileSync(filePath, mdContent, 'utf-8');
+  if (!written.ok) {
+    return { ok: false, filePath: '', id: '' };
+  }
+  syncToBundledVault(path.join('00-Working-Memory', filename), written.content);
   return { ok: true, filePath, id };
 }
 
@@ -506,6 +504,7 @@ export function consolidateWorkingMemory(sessionSummary: string): {
   ok: boolean;
   promotedCount: number;
   sessionFile: string;
+  skipped?: string[];
 } {
   const vaultDir = getVaultPath();
   const wmDir = path.join(vaultDir, '00-Working-Memory');
@@ -514,60 +513,81 @@ export function consolidateWorkingMemory(sessionSummary: string): {
 
   const wmFiles = getAllMarkdownFiles(wmDir);
   const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10);
-  const sessionId = `session-${dateStr.replace(/-/g, '')}-${Date.now().toString().slice(-3)}`;
-  const sessionFilename = `${dateStr} - Sesion de Consolidacion.md`;
-  const sessionFilePath = path.join(sessionDir, sessionFilename);
+  const dateStr = getPanamaDate().dateStr;
+  const sessionId = `session-${dateStr.replace(/-/g, '')}-${crypto.randomBytes(2).toString('hex')}`;
+  let sessionFilename = `${dateStr} - Sesion de Consolidacion.md`;
+  let sessionFilePath = path.join(sessionDir, sessionFilename);
+  if (fs.existsSync(sessionFilePath)) {
+    // No pisar la sesión de otra consolidación del mismo día
+    sessionFilename = `${dateStr} - Sesion de Consolidacion (${getPanamaDate().timeStr.replace(/[^0-9]/g, '').slice(0, 4) || sessionId.slice(-4)}).md`;
+    sessionFilePath = path.join(sessionDir, sessionFilename);
+  }
 
-  // Promote memories from 'working' to 'long_term' with verified audit trail
+  // Estados que NO se consolidan: instrucciones abiertas para DOTS y notas archivadas.
+  const PROTECTED_STATUS = new Set(['in_review_dots', 'solicitado', 'recibido', 'en_analisis', 'borrador_listo', 'archived']);
+
   let promoted = 0;
+  const promotedNames: string[] = [];
+  const skipped: string[] = [];
   for (const f of wmFiles) {
-    try {
-      const raw = fs.readFileSync(f, 'utf-8');
-      const { frontmatter, body } = parseFrontmatterAndBody(raw);
-      if (frontmatter.memory_tier === 'working' || frontmatter.status !== 'consolidated') {
-        frontmatter.memory_tier = 'long_term';
-        frontmatter.status = 'consolidated';
-        frontmatter.promoted_at = now.toISOString();
-        frontmatter.promoted_session = sessionId;
-        frontmatter.last_updated_at = now.toISOString();
-        const updated = `---\n${YAML.stringify(frontmatter).trim()}\n---\n\n${body.trim()}\n`;
-        fs.writeFileSync(f, updated, 'utf-8');
-        syncToBundledVault(path.relative(vaultDir, f), updated);
-        promoted++;
-      }
-    } catch {
-      // Ignore individual parse fail
+    const name = path.basename(f, '.md');
+    const note = readNoteStrict(f);
+    if (!note.ok) {
+      skipped.push(`${name} (ilegible: ${note.error})`);
+      continue;
+    }
+    const fm = note.frontmatter;
+    if (fm.status === 'consolidated' && fm.memory_tier === 'long_term') continue;
+    if (PROTECTED_STATUS.has(String(fm.status || ''))) {
+      skipped.push(`${name} (abierta: ${fm.status})`);
+      continue;
+    }
+    const upd = updateNoteFile(f, (frontmatter) => {
+      frontmatter.memory_tier = 'long_term';
+      frontmatter.status = 'consolidated';
+      frontmatter.promoted_at = now.toISOString();
+      frontmatter.promoted_session = sessionId;
+      frontmatter.last_updated_at = now.toISOString();
+    });
+    if (upd.ok) {
+      syncToBundledVault(path.relative(vaultDir, f), upd.content);
+      promoted++;
+      promotedNames.push(name);
+    } else {
+      skipped.push(`${name} (${upd.error})`);
     }
   }
 
-  const sessionContent = `---
-id: ${sessionId}
-title: "Sesión de Consolidación: ${dateStr}"
-type: consolidation_session
-memory_tier: long_term
-session_date: "${dateStr}"
-status: completed
-promoted_nodes_count: ${promoted}
-summary: "${sessionSummary || 'Consolidación automática ejecutada por Dots / TaskManager'}"
-updated_at: "${now.toISOString()}"
----
+  const summaryText = sessionSummary || 'Consolidación automática ejecutada por Dots / TaskManager';
+  const body = `# Sesión de Consolidación ${dateStr}
 
-# Sesión de Consolidación ${dateStr}
-
-${sessionSummary}
+${sessionSummary || ''}
 
 ## Archivos Consolidados & Promovidos (${promoted}):
-${wmFiles.map(f => `- [[${path.basename(f, '.md')}]]`).join('\n') || '- No habían notas temporales pendientes.'}
-`;
+${promotedNames.map(n => `- [[${n}]]`).join('\n') || '- No habían notas temporales pendientes.'}
+${skipped.length ? `\n## Omitidos (${skipped.length}):\n${skipped.map(s => `- ${s}`).join('\n')}\n` : ''}`;
 
-  fs.writeFileSync(sessionFilePath, sessionContent, 'utf-8');
-  syncToBundledVault(path.join('05-Consolidation-Sessions', sessionFilename), sessionContent);
+  const written = writeNoteFile(sessionFilePath, {
+    id: sessionId,
+    title: `Sesión de Consolidación: ${dateStr}`,
+    type: 'consolidation_session',
+    memory_tier: 'long_term',
+    session_date: dateStr,
+    status: 'completed',
+    promoted_nodes_count: promoted,
+    summary: summaryText,
+    updated_at: now.toISOString(),
+  }, body);
+  if (!written.ok) {
+    return { ok: false, promotedCount: promoted, sessionFile: '', skipped };
+  }
+  syncToBundledVault(path.join('05-Consolidation-Sessions', sessionFilename), written.content);
 
   return {
     ok: true,
     promotedCount: promoted,
     sessionFile: sessionFilePath,
+    skipped,
   };
 }
 
@@ -584,59 +604,48 @@ export function updateDossierMetadata(input: {
   newPendingTask?: string;
 }): { ok: boolean; message: string; updatedFile?: string } {
   const vaultDir = getVaultPath();
-  const allFiles = getAllMarkdownFiles(vaultDir);
-  const targetLower = input.nodeId.toLowerCase().replace(/^(distributor|brand|core|person|market|dept|customer)-/i, '');
-  
-  const foundFile = allFiles.find(f => {
-    const base = path.basename(f, '.md').toLowerCase();
-    const idLower = input.nodeId.toLowerCase();
-    return base.includes(idLower) || base.includes(targetLower) || base.replace(/[^a-z0-9]/g, '').includes(targetLower.replace(/[^a-z0-9]/g, ''));
-  });
 
-  if (!foundFile) {
-    return { ok: false, message: `No se encontró nodo con ID o nombre '${input.nodeId}'` };
+  let resolved = resolveNodeFile(input.nodeId);
+  if (!resolved.ok) {
+    const stripped = input.nodeId.replace(/^(distributor|brand|core|person|market|dept|customer)-/i, '');
+    if (stripped !== input.nodeId) resolved = resolveNodeFile(stripped);
   }
-
-  const content = fs.readFileSync(foundFile, 'utf-8');
-  const { frontmatter, body } = parseFrontmatterAndBody(content);
-
-  // Apply updates
-  frontmatter.last_updated_at = new Date().toISOString();
-  frontmatter.last_updated_by = input.updatedBy || 'DOTS Agent';
-
-  if (input.lastEmailSubject) frontmatter.last_email_subject = input.lastEmailSubject;
-  if (input.lastEmailDate) frontmatter.last_email_date = input.lastEmailDate;
-  if (input.lastEmailSender) frontmatter.last_email_sender = input.lastEmailSender;
-  if (input.nextFollowupDate) frontmatter.next_followup_date = input.nextFollowupDate;
-  if (input.nextFollowupAction) frontmatter.next_followup_action = input.nextFollowupAction;
-  if (input.executiveObservations) frontmatter.executive_observations = input.executiveObservations;
-
-  if (input.newAction) {
-    if (!Array.isArray(frontmatter.recent_actions)) frontmatter.recent_actions = [];
-    const date = input.newAction.date || new Date().toISOString().slice(0, 10);
-    const type = input.newAction.type || 'nota';
-    const summary = input.newAction.summary || '';
-    frontmatter.recent_actions.unshift({ date, type, summary });
+  if (!resolved.ok) {
+    return { ok: false, message: resolved.message.startsWith('Nodo destino') ? `No se encontró nodo con ID o nombre '${input.nodeId}'` : resolved.message };
   }
+  const foundFile = resolved.filePath;
 
-  if (input.newPendingTask) {
-    if (!Array.isArray(frontmatter.pending_tasks)) frontmatter.pending_tasks = [];
-    frontmatter.pending_tasks.unshift(input.newPendingTask);
-  }
+  const upd = updateNoteFile(foundFile, (frontmatter) => {
+    frontmatter.last_updated_at = new Date().toISOString();
+    frontmatter.last_updated_by = input.updatedBy || 'DOTS Agent';
 
-  const updatedYaml = YAML.stringify(frontmatter).trim();
-  const newContent = `---\n${updatedYaml}\n---\n\n${body}\n`;
-  fs.writeFileSync(foundFile, newContent, 'utf-8');
-
-  // Also write to bundled vault if running locally and both exist
-  const bundledPath = path.join(process.cwd(), 'vault');
-  if (fs.existsSync(bundledPath) && !foundFile.startsWith(bundledPath)) {
-    const rel = path.relative(vaultDir, foundFile);
-    const bundledTarget = path.join(bundledPath, rel);
-    if (fs.existsSync(path.dirname(bundledTarget))) {
-      fs.writeFileSync(bundledTarget, newContent, 'utf-8');
+    if (input.lastEmailSubject) frontmatter.last_email_subject = input.lastEmailSubject;
+    if (input.lastEmailDate) frontmatter.last_email_date = input.lastEmailDate;
+    if (input.lastEmailSender) frontmatter.last_email_sender = input.lastEmailSender;
+    if (input.nextFollowupDate || input.nextFollowupAction) {
+      // Un seguimiento nuevo nace abierto (antes heredaba "completado" del anterior).
+      frontmatter.next_followup_completed = false;
     }
-  }
+    if (input.nextFollowupDate) frontmatter.next_followup_date = input.nextFollowupDate;
+    if (input.nextFollowupAction) frontmatter.next_followup_action = input.nextFollowupAction;
+    if (input.executiveObservations) frontmatter.executive_observations = input.executiveObservations;
+
+    if (input.newAction) {
+      pushRecentAction(frontmatter, {
+        date: input.newAction.date || getPanamaDate().dateStr,
+        type: input.newAction.type || 'nota',
+        summary: input.newAction.summary || '',
+      });
+    }
+
+    if (input.newPendingTask) {
+      if (!Array.isArray(frontmatter.pending_tasks)) frontmatter.pending_tasks = [];
+      frontmatter.pending_tasks.unshift(input.newPendingTask);
+    }
+  });
+  if (!upd.ok) return { ok: false, message: upd.error };
+
+  syncToBundledVault(path.relative(vaultDir, foundFile), upd.content);
 
   return { ok: true, message: `Ficha '${path.basename(foundFile, '.md')}' actualizada exitosamente`, updatedFile: foundFile };
 }
@@ -1065,6 +1074,13 @@ export function getUnifiedBrainTasks(options?: { lens?: string; market?: string 
   };
 }
 
+function matchPendingIndex(list: any[], sourceNodeId: string, taskId: string, prefixes: string[]): number {
+  return list.findIndex((pt: any, i: number) => {
+    if (typeof pt === 'object' && pt?.id === taskId) return true;
+    return prefixes.some(p => generateTaskId(sourceNodeId, p, pt, i + 1) === taskId);
+  });
+}
+
 export function completeBrainTask(taskId: string, completedBy?: string): { ok: boolean; message: string; task?: UnifiedBrainTask } {
   const vaultDir = getVaultPath();
   const allTasks = getUnifiedBrainTasks().tasks;
@@ -1079,107 +1095,96 @@ export function completeBrainTask(taskId: string, completedBy?: string): { ok: b
     return { ok: false, message: `Archivo de origen ${targetTask.sourceFile} no encontrado en el vault` };
   }
 
-  const content = fs.readFileSync(fullPath, 'utf-8');
-  const { frontmatter, body } = parseFrontmatterAndBody(content);
   const { dateStr, timeStr } = getPanamaDate();
   const nowIso = new Date().toISOString();
   const actor = completedBy || 'Chairman / Executive Office';
 
   let modified = false;
 
-  // 1. Followup Action in Distributor
-  if (targetTask.sourceType === 'distributor' && (taskId.startsWith('fu-') || targetTask.id.includes('-fu-'))) {
-    frontmatter.next_followup_completed = true;
-    frontmatter.last_updated_at = nowIso;
-    frontmatter.last_updated_by = actor;
-    if (!Array.isArray(frontmatter.recent_actions)) frontmatter.recent_actions = [];
-    frontmatter.recent_actions.unshift({
-      date: dateStr,
-      type: 'seguimiento_completado',
-      summary: `Seguimiento resuelto: "${targetTask.title}" por ${actor} (${timeStr})`,
-    });
-    modified = true;
-  }
-  // 2. Pending Tasks array with Property Preservation
-  else if (Array.isArray(frontmatter.pending_tasks)) {
-    const idx = frontmatter.pending_tasks.findIndex((pt: any, i: number) => {
-      const gId = generateTaskId(targetTask.sourceNodeId, 'pt', pt, i + 1);
-      return gId === taskId || (typeof pt === 'object' && pt?.id === taskId);
-    });
-
-    if (idx >= 0) {
-      const orig = frontmatter.pending_tasks[idx];
-      const isObj = typeof orig === 'object' && orig !== null;
-      frontmatter.pending_tasks[idx] = isObj ? {
-        ...orig,
-        completed: true,
-        completed_at: nowIso,
-        completed_by: actor,
-        status: 'Completed',
-      } : {
-        text: orig,
-        completed: true,
-        completed_at: nowIso,
-        completed_by: actor,
-        status: 'Completed',
-      };
-      if (!Array.isArray(frontmatter.recent_actions)) frontmatter.recent_actions = [];
-      frontmatter.recent_actions.unshift({
+  const result = updateNoteFile(fullPath, (frontmatter) => {
+    // 1. Followup Action in Distributor
+    if (targetTask.sourceType === 'distributor' && (taskId.startsWith('fu-') || targetTask.id.includes('-fu-'))) {
+      frontmatter.next_followup_completed = true;
+      frontmatter.last_updated_at = nowIso;
+      frontmatter.last_updated_by = actor;
+      pushRecentAction(frontmatter, {
         date: dateStr,
-        type: 'tarea_completada',
-        summary: `Tarea resuelta: "${targetTask.title}" por ${actor} (${timeStr})`,
+        type: 'seguimiento_completado',
+        summary: `Seguimiento resuelto: "${targetTask.title}" por ${actor} (${timeStr})`,
       });
       modified = true;
+      return;
     }
-  }
-  // 3. Checklist in Routines / Projects with Property Preservation
-  else if (Array.isArray(frontmatter.checklist)) {
-    const idx = frontmatter.checklist.findIndex((item: any, i: number) => {
-      const gId = generateTaskId(targetTask.sourceNodeId, 'chk', item, i + 1);
-      return gId === taskId || (typeof item === 'object' && item?.id === taskId);
-    });
-
-    if (idx >= 0) {
-      const orig = frontmatter.checklist[idx];
-      const isObj = typeof orig === 'object' && orig !== null;
-      frontmatter.checklist[idx] = isObj ? {
-        ...orig,
-        completed: true,
-        completed_at: nowIso,
-        completed_by: actor,
-      } : {
-        text: orig,
-        completed: true,
-        completed_at: nowIso,
-        completed_by: actor,
-      };
+    // 2. Pending Tasks array (prefijos pt- y mkt-) preservando propiedades
+    if (Array.isArray(frontmatter.pending_tasks)) {
+      const idx = matchPendingIndex(frontmatter.pending_tasks, targetTask.sourceNodeId, taskId, ['pt', 'mkt']);
+      if (idx >= 0) {
+        const orig = frontmatter.pending_tasks[idx];
+        const isObj = typeof orig === 'object' && orig !== null;
+        frontmatter.pending_tasks[idx] = isObj ? {
+          ...orig,
+          completed: true,
+          completed_at: nowIso,
+          completed_by: actor,
+          status: 'Completed',
+        } : {
+          text: orig,
+          completed: true,
+          completed_at: nowIso,
+          completed_by: actor,
+          status: 'Completed',
+        };
+        pushRecentAction(frontmatter, {
+          date: dateStr,
+          type: 'tarea_completada',
+          summary: `Tarea resuelta: "${targetTask.title}" por ${actor} (${timeStr})`,
+        });
+        modified = true;
+        return;
+      }
+    }
+    // 3. Checklist in Routines / Projects
+    if (Array.isArray(frontmatter.checklist)) {
+      const idx = frontmatter.checklist.findIndex((item: any, i: number) => {
+        const gId = generateTaskId(targetTask.sourceNodeId, 'chk', item, i + 1);
+        return gId === taskId || (typeof item === 'object' && item?.id === taskId);
+      });
+      if (idx >= 0) {
+        const orig = frontmatter.checklist[idx];
+        const isObj = typeof orig === 'object' && orig !== null;
+        frontmatter.checklist[idx] = isObj ? {
+          ...orig,
+          completed: true,
+          completed_at: nowIso,
+          completed_by: actor,
+        } : {
+          text: orig,
+          completed: true,
+          completed_at: nowIso,
+          completed_by: actor,
+        };
+        modified = true;
+        return;
+      }
+    }
+    // 4. Working Memory
+    if (targetTask.sourceType === 'working_memory') {
+      frontmatter.status = 'completed';
+      frontmatter.lifecycle_stage = 'aprobado_resuelto';
+      frontmatter.completed_at = nowIso;
       modified = true;
     }
-  }
-  // 4. Working Memory
-  else if (targetTask.sourceType === 'working_memory') {
-    frontmatter.status = 'completed';
-    frontmatter.lifecycle_stage = 'aprobado_resuelto';
-    frontmatter.completed_at = nowIso;
-    modified = true;
-  }
+  });
 
+  if (!result.ok) {
+    return { ok: false, message: result.error };
+  }
   if (!modified) {
+    // updateNoteFile ya escribió el mismo contenido; no hubo cambio lógico.
     return { ok: false, message: `El tipo de tarea "${targetTask.sourceType}" no soporta modificación directa o no se encontró el elemento.` };
   }
 
-  // ATOMIC WRITE-VERIFY-READ: Write file, then read back and verify
-  const updatedYaml = YAML.stringify(frontmatter).trim();
-  const newContent = `---\n${updatedYaml}\n---\n\n${body}\n`;
-  fs.writeFileSync(fullPath, newContent, 'utf-8');
-
-  const verifyContent = fs.readFileSync(fullPath, 'utf-8');
-  const verifyParsed = parseFrontmatterAndBody(verifyContent);
-  if (!verifyParsed.frontmatter) {
-    return { ok: false, message: 'La verificación de lectura tras la escritura falló.' };
-  }
-
-  syncToBundledVault(targetTask.sourceFile, newContent);
+  syncToBundledVault(targetTask.sourceFile, result.content);
 
   return {
     ok: true,
@@ -1196,58 +1201,64 @@ export function rescheduleBrainTask(taskId: string, newDueDate: string): { ok: b
   if (!targetTask) {
     return { ok: false, message: `No se encontró la tarea con ID ${taskId}` };
   }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDueDate || '')) {
+    return { ok: false, message: 'La fecha nueva debe tener formato AAAA-MM-DD.' };
+  }
 
   const fullPath = path.join(vaultDir, targetTask.sourceFile);
   if (!fs.existsSync(fullPath)) {
     return { ok: false, message: `Archivo de origen ${targetTask.sourceFile} no encontrado` };
   }
 
-  const content = fs.readFileSync(fullPath, 'utf-8');
-  const { frontmatter, body } = parseFrontmatterAndBody(content);
   const { dateStr, timeStr } = getPanamaDate();
-
   let modified = false;
 
-  if (targetTask.sourceType === 'distributor' && (taskId.startsWith('fu-') || targetTask.id.includes('-fu-'))) {
-    frontmatter.next_followup_date = newDueDate;
-    frontmatter.next_followup_completed = false;
-    modified = true;
-  } else if (Array.isArray(frontmatter.pending_tasks)) {
-    const idx = frontmatter.pending_tasks.findIndex((pt: any, i: number) => {
-      const gId = generateTaskId(targetTask.sourceNodeId, 'pt', pt, i + 1);
-      return gId === taskId || (typeof pt === 'object' && pt?.id === taskId);
-    });
-    if (idx >= 0) {
-      const orig = frontmatter.pending_tasks[idx];
-      const isObj = typeof orig === 'object' && orig !== null;
-      frontmatter.pending_tasks[idx] = isObj ? { ...orig, dueDate: newDueDate, completed: false } : { text: orig, dueDate: newDueDate, completed: false };
+  const result = updateNoteFile(fullPath, (frontmatter) => {
+    if (targetTask.sourceType === 'distributor' && (taskId.startsWith('fu-') || targetTask.id.includes('-fu-'))) {
+      frontmatter.next_followup_date = newDueDate;
+      frontmatter.next_followup_completed = false;
+      modified = true;
+    } else if (Array.isArray(frontmatter.pending_tasks)) {
+      const idx = matchPendingIndex(frontmatter.pending_tasks, targetTask.sourceNodeId, taskId, ['pt', 'mkt']);
+      if (idx >= 0) {
+        const orig = frontmatter.pending_tasks[idx];
+        const isObj = typeof orig === 'object' && orig !== null;
+        frontmatter.pending_tasks[idx] = isObj ? { ...orig, dueDate: newDueDate, completed: false } : { text: orig, dueDate: newDueDate, completed: false };
+        modified = true;
+      }
+    } else if (Array.isArray(frontmatter.checklist)) {
+      const idx = frontmatter.checklist.findIndex((item: any, i: number) => {
+        const gId = generateTaskId(targetTask.sourceNodeId, 'chk', item, i + 1);
+        return gId === taskId || (typeof item === 'object' && item?.id === taskId);
+      });
+      if (idx >= 0) {
+        const orig = frontmatter.checklist[idx];
+        const isObj = typeof orig === 'object' && orig !== null;
+        frontmatter.checklist[idx] = isObj ? { ...orig, dueDate: newDueDate, completed: false } : { text: orig, dueDate: newDueDate, completed: false };
+        modified = true;
+      }
+    }
+    if (!modified && targetTask.sourceType === 'working_memory') {
+      frontmatter.due_date = newDueDate;
       modified = true;
     }
-  }
+    if (modified) {
+      pushRecentAction(frontmatter, {
+        date: dateStr,
+        type: 'reagenda',
+        summary: `Reagendado para el ${newDueDate}: "${targetTask.title}" (${timeStr})`,
+      });
+    }
+  });
 
+  if (!result.ok) {
+    return { ok: false, message: result.error };
+  }
   if (!modified) {
     return { ok: false, message: `El tipo de tarea no soporta reagendado directo o no se encontró en la lista.` };
   }
 
-  if (!Array.isArray(frontmatter.recent_actions)) frontmatter.recent_actions = [];
-  frontmatter.recent_actions.unshift({
-    date: dateStr,
-    type: 'reagenda',
-    summary: `Reagendado para el ${newDueDate}: "${targetTask.title}" (${timeStr})`,
-  });
-
-  const updatedYaml = YAML.stringify(frontmatter).trim();
-  const newContent = `---\n${updatedYaml}\n---\n\n${body}\n`;
-  fs.writeFileSync(fullPath, newContent, 'utf-8');
-
-  // Verify write
-  const verifyContent = fs.readFileSync(fullPath, 'utf-8');
-  const verifyParsed = parseFrontmatterAndBody(verifyContent);
-  if (!verifyParsed.frontmatter) {
-    return { ok: false, message: 'Fallo al confirmar el reagendado en disco.' };
-  }
-
-  syncToBundledVault(targetTask.sourceFile, newContent);
+  syncToBundledVault(targetTask.sourceFile, result.content);
 
   return {
     ok: true,
@@ -1269,13 +1280,35 @@ export function askDotsTask(taskId: string, instruction: string, requestedBy?: s
   if (!targetTask) {
     return { ok: false, message: `No se encontró la tarea con ID ${taskId}` };
   }
+  if (!instruction || !instruction.trim()) {
+    return { ok: false, message: 'La instrucción para DOTS no puede estar vacía.' };
+  }
 
   const { dateStr, timeStr } = getPanamaDate();
   const nowIso = new Date().toISOString();
   const wmDir = path.join(vaultDir, '00-Working-Memory');
   if (!fs.existsSync(wmDir)) fs.mkdirSync(wmDir, { recursive: true });
 
-  const wmId = `wm-${dateStr.replace(/-/g, '')}-${Date.now().toString().slice(-4)}`;
+  // Primero se actualiza el expediente de origen; si su YAML está dañado no se crea nada a medias.
+  const fullSourcePath = path.join(vaultDir, targetTask.sourceFile);
+  let sourceContent: string | null = null;
+  if (fs.existsSync(fullSourcePath)) {
+    const upd = updateNoteFile(fullSourcePath, (frontmatter) => {
+      frontmatter.dots_status = 'solicitado';
+      frontmatter.dots_stage = 'solicitado';
+      frontmatter.last_dots_instruction = instruction;
+      frontmatter.last_dots_request_at = nowIso;
+      pushRecentAction(frontmatter, {
+        date: dateStr,
+        type: 'solicitud_dots',
+        summary: `Instrucción despachada a DOTS [Fase: Solicitado]: "${instruction}" (${timeStr})`,
+      });
+    });
+    if (!upd.ok) return { ok: false, message: upd.error };
+    sourceContent = upd.content;
+  }
+
+  const wmId = uniqueWorkingMemoryId(dateStr, timeStr);
   const cleanTitle = `Instruccion DOTS - ${targetTask.sourceNodeTitle.replace(/[/\\?%*:|"<>]/g, '')}`;
   const filename = `${wmId} - ${cleanTitle}.md`;
   const filePath = path.join(wmDir, filename);
@@ -1283,26 +1316,23 @@ export function askDotsTask(taskId: string, instruction: string, requestedBy?: s
   const actor = requestedBy || 'Chairman / Executive Office';
   const targetNodeLink = targetTask.sourceNodeTitle.startsWith('[[') ? targetTask.sourceNodeTitle : `[[${targetTask.sourceNodeTitle}]]`;
 
-  const wmContent = `---
-id: ${wmId}
-title: "Instrucción DOTS: ${targetTask.title}"
-type: working_memory
-memory_tier: working
-status: in_review_dots
-lifecycle_stage: solicitado
-assigned_to: "DOTS Agent"
-requested_by: "${actor}"
-target_task_id: "${taskId}"
-target_node: "${targetNodeLink}"
-captured_at: "${nowIso}"
-panama_time: "${dateStr} ${timeStr}"
-instruction: "${instruction.replace(/"/g, '\\"')}"
-relations:
-  touches:
-    - "${targetNodeLink}"
----
-
-# Instrucción Ejecutiva para DOTS
+  const wmFrontmatter = {
+    id: wmId,
+    title: `Instrucción DOTS: ${targetTask.title}`,
+    type: 'working_memory',
+    memory_tier: 'working',
+    status: 'in_review_dots',
+    lifecycle_stage: 'solicitado',
+    assigned_to: 'DOTS Agent',
+    requested_by: actor,
+    target_task_id: taskId,
+    target_node: targetNodeLink,
+    captured_at: nowIso,
+    panama_time: `${dateStr} ${timeStr}`,
+    instruction,
+    relations: { touches: [targetNodeLink] },
+  };
+  const wmBody = `# Instrucción Ejecutiva para DOTS
 
 **Tarea en Referencia:** ${targetTask.title}  
 **Entidad Vinculada:** ${targetTask.sourceNodeTitle} (${targetTask.country || 'Global'})  
@@ -1320,32 +1350,11 @@ ${instruction}
 - [ ] **5. Aprobado / Resuelto:** Compromiso formalmente cerrado por el Chairman/HB.
 `;
 
-  fs.writeFileSync(filePath, wmContent, 'utf-8');
+  const written = writeNoteFile(filePath, wmFrontmatter, wmBody);
+  if (!written.ok) return { ok: false, message: `No se pudo crear la instrucción: ${written.error}` };
 
-  // Update target node file to note DOTS instruction (Does NOT close the task!)
-  const fullSourcePath = path.join(vaultDir, targetTask.sourceFile);
-  if (fs.existsSync(fullSourcePath)) {
-    const content = fs.readFileSync(fullSourcePath, 'utf-8');
-    const { frontmatter, body } = parseFrontmatterAndBody(content);
-    frontmatter.dots_status = 'solicitado';
-    frontmatter.dots_stage = 'solicitado';
-    frontmatter.last_dots_instruction = instruction;
-    frontmatter.last_dots_request_at = nowIso;
-
-    if (!Array.isArray(frontmatter.recent_actions)) frontmatter.recent_actions = [];
-    frontmatter.recent_actions.unshift({
-      date: dateStr,
-      type: 'solicitud_dots',
-      summary: `Instrucción despachada a DOTS [Fase: Solicitado]: "${instruction}" (${timeStr})`,
-    });
-
-    const updatedYaml = YAML.stringify(frontmatter).trim();
-    const newContent = `---\n${updatedYaml}\n---\n\n${body}\n`;
-    fs.writeFileSync(fullSourcePath, newContent, 'utf-8');
-    syncToBundledVault(targetTask.sourceFile, newContent);
-  }
-
-  syncToBundledVault(path.join('00-Working-Memory', filename), wmContent);
+  if (sourceContent !== null) syncToBundledVault(targetTask.sourceFile, sourceContent);
+  syncToBundledVault(path.join('00-Working-Memory', filename), written.content);
 
   return {
     ok: true,
@@ -1353,6 +1362,26 @@ ${instruction}
     workingMemoryId: wmId,
     workingMemoryPath: filename,
   };
+}
+
+/** Busca el archivo de un nodo: id exacto, título exacto, nombre de archivo exacto; solo si no hay, coincidencia parcial ÚNICA. */
+function resolveNodeFile(key: string): { ok: true; filePath: string } | { ok: false; message: string } {
+  const k = (key || '').trim().replace(/^\[\[|\]\]$/g, '').toLowerCase();
+  if (!k) return { ok: false, message: 'Falta el identificador del nodo.' };
+  const nodes = loadBrainGraph().nodes;
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const nk = norm(k);
+  const exact = nodes.filter(n =>
+    n.id.toLowerCase() === k ||
+    (n.title || '').toLowerCase() === k ||
+    path.basename(n.filePath, '.md').toLowerCase() === k
+  );
+  if (exact.length === 1) return { ok: true, filePath: exact[0].filePath };
+  if (exact.length > 1) return { ok: false, message: `"${key}" coincide con ${exact.length} nodos; usa el id exacto.` };
+  const partial = nodes.filter(n => nk.length >= 4 && (norm(n.id) === nk || norm(n.title || '').includes(nk) || norm(path.basename(n.filePath, '.md')).includes(nk)));
+  if (partial.length === 1) return { ok: true, filePath: partial[0].filePath };
+  if (partial.length > 1) return { ok: false, message: `"${key}" es ambiguo (${partial.length} nodos: ${partial.slice(0, 4).map(n => n.id).join(', ')}). Usa el id exacto.` };
+  return { ok: false, message: `Nodo destino "${key}" no encontrado en el vault` };
 }
 
 export function createBrainTask(input: {
@@ -1367,62 +1396,46 @@ export function createBrainTask(input: {
   const { dateStr, timeStr } = getPanamaDate();
   const nowIso = new Date().toISOString();
 
+  if (!input.title || !input.title.trim()) {
+    return { ok: false, message: 'La tarea necesita un título.' };
+  }
+
   // If targetNodeId provided, attach structured task object with full properties!
   if (input.targetNodeId) {
-    const allFiles = getAllMarkdownFiles(vaultDir);
-    const targetFile = allFiles.find(f => {
-      const base = path.basename(f, '.md').toLowerCase();
-      const idLower = input.targetNodeId!.toLowerCase();
-      return base.includes(idLower) || base.replace(/[^a-z0-9]/g, '').includes(idLower.replace(/[^a-z0-9]/g, ''));
+    const resolved = resolveNodeFile(input.targetNodeId);
+    if (!resolved.ok) return { ok: false, message: resolved.message };
+    const targetFile = resolved.filePath;
+
+    let taskId = '';
+    let nodeId = '';
+    const upd = updateNoteFile(targetFile, (frontmatter) => {
+      nodeId = frontmatter.id || path.basename(targetFile, '.md').toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
+      taskId = generateTaskId(nodeId, 'pt', input.title);
+
+      const newTaskObj = {
+        id: taskId,
+        title: input.title.trim(),
+        dueDate: input.dueDate || undefined,
+        priority: input.priority || 'Medium',
+        description: input.description || '',
+        country: input.country || frontmatter.based_in_country || frontmatter.country_name || 'Global',
+        status: 'Pending',
+        completed: false,
+        created_at: nowIso,
+        created_by: 'Chairman / Executive Office',
+      };
+
+      if (!Array.isArray(frontmatter.pending_tasks)) frontmatter.pending_tasks = [];
+      frontmatter.pending_tasks.unshift(newTaskObj);
+      pushRecentAction(frontmatter, {
+        date: dateStr,
+        type: 'nueva_tarea_ejecutiva',
+        summary: `Nueva tarea asignada [${taskId}]: "${input.title}" (${timeStr})`,
+      });
     });
+    if (!upd.ok) return { ok: false, message: upd.error };
 
-    if (!targetFile) {
-      return { ok: false, message: `Nodo destino "${input.targetNodeId}" no encontrado en el vault` };
-    }
-
-    const content = fs.readFileSync(targetFile, 'utf-8');
-    const { frontmatter, body } = parseFrontmatterAndBody(content);
-    const nodeId = frontmatter.id || path.basename(targetFile, '.md').toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
-    const taskId = generateTaskId(nodeId, 'pt', input.title);
-
-    const newTaskObj = {
-      id: taskId,
-      title: input.title.trim(),
-      dueDate: input.dueDate || undefined,
-      priority: input.priority || 'Medium',
-      description: input.description || '',
-      country: input.country || frontmatter.based_in_country || frontmatter.country_name || 'Global',
-      status: 'Pending',
-      completed: false,
-      created_at: nowIso,
-      created_by: 'Chairman / Executive Office',
-    };
-
-    if (!Array.isArray(frontmatter.pending_tasks)) frontmatter.pending_tasks = [];
-    frontmatter.pending_tasks.unshift(newTaskObj);
-
-    if (!Array.isArray(frontmatter.recent_actions)) frontmatter.recent_actions = [];
-    frontmatter.recent_actions.unshift({
-      date: dateStr,
-      type: 'nueva_tarea_ejecutiva',
-      summary: `Nueva tarea asignada [${taskId}]: "${input.title}" (${timeStr})`,
-    });
-
-    const updatedYaml = YAML.stringify(frontmatter).trim();
-    const newContent = `---\n${updatedYaml}\n---\n\n${body}\n`;
-    fs.writeFileSync(targetFile, newContent, 'utf-8');
-
-    // ATOMIC WRITE-VERIFY-READ: Confirm the structured task object was written
-    const verifyContent = fs.readFileSync(targetFile, 'utf-8');
-    const verifyParsed = parseFrontmatterAndBody(verifyContent);
-    const exists = Array.isArray(verifyParsed.frontmatter.pending_tasks) &&
-      verifyParsed.frontmatter.pending_tasks.some((pt: any) => (typeof pt === 'object' && pt?.id === taskId) || pt === input.title);
-
-    if (!exists) {
-      return { ok: false, message: 'Fallo al verificar la persistencia de la tarea en disco.' };
-    }
-
-    syncToBundledVault(path.relative(vaultDir, targetFile), newContent);
+    syncToBundledVault(path.relative(vaultDir, targetFile), upd.content);
 
     return {
       ok: true,
@@ -1434,32 +1447,27 @@ export function createBrainTask(input: {
   const wmDir = path.join(vaultDir, '00-Working-Memory');
   if (!fs.existsSync(wmDir)) fs.mkdirSync(wmDir, { recursive: true });
 
-  const wmId = `wm-${dateStr.replace(/-/g, '')}-${Date.now().toString().slice(-4)}`;
+  const wmId = uniqueWorkingMemoryId(dateStr, timeStr);
   const cleanTitle = input.title.replace(/[/\\?%*:|"<>]/g, '-').trim().slice(0, 50);
   const filename = `${wmId} - ${cleanTitle}.md`;
   const filePath = path.join(wmDir, filename);
 
-  const wmContent = `---
-id: ${wmId}
-title: "${input.title}"
-type: working_memory
-memory_tier: working
-status: active
-captured_at: "${nowIso}"
-panama_time: "${dateStr} ${timeStr}"
-due_date: "${input.dueDate || ''}"
-priority: "${input.priority || 'Medium'}"
-country: "${input.country || 'Global'}"
-source: "Task Manager Ejecutivo"
----
+  const written = writeNoteFile(filePath, {
+    id: wmId,
+    title: input.title,
+    type: 'working_memory',
+    memory_tier: 'working',
+    status: 'active',
+    captured_at: nowIso,
+    panama_time: `${dateStr} ${timeStr}`,
+    due_date: input.dueDate || '',
+    priority: input.priority || 'Medium',
+    country: input.country || 'Global',
+    source: 'Task Manager Ejecutivo',
+  }, `# ${input.title}\n\n${input.description || 'Tarea ejecutiva registrada directamente en el Task Manager amarrado al Cerebro.'}`);
+  if (!written.ok) return { ok: false, message: `No se pudo registrar la tarea: ${written.error}` };
 
-# ${input.title}
-
-${input.description || 'Tarea ejecutiva registrada directamente en el Task Manager amarrado al Cerebro.'}
-`;
-
-  fs.writeFileSync(filePath, wmContent, 'utf-8');
-  syncToBundledVault(path.join('00-Working-Memory', filename), wmContent);
+  syncToBundledVault(path.join('00-Working-Memory', filename), written.content);
 
   return {
     ok: true,
@@ -1475,24 +1483,14 @@ export function upsertNode(input: {
   const vaultDir = getVaultPath();
   const sanitizedRel = input.relativePath.replace(/^(\.\.[\/\\])+/, '').replace(/^[\\\/]+/, '');
   const targetPath = path.join(vaultDir, sanitizedRel);
-  const targetDir = path.dirname(targetPath);
-
-  if (!fs.existsSync(targetDir)) {
-    fs.mkdirSync(targetDir, { recursive: true });
-  }
 
   input.frontmatter.updated_at = new Date().toISOString();
-  const updatedYaml = YAML.stringify(input.frontmatter).trim();
-  const newContent = `---\n${updatedYaml}\n---\n\n${input.body.trim()}\n`;
-
-  fs.writeFileSync(targetPath, newContent, 'utf-8');
-
-  // Verify write
-  if (!fs.existsSync(targetPath)) {
-    return { ok: false, message: `Fallo al escribir el archivo en ${sanitizedRel}` };
+  const written = writeNoteFile(targetPath, input.frontmatter, input.body || '');
+  if (!written.ok) {
+    return { ok: false, message: `Fallo al escribir el archivo en ${sanitizedRel}: ${written.error}` };
   }
 
-  syncToBundledVault(sanitizedRel, newContent);
+  syncToBundledVault(sanitizedRel, written.content);
 
   return {
     ok: true,
@@ -1527,39 +1525,25 @@ export function reconfigureNodeTopology(input: {
     return { ok: false, message: `Archivo de nodo no encontrado en disco: ${filePath}` };
   }
 
-  const content = fs.readFileSync(filePath, 'utf-8');
-  const { frontmatter, body } = parseFrontmatterAndBody(content);
+  const upd = updateNoteFile(filePath, (frontmatter) => {
+    if (input.market !== undefined) frontmatter.market = input.market;
+    if (input.spatial_anchor !== undefined) frontmatter.spatial_anchor = input.spatial_anchor;
+    if (input.spatial_tier !== undefined) frontmatter.spatial_tier = input.spatial_tier;
+    if (input.channel_type !== undefined) frontmatter.channel_type = input.channel_type;
+    if (input.parent_distributor !== undefined) frontmatter.parent_distributor = input.parent_distributor;
+    if (input.supplied_by !== undefined) frontmatter.supplied_by = input.supplied_by;
+    if (input.clients !== undefined) frontmatter.serves_clients = input.clients;
+    if (input.brands !== undefined) frontmatter.carries_brands = input.brands;
+    if (input.visual_coordinates !== undefined) frontmatter.visual_coordinates = input.visual_coordinates;
+    if (input.relations) {
+      frontmatter.relations = { ...(frontmatter.relations || {}), ...input.relations };
+    }
+    frontmatter.last_updated_at = new Date().toISOString();
+    frontmatter.last_updated_by = 'DOTS Agent (Topology Reconfiguration)';
+  });
+  if (!upd.ok) return { ok: false, message: upd.error };
 
-  // Apply updates
-  if (input.market !== undefined) frontmatter.market = input.market;
-  if (input.spatial_anchor !== undefined) frontmatter.spatial_anchor = input.spatial_anchor;
-  if (input.spatial_tier !== undefined) frontmatter.spatial_tier = input.spatial_tier;
-  if (input.channel_type !== undefined) frontmatter.channel_type = input.channel_type;
-  if (input.parent_distributor !== undefined) frontmatter.parent_distributor = input.parent_distributor;
-  if (input.supplied_by !== undefined) frontmatter.supplied_by = input.supplied_by;
-  if (input.clients !== undefined) frontmatter.serves_clients = input.clients;
-  if (input.brands !== undefined) frontmatter.carries_brands = input.brands;
-  if (input.visual_coordinates !== undefined) frontmatter.visual_coordinates = input.visual_coordinates;
-
-  if (input.relations) {
-    frontmatter.relations = { ...(frontmatter.relations || {}), ...input.relations };
-  }
-
-  frontmatter.last_updated_at = new Date().toISOString();
-  frontmatter.last_updated_by = 'DOTS Agent (Topology Reconfiguration)';
-
-  const updatedYaml = YAML.stringify(frontmatter).trim();
-  const newContent = `---\n${updatedYaml}\n---\n\n${body.trim()}\n`;
-
-  fs.writeFileSync(filePath, newContent, 'utf-8');
-
-  // Verify write
-  const verified = fs.readFileSync(filePath, 'utf-8');
-  if (!verified.includes(target.id)) {
-    return { ok: false, message: 'Falla al verificar la escritura física en disco' };
-  }
-
-  syncToBundledVault(path.relative(vaultDir, filePath), newContent);
+  syncToBundledVault(path.relative(vaultDir, filePath), upd.content);
 
   return {
     ok: true,
@@ -1590,32 +1574,20 @@ export function assignNodeParent(input: {
     return { ok: false, message: `Archivo de nodo no encontrado en disco: ${filePath}` };
   }
 
-  const content = fs.readFileSync(filePath, 'utf-8');
-  const { frontmatter, body } = parseFrontmatterAndBody(content);
-
   const field = input.field || 'parent_id';
-  if (field === 'reports_to') {
-    frontmatter.relations = frontmatter.relations || {};
-    frontmatter.relations.reports_to = [`[[${parentNode.title}]]`];
-  } else {
-    frontmatter[field] = input.parentId.startsWith('[[') ? input.parentId : `[[${parentNode.title}]]`;
-  }
+  const upd = updateNoteFile(filePath, (frontmatter) => {
+    if (field === 'reports_to') {
+      frontmatter.relations = frontmatter.relations || {};
+      frontmatter.relations.reports_to = [`[[${parentNode.title}]]`];
+    } else {
+      frontmatter[field] = input.parentId.startsWith('[[') ? input.parentId : `[[${parentNode.title}]]`;
+    }
+    frontmatter.last_updated_at = new Date().toISOString();
+    frontmatter.last_updated_by = 'DOTS Agent (Assign Parent)';
+  });
+  if (!upd.ok) return { ok: false, message: upd.error };
 
-  frontmatter.last_updated_at = new Date().toISOString();
-  frontmatter.last_updated_by = 'DOTS Agent (Assign Parent)';
-
-  const updatedYaml = YAML.stringify(frontmatter).trim();
-  const newContent = `---\n${updatedYaml}\n---\n\n${body.trim()}\n`;
-
-  fs.writeFileSync(filePath, newContent, 'utf-8');
-
-  // Verificar
-  const verified = fs.readFileSync(filePath, 'utf-8');
-  if (!verified.includes(target.id)) {
-    return { ok: false, message: 'Falla al verificar la persistencia física en disco.' };
-  }
-
-  syncToBundledVault(path.relative(vaultDir, filePath), newContent);
+  syncToBundledVault(path.relative(vaultDir, filePath), upd.content);
 
   return {
     ok: true,

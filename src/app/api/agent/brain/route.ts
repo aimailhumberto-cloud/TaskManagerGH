@@ -91,6 +91,9 @@ export async function POST(req: NextRequest) {
         relationType,
         source,
       });
+      if (!result.ok) {
+        return NextResponse.json({ ok: false, error: 'No se pudo guardar la memoria de trabajo' }, { status: 500, headers: CORS_HEADERS });
+      }
       return NextResponse.json({ ok: true, result }, { status: 201, headers: CORS_HEADERS });
     }
 
