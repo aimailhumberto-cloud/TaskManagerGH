@@ -6,13 +6,17 @@ import YAML from 'yaml';
 export interface BrainNode {
   id: string;
   title: string;
-  type: 'core' | 'department' | 'role' | 'person' | 'market' | 'distributor' | 'customer' | 'brand' | 'project' | 'task' | 'routine' | 'working_memory' | 'consolidation_session';
+  type: 'core' | 'department' | 'role' | 'person' | 'market' | 'distributor' | 'customer' | 'brand' | 'project' | 'task' | 'routine' | 'working_memory' | 'consolidation_session' | 'channel' | 'client_group' | 'operator' | string;
   memory_tier: 'working' | 'long_term' | 'archived';
   status?: string;
   hierarchy_level?: number;
   completeness_score?: number;
   country?: string;
   department?: string;
+  market_id?: string;
+  spatial_anchor?: string;
+  spatial_tier?: 'market' | 'channel' | 'operator' | 'client' | 'department' | 'brand' | 'person' | string;
+  channel_type?: string;
   filePath: string;
   frontmatter: Record<string, any>;
   body: string;
@@ -255,6 +259,25 @@ function getAllMarkdownFiles(dir: string): string[] {
   return files;
 }
 
+export function getMarketNodeId(countryOrMarket: string | undefined | null): string | null {
+  if (!countryOrMarket) return null;
+  const s = String(countryOrMarket).toLowerCase().replace(/^\[\[|\]\]$/g, '').trim();
+  if (s.includes('beliz') || s.includes('belice')) return 'market-belize';
+  if (s.includes('panam')) return 'market-panama';
+  if (s.includes('canad')) return 'market-canada';
+  if (s.includes('unit') || s.includes('usa') || s.includes('ee. uu') || s.includes('florida') || s.includes('miami') || s.includes('tampa') || s.includes('new-york')) return 'market-united-states';
+  if (s.includes('costa')) return 'market-costa-rica';
+  if (s.includes('salvador')) return 'market-el-salvador';
+  if (s.includes('barbados')) return 'market-barbados';
+  if (s.includes('guyana')) return 'market-guyana';
+  if (s.includes('surinam')) return 'market-suriname';
+  if (s.includes('jamaica')) return 'market-jamaica';
+  if (s.includes('lucia')) return 'market-saint-lucia';
+  if (s.includes('south-africa') || s.includes('sudafrica')) return 'market-south-africa';
+  if (s.includes('trinidad')) return 'core-sm-jaleel';
+  return null;
+}
+
 export function loadBrainGraph(lens?: string, marketFilter?: string): BrainGraph {
   const vaultDir = getVaultPath();
   const files = getAllMarkdownFiles(vaultDir);
@@ -287,6 +310,14 @@ export function loadBrainGraph(lens?: string, marketFilter?: string): BrainGraph
         hierarchyLevel = Math.min(hierarchyLevel, 2);
       }
 
+      const marketAnchor = getMarketNodeId(
+        frontmatter.spatial_anchor ||
+        frontmatter.market ||
+        frontmatter.country_name ||
+        frontmatter.based_in_country ||
+        frontmatter.country
+      );
+
       nodes.push({
         id,
         title,
@@ -295,8 +326,18 @@ export function loadBrainGraph(lens?: string, marketFilter?: string): BrainGraph
         status: frontmatter.status || 'active',
         hierarchy_level: hierarchyLevel,
         completeness_score: frontmatter.completeness_score,
-        country: frontmatter.country_name || frontmatter.based_in_country,
+        country: frontmatter.country_name || frontmatter.based_in_country || frontmatter.country,
         department: frontmatter.department,
+        market_id: marketAnchor || undefined,
+        spatial_anchor: frontmatter.spatial_anchor || marketAnchor || undefined,
+        spatial_tier: frontmatter.spatial_tier || (
+          frontmatter.type === 'market' ? 'market' :
+          frontmatter.type === 'channel' ? 'channel' :
+          (frontmatter.type === 'distributor' || frontmatter.type === 'operator') ? 'operator' :
+          (frontmatter.type === 'customer' || frontmatter.type === 'client_group') ? 'client' :
+          undefined
+        ),
+        channel_type: frontmatter.channel_type || frontmatter.channel || undefined,
         filePath: file,
         frontmatter,
         body,
@@ -311,43 +352,83 @@ export function loadBrainGraph(lens?: string, marketFilter?: string): BrainGraph
   const links: BrainLink[] = [];
   const linkKeySet = new Set<string>();
 
+  const addSemanticLink = (sourceId: string, rawTarget: any, relType: string, label: string) => {
+    if (!rawTarget) return;
+    if (Array.isArray(rawTarget)) {
+      rawTarget.forEach(t => addSemanticLink(sourceId, t, relType, label));
+      return;
+    }
+    const cleaned = typeof rawTarget === 'string' ? rawTarget.replace(/^\[\[|\]\]$/g, '').trim() : '';
+    if (!cleaned) return;
+    const targetId = titleToIdMap.get(cleaned.toLowerCase()) || cleaned.toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
+    if (targetId && targetId !== sourceId) {
+      const key = `${sourceId}->${targetId}:${relType}`;
+      if (!linkKeySet.has(key)) {
+        linkKeySet.add(key);
+        links.push({
+          source: sourceId,
+          target: targetId,
+          relationType: relType,
+          label,
+        });
+      }
+    }
+  };
+
   for (const node of nodes) {
-    // 1. Process structured relations
+    // 1. Process structured relations in frontmatter
     const rels = node.frontmatter.relations;
     if (rels && typeof rels === 'object') {
       for (const [relType, targets] of Object.entries(rels)) {
         if (Array.isArray(targets)) {
           for (const targetRef of targets) {
-            const rawTarget = typeof targetRef === 'string' ? targetRef.replace(/^\[\[|\]\]$/g, '').trim() : '';
-            const targetId = titleToIdMap.get(rawTarget.toLowerCase()) || rawTarget.toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
-            const key = `${node.id}->${targetId}:${relType}`;
-            if (!linkKeySet.has(key)) {
-              linkKeySet.add(key);
-              links.push({
-                source: node.id,
-                target: targetId,
-                relationType: relType,
-                label: relType.replace(/_/g, ' '),
-              });
-            }
+            addSemanticLink(node.id, targetRef, relType, relType.replace(/_/g, ' '));
           }
         }
       }
     }
 
-    // 2. Add raw wikilinks if not already added
+    // 2. Add frontmatter-driven semantic commercial synapses
+    // a. Mercado geográfico
+    if (node.market_id) {
+      addSemanticLink(node.id, node.market_id, 'operates_in_market', 'mercado');
+    } else if (node.frontmatter.market) {
+      addSemanticLink(node.id, node.frontmatter.market, 'operates_in_market', 'mercado');
+    }
+    // b. Canal u Operador padre
+    if (node.frontmatter.parent_distributor_id) {
+      addSemanticLink(node.id, node.frontmatter.parent_distributor_id, 'channel_of', 'canal de');
+    }
+    if (node.frontmatter.parent_distributor) {
+      addSemanticLink(node.id, node.frontmatter.parent_distributor, 'channel_of', 'canal de');
+    }
+    if (node.frontmatter.channel_of) {
+      addSemanticLink(node.id, node.frontmatter.channel_of, 'channel_of', 'canal de');
+    }
+    if (node.frontmatter.supplied_by) {
+      addSemanticLink(node.id, node.frontmatter.supplied_by, 'supplied_by', 'abastecido por');
+    }
+    // c. Clientes y cuentas abastecidas
+    if (node.frontmatter.serves_clients) {
+      addSemanticLink(node.id, node.frontmatter.serves_clients, 'supplies_client', 'abastece a');
+    }
+    if (node.frontmatter.clients) {
+      addSemanticLink(node.id, node.frontmatter.clients, 'supplies_client', 'abastece a');
+    }
+    if (node.frontmatter.target_clients) {
+      addSemanticLink(node.id, node.frontmatter.target_clients, 'supplies_client', 'abastece a');
+    }
+    // d. Marcas y SKUs distribuidos
+    if (node.frontmatter.carries_brands) {
+      addSemanticLink(node.id, node.frontmatter.carries_brands, 'carries_brand', 'distribuye');
+    }
+    if (node.frontmatter.active_brands) {
+      addSemanticLink(node.id, node.frontmatter.active_brands, 'carries_brand', 'distribuye');
+    }
+
+    // 3. Add raw wikilinks if not already added
     for (const rawLink of node.links) {
-      const targetId = titleToIdMap.get(rawLink.toLowerCase()) || rawLink.toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
-      const key = `${node.id}->${targetId}`;
-      if (!linkKeySet.has(key) && targetId !== node.id) {
-        linkKeySet.add(key);
-        links.push({
-          source: node.id,
-          target: targetId,
-          relationType: 'references',
-          label: 'relacionado',
-        });
-      }
+      addSemanticLink(node.id, rawLink, 'references', 'relacionado');
     }
   }
 
@@ -1417,5 +1498,71 @@ export function upsertNode(input: {
     ok: true,
     message: `Nodo guardado y verificado exitosamente en ${sanitizedRel}`,
     fullPath: targetPath,
+  };
+}
+
+export function reconfigureNodeTopology(input: {
+  nodeId: string;
+  market?: string;
+  spatial_anchor?: string;
+  spatial_tier?: string;
+  channel_type?: string;
+  parent_distributor?: string;
+  supplied_by?: string;
+  clients?: string[];
+  brands?: string[];
+  visual_coordinates?: { x: number; y: number };
+  relations?: Record<string, string[]>;
+}): { ok: boolean; message: string } {
+  const vaultDir = getVaultPath();
+  const allNodes = loadBrainGraph().nodes;
+  const target = allNodes.find(n => n.id === input.nodeId || n.id.toLowerCase() === input.nodeId.toLowerCase());
+
+  if (!target) {
+    return { ok: false, message: `No se encontró el nodo con ID ${input.nodeId}` };
+  }
+
+  const filePath = target.filePath;
+  if (!fs.existsSync(filePath)) {
+    return { ok: false, message: `Archivo de nodo no encontrado en disco: ${filePath}` };
+  }
+
+  const content = fs.readFileSync(filePath, 'utf-8');
+  const { frontmatter, body } = parseFrontmatterAndBody(content);
+
+  // Apply updates
+  if (input.market !== undefined) frontmatter.market = input.market;
+  if (input.spatial_anchor !== undefined) frontmatter.spatial_anchor = input.spatial_anchor;
+  if (input.spatial_tier !== undefined) frontmatter.spatial_tier = input.spatial_tier;
+  if (input.channel_type !== undefined) frontmatter.channel_type = input.channel_type;
+  if (input.parent_distributor !== undefined) frontmatter.parent_distributor = input.parent_distributor;
+  if (input.supplied_by !== undefined) frontmatter.supplied_by = input.supplied_by;
+  if (input.clients !== undefined) frontmatter.serves_clients = input.clients;
+  if (input.brands !== undefined) frontmatter.carries_brands = input.brands;
+  if (input.visual_coordinates !== undefined) frontmatter.visual_coordinates = input.visual_coordinates;
+
+  if (input.relations) {
+    frontmatter.relations = { ...(frontmatter.relations || {}), ...input.relations };
+  }
+
+  frontmatter.last_updated_at = new Date().toISOString();
+  frontmatter.last_updated_by = 'DOTS Agent (Topology Reconfiguration)';
+
+  const updatedYaml = YAML.stringify(frontmatter).trim();
+  const newContent = `---\n${updatedYaml}\n---\n\n${body.trim()}\n`;
+
+  fs.writeFileSync(filePath, newContent, 'utf-8');
+
+  // Verify write
+  const verified = fs.readFileSync(filePath, 'utf-8');
+  if (!verified.includes(target.id)) {
+    return { ok: false, message: 'Falla al verificar la escritura física en disco' };
+  }
+
+  syncToBundledVault(path.relative(vaultDir, filePath), newContent);
+
+  return {
+    ok: true,
+    message: `Topología y espacio reconfigurados exitosamente para '${target.title}' [ID: ${target.id}].`,
   };
 }

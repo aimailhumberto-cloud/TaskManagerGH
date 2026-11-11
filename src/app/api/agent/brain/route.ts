@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { loadBrainGraph, saveWorkingMemory, consolidateWorkingMemory, updateDossierMetadata, upsertNode } from '@/lib/smjBrainService';
+import { loadBrainGraph, saveWorkingMemory, consolidateWorkingMemory, updateDossierMetadata, upsertNode, reconfigureNodeTopology } from '@/lib/smjBrainService';
 
 export const dynamic = 'force-dynamic';
 
@@ -108,8 +108,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(result, { status: result.ok ? 200 : 500, headers: CORS_HEADERS });
     }
 
+    if (action === 'reconfigure_node_topology') {
+      const { nodeId, updates } = body;
+      if (!nodeId) {
+        return NextResponse.json(
+          { ok: false, error: "Campo requerido 'nodeId' faltante." },
+          { status: 400, headers: CORS_HEADERS }
+        );
+      }
+      const result = reconfigureNodeTopology({
+        nodeId,
+        ...(updates || {}),
+      });
+      return NextResponse.json(result, { status: result.ok ? 200 : 400, headers: CORS_HEADERS });
+    }
+
     return NextResponse.json(
-      { ok: false, error: `Acción '${action}' no reconocida. Usa 'remember_working', 'consolidate_session', 'update_dossier' o 'upsert_node'.` },
+      { ok: false, error: `Acción '${action}' no reconocida. Usa 'remember_working', 'consolidate_session', 'update_dossier', 'upsert_node' o 'reconfigure_node_topology'.` },
       { status: 400, headers: CORS_HEADERS }
     );
   } catch (error: any) {

@@ -14,6 +14,10 @@ interface NodeData {
   completeness_score?: number;
   country?: string;
   department?: string;
+  market_id?: string;
+  spatial_anchor?: string;
+  spatial_tier?: string;
+  channel_type?: string;
   body: string;
   frontmatter: Record<string, any>;
   links: string[];
@@ -312,8 +316,12 @@ const TYPE_CONFIG: Record<
   role: { label: 'Rol Agnóstico', icon: '👔', bg: '#6D28D9', border: '#A78BFA', glow: 'rgba(124, 58, 237, 0.75)' },
   person: { label: 'Persona', icon: '👤', bg: '#4338CA', border: '#818CF8', glow: 'rgba(99, 102, 241, 0.75)' },
   market: { label: 'Mercado', icon: '🌎', bg: '#047857', border: '#34D399', glow: 'rgba(16, 185, 129, 0.75)' },
+  channel: { label: 'Canal Comercial', icon: '🛣️', bg: '#0D9488', border: '#5EEAD4', glow: 'rgba(20, 184, 166, 0.75)' },
+  operator: { label: 'Operador / Mayorista', icon: '📦', bg: '#0284C7', border: '#38BDF8', glow: 'rgba(14, 165, 233, 0.75)' },
   distributor: { label: 'Distribuidor', icon: '🤝', bg: '#0F766E', border: '#2DD4BF', glow: 'rgba(20, 184, 166, 0.75)' },
   customer: { label: 'Customer Retail', icon: '🛒', bg: '#0369A1', border: '#38BDF8', glow: 'rgba(14, 165, 233, 0.75)' },
+  client_group: { label: 'Grupo de Clientes', icon: '🏬', bg: '#2563EB', border: '#93C5FD', glow: 'rgba(37, 99, 235, 0.75)' },
+  client: { label: 'Cliente / Cuenta Clave', icon: '🛒', bg: '#0284C7', border: '#38BDF8', glow: 'rgba(14, 165, 233, 0.75)' },
   organization: { label: 'Filial Corporativa', icon: '🏛️', bg: '#065F46', border: '#34D399', glow: 'rgba(16, 185, 129, 0.75)' },
   brand: { label: 'Marca / SKU', icon: '🧃', bg: '#C2410C', border: '#FB923C', glow: 'rgba(234, 88, 12, 0.75)' },
   routine: { label: 'Rutina', icon: '🔄', bg: '#BE185D', border: '#F472B6', glow: 'rgba(219, 39, 119, 0.75)' },
@@ -422,15 +430,89 @@ const ORGANIGRAM_STRATA = [
   { level: 0, y: -260, label: 'L0 · DIRECCIÓN EJECUTIVA & COO (ANNA MOHAMMED · HQ TRINIDAD)', color: 'rgba(245, 158, 11, 0.12)', border: 'rgba(245, 158, 11, 0.4)' },
   { level: 1, y: -120, label: 'L1 · VICEPRESIDENCIAS Y DIRECCIONES GENERALES', color: 'rgba(59, 130, 246, 0.10)', border: 'rgba(59, 130, 246, 0.35)' },
   { level: 2, y: 20, label: 'L2 · GERENCIAS DE EXPORTACIÓN, OPERACIONES & PLANTA', color: 'rgba(139, 92, 246, 0.10)', border: 'rgba(139, 92, 246, 0.35)' },
-  { level: 3, y: 160, label: 'L3 · MERCADOS EXTERNOS, DISTRIBUIDORES & RETAIL INTERNACIONAL', color: 'rgba(16, 185, 129, 0.10)', border: 'rgba(16, 185, 129, 0.35)' },
-  { level: 4, y: 320, label: 'L4 · PORTAFOLIO DE MARCAS & OPERACIONES S&OP', color: 'rgba(234, 88, 12, 0.10)', border: 'rgba(234, 88, 12, 0.35)' },
+  { level: 3, y: 140, label: 'L3 · MERCADOS EXTERNOS, CANALES, OPERADORES & CLIENTES', color: 'rgba(16, 185, 129, 0.10)', border: 'rgba(16, 185, 129, 0.35)' },
+  { level: 4, y: 340, label: 'L4 · PORTAFOLIO DE MARCAS & OPERACIONES S&OP', color: 'rgba(234, 88, 12, 0.10)', border: 'rgba(234, 88, 12, 0.35)' },
 ];
+
+// Resolutor universal de polo de mercado para cualquier entidad
+function resolveNodeMarketAnchor(node: any): { key: string; name: string } | null {
+  const id = (node.id || '').toLowerCase();
+  const fm = node.frontmatter || {};
+  const text = `${id} ${node.title || ''} ${fm.country || ''} ${fm.country_name || ''} ${fm.based_in_country || ''} ${fm.market || ''} ${fm.spatial_anchor || ''}`.toLowerCase();
+
+  if (text.includes('beliz') || text.includes('belice') || text.includes('sancas') || text.includes('nando')) return { key: 'belize', name: 'Belize' };
+  if (text.includes('panam') || text.includes('medimex')) return { key: 'panama', name: 'Panamá' };
+  if (text.includes('canad') || text.includes('morgan-williams')) return { key: 'canada', name: 'Canadá' };
+  if (text.includes('unit') || text.includes('usa') || text.includes('ee. uu') || text.includes('florida') || text.includes('miami') || text.includes('tampa') || text.includes('walton')) return { key: 'usa', name: 'EE. UU.' };
+  if (text.includes('costa-rica')) return { key: 'costa-rica', name: 'Costa Rica' };
+  if (text.includes('el-salvador') || text.includes('salvador')) return { key: 'el-salvador', name: 'El Salvador' };
+  if (text.includes('barbados')) return { key: 'barbados', name: 'Barbados' };
+  if (text.includes('guyana')) return { key: 'guyana', name: 'Guyana' };
+  if (text.includes('saint-lucia') || text.includes('st-lucia')) return { key: 'saint-lucia', name: 'Santa Lucía' };
+  if (text.includes('surinam')) return { key: 'suriname', name: 'Surinam' };
+  if (text.includes('jamaica')) return { key: 'jamaica', name: 'Jamaica' };
+  if (text.includes('south-africa') || text.includes('sudafrica')) return { key: 'south-africa', name: 'Sudáfrica' };
+  if (text.includes('trinidad')) return { key: 'trinidad', name: 'Trinidad & Tobago' };
+  return null;
+}
+
+const MARKET_POLES_QUADRANTS: Record<string, { x: number; y: number }> = {
+  canada: { x: -580, y: -220 },
+  usa: { x: -580, y: -150 },
+  belize: { x: -580, y: -70 },
+  panama: { x: -580, y: 10 },
+  'costa-rica': { x: -580, y: 80 },
+  'el-salvador': { x: -580, y: 140 },
+  barbados: { x: -540, y: 190 },
+  guyana: { x: -580, y: 240 },
+  'saint-lucia': { x: -500, y: 220 },
+  suriname: { x: -540, y: 270 },
+  jamaica: { x: -500, y: -30 },
+  'south-africa': { x: -440, y: 280 },
+  trinidad: { x: -170, y: -30 },
+};
+
+const MARKET_POLES_CONSTELLATIONS: Record<string, { x: number; y: number; clusterKey: string }> = {
+  canada: { x: -430, y: -200, clusterKey: 'exportNorth' },
+  usa: { x: -430, y: -120, clusterKey: 'exportNorth' },
+  belize: { x: -440, y: 150, clusterKey: 'exportCentral' },
+  panama: { x: -420, y: 90, clusterKey: 'exportCentral' },
+  'costa-rica': { x: -360, y: 150, clusterKey: 'exportCentral' },
+  'el-salvador': { x: -360, y: 180, clusterKey: 'exportCentral' },
+  barbados: { x: -360, y: 220, clusterKey: 'exportCentral' },
+  guyana: { x: -360, y: 260, clusterKey: 'exportCentral' },
+  'saint-lucia': { x: -310, y: 210, clusterKey: 'exportCentral' },
+  suriname: { x: -320, y: 250, clusterKey: 'exportCentral' },
+  jamaica: { x: -400, y: 60, clusterKey: 'exportCentral' },
+  'south-africa': { x: -300, y: 280, clusterKey: 'exportCentral' },
+  trinidad: { x: -85, y: -20, clusterKey: 'core' },
+};
+
+const MARKET_POLES_ORGANIGRAM: Record<string, { x: number; y: number }> = {
+  canada: { x: -640, y: 140 },
+  usa: { x: -480, y: 140 },
+  belize: { x: -320, y: 140 },
+  panama: { x: -160, y: 140 },
+  'costa-rica': { x: 0, y: 140 },
+  'el-salvador': { x: 140, y: 140 },
+  barbados: { x: 280, y: 140 },
+  guyana: { x: 420, y: 140 },
+  'saint-lucia': { x: 560, y: 140 },
+  suriname: { x: 700, y: 140 },
+  jamaica: { x: -400, y: 180 },
+  'south-africa': { x: 800, y: 140 },
+};
 
 // 1. Spatially Balanced Quadrant Target Assignment (Completely Decentralized, Zero Overlap)
 function assignQuadrantTarget(node: any): { x: number; y: number } {
   const id = (node.id || '').toLowerCase();
   const fm = node.frontmatter || {};
   const job = String(fm.job_title || fm.role || node.title || '').toLowerCase();
+
+  // Override explícito de coordenadas enviado por DOTS
+  if (fm.visual_coordinates && typeof fm.visual_coordinates.x === 'number' && typeof fm.visual_coordinates.y === 'number') {
+    return { x: fm.visual_coordinates.x, y: fm.visual_coordinates.y };
+  }
 
   // TOP SHOWROOM: Marcas SMJ Máster (y = -260) - SOLO nodos tipo 'brand'
   if (node.type === 'brand') {
@@ -442,57 +524,38 @@ function assignQuadrantTarget(node: any): { x: number; y: number } {
     return { x: 0, y: -260 };
   }
 
-  // WEST (LEFT): Américas, Países, Distribuidores y Filiales Internacionales
-  // Dinámico para TODOS los Mercados y Países (sin apilarse jamás)
-  if (node.type === 'market' || id.startsWith('market-') || (node.type === 'country' && !id.includes('trinidad'))) {
-    if (id.includes('canada')) return { x: -580, y: -220 };
-    if (id.includes('united-states') || id.includes('usa') || id.includes('florida') || id.includes('miami') || id.includes('new-york') || id.includes('tampa')) {
-      if (id.includes('miami')) return { x: -630, y: -150 };
-      if (id.includes('florida')) return { x: -580, y: -150 };
-      if (id.includes('new-york')) return { x: -630, y: -180 };
-      if (id.includes('tampa')) return { x: -530, y: -140 };
-      return { x: -580, y: -150 };
+  // TOPOLOGÍA COMERCIAL DE 4 CAPAS (MERCADO -> CANAL -> OPERADOR -> CLIENTE)
+  const marketAnchor = resolveNodeMarketAnchor(node);
+  const isMarketType = node.type === 'market' || id.startsWith('market-') || (node.type === 'country' && !id.includes('trinidad'));
+  const isChannelOrOperator = node.type === 'channel' || node.type === 'distributor' || node.type === 'operator' || id.startsWith('dist-') || id.startsWith('distributor-') || id.startsWith('channel-') || fm.spatial_tier === 'channel' || fm.spatial_tier === 'operator';
+  const isClientType = node.type === 'customer' || node.type === 'client_group' || node.type === 'client' || id.startsWith('client-') || id.includes('walmart') || id.startsWith('listing-') || fm.spatial_tier === 'client';
+
+  if (marketAnchor && MARKET_POLES_QUADRANTS[marketAnchor.key]) {
+    const pole = MARKET_POLES_QUADRANTS[marketAnchor.key];
+    if (isMarketType) {
+      return { x: pole.x, y: pole.y };
     }
-    if (id.includes('belize')) return { x: -580, y: -70 };
-    if (id.includes('panama')) return { x: -580, y: 10 };
-    if (id.includes('costa-rica')) return { x: -580, y: 80 };
-    if (id.includes('el-salvador')) return { x: -580, y: 140 };
-    if (id.includes('barbados')) return { x: -540, y: 190 };
-    if (id.includes('guyana')) return { x: -580, y: 240 };
-    if (id.includes('saint-lucia') || id.includes('st-lucia')) return { x: -500, y: 220 };
-    if (id.includes('suriname')) return { x: -540, y: 270 };
-    if (id.includes('jamaica')) return { x: -500, y: -30 };
-    if (id.includes('south-africa')) return { x: -440, y: 280 };
-
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
-    const yPos = -230 + (Math.abs(hash) % 490);
-    const xPos = -580 + ((Math.abs(hash >> 3) % 100) - 50);
-    return { x: xPos, y: yPos };
-  }
-
-  // Distribuidores Internacionales
-  if (node.type === 'distributor' || id.startsWith('dist-') || id.startsWith('distributor-')) {
-    if (id.includes('morgan-williams')) return { x: -390, y: -220 };
-    if (id.includes('dist-canada-primary')) return { x: -390, y: -160 };
-    if (id.includes('walton')) return { x: -390, y: -100 };
-    if (id.includes('sancas')) return { x: -390, y: -40 };
-    if (id.includes('medimex')) return { x: -390, y: 30 };
-    if (id.includes('panama-central')) return { x: -390, y: 90 };
-
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) hash = (hash * 23 + id.charCodeAt(i)) & 0xffffffff;
-    const yPos = -210 + (Math.abs(hash) % 430);
-    return { x: -390, y: yPos };
-  }
-
-  // Clientes Retail & Listings
-  if (node.type === 'customer' || id.includes('walmart') || id.startsWith('listing-')) {
-    if (id.includes('walmart-ca') || id.includes('walmart-canada')) return { x: -240, y: -200 };
-    if (id.includes('walmart')) return { x: -240, y: -150 };
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) hash = (hash * 19 + id.charCodeAt(i)) & 0xffffffff;
-    return { x: -240, y: -200 + (Math.abs(hash) % 360) };
+    if (isChannelOrOperator) {
+      // Órbita intermedia comercial (X aprox -390 hacia el centro)
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) hash = (hash * 23 + id.charCodeAt(i)) & 0xffffffff;
+      const yOffset = ((Math.abs(hash) % 70) - 35);
+      if (id.includes('sancas-belize') || (id.includes('sancas') && !id.includes('channel'))) return { x: -390, y: pole.y };
+      if (id.includes('wholesaler') || id.includes('nando')) return { x: -410, y: pole.y + 35 };
+      if (id.includes('independent')) return { x: -440, y: pole.y - 35 };
+      if (id.includes('medimex')) return { x: -390, y: pole.y };
+      return { x: -390, y: pole.y + yOffset };
+    }
+    if (isClientType) {
+      // Órbita exterior comercial (X aprox -250 hacia el centro)
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) hash = (hash * 19 + id.charCodeAt(i)) & 0xffffffff;
+      const yOffset = ((Math.abs(hash) % 80) - 40);
+      if (id.includes('brodies')) return { x: -260, y: pole.y - 15 };
+      if (id.includes('mayoristas') || id.includes('nando')) return { x: -260, y: pole.y + 25 };
+      if (id.includes('walmart')) return { x: -250, y: pole.y };
+      return { x: -250, y: pole.y + yOffset };
+    }
   }
 
   // Proyectos e Hitos Comerciales
@@ -624,6 +687,11 @@ function assignClusterTarget(node: any): { x: number; y: number; clusterKey: str
   const fm = node.frontmatter || {};
   const job = String(fm.job_title || fm.role || node.title || '').toLowerCase();
 
+  // Override explícito de coordenadas enviado por DOTS
+  if (fm.visual_coordinates && typeof fm.visual_coordinates.x === 'number' && typeof fm.visual_coordinates.y === 'number') {
+    return { x: fm.visual_coordinates.x, y: fm.visual_coordinates.y, clusterKey: 'core' };
+  }
+
   // CLUSTER 1: CORE TRINIDAD & SUBSIDIARIAS CORPORATIVAS (Center: 0, -20)
   if (id.includes('aleem') || job.includes('chair')) return { x: 0, y: -90, clusterKey: 'core' };
   if (id.includes('trinidad')) return { x: -85, y: -20, clusterKey: 'core' };
@@ -644,33 +712,39 @@ function assignClusterTarget(node: any): { x: number; y: number; clusterKey: str
     return { x: 0, y: 70, clusterKey: 'core' };
   }
 
-  // CLUSTER 2: CENTROAMÉRICA & CARIBE (Center: -360, 130)
-  if (id.includes('market-panama')) return { x: -420, y: 90, clusterKey: 'exportCentral' };
-  if (id.includes('medimex')) return { x: -330, y: 80, clusterKey: 'exportCentral' };
-  if (id.includes('panama-central')) return { x: -290, y: 130, clusterKey: 'exportCentral' };
-  if (id.includes('apertura-canal')) return { x: -320, y: 180, clusterKey: 'exportCentral' };
-  if (id.includes('market-belize')) return { x: -440, y: 150, clusterKey: 'exportCentral' };
-  if (id.includes('sancas')) return { x: -390, y: 200, clusterKey: 'exportCentral' };
-  if (id.includes('wm-20261109-002') || id.includes('gira-comercial-belice')) return { x: -330, y: 220, clusterKey: 'exportCentral' };
+  // RESOLUCIÓN TOPOLÓGICA DINÁMICA POR ANCLA DE MERCADO (CONSTELACIONES)
+  const marketAnchor = resolveNodeMarketAnchor(node);
+  const isMarketType = node.type === 'market' || id.startsWith('market-') || (node.type === 'country' && !id.includes('trinidad'));
+  const isChannelOrOperator = node.type === 'channel' || node.type === 'distributor' || node.type === 'operator' || id.startsWith('dist-') || id.startsWith('distributor-') || id.startsWith('channel-') || fm.spatial_tier === 'channel' || fm.spatial_tier === 'operator';
+  const isClientType = node.type === 'customer' || node.type === 'client_group' || node.type === 'client' || id.startsWith('client-') || id.includes('walmart') || id.startsWith('listing-') || fm.spatial_tier === 'client';
 
-  // CLUSTER 3: NORTEAMÉRICA (Center: -360, -160)
-  if (id.includes('market-canada')) return { x: -430, y: -200, clusterKey: 'exportNorth' };
-  if (id.includes('morgan-williams')) return { x: -350, y: -220, clusterKey: 'exportNorth' };
-  if (id.includes('dist-canada-primary')) return { x: -290, y: -190, clusterKey: 'exportNorth' };
-  if (id.includes('walmart')) return { x: -310, y: -130, clusterKey: 'exportNorth' };
-  if (id.includes('market-united-states') || id.includes('usa')) return { x: -430, y: -120, clusterKey: 'exportNorth' };
-  if (id.includes('walton-and-post') || id.includes('walton')) return { x: -360, y: -90, clusterKey: 'exportNorth' };
-
-  // Generic Markets in Constellation
-  if (node.type === 'market' || id.startsWith('market-')) {
-    if (id.includes('canada') || id.includes('usa') || id.includes('united-states')) {
-      let hash = 0;
-      for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
-      return { x: -360 + ((hash % 100) - 50), y: -160 + (((hash >> 3) % 100) - 50), clusterKey: 'exportNorth' };
+  if (marketAnchor && MARKET_POLES_CONSTELLATIONS[marketAnchor.key]) {
+    const pole = MARKET_POLES_CONSTELLATIONS[marketAnchor.key];
+    if (isMarketType) {
+      return { x: pole.x, y: pole.y, clusterKey: pole.clusterKey };
     }
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
-    return { x: -360 + ((hash % 120) - 60), y: 130 + (((hash >> 3) % 120) - 60), clusterKey: 'exportCentral' };
+    if (isChannelOrOperator) {
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) hash = (hash * 23 + id.charCodeAt(i)) & 0xffffffff;
+      const angle = (Math.abs(hash) % 360) * (Math.PI / 180);
+      const dist = 65 + (Math.abs(hash >> 3) % 40);
+      return {
+        x: pole.x + Math.cos(angle) * dist,
+        y: pole.y + Math.sin(angle) * dist,
+        clusterKey: pole.clusterKey,
+      };
+    }
+    if (isClientType) {
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) hash = (hash * 19 + id.charCodeAt(i)) & 0xffffffff;
+      const angle = (Math.abs(hash) % 360) * (Math.PI / 180);
+      const dist = 115 + (Math.abs(hash >> 3) % 45);
+      return {
+        x: pole.x + Math.cos(angle) * dist,
+        y: pole.y + Math.sin(angle) * dist,
+        clusterKey: pole.clusterKey,
+      };
+    }
   }
 
   // CLUSTER 4: DIRECCIÓN EJECUTIVA & COMERCIAL (Center: 360, -160)
@@ -743,6 +817,11 @@ function assignOrganigramTarget(node: any): { x: number; y: number } {
   const fm = node.frontmatter || {};
   const job = String(fm.job_title || fm.role || node.title || '').toLowerCase();
 
+  // Override explícito de coordenadas enviado por DOTS
+  if (fm.visual_coordinates && typeof fm.visual_coordinates.x === 'number' && typeof fm.visual_coordinates.y === 'number') {
+    return { x: fm.visual_coordinates.x, y: fm.visual_coordinates.y };
+  }
+
   // L-APEX: CHAIRMAN DE LA JUNTA DIRECTIVA (y = -380)
   if (id.includes('aleem') || job.includes('chair')) {
     return { x: 0, y: -380 };
@@ -800,55 +879,54 @@ function assignOrganigramTarget(node: any): { x: number; y: number } {
   if (id.includes('manufacturing-plant') || id.includes('dept-manufacturing')) return { x: 310, y: 20 };
   if (id.includes('role-vp-manufacturing')) return { x: 460, y: 20 };
 
-  // L3: MERCADOS EXTERNOS & DISTRIBUIDORES DIRECTOS (y = 140 - 220)
-  if (node.type === 'market' || id.startsWith('market-') || (node.type === 'country' && !id.includes('trinidad'))) {
-    if (id.includes('canada')) return { x: -640, y: 140 };
-    if (id.includes('united-states') || id.includes('usa')) return { x: -480, y: 140 };
-    if (id.includes('belize')) return { x: -320, y: 140 };
-    if (id.includes('panama')) return { x: -160, y: 140 };
-    if (id.includes('costa-rica')) return { x: 0, y: 140 };
-    if (id.includes('el-salvador')) return { x: 140, y: 140 };
-    if (id.includes('barbados')) return { x: 280, y: 140 };
-    if (id.includes('guyana')) return { x: 420, y: 140 };
-    if (id.includes('saint-lucia') || id.includes('st-lucia')) return { x: 560, y: 140 };
-    if (id.includes('suriname')) return { x: 700, y: 140 };
-    if (id.includes('jamaica')) return { x: -400, y: 180 };
-    if (id.includes('south-africa')) return { x: 800, y: 140 };
+  // L3: TOPOLOGÍA COMERCIAL INTERNACIONAL (MERCADOS y = 140, CANALES/DISTRIBUIDORES y = 220, CLIENTES y = 290)
+  const marketAnchor = resolveNodeMarketAnchor(node);
+  const isMarketType = node.type === 'market' || id.startsWith('market-') || (node.type === 'country' && !id.includes('trinidad'));
+  const isChannelOrOperator = node.type === 'channel' || node.type === 'distributor' || node.type === 'operator' || id.startsWith('dist-') || id.startsWith('distributor-') || id.startsWith('channel-') || fm.spatial_tier === 'channel' || fm.spatial_tier === 'operator';
+  const isClientType = node.type === 'customer' || node.type === 'client_group' || node.type === 'client' || id.startsWith('client-') || id.includes('walmart') || id.startsWith('listing-') || fm.spatial_tier === 'client';
 
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
-    const xPos = -640 + (Math.abs(hash) % 1350);
-    return { x: xPos, y: 140 };
+  if (marketAnchor && MARKET_POLES_ORGANIGRAM[marketAnchor.key]) {
+    const pole = MARKET_POLES_ORGANIGRAM[marketAnchor.key];
+    if (isMarketType) {
+      return { x: pole.x, y: 140 }; // Nivel L3: Mercados
+    }
+    if (isChannelOrOperator) {
+      // Nivel L3.1: Canales y Distribuidores directamente bajo su mercado
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) hash = (hash * 23 + id.charCodeAt(i)) & 0xffffffff;
+      const xOffset = ((Math.abs(hash) % 80) - 40);
+      if (id.includes('sancas-belize') || (id.includes('sancas') && !id.includes('channel'))) return { x: pole.x - 45, y: 220 };
+      if (id.includes('wholesaler') || id.includes('nando')) return { x: pole.x + 35, y: 220 };
+      if (id.includes('independent')) return { x: pole.x + 90, y: 220 };
+      if (id.includes('medimex')) return { x: pole.x, y: 220 };
+      return { x: pole.x + xOffset, y: 220 };
+    }
+    if (isClientType) {
+      // Nivel L3.2: Cuentas Clave y Clientes debajo de su operador/canal
+      let hash = 0;
+      for (let i = 0; i < id.length; i++) hash = (hash * 19 + id.charCodeAt(i)) & 0xffffffff;
+      const xOffset = ((Math.abs(hash) % 70) - 35);
+      if (id.includes('brodies')) return { x: pole.x - 45, y: 290 };
+      if (id.includes('mayoristas') || id.includes('nando')) return { x: pole.x + 35, y: 290 };
+      if (id.includes('walmart')) return { x: pole.x, y: 290 };
+      return { x: pole.x + xOffset, y: 290 };
+    }
   }
 
-  if (node.type === 'distributor' || id.startsWith('dist-') || id.startsWith('distributor-')) {
-    if (id.includes('morgan-williams')) return { x: -640, y: 220 };
-    if (id.includes('dist-canada-primary')) return { x: -580, y: 220 };
-    if (id.includes('walton-and-post') || id.includes('walton')) return { x: -480, y: 220 };
-    if (id.includes('sancas-belize') || id.includes('sancas')) return { x: -320, y: 220 };
-    if (id.includes('medimex')) return { x: -160, y: 220 };
-    if (id.includes('panama-central')) return { x: -100, y: 220 };
-
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) hash = (hash * 23 + id.charCodeAt(i)) & 0xffffffff;
-    const xPos = -600 + (Math.abs(hash) % 1200);
-    return { x: xPos, y: 220 };
-  }
-
-  // L4: MARCAS MÁSTER, RUTINAS & MEMORIA (y = 320)
+  // L4: MARCAS MÁSTER, RUTINAS & MEMORIA (y = 350)
   if (node.type === 'brand') {
-    if (id.includes('chubby')) return { x: -440, y: 320 };
-    if (id.includes('fruta')) return { x: -280, y: 320 };
-    if (id.includes('busta')) return { x: -120, y: 320 };
-    if (id.includes('oasis')) return { x: 40, y: 320 };
-    if (id.includes('altitude')) return { x: 200, y: 320 };
-    return { x: 0, y: 320 };
+    if (id.includes('chubby')) return { x: -440, y: 350 };
+    if (id.includes('fruta')) return { x: -280, y: 350 };
+    if (id.includes('busta')) return { x: -120, y: 350 };
+    if (id.includes('oasis')) return { x: 40, y: 350 };
+    if (id.includes('altitude')) return { x: 200, y: 350 };
+    return { x: 0, y: 350 };
   }
-  if (id.includes('routine') || id.includes('forecast')) return { x: 370, y: 320 };
-  if (id.includes('wm-20261109-001') || id.includes('prioridad-lote')) return { x: 510, y: 320 };
-  if (id.includes('session-20261109-002')) return { x: 650, y: 320 };
-  if (id.includes('session') || node.type === 'consolidation_session') return { x: 790, y: 320 };
-  if (node.type === 'working_memory') return { x: 510, y: 320 };
+  if (id.includes('routine') || id.includes('forecast')) return { x: 370, y: 350 };
+  if (id.includes('wm-20261109-001') || id.includes('prioridad-lote')) return { x: 510, y: 350 };
+  if (id.includes('session-20261109-002')) return { x: 650, y: 350 };
+  if (id.includes('session') || node.type === 'consolidation_session') return { x: 790, y: 350 };
+  if (node.type === 'working_memory') return { x: 510, y: 350 };
 
   // Personal Operativo distribuido ordenadamente por departamento en la franja Staff (y = 80)
   if (node.type === 'person') {
@@ -869,10 +947,10 @@ function assignOrganigramTarget(node: any): { x: number; y: number } {
     let hash = 0;
     for (let i = 0; i < id.length; i++) hash = (hash * 37 + id.charCodeAt(i)) & 0xffffffff;
     const spreadX = ((Math.abs(hash) % 1500) - 750);
-    return { x: spreadX, y: 320 };
+    return { x: spreadX, y: 350 };
   }
 
-  return { x: 0, y: 320 };
+  return { x: 0, y: 350 };
 }
 
 // Vector graphics helper functions
@@ -1856,7 +1934,8 @@ export default function CerebroPage() {
       if (n.type === 'core') nodeRadius = 38;
       else if (n.type === 'department' || n.type === 'market') nodeRadius = 28;
       else if (n.type === 'organization') nodeRadius = 26;
-      else if (n.type === 'role' || n.type === 'distributor') nodeRadius = 24;
+      else if (n.type === 'role' || n.type === 'distributor' || n.type === 'operator' || n.type === 'channel') nodeRadius = 24;
+      else if (n.type === 'customer' || n.type === 'client_group' || n.type === 'client') nodeRadius = 22;
       else if (n.type === 'brand') nodeRadius = 32;
       else if (n.type === 'working_memory') nodeRadius = 22;
       else if (n.type === 'packaging') nodeRadius = 18;
@@ -2411,7 +2490,7 @@ export default function CerebroPage() {
           }
         } else if (n.type === 'person') {
           drawPersonAvatar(ctx, n.x, n.y, r, n);
-        } else if (n.type === 'distributor') {
+        } else if (n.type === 'distributor' || n.type === 'operator') {
           drawDistributorBadge(ctx, n.x, n.y, r, n);
         } else if (n.type === 'brand') {
           drawBrandBadge(ctx, n.x, n.y, r, n);
@@ -3494,8 +3573,8 @@ export default function CerebroPage() {
                           <option key={n.id} value={n.id}>🏛️ {n.title}</option>
                         ))}
                       </optgroup>
-                      <optgroup label="🌎 Mercados & Distribuidores">
-                        {fullCatalog.filter((n: any) => n.type === 'market' || n.type === 'distributor').map((n: any) => (
+                      <optgroup label="🌎 Mercados, Canales, Operadores & Clientes">
+                        {fullCatalog.filter((n: any) => n.type === 'market' || n.type === 'distributor' || n.type === 'operator' || n.type === 'channel' || n.type === 'customer' || n.type === 'client_group' || n.type === 'client').map((n: any) => (
                           <option key={n.id} value={n.id}>{(TYPE_CONFIG[n.type] || TYPE_CONFIG.department).icon} {n.title}</option>
                         ))}
                       </optgroup>
@@ -4285,6 +4364,59 @@ export default function CerebroPage() {
                         ✕
                       </button>
                     </div>
+
+                    {/* Topología y Ruta Comercial (4 Capas) */}
+                    {(fm.market || fm.channel_type || fm.parent_distributor_id || fm.supplied_by || fm.serves_clients || fm.clients || fm.country) && (
+                      <div className="mb-3 bg-gradient-to-r from-emerald-950/40 via-slate-900 to-sky-950/40 border border-emerald-500/30 rounded-xl p-3 shadow-lg">
+                        <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold mb-2">
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            <span>Ruta Comercial & Topología (4 Capas)</span>
+                          </span>
+                          <span className="text-gray-400 text-[9px] font-mono">
+                            {node.spatial_tier ? `Capa: ${String(node.spatial_tier).toUpperCase()}` : 'Topología Viva'}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 text-xs font-mono">
+                          {/* 1. Mercado */}
+                          <span className="px-2 py-0.5 rounded bg-emerald-950 border border-emerald-700/80 text-emerald-300 font-semibold text-[10px]">
+                            🌎 {fm.country_name || fm.based_in_country || fm.country || 'Mercado Internacional'}
+                          </span>
+                          <span className="text-gray-500">→</span>
+                          {/* 2. Canal */}
+                          <span className="px-2 py-0.5 rounded bg-teal-950 border border-teal-700/80 text-teal-300 font-semibold text-[10px]">
+                            🛣️ {fm.channel_label || fm.channel_type || (node.type === 'channel' ? node.title : 'Canal Directo')}
+                          </span>
+                          {/* 3. Operador / Suministrador */}
+                          {(fm.parent_distributor_id || fm.supplied_by || node.type === 'distributor' || node.type === 'operator') && (
+                            <>
+                              <span className="text-gray-500">→</span>
+                              <span className="px-2 py-0.5 rounded bg-sky-950 border border-sky-700/80 text-sky-300 font-semibold text-[10px]">
+                                📦 {fm.company_name || fm.supplied_by || (node.type === 'distributor' ? node.title : 'Operador Asignado')}
+                              </span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Clientes o Marcas asociadas */}
+                        {(fm.serves_clients || fm.clients || fm.active_brands || fm.carries_brands) && (
+                          <div className="mt-2 pt-2 border-t border-gray-800/80 text-[10px] text-gray-400 flex flex-col gap-1">
+                            {fm.serves_clients && (
+                              <div>
+                                <span className="text-slate-400 font-bold">Cuentas Clave: </span>
+                                <span className="text-slate-200">{Array.isArray(fm.serves_clients) ? fm.serves_clients.join(', ').replace(/\[\[|\]\]/g, '') : fm.serves_clients}</span>
+                              </div>
+                            )}
+                            {(fm.active_brands || fm.carries_brands) && (
+                              <div>
+                                <span className="text-amber-400 font-bold">Marcas Activas: </span>
+                                <span className="text-slate-200">{Array.isArray(fm.active_brands || fm.carries_brands) ? (fm.active_brands || fm.carries_brands).join(', ').replace(/\[\[|\]\]/g, '') : ''}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* 1. Telemetría Ejecutiva en Vivo (Metadatos de Alto Valor) */}
                     <div className="mb-3 bg-gradient-to-r from-sky-950/80 via-gray-950 to-indigo-950/80 border border-sky-500/40 rounded-xl p-3 shadow-inner">
