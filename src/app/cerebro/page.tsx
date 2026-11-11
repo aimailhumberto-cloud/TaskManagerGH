@@ -1887,8 +1887,9 @@ export default function CerebroPage() {
             initialDeckLoadedRef.current = true;
             // On desktop (>= 768px), open Core node by default. On mobile (< 768px), start empty so user sees the full canvas!
             const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
-            // La vista por defecto arranca limpia: sin ficha abierta hasta el primer doble clic.
+            // La vista por defecto arranca limpia y encuadrada: sin ficha abierta hasta el primer doble clic.
             void isDesktop;
+            requestAnimationFrame(() => requestAnimationFrame(() => handleCenterAndFit()));
             return prev;
           }
 
@@ -2663,7 +2664,8 @@ export default function CerebroPage() {
           ctx.fillStyle = emphasized ? '#F7EFD9' : 'rgba(229, 231, 235, 0.88)';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
-          const humanTitle = humanNodeName(n);
+          // El tipo ya se lee debajo: se quita el prefijo "Brand: ", "Department: ", etc.
+          const humanTitle = humanNodeName(n).replace(/^[A-Za-z][A-Za-z &]{2,22}(?::\s+|\s+-\s+)/, '');
           const displayTitle = humanTitle.length > 25 ? humanTitle.slice(0, 23) + '…' : humanTitle;
           ctx.fillText(displayTitle, n.x, n.y + r + 7);
 
@@ -2712,13 +2714,22 @@ export default function CerebroPage() {
 
     const context = targetNode ? nodesRef.current.filter(n => focusNodeIdsRef.current.includes(n.id)) : nodesRef.current.filter(n => n.type !== 'packaging' && n.type !== 'flavor');
     const mobile = window.innerWidth < 768;
-    const panelOverlaysCanvas = stackedDeckRef.current.length > 0 && (mobile || w > window.innerWidth - 400);
+    // En escritorio la ficha va al lado del lienzo (no encima), asi que solo en movil resta espacio.
+    const panelOverlaysCanvas = stackedDeckRef.current.length > 0 && mobile;
     // Se encuadra por destino (donde van a quedar los nodos), no por donde estan mientras brotan.
     const fitted = fitIdentityBounds(context.map(n => ({ x: Number.isFinite(n.targetX) ? n.targetX : n.x, y: Number.isFinite(n.targetY) ? n.targetY : n.y })), w, h, panelOverlaysCanvas, mobile);
     if (!fitted) return;
-    const targetX = fitted.x;
-    const targetY = fitted.y;
-    const targetScale = fitted.scale;
+    let targetX = fitted.x;
+    let targetY = fitted.y;
+    let targetScale = fitted.scale;
+    // Al enfocar un nodo nunca se aleja tanto que deje de leerse: se centra en el nodo.
+    if (targetNode && targetScale < 0.55) {
+      targetScale = 0.55;
+      const fx = Number.isFinite(targetNode.targetX) ? targetNode.targetX : targetNode.x;
+      const fy = Number.isFinite(targetNode.targetY) ? targetNode.targetY : targetNode.y;
+      targetX = fitted.visibleW / 2 - fx * targetScale;
+      targetY = fitted.visibleH / 2 - fy * targetScale;
+    }
     const cameraVersion = ++cameraAnimationRef.current;
 
     const startX = transformRef.current.x;
