@@ -17,14 +17,14 @@ export default function TaskDossierModal({ task, isOpen, onClose, onAskDots }: T
   useEffect(() => {
     if (!isOpen || !task) return;
     setLoading(true);
-    fetch(`/api/agent/brain?lens=global-core`)
+    fetch(`/api/agent/brain?lens=global-core&view=lite`)
       .then(res => res.json())
       .then(data => {
         if (data.ok && Array.isArray(data.nodes)) {
           const matched = data.nodes.find((n: any) =>
             n.id === task.sourceNodeId ||
             n.title.toLowerCase() === task.sourceNodeTitle.toLowerCase() ||
-            (task.sourceFile && n.filePath && n.filePath.endsWith(task.sourceFile.replace(/\//g, '\\')))
+            (task.sourceFile && n.filePath && String(n.filePath).replace(/\\/g, '/').endsWith(String(task.sourceFile).replace(/\\/g, '/')))
           );
           setNodeDetails(matched || null);
         }

@@ -279,8 +279,83 @@ export function getMarketNodeId(countryOrMarket: string | undefined | null): str
   return null;
 }
 
-export function loadBrainGraph(lens?: string, marketFilter?: string): BrainGraph {
+/**
+ * Firma barata del estado del vault (ruta + fecha de modificación + tamaño de cada archivo).
+ * Si no cambia, el índice en memoria sigue siendo válido; cualquier escritura (de la app, de DOTS o de la
+ * sincronización) cambia la fecha del archivo y por tanto la firma.
+ */
+export function getVaultVersion(): string {
   const vaultDir = getVaultPath();
+  const files = getAllMarkdownFiles(vaultDir);
+  const h = crypto.createHash('sha1');
+  for (const f of files) {
+    try {
+      const st = fs.statSync(f);
+      h.update(`${f}:${st.mtimeMs}:${st.size};`);
+    } catch {}
+  }
+  return `${files.length}-${h.digest('hex').slice(0, 16)}`;
+}
+
+type BrainIndex = { version: string; nodes: BrainNode[]; links: BrainLink[]; summary: BrainGraph['summary'] };
+let brainIndexCache: BrainIndex | null = null;
+
+export function loadBrainGraph(lens?: string, marketFilter?: string): BrainGraph & { version: string } {
+  const version = getVaultVersion();
+  if (!brainIndexCache || brainIndexCache.version !== version) {
+    const built = buildBrainIndex(getVaultPath());
+    brainIndexCache = { version, ...built };
+  }
+  const { nodes, links, summary } = brainIndexCache;
+
+  // Optional Filtering
+  let filteredNodes = nodes;
+  if (marketFilter && marketFilter !== 'all') {
+    const mktLower = marketFilter.toLowerCase();
+    filteredNodes = nodes.filter(n => {
+      const c = (n.country || '').toLowerCase();
+      const t = n.title.toLowerCase();
+      const bodyHas = n.body.toLowerCase().includes(mktLower);
+      const linksHas = n.links.some(l => l.toLowerCase().includes(mktLower));
+      return c.includes(mktLower) || t.includes(mktLower) || bodyHas || linksHas || n.type === 'core';
+    });
+  }
+
+  return { nodes: filteredNodes, allNodes: nodes, links, summary, version };
+}
+
+// Campos del encabezado que la pantalla del Cerebro nunca usa (procedencia, hashes, rutas de ícono).
+const LITE_DROP_KEYS = new Set([
+  'person_evidence_audit', 'source_file_sha256', 'icon_source_url', 'source_url', 'visual_photo_evidence',
+  'visual_photo_original_image_url', 'visual_photo_verification_status', 'visual_photo_catalog_snapshot_sha256',
+  'visual_photo_rights', 'visual_photo_source_url', 'visual_photo_sha256', 'visual_photo_asset_id',
+  'icon_kind', 'icon_asset_id', 'icon_local_file', 'observed_on', 'source',
+]);
+
+/** Nodo liviano para dibujar el mapa: sin texto del cuerpo, sin campos de procedencia y con ruta relativa. */
+export function toLiteBrainNode(n: BrainNode): BrainNode {
+  const fm: Record<string, any> = {};
+  for (const [k, v] of Object.entries(n.frontmatter || {})) {
+    if (!LITE_DROP_KEYS.has(k)) fm[k] = v;
+  }
+  return {
+    ...n,
+    frontmatter: fm,
+    body: '',
+    filePath: path.relative(getVaultPath(), n.filePath).replace(/\\/g, '/'),
+  };
+}
+
+/** Detalle completo de un nodo (cuerpo y encabezado íntegros), pedido al abrir su ficha. */
+export function getBrainNodeDetail(nodeId: string): BrainNode | null {
+  const graph = loadBrainGraph();
+  const key = (nodeId || '').toLowerCase();
+  const node = (graph.allNodes || graph.nodes).find(n => n.id.toLowerCase() === key);
+  if (!node) return null;
+  return { ...node, filePath: path.relative(getVaultPath(), node.filePath).replace(/\\/g, '/') };
+}
+
+function buildBrainIndex(vaultDir: string): { nodes: BrainNode[]; links: BrainLink[]; summary: BrainGraph['summary'] } {
   const files = getAllMarkdownFiles(vaultDir);
   const nodes: BrainNode[] = [];
   const titleToIdMap = new Map<string, string>();
@@ -445,20 +520,7 @@ export function loadBrainGraph(lens?: string, marketFilter?: string): BrainGraph
     brandsCount: nodes.filter(n => n.type === 'brand').length,
   };
 
-  // Optional Filtering
-  let filteredNodes = nodes;
-  if (marketFilter && marketFilter !== 'all') {
-    const mktLower = marketFilter.toLowerCase();
-    filteredNodes = nodes.filter(n => {
-      const c = (n.country || '').toLowerCase();
-      const t = n.title.toLowerCase();
-      const bodyHas = n.body.toLowerCase().includes(mktLower);
-      const linksHas = n.links.some(l => l.toLowerCase().includes(mktLower));
-      return c.includes(mktLower) || t.includes(mktLower) || bodyHas || linksHas || n.type === 'core';
-    });
-  }
-
-  return { nodes: filteredNodes, allNodes: nodes, links, summary };
+  return { nodes, links, summary };
 }
 
 export function saveWorkingMemory(input: {
@@ -759,7 +821,22 @@ function syncToBundledVault(relativeRel: string, content: string) {
   }
 }
 
+const tasksCache = new Map<string, UnifiedTasksResponse>();
+
+/** Tareas calculadas del vault, con caché: se recalculan solo si el vault cambió o cambió el día (hora de Panamá). */
 export function getUnifiedBrainTasks(options?: { lens?: string; market?: string }): UnifiedTasksResponse {
+  const { dateStr, timeStr } = getPanamaDate();
+  const key = `${getVaultVersion()}|${dateStr}|${options?.lens || ''}|${options?.market || ''}`;
+  let cached = tasksCache.get(key);
+  if (!cached) {
+    cached = computeUnifiedBrainTasks(options);
+    if (tasksCache.size >= 6) tasksCache.clear();
+    tasksCache.set(key, cached);
+  }
+  return { ...cached, summary: { ...cached.summary, panamaTimestamp: `${dateStr} ${timeStr}` } };
+}
+
+function computeUnifiedBrainTasks(options?: { lens?: string; market?: string }): UnifiedTasksResponse {
   const vaultDir = getVaultPath();
   const files = getAllMarkdownFiles(vaultDir);
   const { dateStr: todayStr, tomorrowStr, dayAfterStr, timeStr: panamaTime } = getPanamaDate();

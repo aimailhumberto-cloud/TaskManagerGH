@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   loadBrainGraph,
+  getVaultVersion,
+  toLiteBrainNode,
+  getBrainNodeDetail,
   saveWorkingMemory,
   consolidateWorkingMemory,
   updateDossierMetadata,
@@ -37,7 +40,46 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(res, { status: res.ok ? 200 : 404, headers: CORS_HEADERS });
     }
 
+    // Versión del vault (muy barata): el navegador la consulta para saber si hace falta volver a pedir el mapa.
+    if (searchParams.get('version')) {
+      return NextResponse.json({ ok: true, version: getVaultVersion() }, { status: 200, headers: CORS_HEADERS });
+    }
+
+    // Detalle completo de un nodo (cuerpo + encabezado íntegros), pedido al abrir su ficha.
+    const nodeId = searchParams.get('node');
+    if (nodeId) {
+      const detail = getBrainNodeDetail(nodeId);
+      if (!detail) {
+        return NextResponse.json({ ok: false, error: `Nodo '${nodeId}' no encontrado` }, { status: 404, headers: CORS_HEADERS });
+      }
+      return NextResponse.json({ ok: true, node: detail }, { status: 200, headers: CORS_HEADERS });
+    }
+
     const graph = loadBrainGraph(lens, market);
+
+    // view=lite: lo mínimo para dibujar el mapa (sin cuerpos, sin procedencia, sin duplicar la lista de nodos).
+    if (searchParams.get('view') === 'lite') {
+      const unfiltered = graph.nodes.length === (graph.allNodes || graph.nodes).length;
+      const liteNodes = graph.nodes.map(toLiteBrainNode);
+      return NextResponse.json(
+        {
+          ok: true,
+          view: 'lite',
+          version: graph.version,
+          lens: lens || 'global-core',
+          marketFilter: market || 'all',
+          layouts: {
+            brujula: getLayoutConfig('brujula').config,
+            'version-1-ajustada': getLayoutConfig('version-1-ajustada').config,
+          },
+          nodes: liteNodes,
+          ...(unfiltered ? {} : { allNodes: (graph.allNodes || []).map(toLiteBrainNode) }),
+          links: graph.links,
+          summary: graph.summary,
+        },
+        { status: 200, headers: CORS_HEADERS }
+      );
+    }
 
     return NextResponse.json(
       {

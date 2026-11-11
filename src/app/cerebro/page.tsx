@@ -1647,6 +1647,23 @@ export default function CerebroPage() {
   const [stackedDeck, setStackedDeck] = useState<NodeData[]>([]);
   const stackedDeckRef = useRef(stackedDeck);
   stackedDeckRef.current = stackedDeck;
+  // El mapa llega liviano (sin el texto de cada ficha). El cuerpo se pide solo al abrir la ficha de un nodo.
+  const [nodeBodies, setNodeBodies] = useState<Record<string, string>>({});
+  const bodyRequestedRef = useRef<Set<string>>(new Set());
+  const graphVersionRef = useRef<{ key: string; version: string } | null>(null);
+  useEffect(() => {
+    stackedDeck.forEach(n => {
+      if (n.body || bodyRequestedRef.current.has(n.id)) return;
+      bodyRequestedRef.current.add(n.id);
+      fetch(`/api/agent/brain?node=${encodeURIComponent(n.id)}`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(j => {
+          if (j && j.ok && j.node) setNodeBodies(prev => ({ ...prev, [n.id]: j.node.body || '' }));
+          else bodyRequestedRef.current.delete(n.id);
+        })
+        .catch(() => { bodyRequestedRef.current.delete(n.id); });
+    });
+  }, [stackedDeck]);
   const [quickInput, setQuickInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -1851,8 +1868,24 @@ export default function CerebroPage() {
     if (fetchInFlightRef.current) return;
     fetchInFlightRef.current = true;
     try {
+      // Sondeo barato: si la versión del vault no cambió, no se vuelve a pedir ni a procesar el mapa.
+      const verKey = `${selectedMarket}|${activeLens}`;
+      if (lastGraphTextRef.current && graphVersionRef.current?.key === verKey) {
+        try {
+          const vr = await fetch(`/api/agent/brain?version=1&_t=${Date.now()}`, { cache: 'no-store' });
+          if (vr.ok) {
+            const vj = await vr.json();
+            if (vj && vj.ok && vj.version === graphVersionRef.current.version) {
+              setSyncError(null);
+              return;
+            }
+          }
+        } catch {
+          // Si falla la consulta de versión se pide el mapa completo.
+        }
+      }
       const res = await fetch(
-        `/api/agent/brain?market=${encodeURIComponent(selectedMarket)}&lens=${encodeURIComponent(activeLens)}&_t=${Date.now()}`,
+        `/api/agent/brain?view=lite&market=${encodeURIComponent(selectedMarket)}&lens=${encodeURIComponent(activeLens)}&_t=${Date.now()}`,
         { cache: 'no-store' }
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -1865,6 +1898,8 @@ export default function CerebroPage() {
       const json: BrainGraphResponse = JSON.parse(text);
       if (json.ok) {
         lastGraphTextRef.current = text;
+        graphVersionRef.current = (json as any).version ? { key: verKey, version: (json as any).version } : null;
+        bodyRequestedRef.current.clear();
         if ((json as any).layouts) {
           nativeLayoutConfigRef.current = (json as any).layouts;
         }
@@ -5738,7 +5773,7 @@ export default function CerebroPage() {
 
                     {/* Formatted Dossier Body */}
                     <div className="mb-3 bg-gray-900/60 p-3 rounded-lg border border-gray-800/80">
-                      {renderFormattedBody(node.type === 'person' ? node.body.replace(/^#\s+[^\r\n]+/m, '# ' + humanNodeName(node)) : node.body, target => handleWikilinkClick(target, node.id), getWikilinkLabel)}
+                      {renderFormattedBody(node.type === 'person' ? (nodeBodies[node.id] ?? node.body ?? '').replace(/^#\s+[^\r\n]+/m, '# ' + humanNodeName(node)) : (nodeBodies[node.id] ?? node.body ?? ''), target => handleWikilinkClick(target, node.id), getWikilinkLabel)}
                     </div>
 
 
