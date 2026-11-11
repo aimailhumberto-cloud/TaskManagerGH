@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { parseNoteStrict } from '@/lib/vaultFiles';
 import {
   getVaultPath,
   writeVaultFile,
@@ -146,8 +147,16 @@ export async function POST(req: NextRequest) {
         );
       }
       const results: any[] = [];
+      const rejected: { path: string; error: string }[] = [];
       for (const item of files) {
         if (item.path && typeof item.content === 'string') {
+          if (String(item.path).endsWith('.md')) {
+            const check = parseNoteStrict(item.content);
+            if (!check.ok) {
+              rejected.push({ path: item.path, error: check.error });
+              continue;
+            }
+          }
           results.push(writeVaultFile(item.path, item.content));
         }
       }
@@ -155,7 +164,8 @@ export async function POST(req: NextRequest) {
         {
           ok: true,
           syncedCount: results.length,
-          message: `${results.length} archivos sincronizados en la nube exitosamente`,
+          rejected,
+          message: `${results.length} archivos sincronizados en la nube exitosamente${rejected.length ? `; ${rejected.length} rechazados por YAML ilegible` : ''}`,
           timestamp: new Date().toISOString(),
         },
         { status: 200, headers: CORS_HEADERS }

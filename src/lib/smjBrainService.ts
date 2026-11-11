@@ -303,9 +303,9 @@ export function loadBrainGraph(lens?: string, marketFilter?: string): BrainGraph
       const jobTitleLower = String(frontmatter.job_title || frontmatter.role || '').toLowerCase();
       if (id.includes('aleem') || jobTitleLower.includes('chair') || jobTitleLower.includes('presidente')) {
         hierarchyLevel = 0;
-      } else if (id.includes('anna-mohammed') || jobTitleLower.includes('chief operating') || jobTitleLower.includes('coo')) {
+      } else if (id.includes('anna-mohammed') || jobTitleLower.includes('chief operating') || /\bcoo\b/.test(jobTitleLower)) {
         hierarchyLevel = 0;
-      } else if (jobTitleLower.includes('vice president') || jobTitleLower.includes('vp')) {
+      } else if (jobTitleLower.includes('vice president') || /\bvp\b/.test(jobTitleLower)) {
         hierarchyLevel = Math.min(hierarchyLevel, 1);
       } else if (jobTitleLower.includes('manager') || jobTitleLower.includes('gerente') || jobTitleLower.includes('director') || jobTitleLower.includes('head') || jobTitleLower.includes('lead')) {
         hierarchyLevel = Math.min(hierarchyLevel, 2);
@@ -660,7 +660,7 @@ export function writeVaultFile(relativePath: string, content: string): { ok: boo
     fs.mkdirSync(targetDir, { recursive: true });
   }
 
-  fs.writeFileSync(targetPath, content, 'utf-8');
+  atomicWriteFile(targetPath, content);
 
   // Also sync to bundled repository folder if separate
   const bundled = path.join(process.cwd(), 'vault');
@@ -806,10 +806,7 @@ export function getUnifiedBrainTasks(options?: { lens?: string; market?: string 
           distStatus = pace < 0.7 ? 'At Risk' : pace >= 1 ? 'Ahead' : 'On Track';
         }
 
-        const isVerified = frontmatter.verification_status === 'confirmed_official_corporate' ||
-          frontmatter.verification_status === 'confirmed_by_HB' ||
-          frontmatter.verification_status === 'verified_active' ||
-          frontmatter.verification_status === 'user_confirmed_distributor_email_and_shipping_documents_observed';
+        const isVerified = /^(confirmed|verified|user_confirmed)/i.test(String(frontmatter.verification_status || '').trim());
 
         let distPendingCount = 0;
 
