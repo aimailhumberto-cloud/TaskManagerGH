@@ -1715,6 +1715,7 @@ export default function CerebroPage() {
   const capLimitRef = useRef(new Map<string, number>());
   const cappedInfoRef = useRef(new Map<string, number>());
   const lastPillClickRef = useRef(0);
+  const lastToggleRef = useRef(0);
   const fetchInFlightRef = useRef(false);
   const focusNodeIdsRef = useRef<string[]>([]);
   const cameraAnimationRef = useRef(0);
@@ -2678,7 +2679,7 @@ export default function CerebroPage() {
         // Etiquetas segun zoom: de lejos solo se nombran los nodos principales; al acercar aparecen las demas.
         const emphasized = isSelected || isHovered || isOpen;
         const isMinorNode = (n.radius || 24) < 22;
-        const showTitle = emphasized || (isFocusActive && isConnectedToFocus && (focusConnectedCount <= 10 || scale >= 1.1)) || scale >= (isMinorNode ? 1.0 : 0.5);
+        const showTitle = emphasized || (isFocusActive && isConnectedToFocus && (focusConnectedCount <= 10 || scale >= 1.8)) || scale >= (isMinorNode ? 1.4 : 0.5);
         if (showTitle) {
           ctx.font = emphasized ? '600 13px Georgia, "Times New Roman", serif' : '12px system-ui, -apple-system, "Segoe UI", sans-serif';
           ctx.fillStyle = emphasized ? '#F7EFD9' : 'rgba(229, 231, 235, 0.88)';
@@ -2971,6 +2972,10 @@ export default function CerebroPage() {
 
   // Doble clic / doble toque: abre el siguiente nivel y la ficha lateral; repetido, los cierra.
   const toggleNodeOpen = (node: NodeData) => {
+    // Un triple clic o un doble evento no debe abrir y cerrar (ni abrir otro nodo que quedo bajo el cursor).
+    const now = Date.now();
+    if (now - lastToggleRef.current < 600) return;
+    lastToggleRef.current = now;
     if (expansionsRef.current.has(node.id)) {
       collapseNode(node);
       return;
