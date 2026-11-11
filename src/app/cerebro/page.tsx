@@ -1272,7 +1272,7 @@ function drawPersonAvatar(ctx: CanvasRenderingContext2D, x: number, y: number, r
     ctx.lineWidth = 1.2;
     ctx.stroke();
 
-    ctx.font = 'bold 8px monospace';
+    ctx.font = 'bold 8px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
     ctx.fillStyle = '#FFFFFF';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -1296,7 +1296,7 @@ function drawDistributorBadge(ctx: CanvasRenderingContext2D, x: number, y: numbe
     ctx.drawImage(medimexImg, x - drawW / 2, y - drawH / 2, drawW, drawH);
     ctx.restore();
 
-    ctx.font = 'bold 8px monospace';
+    ctx.font = 'bold 8px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
     ctx.fillStyle = '#5EEAD4';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
@@ -1351,7 +1351,7 @@ function drawDistributorBadge(ctx: CanvasRenderingContext2D, x: number, y: numbe
 
   ctx.restore();
 
-  ctx.font = 'bold 8px monospace';
+  ctx.font = 'bold 8px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
   ctx.fillStyle = '#5EEAD4';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
@@ -1408,7 +1408,7 @@ function drawOrganizationBadge(ctx: CanvasRenderingContext2D, x: number, y: numb
 
   ctx.restore();
 
-  ctx.font = 'bold 8px monospace';
+  ctx.font = 'bold 8px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
   ctx.fillStyle = '#6EE7B7';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
@@ -1583,7 +1583,7 @@ function drawAmericasMapBackdrop(ctx: CanvasRenderingContext2D) {
   ctx.arc(-380, 0, 320, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+  ctx.strokeStyle = 'rgba(233, 188, 110, 0.08)';
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 4]);
 
@@ -1600,7 +1600,7 @@ function drawAmericasMapBackdrop(ctx: CanvasRenderingContext2D) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.22)';
+  ctx.strokeStyle = 'rgba(233, 188, 110, 0.22)';
   ctx.fillStyle = 'rgba(14, 165, 233, 0.03)';
   ctx.lineWidth = 1.5;
 
@@ -1624,12 +1624,12 @@ function drawAmericasMapBackdrop(ctx: CanvasRenderingContext2D) {
   ctx.fill();
   ctx.stroke();
 
-  ctx.font = 'bold 9px monospace';
-  ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
+  ctx.font = 'bold 9px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
+  ctx.fillStyle = 'rgba(233, 188, 110, 0.35)';
   ctx.textAlign = 'center';
   ctx.fillText('AMÉRICA · RED CONTINENTAL DE EXPORTACIÓN', -380, -225);
 
-  ctx.font = '8px monospace';
+  ctx.font = '8px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
   ctx.fillStyle = 'rgba(148, 163, 184, 0.4)';
   ctx.fillText('CANADÁ [NORTE]', -460, -205);
   ctx.fillText('EE. UU. [CENTRAL]', -440, -100);
@@ -2206,7 +2206,7 @@ export default function CerebroPage() {
         const decorList = nativeLayoutDecorRef.current || [];
         for (const d of decorList) {
           if (d.kind === 'ring' && typeof d.r === 'number') {
-            ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+            ctx.strokeStyle = 'rgba(233, 188, 110, 0.08)';
             ctx.lineWidth = 1;
             ctx.setLineDash([4, 6]);
             ctx.beginPath();
@@ -2214,27 +2214,27 @@ export default function CerebroPage() {
             ctx.stroke();
             ctx.setLineDash([]);
           } else if (d.kind === 'axis-label' && d.text) {
-            ctx.font = 'bold 11px monospace';
-            ctx.fillStyle = 'rgba(56, 189, 248, 0.85)';
+            ctx.font = 'bold 11px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
+            ctx.fillStyle = 'rgba(233, 188, 110, 0.85)';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(d.text, d.x, d.y);
           } else if (d.kind === 'lane') {
             if (d.w && d.h) {
-              ctx.fillStyle = d.dim ? 'rgba(255, 255, 255, 0.015)' : 'rgba(56, 189, 248, 0.025)';
+              ctx.fillStyle = d.dim ? 'rgba(255, 255, 255, 0.015)' : 'rgba(233, 188, 110, 0.025)';
               ctx.fillRect(d.x, d.y, d.w, d.h);
-              ctx.strokeStyle = d.dim ? 'rgba(255, 255, 255, 0.05)' : 'rgba(56, 189, 248, 0.12)';
+              ctx.strokeStyle = d.dim ? 'rgba(255, 255, 255, 0.05)' : 'rgba(233, 188, 110, 0.12)';
               ctx.lineWidth = 0.8;
               ctx.strokeRect(d.x, d.y, d.w, d.h);
             }
             if (d.tag) {
-              ctx.font = 'bold 10px monospace';
-              ctx.fillStyle = '#38BDF8';
+              ctx.font = 'bold 10px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
+              ctx.fillStyle = 'rgba(233, 188, 110, 0.9)';
               ctx.textAlign = 'right';
               ctx.fillText(`${d.tag} ${d.text || ''}`, d.x - 12, (d.y || 0) + (d.h ? d.h / 2 : 0));
             }
           } else if (d.kind === 'column-label' && d.text) {
-            ctx.font = 'bold 9px monospace';
+            ctx.font = 'bold 9px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
             ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
             ctx.textAlign = 'center';
             ctx.fillText(d.text, d.x, d.y);
@@ -2247,7 +2247,7 @@ export default function CerebroPage() {
             ctx.strokeRect(d.x, d.y, d.w, d.h);
             ctx.setLineDash([]);
             if (d.text) {
-              ctx.font = 'bold 9px monospace';
+              ctx.font = 'bold 9px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
               ctx.fillStyle = d.dim ? 'rgba(148, 163, 184, 0.7)' : 'rgba(248, 113, 113, 0.9)';
               ctx.textAlign = 'left';
               ctx.fillText(d.text, d.x + 8, d.y + 14);
@@ -2267,7 +2267,7 @@ export default function CerebroPage() {
         ctx.stroke();
         ctx.setLineDash([]);
 
-        ctx.font = 'bold 9px monospace';
+        ctx.font = 'bold 9px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
         ctx.fillStyle = 'rgba(249, 115, 22, 0.7)';
         ctx.textAlign = 'center';
         ctx.fillText('PORTAFOLIO DE MARCAS S.M. JALEEL & CO. LTD.', 0, -290);
@@ -2281,7 +2281,7 @@ export default function CerebroPage() {
         ctx.arc(50, -30, 160, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.font = 'bold 8px monospace';
+        ctx.font = 'bold 8px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
         ctx.fillStyle = 'rgba(245, 158, 11, 0.6)';
         ctx.textAlign = 'center';
         ctx.fillText('SEDE CENTRAL TRINIDAD & PLANTA', 50, 45);
@@ -2293,7 +2293,7 @@ export default function CerebroPage() {
         ctx.strokeRect(180, -250, 620, 460);
         ctx.setLineDash([]);
 
-        ctx.font = 'bold 9px monospace';
+        ctx.font = 'bold 9px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
         ctx.fillStyle = 'rgba(129, 140, 248, 0.7)';
         ctx.textAlign = 'center';
         ctx.fillText('DIRECCIÓN EJECUTIVA & EQUIPO COMERCIAL DE EXPORTACIÓN', 490, -235);
@@ -2323,7 +2323,7 @@ export default function CerebroPage() {
           ctx.lineWidth = 1;
           ctx.strokeRect(mx - 36, my - 7, 72, 14);
 
-          ctx.font = 'bold 7px monospace';
+          ctx.font = 'bold 7px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
           ctx.fillStyle = '#5EEAD4';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
@@ -2345,7 +2345,7 @@ export default function CerebroPage() {
           ctx.stroke();
           ctx.setLineDash([]);
 
-          ctx.font = 'bold 9px monospace';
+          ctx.font = 'bold 9px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
           ctx.fillStyle = st.border;
           ctx.textAlign = 'left';
           ctx.fillText(st.label, -920, st.y - 28);
@@ -2444,7 +2444,7 @@ export default function CerebroPage() {
           ctx.stroke();
           ctx.setLineDash([]);
 
-          ctx.font = 'bold 9px monospace';
+          ctx.font = 'bold 9px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
           ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
           ctx.textAlign = 'center';
           ctx.fillText(cl.label.toUpperCase(), cl.x, cl.y - 160);
@@ -2753,8 +2753,8 @@ export default function CerebroPage() {
     let targetY = fitted.y;
     let targetScale = fitted.scale;
     // Al enfocar un nodo nunca se aleja tanto que deje de leerse: se centra en el nodo.
-    if (targetNode && targetScale < 0.55) {
-      targetScale = 0.55;
+    if (targetNode && targetScale < 0.3) {
+      targetScale = 0.3;
       const fx = Number.isFinite(targetNode.targetX) ? targetNode.targetX : targetNode.x;
       const fy = Number.isFinite(targetNode.targetY) ? targetNode.targetY : targetNode.y;
       targetX = fitted.visibleW / 2 - fx * targetScale;
