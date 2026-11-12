@@ -26,7 +26,8 @@
     "test:communities": "tsx scripts/testCommunities.ts",
     "test:scope": "tsx scripts/testScopeCounts.ts",
     "prebuild": "node scripts/restore-workspace-asset.cjs",
-    "test:login-gate": "tsx scripts/test-login-gate.ts"
+    "test:login-gate": "tsx scripts/test-login-gate.ts",
+    "test:accounts": "tsx scripts/test-local-accounts.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

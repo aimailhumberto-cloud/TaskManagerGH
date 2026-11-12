@@ -24,7 +24,11 @@ export default async function RootLayout({
   if (sessionCookie && sessionCookie.value) {
     const parsed = decryptSession(sessionCookie.value);
     if (parsed) {
-      try {
+      if (parsed.userId.startsWith('local-')) {
+        const { getAccount } = await import('@/lib/localAccounts');
+        const acc = getAccount(parsed.userId);
+        if (acc?.isActive) sessionData = { userId: acc.id, personId: acc.id, email: acc.email, name: acc.name, role: acc.role };
+      } else try {
         const data=await dbService.readData();
         const person=verifiedProfile(data,parsed);
         const user=data.users.find(u=>u.id===parsed.userId)!;

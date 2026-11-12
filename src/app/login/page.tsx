@@ -42,7 +42,7 @@ export default function LoginPage() {
 
       if (response.ok && data.success) {
         // Redirect to homepage upon successful auth
-        window.location.href = '/';
+        window.location.href = data.user?.mustChange ? '/cambiar-clave' : '/';
       } else {
         setError(data.error || 'Credenciales de acceso inválidas. Revisa tus datos.');
       }

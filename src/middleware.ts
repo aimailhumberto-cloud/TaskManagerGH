@@ -18,6 +18,7 @@ export async function middleware(request: NextRequest) {
   const valid = await validEdgeSession(request.cookies.get('hermes_session')?.value || '', process.env.SESSION_SECRET);
   if (path === '/login' && request.nextUrl.searchParams.get('expired') === '1') { const response = NextResponse.next(); response.cookies.delete('hermes_session'); return response; }
   if (path === '/login') return valid ? NextResponse.redirect(new URL('/', request.url)) : NextResponse.next();
+  if (path === '/setup') return NextResponse.next();
   if (!valid) return NextResponse.redirect(new URL('/login', request.url));
   return NextResponse.next();
 }

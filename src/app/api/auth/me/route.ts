@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import dbService from '@/services/dbService';
 import { decryptSession } from '@/lib/session';
+import { getAccount, isLocalId } from '@/lib/localAccounts';
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,6 +23,12 @@ export async function GET(request: NextRequest) {
         { error: 'Invalid session token', authenticated: false },
         { status: 401 }
       );
+    }
+
+    if (isLocalId(sessionData.userId)) {
+      const acc = getAccount(sessionData.userId);
+      if (!acc?.isActive) return NextResponse.json({ error: 'User is inactive or deleted', authenticated: false }, { status: 401 });
+      return NextResponse.json({ authenticated: true, user: { id: acc.id, email: acc.email, name: acc.name, role: acc.role, personId: acc.id, mustChange: acc.mustChange } });
     }
 
     // 2. Fetch fresh user & person details from local DB

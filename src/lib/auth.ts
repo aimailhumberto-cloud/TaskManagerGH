@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server';
 import { decryptSession, SessionData } from './session';
 import { dbService } from '@/services/dbService';
 import { validCsrf } from './csrf';
+import { getAccount, isLocalId } from './localAccounts';
 
 export interface AuthValidationResult {
   valid: boolean;
@@ -23,6 +24,18 @@ export function sameRequestOrigin(request: NextRequest): boolean {
 export async function validateApiKey(request: NextRequest): Promise<AuthValidationResult> {
   const session = decryptSession(request.cookies.get('hermes_session')?.value || '');
   if (!session) return { valid: false, status: 401, error: 'Inicia sesión para continuar.' };
+  if (isLocalId(session.userId)) {
+    const acc = getAccount(session.userId);
+    if (!acc?.isActive) return { valid: false, status: 401, error: 'Sesión revocada.' };
+    const role = acc.role === 'Gerente' ? 'Admin' : acc.role; // Gerente opera como administrador de la app
+    const writing = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);
+    const adminOnly = request.nextUrl.pathname.startsWith('/api/settings') || request.nextUrl.pathname.startsWith('/api/users');
+    if ((writing || adminOnly) && !hasAdministrationCapability(role)) return { valid: false, status: 403, error: 'Tu perfil es de solo consulta.' };
+    if (writing && !sameRequestOrigin(request)) return { valid: false, status: 403, error: 'Origen de la solicitud no permitido.' };
+    if (writing && /^\/api\/(workspace|reminders|integrations)(\/|$)/.test(request.nextUrl.pathname) && !validCsrf(request.cookies.get('hermes_session')!.value, request.headers.get('x-csrf-token'))) return { valid: false, status: 403, error: 'Verificación CSRF requerida. Recarga y reintenta.' };
+    if (writing && legacyWriteBlocked(request.nextUrl.pathname)) return { valid: false, status: 409, error: 'Usa el flujo de trabajo actual para conservar referencias, revisiones y aceptación.' };
+    return { valid: true, session: { ...session, role } };
+  }
   try {
     const user = await dbService.getUserById(session.userId);
     if (!user?.isActive || user.personId !== session.personId) return { valid: false, status: 401, error: 'Sesión revocada.' };

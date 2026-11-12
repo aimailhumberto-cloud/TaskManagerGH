@@ -9,6 +9,7 @@ for (const p of ['/api/agent/brain', '/api/agent/vault-sync', '/api/agent/dots-s
 eq('login abierto', gateDecision({ ...base, path: '/login' }), 'allow');
 eq('auth login abierto', gateDecision({ ...base, path: '/api/auth/login' }), 'allow');
 eq('auth me cerrado', gateDecision({ ...base, path: '/api/auth/me' }), 'deny');
+eq('setup abierto', gateDecision({ ...base, path: '/setup' }), 'allow'); eq('api setup abierto', gateDecision({ ...base, path: '/api/auth/setup' }), 'allow'); eq('admin cerrado', gateDecision({ ...base, path: '/api/admin/users' }), 'deny');
 eq('telegram abierto', gateDecision({ ...base, path: '/api/telegram' }), 'allow');
 eq('sesion entra', gateDecision({ ...base, sessionValid: true, path: '/cerebro' }), 'allow');
 eq('sesion api', gateDecision({ ...base, sessionValid: true, path: '/api/tasks' }), 'allow');

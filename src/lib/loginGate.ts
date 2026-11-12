@@ -16,7 +16,7 @@ export interface GateInput {
 export const loginRequiredFrom = (value?: string) => value === '1' || value === 'true';
 
 /** Rutas que nunca piden sesión: el propio login, el webhook de Telegram (se asegura aparte). */
-const ALWAYS_OPEN = [/^\/login(\/|$)/, /^\/api\/auth\/(login|logout|csrf)(\/|$)/, /^\/api\/telegram(\/|$)/];
+const ALWAYS_OPEN = [/^\/(login|setup)(\/|$)/, /^\/api\/auth\/(login|logout|csrf|setup)(\/|$)/, /^\/api\/telegram(\/|$)/];
 
 export function gateDecision(i: GateInput): GateDecision {
   if (!i.loginRequired) return 'allow';
