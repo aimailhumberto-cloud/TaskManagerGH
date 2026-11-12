@@ -1,0 +1,37 @@
+/**
+ * Interruptor de login. Apagado por defecto: sin LOGIN_REQUIRED=1 nada cambia.
+ * Para volver atrás basta quitar la variable en Render (no hace falta entrar a la app).
+ * Edge-safe: sin imports de datos ni de módulos de Node.
+ */
+export type GateDecision = 'allow' | 'login' | 'deny';
+
+export interface GateInput {
+  path: string;
+  loginRequired: boolean;
+  sessionValid: boolean;
+  /** Llave de servicio válida (AGENT_API_KEY) para procesos automáticos. */
+  serviceKeyValid: boolean;
+}
+
+export const loginRequiredFrom = (value?: string) => value === '1' || value === 'true';
+
+/** Rutas que nunca piden sesión: el propio login, el webhook de Telegram (se asegura aparte). */
+const ALWAYS_OPEN = [/^\/login(\/|$)/, /^\/api\/auth\/(login|logout|csrf)(\/|$)/, /^\/api\/telegram(\/|$)/];
+
+export function gateDecision(i: GateInput): GateDecision {
+  if (!i.loginRequired) return 'allow';
+  if (ALWAYS_OPEN.some(r => r.test(i.path))) return 'allow';
+  if (i.sessionValid) return 'allow';
+  const isApi = i.path.startsWith('/api/');
+  if (isApi && i.serviceKeyValid && /^\/api\/(agent|public)(\/|$)/.test(i.path)) return 'allow';
+  return isApi ? 'deny' : 'login';
+}
+
+export function serviceKeyMatches(headers: { get(name: string): string | null }, configured?: string): boolean {
+  const key = configured?.trim();
+  if (!key) return false;
+  const auth = headers.get('authorization') || '';
+  const bearer = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
+  const header = headers.get('x-agent-key')?.trim() || '';
+  return bearer === key || header === key;
+}
