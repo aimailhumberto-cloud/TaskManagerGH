@@ -11,6 +11,7 @@ import { brandCatalogNodes, packagingDescription } from '@/lib/portfolioConnecti
 import { PortfolioConnections } from '@/components/PortfolioConnections';
 import { CommercialConnections } from '@/components/CommercialConnections';
 import { resolveCollisions } from './collision';
+import type { RenderLoopProps } from './props';
 import type { NodeData, LinkData, BrainGraphResponse } from './types';
 import { BRAND_AVATARS, getPhotoUrlWithBust, getNodeCustomPhoto, drawPanamaFlag, drawCanadaFlag, drawUSAFlag, drawBelizeFlag, drawTrinidadFlag, drawSMJCorporateCrest, drawPersonAvatar, drawDistributorBadge, drawOrganizationBadge, drawBrandBadge, drawGlassDomeOverlay, drawAmericasMapBackdrop } from './nodeArt';
 import { formatDisplayValue, renderFormattedBody } from './bodyFormat';
@@ -22,17 +23,8 @@ import { useCanvasGestures } from './useCanvasGestures';
 import { CerebroHud } from './CerebroHud';
 
 // Bucle de dibujo y física del lienzo (60 FPS). Extraído de page.tsx sin cambios de comportamiento.
-export function useCanvasRenderLoop(props: Record<string, any>) {
-  const { drilldownStackRef, gravityActive, mounted, nativeLayoutDecorRef, stackedDeck, viewMode } = props;
-  const nodesRef = props.nodesRef as React.MutableRefObject<NodeData[]>;
-  const linksRef = props.linksRef as React.MutableRefObject<LinkData[]>;
-  const hoveredNodeRef = props.hoveredNodeRef as React.MutableRefObject<NodeData | null>;
-  const selectedNodeIdRef = props.selectedNodeIdRef as React.MutableRefObject<string | null>;
-  const transformRef = props.transformRef as React.MutableRefObject<{ x: number; y: number; scale: number }>;
-  const canvasRef = props.canvasRef as React.MutableRefObject<HTMLCanvasElement | null>;
-  const expansionsRef = props.expansionsRef as React.MutableRefObject<Map<string, string[]>>;
-  const cappedInfoRef = props.cappedInfoRef as React.MutableRefObject<Map<string, number>>;
-  const animFrameRef = props.animFrameRef as React.MutableRefObject<number | null>;
+export function useCanvasRenderLoop(props: RenderLoopProps) {
+  const { animFrameRef, canvasRef, cappedInfoRef, drilldownStackRef, expansionsRef, gravityActive, hoveredNodeRef, linksRef, mounted, nativeLayoutDecorRef, nodesRef, selectedNodeIdRef, stackedDeck, transformRef, viewMode } = props;
     // 60FPS High-Precision Kinetic Loop with Collision Repulsion (Zero Overlap)
   useEffect(() => {
     if (!mounted) return;

@@ -1,8 +1,10 @@
 'use client';
 
+import type { HudProps } from './props';
+
 
 // Extraído de page.tsx sin cambios de comportamiento.
-export function CerebroHud({ contactStats, graphData, handleConsolidate, isHudOpen, isSubmitting, linkHealthAudit, summary, workingMemoryStats }: Record<string, any>) {
+export function CerebroHud({ contactStats, graphData, handleConsolidate, isHudOpen, isSubmitting, linkHealthAudit, summary, workingMemoryStats }: HudProps) {
   return (
     <>
       {isHudOpen && (

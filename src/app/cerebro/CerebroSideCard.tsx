@@ -10,6 +10,7 @@ import { ContactLayer } from '@/components/ContactLayer';
 import { brandCatalogNodes, packagingDescription } from '@/lib/portfolioConnections';
 import { PortfolioConnections } from '@/components/PortfolioConnections';
 import { CommercialConnections } from '@/components/CommercialConnections';
+import type { SideCardProps } from './props';
 import type { NodeData, LinkData, BrainGraphResponse } from './types';
 import { BRAND_AVATARS, getPhotoUrlWithBust, getNodeCustomPhoto, drawPanamaFlag, drawCanadaFlag, drawUSAFlag, drawBelizeFlag, drawTrinidadFlag, drawSMJCorporateCrest, drawPersonAvatar, drawDistributorBadge, drawOrganizationBadge, drawBrandBadge, drawGlassDomeOverlay, drawAmericasMapBackdrop } from './nodeArt';
 import { formatDisplayValue, renderFormattedBody } from './bodyFormat';
@@ -19,7 +20,7 @@ import { CerebroSettingsMenu } from './CerebroSettingsMenu';
 import { CerebroHud } from './CerebroHud';
 
 // Extraído de page.tsx sin cambios de comportamiento.
-export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expandedDeptInDossier, expandedLeaderInDossier, getWikilinkLabel, graphData, handleSetCatalogScope, handleSetOrgScope, handleWikilinkClick, inspectorRef, linksRef, nodeBodies, nodesRef, pushToStackedDeck, removeFromDeck, setExpandedBrandInDossier, setExpandedDeptInDossier, setExpandedLeaderInDossier, setStackedDeck, setStatusMessage, stackedDeck }: Record<string, any>) {
+export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expandedDeptInDossier, expandedLeaderInDossier, getWikilinkLabel, graphData, handleSetCatalogScope, handleSetOrgScope, handleWikilinkClick, inspectorRef, linksRef, nodeBodies, nodesRef, pushToStackedDeck, removeFromDeck, setExpandedBrandInDossier, setExpandedDeptInDossier, setExpandedLeaderInDossier, setStackedDeck, setStatusMessage, stackedDeck }: SideCardProps) {
   return (
     <>
         {/* Stacked Decks: Sliding Bottom Sheet on mobile (<768px) / Lateral Side Panel on desktop (>=768px) */}

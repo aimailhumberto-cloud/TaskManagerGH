@@ -10,6 +10,7 @@ import { ContactLayer } from '@/components/ContactLayer';
 import { brandCatalogNodes, packagingDescription } from '@/lib/portfolioConnections';
 import { PortfolioConnections } from '@/components/PortfolioConnections';
 import { CommercialConnections } from '@/components/CommercialConnections';
+import type { GesturesProps } from './props';
 import type { NodeData, LinkData, BrainGraphResponse } from './types';
 import { BRAND_AVATARS, getPhotoUrlWithBust, getNodeCustomPhoto, drawPanamaFlag, drawCanadaFlag, drawUSAFlag, drawBelizeFlag, drawTrinidadFlag, drawSMJCorporateCrest, drawPersonAvatar, drawDistributorBadge, drawOrganizationBadge, drawBrandBadge, drawGlassDomeOverlay, drawAmericasMapBackdrop } from './nodeArt';
 import { formatDisplayValue, renderFormattedBody } from './bodyFormat';
@@ -20,7 +21,7 @@ import { CerebroSideCard } from './CerebroSideCard';
 import { CerebroHud } from './CerebroHud';
 
 // Gestos del lienzo (clic, doble clic, arrastre, rueda, toque). Extraído de page.tsx sin cambios de comportamiento.
-export function useCanvasGestures(props: Record<string, any>) {
+export function useCanvasGestures(props: GesturesProps) {
   const { canvasRef, clampCameraBounds, dragStartMousePosRef, draggedNodeRef, findNodeAtClientPoint, findPillAtClientPoint, hoveredNodeRef, initialPinchDistRef, initialPinchScaleRef, isDraggingCanvasRef, lastMousePosRef, lastTapTimeRef, lastTouchPosRef, linksRef, nodesRef, pinchCenterRef, pushToStackedDeck, resetToDefaultView, selectedNodeIdRef, setHoveredNode, setPinnedCount, setTooltipPos, showMoreOfNode, toggleNodeOpen, touchMovedRef, touchStartPosRef, transformRef, unpinNode } = props;
     // Un clic: solo selecciona y resalta conexiones. No agrega nada al lienzo.
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {

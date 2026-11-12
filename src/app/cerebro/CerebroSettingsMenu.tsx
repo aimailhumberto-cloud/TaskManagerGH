@@ -1,9 +1,11 @@
 'use client';
 
+import type { SettingsMenuProps } from './props';
+
 import { TYPE_CONFIG } from './layoutTargets';
 
 // Extraído de page.tsx sin cambios de comportamiento.
-export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravityActive, handleCenterAndFit, handleConsolidate, handleSetCatalogScope, handleSetOrgScope, handleSetViewMode, handleUnpinAll, isHudOpen, isSettingsMenuOpen, isSubmitting, nodesRef, orgScope, pinnedCount, pushToStackedDeck, setGravityActive, setIsHudOpen, setIsSettingsMenuOpen, viewMode }: Record<string, any>) {
+export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravityActive, handleCenterAndFit, handleConsolidate, handleSetCatalogScope, handleSetOrgScope, handleSetViewMode, handleUnpinAll, isHudOpen, isSettingsMenuOpen, isSubmitting, nodesRef, orgScope, pinnedCount, pushToStackedDeck, setGravityActive, setIsHudOpen, setIsSettingsMenuOpen, viewMode }: SettingsMenuProps) {
   return (
     <>
       {isSettingsMenuOpen && (

@@ -1,11 +1,13 @@
 'use client';
 
+import type { HeaderProps } from './props';
+
 import Link from 'next/link';
 import { humanNodeName } from '@/lib/smjIdentity';
 import { TYPE_CONFIG } from './layoutTargets';
 
 // Extraído de page.tsx sin cambios de comportamiento.
-export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode, isSettingsMenuOpen, lastSyncTime, nodesRef, pushToStackedDeck, searchQuery, searchResults, setIsSettingsMenuOpen, setSearchQuery, setStackedDeck, stackedDeck, summary, viewMode }: Record<string, any>) {
+export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode, isSettingsMenuOpen, lastSyncTime, nodesRef, pushToStackedDeck, searchQuery, searchResults, setIsSettingsMenuOpen, setSearchQuery, setStackedDeck, stackedDeck, summary, viewMode }: HeaderProps) {
   return (
     <>
       <header className="h-12 max-h-[48px] px-3 md:px-5 flex items-center justify-between border-b border-gray-800 bg-[#0B111E] z-50 shrink-0 relative shadow-md">
