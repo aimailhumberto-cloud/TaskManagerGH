@@ -510,6 +510,7 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
           ctx.globalAlpha = 1.0;
         }
 
+        mark('n_prep');
         // Outer Glow Ring
         const glowRadius = r + (isSelected ? 18 : isHovered ? 14 : 8);
         const grad = ctx.createRadialGradient(n.x, n.y, r * 0.4, n.x, n.y, glowRadius);
@@ -526,6 +527,7 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
         ctx.fillStyle = cfg.bg;
         ctx.fill();
 
+        mark('n_brillo');
         // Custom High-Res Node Graphics (Soporta foto cargada en CUALQUIER icono)
         const customPhoto = getNodeCustomPhoto(n);
         const nid = n.id.toLowerCase();
@@ -587,6 +589,7 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
           ctx.fillText(cfg.icon, n.x, n.y);
         }
 
+        mark('n_arte');
         // 3D Glassmorphism Specular Reflection Arc
         drawGlassDomeOverlay(ctx, n.x, n.y, r);
 
@@ -625,6 +628,7 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
           ctx.restore();
         }
 
+        mark('n_borde');
         // Node Title Label
         // Etiquetas segun zoom: de lejos solo se nombran los nodos principales; al acercar aparecen las demas.
         const emphasized = isSelected || isHovered || isOpen;
@@ -647,6 +651,7 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
             ctx.fillText(cfg.label.toUpperCase().split('').join('\u200A'), n.x, n.y + r + 24);
           }
         }
+        mark('n_etiqueta');
         // Burbuja "+N mas": hay mas nodos en este nivel; un clic en ella trae los siguientes
         const hiddenCount = cappedInfoRef.current.get(n.id);
         if (hiddenCount && isOpen) {
