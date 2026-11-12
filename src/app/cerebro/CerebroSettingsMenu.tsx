@@ -1,6 +1,7 @@
 'use client';
 
 import { useLang } from './i18n';
+import { CerebroSleepPanel } from './CerebroSleepPanel';
 import type { SettingsMenuProps } from './props';
 
 import { TYPE_CONFIG } from './layoutTargets';
@@ -8,6 +9,14 @@ import { TYPE_CONFIG } from './layoutTargets';
 // Extraído de page.tsx sin cambios de comportamiento.
 export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravityActive, handleCenterAndFit, handleConsolidate, handleSetCatalogScope, handleSetOrgScope, handleSetViewMode, handleUnpinAll, isHudOpen, isSettingsMenuOpen, isSubmitting, nodesRef, orgScope, pinnedCount, pushToStackedDeck, setGravityActive, setIsHudOpen, setIsSettingsMenuOpen, viewMode }: SettingsMenuProps) {
   const { t, lang, setLang } = useLang();
+  const focusNodeById = (id: string) => {
+    const pool = (graphData as any)?.allNodes || graphData?.nodes || nodesRef.current || [];
+    const target = pool.find((n: any) => n.id === id);
+    if (!target) return;
+    pushToStackedDeck(target);
+    handleCenterAndFit(target);
+    setIsSettingsMenuOpen(false);
+  };
   return (
     <>
       {isSettingsMenuOpen && (
@@ -250,6 +259,9 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                 </button>
               </div>
             </div>
+
+            {/* Informe nocturno de DOTS (solo propuestas) */}
+            <CerebroSleepPanel onFocusNode={focusNodeById} />
 
             {/* Idioma de la interfaz */}
             <div className="space-y-2 pt-1 border-t border-gray-800">

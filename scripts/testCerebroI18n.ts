@@ -13,6 +13,7 @@ const used = new Set<string>();
 for (const f of files) {
   const s = readFileSync(join(dir, f), 'utf8');
   for (const m of s.matchAll(/\bt\(("(?:[^"\\]|\\.)*")\)/g)) used.add(JSON.parse(m[1]));
+  for (const m of s.matchAll(/\bt\('((?:[^'\\]|\\.)*)'\)/g)) used.add(m[1].replace(/\\'/g, "'"));
 }
 const missing = [...used].filter((k) => !(k in EN));
 check(`${used.size} textos con t("...") tienen traducción`, missing.length === 0, missing.length ? JSON.stringify(missing) : '');
