@@ -1,10 +1,12 @@
 'use client';
 
+import { useLang } from './i18n';
 import type { HudProps } from './props';
 
 
 // Extraído de page.tsx sin cambios de comportamiento.
 export function CerebroHud({ contactStats, graphData, handleConsolidate, isHudOpen, isSubmitting, linkHealthAudit, summary, workingMemoryStats }: HudProps) {
+  const { t } = useLang();
   return (
     <>
       {isHudOpen && (
@@ -19,7 +21,7 @@ export function CerebroHud({ contactStats, graphData, handleConsolidate, isHudOp
             }`}>
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-gray-400 font-bold flex items-center gap-1">
-                  Salud Memoria
+                  {t("Salud Memoria")}
                 </span>
                 <span className={`px-1.5 py-0.2 rounded text-[9px] font-mono font-bold ${
                   linkHealthAudit.brokenCount === 0
@@ -43,10 +45,10 @@ export function CerebroHud({ contactStats, graphData, handleConsolidate, isHudOp
             <div className="p-2.5 rounded-xl bg-gray-900/80 border border-amber-500/40 hover:border-amber-500/70 backdrop-blur transition-all">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold flex items-center gap-1">
-                  Memoria Viva & S&OP
+                  {t("Memoria Viva & S&OP")}
                 </span>
                 <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-950 text-amber-300 border border-amber-800">
-                  {workingMemoryStats.activeCount} en tránsito
+                  {workingMemoryStats.activeCount} {t("en tránsito")}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -54,15 +56,15 @@ export function CerebroHud({ contactStats, graphData, handleConsolidate, isHudOp
                   <span className="text-sm font-bold text-white font-mono">
                     {workingMemoryStats.avgCompleteness}%
                   </span>
-                  <span className="text-[10px] text-gray-400 font-mono ml-1.5">Avance Operativo</span>
+                  <span className="text-[10px] text-gray-400 font-mono ml-1.5">{t("Avance Operativo")}</span>
                 </div>
                 <button
                   onClick={handleConsolidate}
                   disabled={isSubmitting}
                   className="text-[9px] px-2 py-0.5 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded shadow transition flex items-center gap-1"
-                  title="Consolidar recuerdos temporales"
+                  title={t("Consolidar recuerdos temporales")}
                 >
-                  Consolidar
+                  {t("Consolidar")}
                 </button>
               </div>
               <div className="mt-1.5 w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
@@ -74,23 +76,23 @@ export function CerebroHud({ contactStats, graphData, handleConsolidate, isHudOp
             <div className="p-2.5 rounded-xl bg-gray-900/80 border border-sky-500/40 hover:border-sky-500/70 backdrop-blur transition-all">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-sky-400 font-bold flex items-center gap-1">
-                  Directorio Humano
+                  {t("Directorio Humano")}
                 </span>
                 <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-sky-950 text-sky-300 border border-sky-800">
-                  {contactStats.leaders + contactStats.operational} Total
+                  {contactStats.leaders + contactStats.operational} {t("Total")}
                 </span>
               </div>
               <div className="flex items-baseline justify-between">
                 <span className="text-sm font-bold text-white font-mono">
-                  {contactStats.leaders} <span className="text-[10px] text-gray-400 font-normal">Líderes</span> · {contactStats.operational} <span className="text-[10px] text-gray-400 font-normal">Staff</span>
+                  {contactStats.leaders} <span className="text-[10px] text-gray-400 font-normal">{t("Líderes")}</span> · {contactStats.operational} <span className="text-[10px] text-gray-400 font-normal">{t("Staff")}</span>
                 </span>
                 <span className="text-[10px] text-emerald-400 font-mono">
                   {contactStats.activeWhatsapps} WA
                 </span>
               </div>
               <div className="mt-1 flex items-center justify-between text-[9px] text-gray-400 font-mono">
-                <span>{contactStats.verifiedEmails} Emails Verificados</span>
-                <span className="text-sky-400 font-semibold">{contactStats.leaders + contactStats.operational > 0 ? Math.round((contactStats.verifiedEmails / (contactStats.leaders + contactStats.operational)) * 100) : 0}% con correo</span>
+                <span>{contactStats.verifiedEmails} {t("Emails Verificados")}</span>
+                <span className="text-sky-400 font-semibold">{contactStats.leaders + contactStats.operational > 0 ? Math.round((contactStats.verifiedEmails / (contactStats.leaders + contactStats.operational)) * 100) : 0}{t("% con correo")}</span>
               </div>
             </div>
 
@@ -98,18 +100,18 @@ export function CerebroHud({ contactStats, graphData, handleConsolidate, isHudOp
             <div className="p-2.5 rounded-xl bg-gray-900/80 border border-indigo-500/40 hover:border-indigo-500/70 backdrop-blur transition-all">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-indigo-400 font-bold flex items-center gap-1">
-                  Red & Sinapsis
+                  {t("Red & Sinapsis")}
                 </span>
                 <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-indigo-950 text-indigo-300 border border-indigo-800 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" /> Live Vault
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" /> {t("Live Vault")}
                 </span>
               </div>
               <div className="flex items-baseline justify-between">
                 <span className="text-sm font-bold text-white font-mono">
-                  {summary.totalNodes} <span className="text-[10px] text-gray-400 font-normal">Nodos</span>
+                  {summary.totalNodes} <span className="text-[10px] text-gray-400 font-normal">{t("Nodos")}</span>
                 </span>
                 <span className="text-xs font-bold text-sky-400 font-mono">
-                  {summary.totalLinks} <span className="text-[9px] text-gray-400 font-normal">Sinapsis</span>
+                  {summary.totalLinks} <span className="text-[9px] text-gray-400 font-normal">{t("Sinapsis")}</span>
                 </span>
               </div>
               <div className="mt-1 flex items-center justify-between text-[9px] text-gray-400 font-mono">
@@ -126,17 +128,17 @@ export function CerebroHud({ contactStats, graphData, handleConsolidate, isHudOp
             <div className="p-2.5 rounded-xl bg-gray-900/80 border border-teal-500/40 hover:border-teal-500/70 backdrop-blur transition-all">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] font-mono uppercase tracking-wider text-teal-400 font-bold flex items-center gap-1">
-                  Portafolio & Supply
+                  {t("Portafolio & Supply")}
                 </span>
                 <span className="px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-teal-950 text-teal-300 border border-teal-800">
-                  {graphData?.summary.brandsCount ?? '—'} Marcas Máster
+                  {graphData?.summary.brandsCount ?? '—'} {t("Marcas Máster")}
                 </span>
               </div>
               <div className="flex items-baseline justify-between">
                 <span className="text-sm font-bold text-white font-mono">
-                  {(graphData?.allNodes || graphData?.nodes || []).filter((n: any) => n.type === 'product_variant').length} <span className="text-[10px] text-gray-400 font-normal">SKUs</span> · {(graphData?.allNodes || graphData?.nodes || []).filter((n: any) => n.type === 'packaging').length} <span className="text-[10px] text-gray-400 font-normal">Packs</span>
+                  {(graphData?.allNodes || graphData?.nodes || []).filter((n: any) => n.type === 'product_variant').length} <span className="text-[10px] text-gray-400 font-normal">{t("SKUs")}</span> · {(graphData?.allNodes || graphData?.nodes || []).filter((n: any) => n.type === 'packaging').length} <span className="text-[10px] text-gray-400 font-normal">{t("Packs")}</span>
                 </span>
-                <span className="text-[10px] text-teal-300 font-mono">{(graphData?.allNodes || graphData?.nodes || []).filter((n: any) => n.type === 'flavor').length} Sabores</span>
+                <span className="text-[10px] text-teal-300 font-mono">{(graphData?.allNodes || graphData?.nodes || []).filter((n: any) => n.type === 'flavor').length} {t("Sabores")}</span>
               </div>
               <div className="mt-1 flex items-center justify-between text-[9px] text-gray-400 font-mono">
                 <span>Estiba: <strong>2,800 cajas</strong> / cont 40ft</span>

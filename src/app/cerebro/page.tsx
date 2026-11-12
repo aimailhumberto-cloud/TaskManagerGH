@@ -17,12 +17,20 @@ import { TYPE_CONFIG, nodeLevel, MAX_NODES_PER_OPEN, isNodeLeader, getPersonDept
 import { CerebroHeader } from './CerebroHeader';
 import { CerebroSettingsMenu } from './CerebroSettingsMenu';
 import { CerebroSideCard } from './CerebroSideCard';
+import { LangContext, translate, readStoredLang, LANG_STORAGE_KEY, type Lang } from './i18n';
 import { useCanvasRenderLoop } from './useCanvasRenderLoop';
 import { useCanvasGestures } from './useCanvasGestures';
 import { CerebroHud } from './CerebroHud';
 
 export default function CerebroPage() {
   const [mounted, setMounted] = useState(false);
+  const [lang, setLangState] = useState<Lang>('es');
+  const t = (es: string) => translate(lang, es);
+  const setLang = (l: Lang) => {
+    setLangState(l);
+    try { localStorage.setItem(LANG_STORAGE_KEY, l); } catch {}
+  };
+  useEffect(() => { setLangState(readStoredLang()); }, []);
   const [graphData, setGraphData] = useState<BrainGraphResponse | null>(null);
   const [selectedMarket, setSelectedMarket] = useState<string>('all');
   const [activeLens, setActiveLens] = useState<string>('global-core');
@@ -1060,10 +1068,11 @@ export default function CerebroPage() {
   }, [graphData, summary]);
 
   if (!mounted) {
-    return <div className="fixed inset-0 z-[60] bg-[#060A12] flex items-center justify-center text-gray-400 font-sans">Iniciando Universo SMJ...</div>;
+    return <div className="fixed inset-0 z-[60] bg-[#060A12] flex items-center justify-center text-gray-400 font-sans">{t("Iniciando Universo SMJ...")}</div>;
   }
 
   return (
+    <LangContext.Provider value={{ lang, setLang, t }}>
     <div className="cerebro-lux fixed inset-0 z-[60] flex flex-col w-screen h-screen bg-[#060A12] text-gray-100 overflow-hidden font-sans">
       {/* Top Header Navigation & Executive HUD */}
       {/* Top Header Navigation & Executive HUD */}
@@ -1073,7 +1082,7 @@ export default function CerebroPage() {
       {syncError && (
         <div className="bg-rose-950/95 border-b border-rose-700/80 text-rose-200 text-xs px-4 py-2 flex items-center justify-between z-50 animate-in fade-in duration-200">
           <div className="flex items-center gap-2">
-            <span className="font-mono font-bold text-rose-400">[ALERTA DE CONEXIÓN]</span>
+            <span className="font-mono font-bold text-rose-400">{t("[ALERTA DE CONEXIÓN]")}</span>
             <span>{syncError}</span>
           </div>
           {lastSyncTime && (
@@ -1114,18 +1123,18 @@ export default function CerebroPage() {
               <button
                 onClick={handlePopDrilldown}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-950 text-sky-300 border border-sky-700 hover:bg-sky-900 transition font-bold active:scale-95"
-                title="Volver al nivel anterior (o presiona Escape)"
+                title={t("Volver al nivel anterior (o presiona Escape)")}
               >
                 <span>←</span>
-                <span>Atrás</span>
+                <span>{t("Atrás")}</span>
               </button>
               <div className="h-4 w-px bg-gray-700" />
               <button
                 onClick={handleResetToUniverse}
                 className="text-gray-400 hover:text-white transition flex items-center gap-1"
-                title="Volver al Universo Completo"
+                title={t("Volver al Universo Completo")}
               >
-                <span className="hidden sm:inline">Universo SMJ</span>
+                <span className="hidden sm:inline">{t("Universo SMJ")}</span>
               </button>
               {drilldownStack.map((item) => (
                 <span key={item.id} className="flex items-center gap-1 text-white">
@@ -1145,17 +1154,17 @@ export default function CerebroPage() {
               <button
                 onClick={handleUnpinAll}
                 className="px-3 py-1.5 rounded-xl bg-gray-900/95 hover:bg-gray-800 border border-cyan-500/80 text-cyan-300 text-xs font-mono font-semibold shadow-2xl flex items-center gap-1.5 backdrop-blur transition active:scale-95 animate-in fade-in"
-                title="Restaurar todos los nodos anclados a sus órbitas originales"
+                title={t("Restaurar todos los nodos anclados a sus órbitas originales")}
               >
-                <span>Restaurar {pinnedCount} Anclados</span>
+                <span>Restaurar {pinnedCount} {t("Anclados")}</span>
               </button>
             )}
             <button
               onClick={() => handleCenterAndFit()}
               className="px-3 py-1.5 rounded-xl bg-gray-900/95 hover:bg-gray-800 border border-sky-500/80 text-sky-300 text-xs font-mono font-semibold shadow-2xl flex items-center gap-1.5 backdrop-blur transition active:scale-95"
-              title="Centrar y reencuadrar el grafo en pantalla"
+              title={t("Centrar y reencuadrar el grafo en pantalla")}
             >
-              <span>Centrar</span>
+              <span>{t("Centrar")}</span>
             </button>
           </div>
 
@@ -1237,7 +1246,7 @@ export default function CerebroPage() {
                           </span>
                           {hoveredNode.isPinned && (
                             <span className="text-[8px] font-mono text-cyan-300 bg-cyan-950/80 px-1 py-0.5 rounded border border-cyan-800 flex items-center gap-0.5">
-                              Anclado
+                              {t("Anclado")}
                             </span>
                           )}
                           {hoveredNode.completeness_score !== undefined && (
@@ -1261,13 +1270,13 @@ export default function CerebroPage() {
                 <div className="mt-2 p-2 rounded-lg bg-gray-900/90 border border-gray-800 text-[11px] font-mono space-y-1">
                   {hoveredNode.type === 'brand' && (
                     <div>
-                      <span className="text-amber-400 font-bold block text-[10px] uppercase">Siguiente Capa (Catálogo):</span>
+                      <span className="text-amber-400 font-bold block text-[10px] uppercase">{t("Siguiente Capa (Catálogo):")}</span>
                       <span className="text-gray-300">Formato: 250ml / Packs · 6 Sabores · Estiba 2,800 cajas/cont</span>
                     </div>
                   )}
                   {hoveredNode.type === 'market' && (
                     <div>
-                      <span className="text-teal-400 font-bold block text-[10px] uppercase">Siguiente Capa (Distribuidor):</span>
+                      <span className="text-teal-400 font-bold block text-[10px] uppercase">{t("Siguiente Capa (Distribuidor):")}</span>
                       <span className="text-gray-200">
                         {marketDistributorLabel(getMarketDistributors(
                           hoveredNode.id,
@@ -1279,7 +1288,7 @@ export default function CerebroPage() {
                   )}
                   {hoveredNode.type === 'distributor' && (
                     <div>
-                      <span className="text-emerald-400 font-bold block text-[10px] uppercase">Siguiente Capa (Territorio):</span>
+                      <span className="text-emerald-400 font-bold block text-[10px] uppercase">{t("Siguiente Capa (Territorio):")}</span>
                       <span className="text-gray-200">
                         {hoveredNode.id.includes('medimex') || hoveredNode.id.includes('panama') ? 'Panamá · Chubby, Fruta & Busta' :
                          hoveredNode.id.includes('sancas') ? 'Belice (CARICOM) · Chubby & Fruta' :
@@ -1289,7 +1298,7 @@ export default function CerebroPage() {
                   )}
                   {hoveredNode.type === 'person' && (
                     <div>
-                      <span className="text-sky-400 font-bold block text-[10px] uppercase">Siguiente Capa (Equipo):</span>
+                      <span className="text-sky-400 font-bold block text-[10px] uppercase">{t("Siguiente Capa (Equipo):")}</span>
                       <span className="text-gray-200">
                         {hoveredNode.frontmatter?.job_title || 'Cargo Ejecutivo'} · {hoveredNode.frontmatter?.based_in_city || 'HQ'}
                       </span>
@@ -1297,8 +1306,8 @@ export default function CerebroPage() {
                   )}
                   {hoveredNode.type === 'department' && (
                     <div>
-                      <span className="text-purple-400 font-bold block text-[10px] uppercase">Siguiente Capa (Estructura):</span>
-                      <span className="text-gray-200">Personal Operativo y Líneas de Reporte</span>
+                      <span className="text-purple-400 font-bold block text-[10px] uppercase">{t("Siguiente Capa (Estructura):")}</span>
+                      <span className="text-gray-200">{t("Personal Operativo y Líneas de Reporte")}</span>
                     </div>
                   )}
                 </div>
@@ -1311,9 +1320,9 @@ export default function CerebroPage() {
                       pushToStackedDeck(hoveredNode, false);
                     }}
                     className="py-1.5 px-2 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-1 transition"
-                    title="Abrir ficha ejecutiva completa en panel lateral"
+                    title={t("Abrir ficha ejecutiva completa en panel lateral")}
                   >
-                    <span>Ficha 360°</span>
+                    <span>{t("Ficha 360°")}</span>
                   </button>
                   <button
                     onClick={(e) => {
@@ -1321,9 +1330,9 @@ export default function CerebroPage() {
                       pushToStackedDeck(hoveredNode, true);
                     }}
                     className="py-1.5 px-2 bg-amber-600 hover:bg-amber-500 active:scale-95 text-white rounded-lg text-xs font-bold shadow flex items-center justify-center gap-1 transition"
-                    title="Desplegar siguiente capa directamente en el lienzo"
+                    title={t("Desplegar siguiente capa directamente en el lienzo")}
                   >
-                    <span>Ver Capa ▼</span>
+                    <span>{t("Ver Capa ▼")}</span>
                   </button>
                 </div>
               </div>
@@ -1339,7 +1348,7 @@ export default function CerebroPage() {
               type="text"
               value={quickInput}
               onChange={e => setQuickInput(e.target.value)}
-              placeholder="Captura rápida para memoria temporal..."
+              placeholder={t("Captura rápida para memoria temporal...")}
               className="bg-transparent text-xs text-white placeholder-gray-500 outline-none flex-1"
             />
             <button
@@ -1347,7 +1356,7 @@ export default function CerebroPage() {
               disabled={isSubmitting || !quickInput.trim()}
               className="text-[11px] bg-sky-600 hover:bg-sky-500 text-white font-medium px-2.5 py-1 rounded transition disabled:opacity-40"
             >
-              Capturar
+              {t("Capturar")}
             </button>
           </form>
 
@@ -1372,27 +1381,27 @@ export default function CerebroPage() {
                   ? 'Estructura Jerárquica L0 - L4'
                   : 'Constelaciones por Afinidad'}
               </span>
-              <span className="text-sky-400 font-mono">| Layout Dinámico Activo</span>
+              <span className="text-sky-400 font-mono">{t("| Layout Dinámico Activo")}</span>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Panamá & Belice (Tu Área)
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> {t("Panamá & Belice (Tu Área)")}
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-sky-500" /> Canadá & EE. UU.
+                <span className="w-2.5 h-2.5 rounded-full bg-sky-500" /> {t("Canadá & EE. UU.")}
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-orange-500" /> Manufactura & Marcas
+                <span className="w-2.5 h-2.5 rounded-full bg-orange-500" /> {t("Manufactura & Marcas")}
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-purple-500" /> Supply Chain & S&OP
+                <span className="w-2.5 h-2.5 rounded-full bg-purple-500" /> {t("Supply Chain & S&OP")}
               </span>
               <span className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" /> Temporal
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" /> {t("Temporal")}
               </span>
             </div>
             <div className="text-[10px] text-gray-500 pt-0.5">
-              Clic para seleccionar · Doble clic para abrir nivel y ficha · Doble clic otra vez para cerrar · Doble clic en el fondo para volver al inicio
+              {t("Clic para seleccionar · Doble clic para abrir nivel y ficha · Doble clic otra vez para cerrar · Doble clic en el fondo para volver al inicio")}
             </div>
           </div>
         </div>
@@ -1407,12 +1416,13 @@ export default function CerebroPage() {
             if (core) pushToStackedDeck(core);
           }}
           className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white py-3.5 px-2.5 rounded-l-xl shadow-2xl text-xs font-bold z-30 items-center gap-1.5 transition select-none cursor-pointer border border-sky-400"
-          title="Abrir Ficha Lateral Ejecutiva"
+          title={t("Abrir Ficha Lateral Ejecutiva")}
         >
-          <span>Abrir Ficha Lateral</span>
+          <span>{t("Abrir Ficha Lateral")}</span>
         </button>
       )}
       </div>
     </div>
+    </LangContext.Provider>
   );
 }

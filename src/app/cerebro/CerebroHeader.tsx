@@ -1,5 +1,6 @@
 'use client';
 
+import { useLang } from './i18n';
 import type { HeaderProps } from './props';
 
 import Link from 'next/link';
@@ -8,6 +9,7 @@ import { TYPE_CONFIG } from './layoutTargets';
 
 // Extraído de page.tsx sin cambios de comportamiento.
 export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode, isSettingsMenuOpen, lastSyncTime, nodesRef, pushToStackedDeck, searchQuery, searchResults, setIsSettingsMenuOpen, setSearchQuery, setStackedDeck, stackedDeck, summary, viewMode }: HeaderProps) {
+  const { t } = useLang();
   return (
     <>
       <header className="h-12 max-h-[48px] px-3 md:px-5 flex items-center justify-between border-b border-gray-800 bg-[#0B111E] z-50 shrink-0 relative shadow-md">
@@ -16,21 +18,21 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
           <Link
             href="/tasks"
             className="text-xs uppercase font-bold tracking-wider text-amber-400 hover:text-amber-300 transition flex items-center gap-1.5 shrink-0 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded border border-amber-500/30"
-            title="Ir a TaskManager Ejecutivo (Tareas)"
+            title={t("Ir a TaskManager Ejecutivo (Tareas)")}
           >
             <span>←</span>
-            <span>Tareas</span>
+            <span>{t("Tareas")}</span>
           </Link>
           <div className="h-4 w-px bg-gray-700 shrink-0" />
           <div className="flex items-center gap-1.5 min-w-0">
             <h1 className="font-bold text-xs md:text-sm tracking-wide text-white truncate flex items-center gap-1.5">
-              <span>SMJ Cerebro</span>
-              <span className="hidden xl:inline text-sky-400 font-normal">| Segundo Cerebro Vivo</span>
+              <span>{t("SMJ Cerebro")}</span>
+              <span className="hidden xl:inline text-sky-400 font-normal">{t("| Segundo Cerebro Vivo")}</span>
             </h1>
           </div>
           {/* Node Count Pill */}
           <span className="px-1.5 py-0.5 text-[9px] font-mono bg-sky-950 text-sky-300 border border-sky-800 rounded font-semibold shrink-0">
-            {graphData?.nodes.length || summary.totalNodes} Nodos
+            {graphData?.nodes.length || summary.totalNodes} {t("Nodos")}
           </span>
 
           {/* Panama Sync Time Pill (Point 11) */}
@@ -49,7 +51,7 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar marca, filial, rol, persona..."
+              placeholder={t("Buscar marca, filial, rol, persona...")}
               className="bg-transparent text-white text-xs placeholder-gray-500 focus:outline-none w-full font-mono"
             />
             {searchQuery && (
@@ -66,7 +68,7 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
           {searchResults.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1.5 max-h-72 overflow-y-auto bg-gray-950/98 border border-sky-500/80 rounded-xl shadow-2xl p-1.5 z-50 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-100">
               <div className="text-[10px] font-mono text-gray-400 uppercase px-2 py-1 border-b border-gray-800 mb-1 flex items-center justify-between">
-                <span>Resultados</span>
+                <span>{t("Resultados")}</span>
                 <span className="text-sky-400 font-bold">{searchResults.length}</span>
               </div>
               {searchResults.slice(0, 8).map((node: any) => (
@@ -86,7 +88,7 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
                       <p className="text-[10px] text-gray-400 font-mono">{(TYPE_CONFIG[node.type] || TYPE_CONFIG.department).label}</p>
                     </div>
                   </div>
-                  <span className="text-[10px] text-sky-400 font-mono shrink-0">Ver →</span>
+                  <span className="text-[10px] text-sky-400 font-mono shrink-0">{t("Ver →")}</span>
                 </div>
               ))}
             </div>
@@ -103,7 +105,7 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
                 viewMode === 'brujula' ? 'bg-sky-600 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
               }`}
             >
-              [BR] Brújula
+              {t("[BR] Brújula")}
             </button>
             <button
               onClick={() => handleSetViewMode('version-1-ajustada')}
@@ -111,7 +113,7 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
                 viewMode === 'version-1-ajustada' ? 'bg-sky-600 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
               }`}
             >
-              [V1] V1 Ajustada
+              {t("[V1] V1 Ajustada")}
             </button>
             <button
               onClick={() => handleSetViewMode('constellations')}
@@ -119,7 +121,7 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
                 viewMode === 'constellations' ? 'bg-emerald-600 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
               }`}
             >
-              Constelaciones
+              {t("Constelaciones")}
             </button>
             <button
               onClick={() => handleSetViewMode('organigram')}
@@ -127,7 +129,7 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
                 viewMode === 'organigram' ? 'bg-purple-600 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
               }`}
             >
-              Organigrama
+              {t("Organigrama")}
             </button>
             <button
               onClick={() => handleSetViewMode('quadrants')}
@@ -135,7 +137,7 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
                 viewMode === 'quadrants' ? 'bg-slate-700 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
               }`}
             >
-              Cuadrantes
+              {t("Cuadrantes")}
             </button>
           </div>
 
@@ -143,9 +145,9 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
           <button
             onClick={() => handleCenterAndFit()}
             className="px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-sky-300 border border-sky-800/80 text-xs font-semibold flex items-center gap-1 transition shadow-sm active:scale-95"
-            title="Centrar y reencuadrar el mapa"
+            title={t("Centrar y reencuadrar el mapa")}
           >
-            <span className="hidden sm:inline">Centrar</span>
+            <span className="hidden sm:inline">{t("Centrar")}</span>
           </button>
 
           {/* Fichas Deck Counter Button */}
@@ -163,9 +165,9 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
                 ? 'bg-sky-600 text-white border-sky-400 shadow'
                 : 'bg-gray-800 text-gray-300 border-gray-700 hover:text-white'
             }`}
-            title="Abrir o cerrar fichas ejecutivas"
+            title={t("Abrir o cerrar fichas ejecutivas")}
           >
-            <span className="hidden md:inline">Fichas</span>
+            <span className="hidden md:inline">{t("Fichas")}</span>
             <span className="font-mono text-[11px] font-bold">({stackedDeck.length})</span>
           </button>
 
@@ -177,9 +179,9 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
                 ? 'bg-gradient-to-r from-sky-600 to-indigo-600 text-white border-sky-400 shadow'
                 : 'bg-gray-800 text-sky-300 border-sky-800/80 hover:bg-gray-700'
             }`}
-            title="Herramientas, capas de catálogo y ajustes del cerebro"
+            title={t("Herramientas, capas de catálogo y ajustes del cerebro")}
           >
-            <span className="hidden md:inline">Ajustes</span>
+            <span className="hidden md:inline">{t("Ajustes")}</span>
             <span className="text-[10px] font-mono">{isSettingsMenuOpen ? '▲' : '▼'}</span>
           </button>
         </div>

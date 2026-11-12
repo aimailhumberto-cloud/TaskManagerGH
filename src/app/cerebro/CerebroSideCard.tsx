@@ -1,5 +1,6 @@
 'use client';
 
+import { useLang } from './i18n';
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { getMarketDistributors, marketDistributorLabel, distributorDisplayName } from '@/lib/marketDistributors';
@@ -21,6 +22,7 @@ import { CerebroHud } from './CerebroHud';
 
 // Extraído de page.tsx sin cambios de comportamiento.
 export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expandedDeptInDossier, expandedLeaderInDossier, getWikilinkLabel, graphData, handleSetCatalogScope, handleSetOrgScope, handleWikilinkClick, inspectorRef, linksRef, nodeBodies, nodesRef, pushToStackedDeck, removeFromDeck, setExpandedBrandInDossier, setExpandedDeptInDossier, setExpandedLeaderInDossier, setStackedDeck, setStatusMessage, stackedDeck }: SideCardProps) {
+  const { t } = useLang();
   return (
     <>
         {/* Stacked Decks: Sliding Bottom Sheet on mobile (<768px) / Lateral Side Panel on desktop (>=768px) */}
@@ -51,12 +53,12 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                   <button
                     onClick={() => setStackedDeck([])}
                     className="min-h-[44px] min-w-[44px] md:min-h-[32px] md:min-w-0 text-xs px-3 py-2 md:px-2.5 md:py-1 rounded-lg md:rounded bg-gray-800 hover:bg-red-950/80 text-gray-200 hover:text-red-300 border border-gray-700 hover:border-red-800 transition font-mono flex items-center justify-center gap-1.5 active:scale-95"
-                    title="Cerrar ficha"
-                    aria-label="Cerrar ficha ejecutiva"
+                    title={t("Cerrar ficha")}
+                    aria-label={t("Cerrar ficha ejecutiva")}
                   >
                     <span className="text-sm">✕</span>
-                    <span className="hidden md:inline">Cerrar Todo</span>
-                    <span className="md:hidden text-xs font-sans">Cerrar</span>
+                    <span className="hidden md:inline">{t("Cerrar Todo")}</span>
+                    <span className="md:hidden text-xs font-sans">{t("Cerrar")}</span>
                   </button>
                 </div>
               </div>
@@ -151,7 +153,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                             </span>
                             {node.completeness_score !== undefined && (
                               <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-800 shrink-0">
-                                {node.completeness_score}% completitud
+                                {node.completeness_score}{t("% completitud")}
                               </span>
                             )}
                             {fm.is_active !== undefined && (
@@ -172,7 +174,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                       <button
                         onClick={() => removeFromDeck(node.id)}
                         className="text-gray-400 hover:text-white p-1 text-sm leading-none shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-gray-800 transition active:scale-95"
-                        title="Cerrar ficha"
+                        title={t("Cerrar ficha")}
                         aria-label={`Cerrar ficha de ${node.title}`}
                       >
                         ✕
@@ -184,7 +186,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                       <div className="mb-3 bg-gradient-to-r from-emerald-950/40 via-slate-900 to-sky-950/40 border border-emerald-500/30 rounded-xl p-3 shadow-lg">
                         <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold mb-2">
                           <span className="flex items-center gap-1.5">
-                            <span>Ruta Comercial & Topología (4 Capas)</span>
+                            <span>{t("Ruta Comercial & Topología (4 Capas)")}</span>
                           </span>
                           <span className="text-gray-400 text-[9px] font-mono">
                             {node.spatial_tier ? `Capa: ${String(node.spatial_tier).toUpperCase()}` : 'Topología Viva'}
@@ -216,13 +218,13 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                           <div className="mt-2 pt-2 border-t border-gray-800/80 text-[10px] text-gray-400 flex flex-col gap-1">
                             {fm.serves_clients && (
                               <div>
-                                <span className="text-slate-400 font-bold">Cuentas Clave: </span>
+                                <span className="text-slate-400 font-bold">{t("Cuentas Clave:")} </span>
                                 <span className="text-slate-200">{Array.isArray(fm.serves_clients) ? fm.serves_clients.join(', ').replace(/\[\[|\]\]/g, '') : fm.serves_clients}</span>
                               </div>
                             )}
                             {(fm.active_brands || fm.carries_brands) && (
                               <div>
-                                <span className="text-amber-400 font-bold">Marcas Activas: </span>
+                                <span className="text-amber-400 font-bold">{t("Marcas Activas:")} </span>
                                 <span className="text-slate-200">{Array.isArray(fm.active_brands || fm.carries_brands) ? (fm.active_brands || fm.carries_brands).join(', ').replace(/\[\[|\]\]/g, '') : ''}</span>
                               </div>
                             )}
@@ -235,20 +237,20 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                     <div className="mb-3 bg-gradient-to-r from-sky-950/80 via-gray-950 to-indigo-950/80 border border-sky-500/40 rounded-xl p-3 shadow-inner">
                       <div className="flex items-center justify-between text-[10px] font-mono uppercase text-sky-400 font-bold mb-2">
                         <span className="flex items-center gap-1.5">
-                          <span>Actividad registrada</span>
+                          <span>{t("Actividad registrada")}</span>
                         </span>
-                        <span className="text-gray-400 text-[9px]">Datos de la ficha</span>
+                        <span className="text-gray-400 text-[9px]">{t("Datos de la ficha")}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 text-xs font-mono">
                         <div className="bg-gray-900/80 p-2 rounded border border-gray-800">
-                          <span className="text-[10px] text-gray-400 block">Última Actualización:</span>
+                          <span className="text-[10px] text-gray-400 block">{t("Última Actualización:")}</span>
                           <span className="text-white font-semibold text-[11px]">
                             {(fm.last_updated_at || fm.updated_at) ? new Date(fm.last_updated_at || fm.updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Sin fecha registrada'}
                           </span>
                           <span className="text-[9px] text-sky-400 block truncate">Por: {fm.last_updated_by || 'No documentado'}</span>
                         </div>
                         <div className="bg-gray-900/80 p-2 rounded border border-gray-800">
-                          <span className="text-[10px] text-gray-400 block">Último correo registrado:</span>
+                          <span className="text-[10px] text-gray-400 block">{t("Último correo registrado:")}</span>
                           <span className="text-white font-semibold text-[11px] truncate block" title={fm.last_email_subject || 'No consta en esta ficha'}>
                             {fm.last_email_subject || 'No consta en esta ficha'}
                           </span>
@@ -259,7 +261,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                         {(fm.next_followup_action || fm.next_followup_date) && (
                           <div className="col-span-2 bg-gray-900/80 p-2 rounded border border-gray-800 flex items-center justify-between">
                             <div className="min-w-0 pr-2">
-                              <span className="text-[10px] text-gray-400 block">Próximo Hito / Seguimiento:</span>
+                              <span className="text-[10px] text-gray-400 block">{t("Próximo Hito / Seguimiento:")}</span>
                               <span className="text-amber-300 font-semibold text-[11px] truncate block">
                                 {fm.next_followup_action || 'Seguimiento operativo general'}
                               </span>
@@ -281,7 +283,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                           <span className="flex items-center gap-1.5">
                             <span>Registro Visual & Evidencia Fotográfica ({galleryPhotos.length})</span>
                           </span>
-                          <span className="text-[9px] text-gray-500 uppercase tracking-wider">Activos en Vivo</span>
+                          <span className="text-[9px] text-gray-500 uppercase tracking-wider">{t("Activos en Vivo")}</span>
                         </div>
                         <div className={`grid gap-2 ${galleryPhotos.length === 1 ? 'grid-cols-1' : galleryPhotos.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
                           {galleryPhotos.map((src, idx) => (
@@ -312,9 +314,9 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                     <div className="mb-3 bg-gradient-to-r from-sky-950/70 via-gray-900 to-indigo-950/70 border border-sky-600/40 rounded-xl p-3 shadow-lg">
                       <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-sky-400 font-bold mb-2">
                         <span className="flex items-center gap-1.5">
-                          <span>Hub de Acciones Ejecutivas Inmediatas</span>
+                          <span>{t("Hub de Acciones Ejecutivas Inmediatas")}</span>
                         </span>
-                        <span className="text-gray-400">Canales Directos</span>
+                        <span className="text-gray-400">{t("Canales Directos")}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         {contactWa ? (
@@ -324,7 +326,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                             rel="noreferrer"
                             className="px-2.5 py-1.5 bg-emerald-900/80 hover:bg-emerald-800 text-emerald-200 border border-emerald-700/80 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition shadow truncate"
                           >
-                            <span className="truncate">Escribir WhatsApp</span>
+                            <span className="truncate">{t("Escribir WhatsApp")}</span>
                           </a>
                         ) : (
                           <button
@@ -334,7 +336,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                             }}
                             className="px-2.5 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-300 border border-gray-700 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition truncate"
                           >
-                            <span className="truncate">Pedir WhatsApp</span>
+                            <span className="truncate">{t("Pedir WhatsApp")}</span>
                           </button>
                         )}
 
@@ -343,7 +345,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                             href={`mailto:${contactEmail}?subject=${encodeURIComponent(`Actualización Operativa SM Jaleel - ${node.title}`)}&body=${encodeURIComponent(`Estimado equipo,\n\nFavor remitir confirmación y actualización operativa respecto a ${node.title}.\n\nSaludos cordiales,\nDirección Ejecutiva de Exportaciones SM Jaleel`)}`}
                             className="px-2.5 py-1.5 bg-sky-900/80 hover:bg-sky-800 text-sky-200 border border-sky-700/80 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition shadow truncate"
                           >
-                            <span className="truncate">Enviar Correo</span>
+                            <span className="truncate">{t("Enviar Correo")}</span>
                           </a>
                         ) : (
                           <button
@@ -353,7 +355,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                             }}
                             className="px-2.5 py-1.5 bg-gray-800/80 hover:bg-gray-700 text-gray-300 border border-gray-700 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition truncate"
                           >
-                            <span className="truncate">Pedir Correo</span>
+                            <span className="truncate">{t("Pedir Correo")}</span>
                           </button>
                         )}
 
@@ -364,7 +366,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                           }}
                           className="col-span-2 px-3 py-1.5 bg-indigo-900/70 hover:bg-indigo-800 text-indigo-200 border border-indigo-700/80 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition shadow"
                         >
-                          <span className="truncate">Solicitar a Dots Actualizar Estatus & Tareas</span>
+                          <span className="truncate">{t("Solicitar a Dots Actualizar Estatus & Tareas")}</span>
                         </button>
                       </div>
                     </div>
@@ -374,10 +376,10 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                       <div className="mb-3 bg-gradient-to-br from-amber-950/40 via-gray-900/90 to-gray-950 border border-amber-500/40 rounded-xl p-3.5 shadow-lg">
                         <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold mb-1.5">
                           <span className="flex items-center gap-1.5">
-                            <span>Observaciones Estratégicas & Status Operacional</span>
+                            <span>{t("Observaciones Estratégicas & Status Operacional")}</span>
                           </span>
                           <span className="px-1.5 py-0.2 text-[9px] bg-amber-950 border border-amber-800 text-amber-300 rounded font-mono font-bold">
-                            HB Validado
+                            {t("HB Validado")}
                           </span>
                         </div>
                         <p className="text-xs text-gray-200 leading-relaxed font-sans border-l-2 border-amber-500/70 pl-2.5 my-1">
@@ -391,9 +393,9 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                       <div className="mb-3 bg-gray-950/80 border border-gray-800 rounded-xl p-3.5 shadow-lg">
                         <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-sky-400 font-bold mb-2.5">
                           <span className="flex items-center gap-1.5">
-                            <span>Bitácora de Acciones & Logs Registrados</span>
+                            <span>{t("Bitácora de Acciones & Logs Registrados")}</span>
                           </span>
-                          <span className="text-[9px] text-gray-400 font-mono">Últimas 72h</span>
+                          <span className="text-[9px] text-gray-400 font-mono">{t("Últimas 72h")}</span>
                         </div>
                         <div className="space-y-2.5 border-l border-sky-500/30 ml-2 pl-3">
                           {fm.recent_actions.map((act: any, idx: number) => {
@@ -450,7 +452,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                             <span>Tareas & Pendientes Operativos ({fm.pending_tasks.length})</span>
                           </span>
                           <span className="px-1.5 py-0.2 text-[9px] bg-emerald-950 border border-emerald-800 text-emerald-300 rounded font-mono font-bold">
-                            En Seguimiento
+                            {t("En Seguimiento")}
                           </span>
                         </div>
                         <div className="space-y-1.5">
@@ -487,7 +489,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                                 onClick={() => pushToStackedDeck(distributor as NodeData)}
                                 className="px-2.5 py-1 bg-teal-600 hover:bg-teal-500 text-white text-[11px] font-semibold rounded shadow transition flex items-center gap-1 shrink-0"
                               >
-                                <span>Abrir Distribuidor</span>
+                                <span>{t("Abrir Distribuidor")}</span>
                                 <span aria-hidden="true">→</span>
                               </button>
                             </div>
@@ -525,7 +527,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                             <div className="flex items-center gap-2.5">
                               <div>
                                 <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold block">
-                                  Territorio de Mercado Asignado
+                                  {t("Territorio de Mercado Asignado")}
                                 </span>
                                 <span className="text-xs font-bold text-white">
                                   {mktTitle}
@@ -537,7 +539,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                                 onClick={() => pushToStackedDeck(linkedMktNode)}
                                 className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-semibold rounded shadow transition flex items-center gap-1 shrink-0"
                               >
-                                <span>Ver País</span>
+                                <span>{t("Ver País")}</span>
                                 <span>→</span>
                               </button>
                             )}
@@ -570,7 +572,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                       <div className="bg-gradient-to-br from-emerald-950/80 via-gray-900 to-gray-950 border border-emerald-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center justify-between text-emerald-400 font-bold uppercase tracking-wider text-[10px]">
                           <span className="flex items-center gap-1.5">
-                            <span>Ficha del distribuidor</span>
+                            <span>{t("Ficha del distribuidor")}</span>
                           </span>
                           <span className="px-1.5 py-0.5 text-[9px] bg-emerald-950 border border-emerald-700 text-emerald-300 rounded font-mono font-bold">
                             {fm.commercial_status_label || (fm.is_active !== false ? 'Vinculado' : 'Por verificar / Histórico')}
@@ -578,36 +580,36 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
                           <div className="col-span-2">
-                            <span className="text-gray-400">Razón Social:</span>{' '}
+                            <span className="text-gray-400">{t("Razón Social:")}</span>{' '}
                             <span className="text-white font-bold">{fm.legal_name || fm.company_name || node.title.replace(/^Distributor:\s*/i, '')}</span>
                           </div>
                           {fm.based_in_city && (
                             <div>
-                              <span className="text-gray-400">Sede Operativa:</span>{' '}
+                              <span className="text-gray-400">{t("Sede Operativa:")}</span>{' '}
                               <span className="text-white">{fm.based_in_city}, {fm.based_in_country || 'Panamá'}</span>
                             </div>
                           )}
                           {fm.incoterm && (
                             <div>
-                              <span className="text-gray-400">Incoterm:</span>{' '}
+                              <span className="text-gray-400">{t("Incoterm:")}</span>{' '}
                               <span className="text-amber-300 font-semibold">{fm.incoterm}</span>
                             </div>
                           )}
                           {fm.payment_terms && (
                             <div>
-                              <span className="text-gray-400">Crédito / Pago:</span>{' '}
+                              <span className="text-gray-400">{t("Crédito / Pago:")}</span>{' '}
                               <span className="text-sky-300">{fm.payment_terms}</span>
                             </div>
                           )}
                           {fm.headquarters_address && (
                             <div className="col-span-2">
-                              <span className="text-gray-400">Dirección:</span>{' '}
+                              <span className="text-gray-400">{t("Dirección:")}</span>{' '}
                               <span className="text-gray-300">{fm.headquarters_address}</span>
                             </div>
                           )}
                         </div>
                         <div className="pt-2 border-t border-gray-800 flex flex-wrap items-center justify-between gap-1 text-[11px] font-mono">
-                          <span className="text-gray-400">Canales Directos:</span>
+                          <span className="text-gray-400">{t("Canales Directos:")}</span>
                           <div className="flex items-center gap-2">
                             {fm.phone_main && <span className="text-white">{fm.phone_main}</span>}
                             {fm.email_orders && <a href={`mailto:${fm.email_orders}`} className="text-teal-400 hover:underline">{fm.email_orders}</a>}
@@ -621,7 +623,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                       <div className="bg-gradient-to-br from-teal-950/80 via-gray-900 to-gray-950 border border-teal-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center justify-between text-teal-400 font-bold uppercase tracking-wider text-[10px]">
                           <span className="flex items-center gap-1.5">
-                            <span>Ficha de Mercado Exterior & Operaciones</span>
+                            <span>{t("Ficha de Mercado Exterior & Operaciones")}</span>
                           </span>
                           <span className="px-1.5 py-0.5 text-[9px] bg-teal-950 border border-teal-700 text-teal-300 rounded font-mono font-bold">
                             {fm.region || 'Región Internacional'}
@@ -629,28 +631,28 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
                           <div>
-                            <span className="text-gray-400">País:</span>{' '}
+                            <span className="text-gray-400">{t("País:")}</span>{' '}
                             <span className="text-white font-bold">{fm.country_name || node.title.replace(/^Market:\s*/i, '')}</span>
                           </div>
                           <div>
-                            <span className="text-gray-400">Moneda:</span>{' '}
+                            <span className="text-gray-400">{t("Moneda:")}</span>{' '}
                             <span className="text-emerald-300 font-semibold">{fm.currency || 'USD'}</span>
                           </div>
                           {fm.transit_time_from_trinidad_days && (
                             <div>
-                              <span className="text-gray-400">Tránsito Marítimo:</span>{' '}
+                              <span className="text-gray-400">{t("Tránsito Marítimo:")}</span>{' '}
                               <span className="text-sky-300 font-bold">{fm.transit_time_from_trinidad_days} días desde Trinidad</span>
                             </div>
                           )}
                           {fm.regulatory_authority && (
                             <div className="col-span-2">
-                              <span className="text-gray-400">Autoridad Sanitaria:</span>{' '}
+                              <span className="text-gray-400">{t("Autoridad Sanitaria:")}</span>{' '}
                               <span className="text-amber-300">{fm.regulatory_authority}</span>
                             </div>
                           )}
                           {fm.primary_ports && Array.isArray(fm.primary_ports) && (
                             <div className="col-span-2">
-                              <span className="text-gray-400">Puertos de Arribo:</span>{' '}
+                              <span className="text-gray-400">{t("Puertos de Arribo:")}</span>{' '}
                               <span className="text-white">{fm.primary_ports.join(' · ')}</span>
                             </div>
                           )}
@@ -662,18 +664,18 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                     {node.type === 'core' && (
                       <div className="bg-gradient-to-br from-amber-950/80 via-gray-900 to-gray-950 border border-amber-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center gap-2 text-amber-400 font-bold uppercase tracking-wider text-[10px]">
-                          <span>Ficha Institucional · Casa Matriz SM Jaleel & Co. Ltd.</span>
+                          <span>{t("Ficha Institucional · Casa Matriz SM Jaleel & Co. Ltd.")}</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-                          <div><span className="text-gray-400">Razón Social:</span> <span className="text-white font-medium">S.M. Jaleel & Co. Ltd.</span></div>
-                          <div><span className="text-gray-400">Fundación:</span> <span className="text-amber-300 font-medium">1924 (102 años de historia)</span></div>
-                          <div className="col-span-2"><span className="text-gray-400">Sede Global:</span> <span className="text-white">Otaheite Industrial Estate, South Oropouche, Trinidad & Tobago</span></div>
-                          <div className="col-span-2"><span className="text-gray-400">Giro de Negocio:</span> <span className="text-white">Manufactura, embotellado y exportación de bebidas no alcohólicas</span></div>
-                          <div><span className="text-gray-400">Alcance de Exportación:</span> <span className="text-emerald-400 font-medium">+60 países</span></div>
-                          <div><span className="text-gray-400">Liderazgo Operativo:</span> <span className="text-sky-300 font-medium">Anna Mohammed (COO)</span></div>
+                          <div><span className="text-gray-400">{t("Razón Social:")}</span> <span className="text-white font-medium">S.M. Jaleel & Co. Ltd.</span></div>
+                          <div><span className="text-gray-400">{t("Fundación:")}</span> <span className="text-amber-300 font-medium">1924 (102 años de historia)</span></div>
+                          <div className="col-span-2"><span className="text-gray-400">{t("Sede Global:")}</span> <span className="text-white">Otaheite Industrial Estate, South Oropouche, Trinidad & Tobago</span></div>
+                          <div className="col-span-2"><span className="text-gray-400">{t("Giro de Negocio:")}</span> <span className="text-white">Manufactura, embotellado y exportación de bebidas no alcohólicas</span></div>
+                          <div><span className="text-gray-400">{t("Alcance de Exportación:")}</span> <span className="text-emerald-400 font-medium">+60 países</span></div>
+                          <div><span className="text-gray-400">{t("Liderazgo Operativo:")}</span> <span className="text-sky-300 font-medium">Anna Mohammed (COO)</span></div>
                         </div>
                         <div className="pt-2 border-t border-gray-800 text-[11px]">
-                          <span className="text-gray-400 font-mono">Portafolio Clave:</span>{' '}
+                          <span className="text-gray-400 font-mono">{t("Portafolio Clave:")}</span>{' '}
                           <span className="text-amber-200 font-semibold">Chubby · Busta · Fruta · Oasis · Altitude</span>
                         </div>
                       </div>
@@ -682,23 +684,23 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                     {node.type === 'organization' && (
                       <div className="bg-gradient-to-br from-emerald-950/80 via-gray-900 to-gray-950 border border-emerald-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center gap-2 text-emerald-400 font-bold uppercase tracking-wider text-[10px]">
-                          <span>Ficha Institucional · Filial Corporativa Internacional</span>
+                          <span>{t("Ficha Institucional · Filial Corporativa Internacional")}</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
                           <div className="col-span-2">
-                            <span className="text-gray-400">Razón Social:</span> <span className="text-white font-bold">{node.title}</span>
+                            <span className="text-gray-400">{t("Razón Social:")}</span> <span className="text-white font-bold">{node.title}</span>
                           </div>
                           <div>
-                            <span className="text-gray-400">Entidad:</span> <span className="text-emerald-300 font-medium">Filial Directa SMJ</span>
+                            <span className="text-gray-400">{t("Entidad:")}</span> <span className="text-emerald-300 font-medium">Filial Directa SMJ</span>
                           </div>
                           <div>
-                            <span className="text-gray-400">Estatus:</span> <span className="text-sky-300">Activo / Operacional</span>
+                            <span className="text-gray-400">{t("Estatus:")}</span> <span className="text-sky-300">Activo / Operacional</span>
                           </div>
                           {fm.country && (
-                            <div><span className="text-gray-400">País Sede:</span> <span className="text-white">{fm.country}</span></div>
+                            <div><span className="text-gray-400">{t("País Sede:")}</span> <span className="text-white">{fm.country}</span></div>
                           )}
                           <div className="col-span-2 pt-1 border-t border-gray-800 flex items-center justify-between">
-                            <span className="text-gray-400">Casa Matriz:</span>
+                            <span className="text-gray-400">{t("Casa Matriz:")}</span>
                             <span className="text-amber-400 font-medium">S.M. Jaleel & Co. Ltd. (Trinidad)</span>
                           </div>
                         </div>
@@ -740,19 +742,19 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
                               {fm.job_title && (
-                                <div className="col-span-2"><span className="text-gray-400">Cargo Oficial:</span> <span className="text-sky-300 font-bold">{fm.job_title}</span></div>
+                                <div className="col-span-2"><span className="text-gray-400">{t("Cargo Oficial:")}</span> <span className="text-sky-300 font-bold">{fm.job_title}</span></div>
                               )}
                               {fm.reports_to && (
-                                <div className="col-span-2"><span className="text-gray-400">Reporta a:</span> <span className="text-white font-medium">{fm.reports_to}</span></div>
+                                <div className="col-span-2"><span className="text-gray-400">{t("Reporta a:")}</span> <span className="text-white font-medium">{fm.reports_to}</span></div>
                               )}
                               {fm.based_in_city && (
-                                <div><span className="text-gray-400">Ubicación:</span> <span className="text-white">{fm.based_in_city}</span></div>
+                                <div><span className="text-gray-400">{t("Ubicación:")}</span> <span className="text-white">{fm.based_in_city}</span></div>
                               )}
                               {fm.timezone && (
-                                <div><span className="text-gray-400">Zona Horaria:</span> <span className="text-white">{fm.timezone}</span></div>
+                                <div><span className="text-gray-400">{t("Zona Horaria:")}</span> <span className="text-white">{fm.timezone}</span></div>
                               )}
                               {fm.email_primary && (
-                                <div className="col-span-2"><span className="text-gray-400">Email Directo:</span> <span className="text-sky-300 select-all">{fm.email_primary}</span></div>
+                                <div className="col-span-2"><span className="text-gray-400">{t("Email Directo:")}</span> <span className="text-sky-300 select-all">{fm.email_primary}</span></div>
                               )}
                             </div>
                           </div>
@@ -848,17 +850,17 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                         <div className="space-y-3 mb-3">
                           <div className="bg-gradient-to-br from-blue-950/80 via-gray-900 to-gray-950 border border-blue-500/50 rounded-xl p-3.5 text-xs space-y-2.5 shadow-lg">
                             <div className="flex items-center gap-2 text-sky-400 font-bold uppercase tracking-wider text-[10px]">
-                              <span>Ficha Departamental Corporativa</span>
+                              <span>{t("Ficha Departamental Corporativa")}</span>
                             </div>
                             <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
                               {fm.head_of_department && (
-                                <div className="col-span-2"><span className="text-gray-400">Líder / Responsable:</span> <span className="text-sky-300 font-bold">{fm.head_of_department}</span></div>
+                                <div className="col-span-2"><span className="text-gray-400">{t("Líder / Responsable:")}</span> <span className="text-sky-300 font-bold">{fm.head_of_department}</span></div>
                               )}
                               {fm.mandate && (
-                                <div className="col-span-2"><span className="text-gray-400">Mandato:</span> <span className="text-white">{fm.mandate}</span></div>
+                                <div className="col-span-2"><span className="text-gray-400">{t("Mandato:")}</span> <span className="text-white">{fm.mandate}</span></div>
                               )}
                               {fm.reports_to && (
-                                <div className="col-span-2"><span className="text-gray-400">Reporta a:</span> <span className="text-gray-300">{fm.reports_to}</span></div>
+                                <div className="col-span-2"><span className="text-gray-400">{t("Reporta a:")}</span> <span className="text-gray-300">{fm.reports_to}</span></div>
                               )}
                             </div>
                           </div>
@@ -883,7 +885,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                                   <div>
                                     <div className="text-[10px] font-mono uppercase text-sky-400 font-bold mb-1.5 flex items-center justify-between">
                                       <span>Jefatura & Liderazgo ({deptLeaders.length})</span>
-                                      <span className="text-[9px] text-gray-500">Clic para abrir</span>
+                                      <span className="text-[9px] text-gray-500">{t("Clic para abrir")}</span>
                                     </div>
                                     <div className="space-y-1">
                                       {deptLeaders.map((p: any) => (
@@ -904,7 +906,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                                   <div>
                                     <div className="text-[10px] font-mono uppercase text-gray-400 font-bold mb-1.5 flex items-center justify-between">
                                       <span>Colaboradores & Especialistas ({deptStaff.length})</span>
-                                      <span className="text-[9px] text-gray-500">Clic para abrir</span>
+                                      <span className="text-[9px] text-gray-500">{t("Clic para abrir")}</span>
                                     </div>
                                     <div className="grid grid-cols-1 gap-1 max-h-48 overflow-y-auto pr-1">
                                       {deptStaff.map((p: any) => (
@@ -925,7 +927,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                                   onClick={() => handleSetOrgScope(deptKey as any)}
                                   className="w-full py-1.5 px-3 bg-sky-900/60 hover:bg-sky-800 border border-sky-600 rounded text-sky-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
                                 >
-                                  <span>Desplegar Equipo en el Lienzo</span>
+                                  <span>{t("Desplegar Equipo en el Lienzo")}</span>
                                 </button>
                               </div>
                             )}
@@ -937,20 +939,20 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                     {node.type === 'customer' && (
                       <div className="bg-gradient-to-br from-cyan-950/80 via-gray-900 to-gray-950 border border-cyan-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center gap-2 text-cyan-400 font-bold uppercase tracking-wider text-[10px]">
-                          <span>Ficha de Cliente Clave / Gran Cuenta</span>
+                          <span>{t("Ficha de Cliente Clave / Gran Cuenta")}</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
                           {fm.channel && (
-                            <div><span className="text-gray-400">Canal:</span> <span className="text-white font-medium">{fm.channel}</span></div>
+                            <div><span className="text-gray-400">{t("Canal:")}</span> <span className="text-white font-medium">{fm.channel}</span></div>
                           )}
                           {fm.primary_market && (
-                            <div><span className="text-gray-400">Mercado:</span> <span className="text-white font-medium">{fm.primary_market}</span></div>
+                            <div><span className="text-gray-400">{t("Mercado:")}</span> <span className="text-white font-medium">{fm.primary_market}</span></div>
                           )}
                           {fm.payment_terms && (
-                            <div><span className="text-gray-400">Términos Pago:</span> <span className="text-amber-300">{fm.payment_terms}</span></div>
+                            <div><span className="text-gray-400">{t("Términos Pago:")}</span> <span className="text-amber-300">{fm.payment_terms}</span></div>
                           )}
                           {fm.edi_system && (
-                            <div><span className="text-gray-400">Sistema EDI:</span> <span className="text-sky-300">{fm.edi_system}</span></div>
+                            <div><span className="text-gray-400">{t("Sistema EDI:")}</span> <span className="text-sky-300">{fm.edi_system}</span></div>
                           )}
                         </div>
                       </div>
@@ -969,7 +971,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                         <div className="space-y-3 mb-3">
                           {/* Quick Master Brands Switcher Bar */}
                           <div className="flex items-center gap-1.5 p-1.5 bg-gray-950/90 border border-gray-800 rounded-lg overflow-x-auto">
-                            <span className="text-[10px] text-gray-500 font-mono pl-1 shrink-0">Marcas:</span>
+                            <span className="text-[10px] text-gray-500 font-mono pl-1 shrink-0">{t("Marcas:")}</span>
                             {allCatalogNodes.filter((n: any) => n.type === 'brand').map((b: any) => (
                               <button
                                 key={b.id}
@@ -990,7 +992,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
 
                           <div className="bg-gradient-to-br from-orange-950/80 via-gray-900 to-gray-950 border border-orange-500/50 rounded-xl p-3.5 text-xs space-y-2.5 shadow-lg">
                             <div className="flex items-center gap-2 text-orange-400 font-bold uppercase tracking-wider text-[10px]">
-                              <span>Ficha de Portafolio de Marca & Producción</span>
+                              <span>{t("Ficha de Portafolio de Marca & Producción")}</span>
                             </div>
                             {fm.tagline && (
                               <div className="text-xs text-amber-200 italic font-medium pb-1 border-b border-gray-800">
@@ -998,19 +1000,19 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                               </div>
                             )}
                             <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-                              <div><span className="text-gray-400">Planta de Origen:</span> <span className="text-white font-medium">{fm.manufacturing_plant ? String(fm.manufacturing_plant).replace(/[[\]]/g, '') : 'Por confirmar'}</span></div>
-                              <div><span className="text-gray-400">Categoría:</span> <span className="text-white font-medium">{fm.category || 'Bebidas SMJ'}</span></div>
+                              <div><span className="text-gray-400">{t("Planta de Origen:")}</span> <span className="text-white font-medium">{fm.manufacturing_plant ? String(fm.manufacturing_plant).replace(/[[\]]/g, '') : 'Por confirmar'}</span></div>
+                              <div><span className="text-gray-400">{t("Categoría:")}</span> <span className="text-white font-medium">{fm.category || 'Bebidas SMJ'}</span></div>
                               {fm.shelf_life_months && (
-                                <div><span className="text-gray-400">Vida Útil:</span> <span className="text-emerald-400 font-medium">{fm.shelf_life_months} meses</span></div>
+                                <div><span className="text-gray-400">{t("Vida Útil:")}</span> <span className="text-emerald-400 font-medium">{fm.shelf_life_months} meses</span></div>
                               )}
                               {fm.units_per_case && (
-                                <div><span className="text-gray-400">Unidades/Caja:</span> <span className="text-sky-300 font-medium">{formatDisplayValue(fm.units_per_case)}</span></div>
+                                <div><span className="text-gray-400">{t("Unidades/Caja:")}</span> <span className="text-sky-300 font-medium">{formatDisplayValue(fm.units_per_case)}</span></div>
                               )}
                               {fm.cases_per_20ft_container && (
-                                <div><span className="text-gray-400">Contenedor 20ft:</span> <span className="text-amber-300 font-medium">{formatDisplayValue(fm.cases_per_20ft_container)} cajas</span></div>
+                                <div><span className="text-gray-400">{t("Contenedor 20ft:")}</span> <span className="text-amber-300 font-medium">{formatDisplayValue(fm.cases_per_20ft_container)} cajas</span></div>
                               )}
                               {fm.cases_per_40ft_container && (
-                                <div><span className="text-gray-400">Contenedor 40ft:</span> <span className="text-amber-300 font-medium">{formatDisplayValue(fm.cases_per_40ft_container)} cajas</span></div>
+                                <div><span className="text-gray-400">{t("Contenedor 40ft:")}</span> <span className="text-amber-300 font-medium">{formatDisplayValue(fm.cases_per_40ft_container)} cajas</span></div>
                               )}
                             </div>
                           </div>
@@ -1035,7 +1037,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                                   <div>
                                     <div className="text-[10px] font-mono uppercase text-gray-400 font-bold mb-1.5 flex items-center justify-between">
                                       <span>Multipacks & Empaques ({packNodes.length})</span>
-                                      <span className="text-[9px] text-gray-500">Clic para abrir</span>
+                                      <span className="text-[9px] text-gray-500">{t("Clic para abrir")}</span>
                                     </div>
                                     <div className="grid grid-cols-1 gap-1 max-h-40 overflow-y-auto pr-1">
                                       {packNodes.map((p: any) => (
@@ -1056,7 +1058,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                                   <div>
                                     <div className="text-[10px] font-mono uppercase text-gray-400 font-bold mb-1.5 flex items-center justify-between">
                                       <span>Variantes & Presentaciones ({variantNodes.length} SKUs)</span>
-                                      <span className="text-[9px] text-gray-500">Clic para abrir</span>
+                                      <span className="text-[9px] text-gray-500">{t("Clic para abrir")}</span>
                                     </div>
                                     <div className="grid grid-cols-1 gap-1 max-h-48 overflow-y-auto pr-1">
                                       {variantNodes.map((v: any) => (
@@ -1093,7 +1095,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                                 )}
 
                                 <div className="pt-2 border-t border-gray-800 flex items-center justify-between">
-                                  <span className="text-[10px] text-gray-400 font-mono">Control en Mapa:</span>
+                                  <span className="text-[10px] text-gray-400 font-mono">{t("Control en Mapa:")}</span>
                                   <button
                                     onClick={() => handleSetCatalogScope(catalogScope === brandKey ? 'collapsed' : brandKey as any)}
                                     className="text-xs px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded shadow transition flex items-center gap-1"
@@ -1111,15 +1113,15 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                     {node.type === 'packaging' && (
                       <div className="bg-gradient-to-br from-amber-950/80 via-gray-900 to-gray-950 border border-amber-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center gap-2 text-amber-400 font-bold uppercase tracking-wider text-[10px]">
-                          <span>Ficha de Formato de Empaque & Multi-Pack</span>
+                          <span>{t("Ficha de Formato de Empaque & Multi-Pack")}</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-                          <div className="col-span-2"><span className="text-gray-400">Descripción:</span> <span className="text-white font-bold">{node.title}</span></div>
-                          <div><span className="text-gray-400">Tipo de Envase:</span> <span className="text-amber-300">{packagingDescription(fm).container}</span></div>
-                          <div><span className="text-gray-400">Configuración:</span> <span className="text-emerald-400">{packagingDescription(fm).configuration}</span></div>
-                          <div><span className="text-gray-400">Contenido por unidad:</span> <span className="text-white">{packagingDescription(fm).size}</span></div>
-                          <div className="col-span-2"><span className="text-gray-400">Fuente:</span> <span className="text-gray-300">{fm.source || 'Por documentar'}</span></div>
-                          {fm.visual_photo_scope === 'linked_unit_reference_not_case_photo' && <p className="col-span-2 text-gray-300">Imagen de la unidad de referencia; la caja no está fotografiada.</p>}
+                          <div className="col-span-2"><span className="text-gray-400">{t("Descripción:")}</span> <span className="text-white font-bold">{node.title}</span></div>
+                          <div><span className="text-gray-400">{t("Tipo de Envase:")}</span> <span className="text-amber-300">{packagingDescription(fm).container}</span></div>
+                          <div><span className="text-gray-400">{t("Configuración:")}</span> <span className="text-emerald-400">{packagingDescription(fm).configuration}</span></div>
+                          <div><span className="text-gray-400">{t("Contenido por unidad:")}</span> <span className="text-white">{packagingDescription(fm).size}</span></div>
+                          <div className="col-span-2"><span className="text-gray-400">{t("Fuente:")}</span> <span className="text-gray-300">{fm.source || 'Por documentar'}</span></div>
+                          {fm.visual_photo_scope === 'linked_unit_reference_not_case_photo' && <p className="col-span-2 text-gray-300">{t("Imagen de la unidad de referencia; la caja no está fotografiada.")}</p>}
                         </div>
                       </div>
                     )}
@@ -1127,13 +1129,13 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                     {node.type === 'product_variant' && (
                       <div className="bg-gradient-to-br from-sky-950/80 via-gray-900 to-gray-950 border border-sky-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center gap-2 text-sky-400 font-bold uppercase tracking-wider text-[10px]">
-                          <span>Ficha de SKU & Presentación Comercial</span>
+                          <span>{t("Ficha de SKU & Presentación Comercial")}</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-                          <div className="col-span-2"><span className="text-gray-400">Código en la fuente:</span> <span className="text-white font-bold">{fm.sku_raw || fm.source_item_code || 'No publicado'}</span></div>
-                          <div><span className="text-gray-400">Presentación:</span> <span className="text-sky-300">{fm.size_raw || 'Por documentar'}</span></div>
-                          <div><span className="text-gray-400">Unidades/Caja:</span> <span className="text-amber-300">{fm.units_per_case_raw || 'Por documentar'}</span></div>
-                          <div className="col-span-2"><span className="text-gray-400">Fuente:</span> <span className="text-gray-300">{fm.source || 'Por documentar'}</span></div>
+                          <div className="col-span-2"><span className="text-gray-400">{t("Código en la fuente:")}</span> <span className="text-white font-bold">{fm.sku_raw || fm.source_item_code || 'No publicado'}</span></div>
+                          <div><span className="text-gray-400">{t("Presentación:")}</span> <span className="text-sky-300">{fm.size_raw || 'Por documentar'}</span></div>
+                          <div><span className="text-gray-400">{t("Unidades/Caja:")}</span> <span className="text-amber-300">{fm.units_per_case_raw || 'Por documentar'}</span></div>
+                          <div className="col-span-2"><span className="text-gray-400">{t("Fuente:")}</span> <span className="text-gray-300">{fm.source || 'Por documentar'}</span></div>
                         </div>
                       </div>
                     )}
@@ -1141,12 +1143,12 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                     {node.type === 'flavor' && (
                       <div className="bg-gradient-to-br from-emerald-950/80 via-gray-900 to-gray-950 border border-emerald-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center gap-2 text-emerald-400 font-bold uppercase tracking-wider text-[10px]">
-                          <span>Ficha de Formulación de Sabor SMJ</span>
+                          <span>{t("Ficha de Formulación de Sabor SMJ")}</span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-                          <div className="col-span-2"><span className="text-gray-400">Sabor Registrado:</span> <span className="text-emerald-300 font-bold">{node.title}</span></div>
-                          <div><span className="text-gray-400">Laboratorio:</span> <span className="text-white">I+D Trinidad</span></div>
-                          <div><span className="text-gray-400">Estado:</span> <span className="text-emerald-400">Fórmula Activa</span></div>
+                          <div className="col-span-2"><span className="text-gray-400">{t("Sabor Registrado:")}</span> <span className="text-emerald-300 font-bold">{node.title}</span></div>
+                          <div><span className="text-gray-400">{t("Laboratorio:")}</span> <span className="text-white">I+D Trinidad</span></div>
+                          <div><span className="text-gray-400">{t("Estado:")}</span> <span className="text-emerald-400">Fórmula Activa</span></div>
                         </div>
                       </div>
                     )}
@@ -1154,11 +1156,11 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                     {(node.type === 'routine' || node.type === 'working_memory') && (
                       <div className="bg-gradient-to-br from-amber-950/80 via-gray-900 to-gray-950 border border-amber-500/50 rounded-xl p-3.5 mb-3 text-xs space-y-2.5 shadow-lg">
                         <div className="flex items-center gap-2 text-amber-400 font-bold uppercase tracking-wider text-[10px]">
-                          <span>Memoria Operativa S&OP & Cadencia de Negocio</span>
+                          <span>{t("Memoria Operativa S&OP & Cadencia de Negocio")}</span>
                         </div>
                         <div className="text-[11px] font-mono space-y-1">
-                          {fm.frequency && <div><span className="text-gray-400">Cadencia:</span> <span className="text-white">{fm.frequency}</span></div>}
-                          {fm.priority && <div><span className="text-gray-400">Prioridad:</span> <span className="text-amber-300 uppercase font-bold">{fm.priority}</span></div>}
+                          {fm.frequency && <div><span className="text-gray-400">{t("Cadencia:")}</span> <span className="text-white">{fm.frequency}</span></div>}
+                          {fm.priority && <div><span className="text-gray-400">{t("Prioridad:")}</span> <span className="text-amber-300 uppercase font-bold">{fm.priority}</span></div>}
                         </div>
                       </div>
                     )}
@@ -1166,28 +1168,28 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                     {/* General Metadata Grid (Para entidades sin ficha especializada) */}
                     {node.type !== 'distributor' && node.type !== 'market' && node.type !== 'core' && (
                       <div className="grid grid-cols-2 gap-2 text-xs mb-3 font-mono bg-gray-950/70 p-3 rounded-lg border border-gray-800">
-                        {fm.country_name && <div><span className="text-gray-500">País:</span> {formatDisplayValue(fm.country_name)}</div>}
-                        {fm.based_in_city && <div><span className="text-gray-500">Ciudad:</span> {formatDisplayValue(fm.based_in_city)}</div>}
-                        {fm.timezone && <div><span className="text-gray-500">Zona H.:</span> {formatDisplayValue(fm.timezone)}</div>}
-                        {fm.gender && <div><span className="text-gray-500">Género:</span> {formatDisplayValue(fm.gender)}</div>}
-                        {fm.incoterm && <div><span className="text-gray-500">Incoterm:</span> {formatDisplayValue(fm.incoterm)}</div>}
+                        {fm.country_name && <div><span className="text-gray-500">{t("País:")}</span> {formatDisplayValue(fm.country_name)}</div>}
+                        {fm.based_in_city && <div><span className="text-gray-500">{t("Ciudad:")}</span> {formatDisplayValue(fm.based_in_city)}</div>}
+                        {fm.timezone && <div><span className="text-gray-500">{t("Zona H.:")}</span> {formatDisplayValue(fm.timezone)}</div>}
+                        {fm.gender && <div><span className="text-gray-500">{t("Género:")}</span> {formatDisplayValue(fm.gender)}</div>}
+                        {fm.incoterm && <div><span className="text-gray-500">{t("Incoterm:")}</span> {formatDisplayValue(fm.incoterm)}</div>}
                         {fm.transit_time_from_trinidad_days && (
-                          <div><span className="text-gray-500">Tránsito TT:</span> {formatDisplayValue(fm.transit_time_from_trinidad_days)} días</div>
+                          <div><span className="text-gray-500">{t("Tránsito TT:")}</span> {formatDisplayValue(fm.transit_time_from_trinidad_days)} días</div>
                         )}
                         {fm.payment_terms && (
-                          <div><span className="text-gray-500">Pago/Crédito:</span> {formatDisplayValue(fm.payment_terms)}</div>
+                          <div><span className="text-gray-500">{t("Pago/Crédito:")}</span> {formatDisplayValue(fm.payment_terms)}</div>
                         )}
                         {fm.currency && (
-                          <div><span className="text-gray-500">Moneda:</span> {formatDisplayValue(fm.currency)}</div>
+                          <div><span className="text-gray-500">{t("Moneda:")}</span> {formatDisplayValue(fm.currency)}</div>
                         )}
                         {fm.annual_target_cases && (
                           <div className="col-span-2 text-sky-400">
-                            <span className="text-gray-500">Meta Anual:</span> {formatDisplayValue(fm.annual_target_cases)} cajas
+                            <span className="text-gray-500">{t("Meta Anual:")}</span> {formatDisplayValue(fm.annual_target_cases)} cajas
                           </div>
                         )}
                         {fm.primary_ports && (
                           <div className="col-span-2 text-gray-300">
-                            <span className="text-gray-500">Puertos:</span> {Array.isArray(fm.primary_ports) ? fm.primary_ports.join(' · ') : formatDisplayValue(fm.primary_ports)}
+                            <span className="text-gray-500">{t("Puertos:")}</span> {Array.isArray(fm.primary_ports) ? fm.primary_ports.join(' · ') : formatDisplayValue(fm.primary_ports)}
                           </div>
                         )}
                       </div>
@@ -1197,7 +1199,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                     {node.completeness_score !== undefined && (
                       <div className="mb-3">
                         <div className="flex justify-between text-[10px] text-gray-400 font-mono mb-1">
-                          <span>Nivel de Enriquecimiento</span>
+                          <span>{t("Nivel de Enriquecimiento")}</span>
                           <span>{node.completeness_score}%</span>
                         </div>
                         <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
@@ -1226,7 +1228,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                         }}
                         className="px-2.5 py-1 bg-sky-700 hover:bg-sky-600 text-white rounded text-[11px] font-semibold transition"
                       >
-                        Completar con Dots
+                        {t("Completar con Dots")}
                       </button>
                     </div>
 
@@ -1234,7 +1236,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                     {node.links.length > 0 && (
                       <div className="pt-2 border-t border-gray-800">
                         <div className="text-[10px] uppercase font-bold text-gray-400 mb-1.5">
-                          Sinapsis Directas (Clic para Multi-Abrir):
+                          {t("Sinapsis Directas (Clic para Multi-Abrir):")}
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           {node.links.map((linkName: any, i: number) => (
@@ -1261,10 +1263,10 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
               <button
                 onClick={() => setStackedDeck([])}
                 className="w-full py-3 bg-gray-800 hover:bg-red-950 active:scale-95 text-white rounded-xl text-xs font-bold border border-gray-700 hover:border-red-700 shadow flex items-center justify-center gap-2 min-h-[44px] transition"
-                aria-label="Cerrar ficha ejecutiva"
+                aria-label={t("Cerrar ficha ejecutiva")}
               >
                 <span>✕</span>
-                <span>Cerrar Ficha Ejecutiva</span>
+                <span>{t("Cerrar Ficha Ejecutiva")}</span>
               </button>
             </div>
           </aside>

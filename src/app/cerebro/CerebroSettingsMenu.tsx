@@ -1,11 +1,13 @@
 'use client';
 
+import { useLang } from './i18n';
 import type { SettingsMenuProps } from './props';
 
 import { TYPE_CONFIG } from './layoutTargets';
 
 // Extraído de page.tsx sin cambios de comportamiento.
 export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravityActive, handleCenterAndFit, handleConsolidate, handleSetCatalogScope, handleSetOrgScope, handleSetViewMode, handleUnpinAll, isHudOpen, isSettingsMenuOpen, isSubmitting, nodesRef, orgScope, pinnedCount, pushToStackedDeck, setGravityActive, setIsHudOpen, setIsSettingsMenuOpen, viewMode }: SettingsMenuProps) {
+  const { t, lang, setLang } = useLang();
   return (
     <>
       {isSettingsMenuOpen && (
@@ -17,7 +19,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
           <div className="fixed sm:absolute inset-x-0 sm:inset-x-auto sm:right-4 top-12 z-50 w-full sm:w-96 max-h-[calc(100vh-60px)] overflow-y-auto bg-gray-950/98 border border-sky-500/70 sm:rounded-2xl shadow-2xl p-4 space-y-4 backdrop-blur-xl animate-in slide-in-from-top-2 duration-150 text-xs">
             <div className="flex items-center justify-between pb-2 border-b border-gray-800">
               <span className="font-bold text-white flex items-center gap-2 text-sm">
-                Ajustes & Control Cerebro
+                {t("Ajustes & Control Cerebro")}
               </span>
               <button
                 onClick={() => setIsSettingsMenuOpen(false)}
@@ -29,7 +31,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
 
             {/* Quick Node Selector */}
             <div>
-              <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">Ir a Ficha / Entidad:</label>
+              <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">{t("Ir a Ficha / Entidad:")}</label>
               <select
                 defaultValue=""
                 onChange={e => {
@@ -45,7 +47,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                 }}
                 className="w-full bg-gray-900 text-sky-300 border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:border-sky-400 font-medium"
               >
-                <option value="">Seleccionar Entidad por Nombre...</option>
+                <option value="">{t("Seleccionar Entidad por Nombre...")}</option>
                 {(() => {
                   const fullCatalog = (graphData as any)?.allNodes || graphData?.nodes || nodesRef.current || [];
                   return (
@@ -83,7 +85,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
 
             {/* View Mode Selector */}
             <div>
-              <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">Modo de Perspectiva:</label>
+              <label className="text-[10px] uppercase font-mono text-gray-400 block mb-1">{t("Modo de Perspectiva:")}</label>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-1 bg-gray-900 p-1 rounded-lg border border-gray-800">
                 <button
                   onClick={() => handleSetViewMode('brujula')}
@@ -91,7 +93,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                     viewMode === 'brujula' ? 'bg-sky-600 text-white font-semibold shadow' : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  [BR] Brújula
+                  {t("[BR] Brújula")}
                 </button>
                 <button
                   onClick={() => handleSetViewMode('version-1-ajustada')}
@@ -99,7 +101,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                     viewMode === 'version-1-ajustada' ? 'bg-sky-600 text-white font-semibold shadow' : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  [V1] V1 Ajustada
+                  {t("[V1] V1 Ajustada")}
                 </button>
                 <button
                   onClick={() => handleSetViewMode('constellations')}
@@ -107,7 +109,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                     viewMode === 'constellations' ? 'bg-emerald-600 text-white font-semibold shadow' : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  Constelaciones
+                  {t("Constelaciones")}
                 </button>
                 <button
                   onClick={() => handleSetViewMode('organigram')}
@@ -115,7 +117,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                     viewMode === 'organigram' ? 'bg-purple-600 text-white font-semibold shadow' : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  Organigrama
+                  {t("Organigrama")}
                 </button>
               </div>
             </div>
@@ -123,7 +125,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
             {/* Catálogo de Marcas & SKUs */}
             <div className="space-y-1.5 pt-1 border-t border-gray-800">
               <label className="text-[10px] uppercase font-mono text-gray-400 flex items-center justify-between">
-                <span>Catálogo de SKUs & Multipacks:</span>
+                <span>{t("Catálogo de SKUs & Multipacks:")}</span>
                 <span className="text-amber-400 font-mono text-[9px]">
                   {catalogScope === 'collapsed' ? 'Plegado (80 Nodos)' : catalogScope === 'all' ? 'Todos (379 Nodos)' : `${catalogScope.toUpperCase()} Activo`}
                 </span>
@@ -135,7 +137,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                     catalogScope === 'collapsed' ? 'bg-amber-950/80 border-amber-500 text-amber-200 font-bold' : 'bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-800'
                   }`}
                 >
-                  <span>Plegar Todo</span>
+                  <span>{t("Plegar Todo")}</span>
                   <span className="text-[9px] text-gray-400">80 N</span>
                 </button>
                 <button
@@ -144,7 +146,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                     catalogScope === 'all' ? 'bg-amber-950/80 border-amber-500 text-amber-200 font-bold' : 'bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-800'
                   }`}
                 >
-                  <span>Desplegar Todo</span>
+                  <span>{t("Desplegar Todo")}</span>
                   <span className="text-[9px] text-gray-400">379 N</span>
                 </button>
               </div>
@@ -166,7 +168,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
             {/* Estructura & Personal */}
             <div className="space-y-1.5 pt-1 border-t border-gray-800">
               <label className="text-[10px] uppercase font-mono text-gray-400 flex items-center justify-between">
-                <span>Estructura y Personal:</span>
+                <span>{t("Estructura y Personal:")}</span>
                 <span className="text-purple-400 font-mono text-[9px]">
                   {orgScope === 'collapsed' ? 'Plegado (12 Nodos)' : orgScope === 'all' ? 'Todos (54 Personas)' : `${orgScope} Activo`}
                 </span>
@@ -178,7 +180,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                     orgScope === 'collapsed' ? 'bg-purple-950/80 border-purple-500 text-purple-200 font-bold' : 'bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-800'
                   }`}
                 >
-                  <span>Plegar Todo</span>
+                  <span>{t("Plegar Todo")}</span>
                   <span className="text-[9px] text-gray-400">12 L</span>
                 </button>
                 <button
@@ -187,7 +189,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                     orgScope === 'all' ? 'bg-purple-950/80 border-purple-500 text-purple-200 font-bold' : 'bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-800'
                   }`}
                 >
-                  <span>Desplegar Todo</span>
+                  <span>{t("Desplegar Todo")}</span>
                   <span className="text-[9px] text-gray-400">54 P</span>
                 </button>
               </div>
@@ -195,7 +197,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
 
             {/* Control de Física, Gravedad y Pines */}
             <div className="space-y-2 pt-1 border-t border-gray-800">
-              <label className="text-[10px] uppercase font-mono text-gray-400 block">Física & Control de Nodos:</label>
+              <label className="text-[10px] uppercase font-mono text-gray-400 block">{t("Física & Control de Nodos:")}</label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setGravityActive(!gravityActive)}
@@ -203,7 +205,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                     gravityActive ? 'bg-sky-950/80 border-sky-600 text-sky-300' : 'bg-gray-900 border-gray-800 text-gray-400'
                   }`}
                 >
-                  <span>{gravityActive ? 'Gravedad: Activa' : 'Gravedad: Pausada'}</span>
+                  <span>{gravityActive ? t("Gravedad: Activa") : t("Gravedad: Pausada")}</span>
                 </button>
 
                 <button
@@ -211,7 +213,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                   disabled={isSubmitting}
                   className="px-2.5 py-2 rounded-lg border border-amber-600/70 bg-gradient-to-r from-amber-900/60 to-amber-800/60 hover:from-amber-800 hover:to-amber-700 text-amber-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition disabled:opacity-50"
                 >
-                  <span>Consolidar Nodos</span>
+                  <span>{t("Consolidar Nodos")}</span>
                 </button>
               </div>
 
@@ -229,7 +231,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
 
             {/* HUD & Visual Tools */}
             <div className="space-y-2 pt-1 border-t border-gray-800">
-              <label className="text-[10px] uppercase font-mono text-gray-400 block">Visualización & Herramientas:</label>
+              <label className="text-[10px] uppercase font-mono text-gray-400 block">{t("Visualización & Herramientas:")}</label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setIsHudOpen(!isHudOpen)}
@@ -237,15 +239,34 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                     isHudOpen ? 'bg-indigo-950/80 border-indigo-500 text-indigo-300' : 'bg-gray-900 border-gray-800 text-gray-400'
                   }`}
                 >
-                  <span>{isHudOpen ? 'Ocultar HUD' : 'Mostrar HUD'}</span>
+                  <span>{isHudOpen ? t("Ocultar HUD") : t("Mostrar HUD")}</span>
                 </button>
 
                 <button
                   onClick={fetchGraph}
                   className="py-1.5 px-2.5 rounded-lg border border-gray-700 bg-gray-900 hover:bg-gray-800 text-gray-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
                 >
-                  <span>Sincronizar Vault</span>
+                  <span>{t("Sincronizar Vault")}</span>
                 </button>
+              </div>
+            </div>
+
+            {/* Idioma de la interfaz */}
+            <div className="space-y-2 pt-1 border-t border-gray-800">
+              <label className="text-[10px] uppercase font-mono text-gray-400 block">Idioma / Language:</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['es', 'en'] as const).map((code) => (
+                  <button
+                    key={code}
+                    onClick={() => setLang(code)}
+                    aria-pressed={lang === code}
+                    className={`py-1.5 px-2.5 rounded-lg border text-xs font-semibold transition ${
+                      lang === code ? 'bg-indigo-950/80 border-indigo-500 text-indigo-300' : 'bg-gray-900 border-gray-800 text-gray-400 hover:bg-gray-800'
+                    }`}
+                  >
+                    {code === 'es' ? 'Español' : 'English'}
+                  </button>
+                ))}
               </div>
             </div>
           </div>

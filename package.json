@@ -20,6 +20,8 @@
     "test:roadmap": "tsx scripts/testRoadmap.ts",
     "test:vault": "tsx scripts/testVaultSafety.ts",
     "test:collision": "tsx scripts/testCollision.ts",
+    "bench:layout": "tsx scripts/benchCerebroLayout.ts",
+    "test:i18n": "tsx scripts/testCerebroI18n.ts",
     "prebuild": "node scripts/restore-workspace-asset.cjs"
   },
   "dependencies": {
