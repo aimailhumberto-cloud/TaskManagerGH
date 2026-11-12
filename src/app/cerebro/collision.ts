@@ -11,9 +11,11 @@ export interface CollisionNode {
 }
 
 const MARGIN = 24;
-// Medido: hasta ~1.000 nodos comparar todos los pares es igual de rápido (0,5 ms con 584);
-// la rejilla empieza a ganar pasado ese punto (con 5.000 nodos: 33 ms contra 10 ms).
-const GRID_FROM = 1000;
+// Medido en producción con el mapa real desplegado (584 nodos, agrupados en cúmulos densos):
+// comparar todos los pares ≈ 4,6 ms por cuadro; con rejilla ≈ 1,4 ms. Con pocos nodos
+// visibles (mapa recogido, ~100) la diferencia no importa, así que el umbral es bajo.
+// (En una prueba sintética con nodos al azar la rejilla no ganaba hasta ~1.000: la densidad real manda.)
+const GRID_FROM = 300;
 
 function pushPair(n1: CollisionNode, n2: CollisionNode) {
   const r1 = n1.radius || 24;
