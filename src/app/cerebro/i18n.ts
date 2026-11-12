@@ -176,6 +176,8 @@ export const EN: Record<string, string> = {
   'Cerrar ficha ejecutiva': 'Close executive card',
   'Ruta Comercial & Topología (4 Capas)': 'Commercial Route & Topology (4 Layers)',
   '% completitud': '% complete',
+  'Plegado': 'Collapsed',
+  'Todos': 'All',
   // Informe nocturno de DOTS
   'Informe nocturno de DOTS': 'DOTS nightly report',
   'Solo propuestas: DOTS no cambia ninguna nota por sí solo. Tu decisión queda registrada.': 'Proposals only: DOTS does not change any note by itself. Your decision is recorded.',

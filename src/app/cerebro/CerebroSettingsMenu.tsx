@@ -2,6 +2,7 @@
 
 import { useLang } from './i18n';
 import { CerebroSleepPanel } from './CerebroSleepPanel';
+import { countVisibleNodes } from './scopeCounts';
 import type { SettingsMenuProps } from './props';
 
 import { TYPE_CONFIG } from './layoutTargets';
@@ -9,6 +10,11 @@ import { TYPE_CONFIG } from './layoutTargets';
 // Extraído de page.tsx sin cambios de comportamiento.
 export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravityActive, handleCenterAndFit, handleConsolidate, handleSetCatalogScope, handleSetOrgScope, handleSetViewMode, handleUnpinAll, isHudOpen, isSettingsMenuOpen, isSubmitting, nodesRef, orgScope, pinnedCount, pushToStackedDeck, setGravityActive, setIsHudOpen, setIsSettingsMenuOpen, viewMode }: SettingsMenuProps) {
   const { t, lang, setLang } = useLang();
+  const allNodes: any[] = (graphData as any)?.allNodes || graphData?.nodes || [];
+  const nCatCollapsed = countVisibleNodes(allNodes, 'collapsed', orgScope);
+  const nCatAll = countVisibleNodes(allNodes, 'all', orgScope);
+  const nOrgCollapsed = countVisibleNodes(allNodes, catalogScope, 'collapsed');
+  const nOrgAll = countVisibleNodes(allNodes, catalogScope, 'all');
   const focusNodeById = (id: string) => {
     const pool = (graphData as any)?.allNodes || graphData?.nodes || nodesRef.current || [];
     const target = pool.find((n: any) => n.id === id);
@@ -136,7 +142,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
               <label className="text-[10px] uppercase font-mono text-gray-400 flex items-center justify-between">
                 <span>{t("Catálogo de SKUs & Multipacks:")}</span>
                 <span className="text-amber-400 font-mono text-[9px]">
-                  {catalogScope === 'collapsed' ? 'Plegado (80 Nodos)' : catalogScope === 'all' ? 'Todos (379 Nodos)' : `${catalogScope.toUpperCase()} Activo`}
+                  {catalogScope === 'collapsed' ? `${t('Plegado')} (${nCatCollapsed} ${t('Nodos')})` : catalogScope === 'all' ? `${t('Todos')} (${nCatAll} ${t('Nodos')})` : `${catalogScope.toUpperCase()} Activo`}
                 </span>
               </label>
               <div className="grid grid-cols-2 gap-1.5">
@@ -147,7 +153,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                   }`}
                 >
                   <span>{t("Plegar Todo")}</span>
-                  <span className="text-[9px] text-gray-400">80 N</span>
+                  <span className="text-[9px] text-gray-400">{nCatCollapsed} N</span>
                 </button>
                 <button
                   onClick={() => handleSetCatalogScope('all')}
@@ -156,7 +162,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                   }`}
                 >
                   <span>{t("Desplegar Todo")}</span>
-                  <span className="text-[9px] text-gray-400">379 N</span>
+                  <span className="text-[9px] text-gray-400">{nCatAll} N</span>
                 </button>
               </div>
               <div className="flex items-center gap-1 flex-wrap pt-1">
@@ -179,7 +185,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
               <label className="text-[10px] uppercase font-mono text-gray-400 flex items-center justify-between">
                 <span>{t("Estructura y Personal:")}</span>
                 <span className="text-purple-400 font-mono text-[9px]">
-                  {orgScope === 'collapsed' ? 'Plegado (12 Nodos)' : orgScope === 'all' ? 'Todos (54 Personas)' : `${orgScope} Activo`}
+                  {orgScope === 'collapsed' ? `${t('Plegado')} (${nOrgCollapsed} ${t('Nodos')})` : orgScope === 'all' ? `${t('Todos')} (${nOrgAll} ${t('Nodos')})` : `${orgScope} Activo`}
                 </span>
               </label>
               <div className="grid grid-cols-2 gap-1.5">
@@ -190,7 +196,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                   }`}
                 >
                   <span>{t("Plegar Todo")}</span>
-                  <span className="text-[9px] text-gray-400">12 L</span>
+                  <span className="text-[9px] text-gray-400">{nOrgCollapsed} N</span>
                 </button>
                 <button
                   onClick={() => handleSetOrgScope('all')}
@@ -199,7 +205,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                   }`}
                 >
                   <span>{t("Desplegar Todo")}</span>
-                  <span className="text-[9px] text-gray-400">54 P</span>
+                  <span className="text-[9px] text-gray-400">{nOrgAll} N</span>
                 </button>
               </div>
             </div>
