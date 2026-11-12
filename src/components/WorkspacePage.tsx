@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { decryptSession } from '@/lib/session';
+import { getAccount, isLocalId } from '@/lib/localAccounts';
 import { dbService } from '@/services/dbService';
 import WorkspaceHub, { Entry } from './WorkspaceHub';
 import PublicHbWorkspace from './PublicHbWorkspace';
@@ -11,8 +12,11 @@ import {readPublicHbWorkspace} from '@/services/publicHbWorkspace';
 import { workspaceDTO } from '@/lib/publicWorkspace';
 export default async function WorkspacePage({ entry }: { entry: Entry }) {
   const session = decryptSession((await cookies()).get('hermes_session')?.value || '');
-  if (!session) {
-    if (!['home','companies','agenda','search','supervision'].includes(entry)) redirect('/login');
+  // Cuentas propias (creadas en «Usuarios»): ven el espacio de trabajo de HB, ya protegido por el login.
+  const localOk = !!session && isLocalId(session.userId) && !!getAccount(session.userId)?.isActive;
+  if (session && isLocalId(session.userId) && !localOk) redirect('/login?expired=1');
+  if (!session || localOk) {
+    if (!localOk && !['home','companies','agenda','search','supervision'].includes(entry)) redirect('/login');
     try { return <PublicHbWorkspace entry={entry} initial={await readPublicHbWorkspace()} />; }
     catch { return <section className="tm-workspace"><header className="tm-hero"><h1>TaskManager HB</h1><p>Consulta pública · Solo lectura</p></header><section className="tm-pane tm-pane-dark"><h2>Datos no disponibles</h2><p role="alert">El espacio HB requiere verificación del almacenamiento existente. No se inicializó una base vacía ni se importaron datos.</p><Link href="/">Reintentar consulta</Link></section></section>; }
   }
