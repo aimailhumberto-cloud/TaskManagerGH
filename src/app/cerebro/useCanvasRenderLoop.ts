@@ -43,7 +43,16 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
 
     let time = 0;
 
+    // Medición opcional por sección (apagada por defecto): en la consola, window.__cerebroPerf = {}
     const render = () => {
+      const perf = typeof window !== 'undefined' ? (window as any).__cerebroPerf : undefined;
+      let perfT = perf ? performance.now() : 0;
+      const mark = (k: string) => {
+        if (!perf) return;
+        const now = performance.now();
+        perf[k] = (perf[k] || 0) + (now - perfT);
+        perfT = now;
+      };
       time += 0.012;
       const dpr = typeof window !== 'undefined' ? (window.devicePixelRatio || 1) : 1;
       const cssWidth = canvas.width / dpr;
@@ -91,6 +100,7 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
         resolveCollisions(nodes);
       }
 
+      mark('fisica');
       // 2. High-DPI Context Scaling
       ctx.save();
       ctx.scale(dpr, dpr);
@@ -383,6 +393,7 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
         });
       }
 
+      mark('fondo');
       // 5. Draw Synaptic Links with High-Energy Photons
       // Modo Enfoque Dinámico: Si hay una entidad activa (por clic en ficha o hover), NADA MÁS se ven las líneas vivas conectadas a ella!
       const activeEntityId = selectedNodeIdRef.current || (stackedDeck.length > 0 ? stackedDeck[0].id : activeHover?.id);
@@ -458,6 +469,7 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
         }
       }
 
+      mark('enlaces');
       // 6. Draw Celestial Nodes
       for (const n of nodes) {
         // Nodo fuera de la zona visible: no se dibuja (ni se piden sus imágenes).
@@ -654,6 +666,8 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
         ctx.globalAlpha = 1.0;
       }
 
+      mark('nodos');
+      if (perf) perf.frames = (perf.frames || 0) + 1;
       ctx.restore(); // Camera
       ctx.restore(); // High-DPI
 
