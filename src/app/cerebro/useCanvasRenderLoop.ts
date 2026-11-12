@@ -96,8 +96,9 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
           n.y += n.vy;
         }
 
+        mark('resortes');
         // Point 10: separación anti-solapamiento (con rejilla espacial si hay muchos nodos)
-        resolveCollisions(nodes);
+        resolveCollisions(nodes, perf?.gridFrom);
       }
 
       mark('fisica');
