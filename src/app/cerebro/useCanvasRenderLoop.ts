@@ -10,6 +10,7 @@ import { ContactLayer } from '@/components/ContactLayer';
 import { brandCatalogNodes, packagingDescription } from '@/lib/portfolioConnections';
 import { PortfolioConnections } from '@/components/PortfolioConnections';
 import { CommercialConnections } from '@/components/CommercialConnections';
+import { resolveCollisions } from './collision';
 import type { NodeData, LinkData, BrainGraphResponse } from './types';
 import { BRAND_AVATARS, getPhotoUrlWithBust, getNodeCustomPhoto, drawPanamaFlag, drawCanadaFlag, drawUSAFlag, drawBelizeFlag, drawTrinidadFlag, drawSMJCorporateCrest, drawPersonAvatar, drawDistributorBadge, drawOrganizationBadge, drawBrandBadge, drawGlassDomeOverlay, drawAmericasMapBackdrop } from './nodeArt';
 import { formatDisplayValue, renderFormattedBody } from './bodyFormat';
@@ -86,33 +87,8 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
           n.y += n.vy;
         }
 
-        // Point 10: Anti-Overlap Collision Repulsion (Physical safety margins between adjacent nodes)
-        for (let i = 0; i < nodes.length; i++) {
-          const n1 = nodes[i];
-          const r1 = n1.radius || 24;
-          for (let j = i + 1; j < nodes.length; j++) {
-            const n2 = nodes[j];
-            const r2 = n2.radius || 24;
-            const minSpacing = r1 + r2 + 24; // 24px physical separation margin
-            const dx = n2.x - n1.x;
-            const dy = n2.y - n1.y;
-            const distSq = dx * dx + dy * dy;
-            if (distSq < minSpacing * minSpacing && distSq > 0.001) {
-              const dist = Math.sqrt(distSq);
-              const overlap = (minSpacing - dist) * 0.5;
-              const nx = dx / dist;
-              const ny = dy / dist;
-              if (!n1.isPinned && !n1.isDragged) {
-                n1.x -= nx * overlap * 0.45;
-                n1.y -= ny * overlap * 0.45;
-              }
-              if (!n2.isPinned && !n2.isDragged) {
-                n2.x += nx * overlap * 0.45;
-                n2.y += ny * overlap * 0.45;
-              }
-            }
-          }
-        }
+        // Point 10: separación anti-solapamiento (con rejilla espacial si hay muchos nodos)
+        resolveCollisions(nodes);
       }
 
       // 2. High-DPI Context Scaling
@@ -135,15 +111,26 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
       ctx.translate(tx, ty);
       ctx.scale(scale, scale);
 
-      // Starfield grid
+      // Zona visible en coordenadas del mundo, con margen para brillos y etiquetas.
+      // Lo que cae fuera no se dibuja: con miles de nodos solo se pinta lo que se ve.
+      const viewMargin = Math.max(220, 140 / Math.max(scale, 0.05));
+      const viewLeft = -tx / scale - viewMargin;
+      const viewTop = -ty / scale - viewMargin;
+      const viewRight = (cssWidth - tx) / scale + viewMargin;
+      const viewBottom = (cssHeight - ty) / scale + viewMargin;
+
+      // Starfield grid (un solo trazo en vez de 1.681)
       ctx.fillStyle = 'rgba(217, 185, 106, 0.05)';
+      ctx.beginPath();
       for (let gx = -1600; gx <= 1600; gx += 80) {
+        if (gx < viewLeft || gx > viewRight) continue;
         for (let gy = -1600; gy <= 1600; gy += 80) {
-          ctx.beginPath();
+          if (gy < viewTop || gy > viewBottom) continue;
+          ctx.moveTo(gx + 0.9, gy);
           ctx.arc(gx, gy, 0.9, 0, Math.PI * 2);
-          ctx.fill();
         }
       }
+      ctx.fill();
 
       // 4. Mode-Specific Backdrop Graphics
       if (viewMode === 'brujula' || viewMode === 'version-1-ajustada') {
@@ -403,17 +390,24 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
 
       // Cuantos nodos estan conectados al foco: con muchos, las etiquetas solo salen al acercar (evita el amontonamiento).
       let focusConnectedCount = 0;
+      const deckIds = new Set<string>(stackedDeck.map((d: any) => d.id));
+      const focusNeighborIds = new Set<string>();
       if (isFocusActive) {
         for (const l of links) {
           if (l.source === activeEntityId || l.target === activeEntityId) focusConnectedCount++;
+          if (l.source === activeEntityId) focusNeighborIds.add(l.target);
+          if (l.target === activeEntityId) focusNeighborIds.add(l.source);
         }
       }
       for (const link of links) {
         const s = nodeMap.get(link.source);
         const t = nodeMap.get(link.target);
         if (s && t) {
+          // Enlace totalmente fuera de la zona visible: no se dibuja.
+          if ((s.x < viewLeft && t.x < viewLeft) || (s.x > viewRight && t.x > viewRight) ||
+              (s.y < viewTop && t.y < viewTop) || (s.y > viewBottom && t.y > viewBottom)) continue;
           const isConnectedToActive = isFocusActive
-            ? (link.source === activeEntityId || link.target === activeEntityId || (stackedDeck.some((d: any) => d.id === s.id) && stackedDeck.some((d: any) => d.id === t.id)))
+            ? (link.source === activeEntityId || link.target === activeEntityId || (deckIds.has(s.id) && deckIds.has(t.id)))
             : false;
 
           // Si el usuario hizo clic o tiene una ficha abierta, APAGAR todas las líneas ajenas!
@@ -466,8 +460,10 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
 
       // 6. Draw Celestial Nodes
       for (const n of nodes) {
+        // Nodo fuera de la zona visible: no se dibuja (ni se piden sus imágenes).
+        if (n.x < viewLeft || n.x > viewRight || n.y < viewTop || n.y > viewBottom) continue;
         const cfg = TYPE_CONFIG[n.type] || TYPE_CONFIG.department;
-        const isSelected = n.id === selectedNodeIdRef.current || stackedDeck.some((d: any) => d.id === n.id);
+        const isSelected = n.id === selectedNodeIdRef.current || deckIds.has(n.id);
         const isHovered = activeHover?.id === n.id;
         const isWorking = n.memory_tier === 'working';
         const isOpen = expansionsRef.current.has(n.id);
@@ -491,10 +487,7 @@ export function useCanvasRenderLoop(props: Record<string, any>) {
           }
         }
 
-        const isConnectedToFocus = !isFocusActive || n.id === activeEntityId || links.some(l => 
-          (l.source === activeEntityId && l.target === n.id) || 
-          (l.target === activeEntityId && l.source === n.id)
-        );
+        const isConnectedToFocus = !isFocusActive || n.id === activeEntityId || focusNeighborIds.has(n.id);
 
         if (!isPartOfDrill) {
           ctx.globalAlpha = 0.15; // Suave atenuación de capas ajenas al drill-down activo

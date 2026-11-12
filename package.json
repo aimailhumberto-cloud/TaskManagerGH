@@ -19,6 +19,7 @@
     "test:supervision": "tsx scripts/testSupervisionContract.ts",
     "test:roadmap": "tsx scripts/testRoadmap.ts",
     "test:vault": "tsx scripts/testVaultSafety.ts",
+    "test:collision": "tsx scripts/testCollision.ts",
     "prebuild": "node scripts/restore-workspace-asset.cjs"
   },
   "dependencies": {
