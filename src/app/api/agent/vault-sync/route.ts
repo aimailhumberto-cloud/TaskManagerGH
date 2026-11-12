@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseNoteStrict } from '@/lib/vaultFiles';
+import { ensureDailySnapshot, createVaultSnapshot, listVaultSnapshots, MAX_SNAPSHOTS } from '@/lib/vaultBackup';
 import {
   getVaultPath,
   writeVaultFile,
@@ -39,6 +40,14 @@ export async function GET(req: NextRequest) {
             totalFiles: files.length,
           },
         },
+        { status: 200, headers: CORS_HEADERS }
+      );
+    }
+
+    if (searchParams.get('backups') === '1') {
+      const snapshots = listVaultSnapshots(vaultPath);
+      return NextResponse.json(
+        { ok: true, total: snapshots.length, keep: MAX_SNAPSHOTS, latest: snapshots[0] || null, snapshots },
         { status: 200, headers: CORS_HEADERS }
       );
     }
@@ -99,6 +108,8 @@ export async function GET(req: NextRequest) {
           listFiles: 'GET /api/agent/vault-sync?list=1',
           readFile: 'GET /api/agent/vault-sync?path=01-Internal-Clients/Person - Aleem Mohammed.md',
           exportAll: 'GET /api/agent/vault-sync?export=json',
+          listBackups: 'GET /api/agent/vault-sync?backups=1',
+          createBackup: 'POST /api/agent/vault-sync { "action": "snapshot" }',
           writeFile: 'POST /api/agent/vault-sync { "action": "write_file", "path": "...", "content": "..." }',
           batchSync: 'POST /api/agent/vault-sync { "action": "batch_sync", "files": [{ "path": "...", "content": "..." }] }',
           deleteFile: 'POST /api/agent/vault-sync { "action": "delete_file", "path": "..." }',
@@ -118,6 +129,18 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const action = body.action || (body.path && body.content ? 'write_file' : 'unknown');
+
+    if (action === 'snapshot') {
+      const res = createVaultSnapshot(getVaultPath(), 'manual');
+      return NextResponse.json(
+        res.ok ? { ok: true, message: 'Respaldo creado', snapshot: res.snapshot } : { ok: false, error: res.error },
+        { status: res.ok ? 200 : 500, headers: CORS_HEADERS }
+      );
+    }
+
+    // Foto diaria del vault antes de la primera escritura del día
+    const backup = ensureDailySnapshot(getVaultPath());
+    if (backup.error) console.error('[vault-backup] no se pudo crear la foto diaria:', backup.error);
 
     if (action === 'write_file') {
       const { path: relPath, content } = body;

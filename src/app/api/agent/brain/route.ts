@@ -14,6 +14,8 @@ import {
   updateLayoutConfig,
   resetLayoutConfig,
 } from '@/lib/smjBrainService';
+import { getVaultPath as getVaultPathForBackup } from '@/lib/smjBrainService';
+import { ensureDailySnapshot } from '@/lib/vaultBackup';
 
 export const dynamic = 'force-dynamic';
 
@@ -117,6 +119,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const action = body.action;
+
+    // Foto diaria del vault antes de la primera escritura del día
+    const backup = ensureDailySnapshot(getVaultPathForBackup());
+    if (backup.error) console.error('[vault-backup] no se pudo crear la foto diaria:', backup.error);
 
     if (action === 'remember_working') {
       const { title, content, links, relationType, source } = body;
