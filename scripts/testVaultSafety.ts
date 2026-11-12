@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createVaultSnapshot, ensureDailySnapshot, listVaultSnapshots, getBackupRoot, MAX_SNAPSHOTS } from '../src/lib/vaultBackup';
+import { resolveOwnership, getDefaultBrainIdentity } from '../src/lib/brainOwnership';
 import { parseNoteStrict, serializeNote, updateNoteFile, atomicWriteFile } from '../src/lib/vaultFiles';
 
 let passed = 0;
@@ -119,6 +120,31 @@ test('la escritura atómica no deja archivos temporales', () => {
   atomicWriteFile(path.join(vault, 'nueva.md'), 'hola');
   assert.equal(fs.readFileSync(path.join(vault, 'nueva.md'), 'utf8'), 'hola');
   assert.equal(fs.readdirSync(vault).some((n) => n.includes('.tmp-')), false);
+});
+
+console.log('Dueño y visibilidad');
+const D = { brain_id: 'smj', owner: 'hb' };
+test('sin campos, el nodo es privado del cerebro y dueño por defecto', () => {
+  assert.deepEqual(resolveOwnership({}, D), { brain_id: 'smj', owner: 'hb', visibility: 'private', shared_with: [] });
+  assert.deepEqual(resolveOwnership(null, D).visibility, 'private');
+});
+test('un valor de visibilidad desconocido se trata como privado', () => {
+  assert.equal(resolveOwnership({ visibility: 'todos' }, D).visibility, 'private');
+  assert.equal(resolveOwnership({ visibility: 'PUBLIC' }, D).visibility, 'public');
+});
+test('shared_with solo cuenta si la visibilidad es shared', () => {
+  assert.deepEqual(resolveOwnership({ visibility: 'shared', shared_with: ['Ana', 'luis', 'ana'] }, D).shared_with, ['ana', 'luis']);
+  assert.deepEqual(resolveOwnership({ visibility: 'shared', shared_with: 'Ana, Luis' }, D).shared_with, ['ana', 'luis']);
+  assert.deepEqual(resolveOwnership({ visibility: 'private', shared_with: ['ana'] }, D).shared_with, []);
+});
+test('la nota puede declarar otro cerebro y dueño', () => {
+  const o = resolveOwnership({ brain_id: 'Cerebro Ana', brain_owner: 'Ana P.', owner: 'responsable de tarea' }, D);
+  assert.equal(o.brain_id, 'cerebro-ana');
+  assert.equal(o.owner, 'ana-p');
+});
+test('la identidad por defecto sale de variables de entorno', () => {
+  assert.deepEqual(getDefaultBrainIdentity({}), { brain_id: 'smj', owner: 'hb' });
+  assert.deepEqual(getDefaultBrainIdentity({ SMJ_BRAIN_ID: 'otro', SMJ_BRAIN_OWNER: 'Ana' }), { brain_id: 'otro', owner: 'ana' });
 });
 
 console.log(`\n${passed} pruebas pasaron`);

@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import YAML from 'yaml';
+import { resolveOwnership, getDefaultBrainIdentity, type BrainVisibility } from './brainOwnership';
 import { updateNoteFile, writeNoteFile, readNoteStrict, parseNoteStrict, atomicWriteFile, pushRecentAction, uniqueWorkingMemoryId } from './vaultFiles';
 
 export interface BrainNode {
@@ -18,6 +19,11 @@ export interface BrainNode {
   spatial_anchor?: string;
   spatial_tier?: 'market' | 'channel' | 'operator' | 'client' | 'department' | 'brand' | 'person' | string;
   channel_type?: string;
+  /** Cerebro al que pertenece el nodo, su dueño y quién puede verlo. Hoy es solo etiqueta. */
+  brain_id?: string;
+  owner?: string;
+  visibility?: BrainVisibility;
+  shared_with?: string[];
   filePath: string;
   frontmatter: Record<string, any>;
   body: string;
@@ -358,6 +364,7 @@ export function getBrainNodeDetail(nodeId: string): BrainNode | null {
 function buildBrainIndex(vaultDir: string): { nodes: BrainNode[]; links: BrainLink[]; summary: BrainGraph['summary'] } {
   const files = getAllMarkdownFiles(vaultDir);
   const nodes: BrainNode[] = [];
+  const brainDefaults = getDefaultBrainIdentity();
   const titleToIdMap = new Map<string, string>();
 
   for (const file of files) {
@@ -414,6 +421,7 @@ function buildBrainIndex(vaultDir: string): { nodes: BrainNode[]; links: BrainLi
           undefined
         ),
         channel_type: frontmatter.channel_type || frontmatter.channel || undefined,
+        ...resolveOwnership(frontmatter, brainDefaults),
         filePath: file,
         frontmatter,
         body,
