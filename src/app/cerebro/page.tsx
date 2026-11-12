@@ -18,6 +18,7 @@ import { CerebroHeader } from './CerebroHeader';
 import { CerebroSettingsMenu } from './CerebroSettingsMenu';
 import { CerebroSideCard } from './CerebroSideCard';
 import { LangContext, translate, readStoredLang, LANG_STORAGE_KEY, type Lang } from './i18n';
+import { buildCommunities, readCommunityThreshold } from './communities';
 import { useCanvasRenderLoop } from './useCanvasRenderLoop';
 import { useCanvasGestures } from './useCanvasGestures';
 import { CerebroHud } from './CerebroHud';
@@ -117,6 +118,10 @@ export default function CerebroPage() {
   // Capas abiertas: nodo -> ids que ese nodo trajo al lienzo. Lo visible se deriva de aqui,
   // asi que cerrar un nodo retira su nivel (antes la lista solo crecia).
   const expansionsRef = useRef(new Map<string, string[]>());
+  // Comunidades (grupos de nodos hermanos): claves abiertas por la persona y sus miembros actuales.
+  const openCommunitiesRef = useRef(new Set<string>());
+  const communityMembersRef = useRef(new Map<string, string[]>());
+  const communityKeysRef = useRef(new Map<string, string>());
   const selectedNodeIdRef = useRef<string | null>(null);
   const lastGraphTextRef = useRef('');
   const capLimitRef = useRef(new Map<string, number>());
@@ -429,9 +434,41 @@ export default function CerebroPage() {
       } catch {}
     }
 
-    const initialized: NodeData[] = filteredRawNodes.map((n) => {
+    // Nodos «comunidad»: solo actúan si hay muchísimos nodos visibles a la vez (ver communities.ts).
+    const protectedIds = new Set<string>(
+      [
+        selectedNodeIdRef.current,
+        ...stackedDeckRef.current.map((d) => d.id),
+        ...focusNodeIdsRef.current,
+        ...Object.keys(savedPositions),
+        ...nodesRef.current.filter((x) => x.isPinned).map((x) => x.id),
+      ].filter(Boolean) as string[],
+    );
+    const comm = buildCommunities(filteredRawNodes, filteredRawLinks, {
+      threshold: readCommunityThreshold(),
+      protectedIds,
+      openKeys: openCommunitiesRef.current,
+      levelOf: nodeLevel,
+    });
+    communityMembersRef.current = comm.members;
+    communityKeysRef.current = comm.keys;
+    const memberTargets = new Map<string, { x: number; y: number }>();
+    const targetFor = (n: any) => {
+      if (n.type !== 'community') return getNodeTarget(n, viewModeRef.current);
+      // La burbuja se coloca en el centro de sus miembros.
+      const ids = comm.members.get(n.id) || [];
+      let sx = 0, sy = 0, c = 0;
+      for (const id of ids) {
+        let t = memberTargets.get(id);
+        if (!t) { const m = filteredRawNodes.find((x: any) => x.id === id); if (m) { t = getNodeTarget(m, viewModeRef.current); memberTargets.set(id, t); } }
+        if (t) { sx += t.x; sy += t.y; c++; }
+      }
+      return c ? { x: sx / c, y: sy / c } : { x: 0, y: 0 };
+    };
+
+    const initialized: NodeData[] = comm.nodes.map((n) => {
       const existing = existingMap.get(n.id);
-      const target = getNodeTarget(n, viewModeRef.current);
+      const target = targetFor(n);
       const saved = savedPositions[n.id];
 
       let nodeRadius = 24;
@@ -443,6 +480,7 @@ export default function CerebroPage() {
       else if (n.type === 'brand') nodeRadius = 32;
       else if (n.type === 'working_memory') nodeRadius = 22;
       else if (n.type === 'packaging') nodeRadius = 18;
+      else if (n.type === 'community') nodeRadius = Math.min(34, 20 + Math.round(Math.sqrt(((n as any).frontmatter?.member_count as number) || 12)));
       else if (n.type === 'flavor') nodeRadius = 16;
       else if (n.type === 'product_variant') nodeRadius = 15;
       else nodeRadius = 20;
@@ -490,7 +528,7 @@ export default function CerebroPage() {
     });
 
     nodesRef.current = initialized;
-    linksRef.current = filteredRawLinks;
+    linksRef.current = comm.links;
     setPinnedCount(initialized.filter(n => n.isPinned).length);
   };
 
@@ -763,6 +801,10 @@ export default function CerebroPage() {
     const now = Date.now();
     if (now - lastToggleRef.current < 600) return;
     lastToggleRef.current = now;
+    if (node.type === 'community') {
+      expandCommunity(node);
+      return;
+    }
     if (expansionsRef.current.has(node.id)) {
       collapseNode(node);
       return;
@@ -770,8 +812,19 @@ export default function CerebroPage() {
     pushToStackedDeck(node);
   };
 
+  // Abre un grupo: sus miembros pasan a verse sueltos, creciendo desde la burbuja.
+  const expandCommunity = (node: NodeData) => {
+    const key = communityKeysRef.current.get(node.id);
+    if (!key) return;
+    openCommunitiesRef.current.add(key);
+    selectedNodeIdRef.current = null;
+    const full = fullGraphRef.current;
+    setupNodesWithMode(graphData?.nodes || full.nodes, full.links);
+  };
+
   // Vista por defecto: todo cerrado, sin fichas, camara encuadrada.
   const resetToDefaultView = () => {
+    openCommunitiesRef.current.clear();
     expansionsRef.current.clear();
     capLimitRef.current.clear();
     cappedInfoRef.current.clear();

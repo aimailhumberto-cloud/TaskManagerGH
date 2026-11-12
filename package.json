@@ -23,6 +23,7 @@
     "bench:layout": "tsx scripts/benchCerebroLayout.ts",
     "test:i18n": "tsx scripts/testCerebroI18n.ts",
     "test:sleep": "tsx scripts/testDotsSleep.ts",
+    "test:communities": "tsx scripts/testCommunities.ts",
     "prebuild": "node scripts/restore-workspace-asset.cjs"
   },
   "dependencies": {

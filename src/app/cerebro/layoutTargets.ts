@@ -5,6 +5,7 @@ export const TYPE_CONFIG: Record<
   string,
   { label: string; icon: string; bg: string; border: string; glow: string }
 > = {
+  community: { label: 'Grupo', icon: '◉', bg: '#0F766E', border: '#5EEAD4', glow: 'rgba(20, 184, 166, 0.65)' },
   core: { label: 'HQ Core', icon: '🏛️', bg: '#D97706', border: '#FBBF24', glow: 'rgba(245, 158, 11, 0.85)' },
   department: { label: 'Departamento', icon: '🏢', bg: '#1D4ED8', border: '#60A5FA', glow: 'rgba(37, 99, 235, 0.75)' },
   role: { label: 'Rol Agnóstico', icon: '👔', bg: '#6D28D9', border: '#A78BFA', glow: 'rgba(124, 58, 237, 0.75)' },
