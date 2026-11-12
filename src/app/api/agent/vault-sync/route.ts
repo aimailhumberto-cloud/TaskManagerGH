@@ -39,6 +39,8 @@ export async function GET(req: NextRequest) {
             isPersistentDisk: vaultPath.startsWith('/data'),
             totalFiles: files.length,
           },
+          // Versión desplegada: sirve para confirmar que un cambio ya llegó a producción
+          build: { commit: (process.env.RENDER_GIT_COMMIT || '').slice(0, 7) || null },
         },
         { status: 200, headers: CORS_HEADERS }
       );
