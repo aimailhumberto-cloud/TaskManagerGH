@@ -21,6 +21,8 @@ const GUIDE = {
     'Qué cambió: GET /api/agent/changes?since=AAAA-MM-DD. Deshacer: POST /api/agent/changes {action:\'undo\', changeId}.',
     'Brief de la mañana: GET /api/agent/brief?since=AAAA-MM-DD — se arma solo con esos datos.',
     'Reescribir un archivo existente exige ifMatch (el hash de la lectura). Reintentos: encabezado Idempotency-Key.',
+    'Preguntar con contexto: GET /api/agent/dossier?q=Busta en Canadá — expediente con contactos, último contacto, próximos pasos, agenda, cifras, puede interesarte y lo que falta.',
+    'Buscar: GET /api/agent/search?q=. Mapa liviano: GET /api/agent/map?catalog=0. Ficha con su entorno: GET /api/agent/brain?node=<id>&context=1.',
   ],
   bloques: [
     { bloque: 'Tareas vencidas, Para hoy, Mis tareas de hoy, Agenda de la semana, Mis tareas abiertas', origen: 'Tareas y seguimientos con fecha del cerebro', como: "POST /api/agent/tasks {action:'create'|'complete'|'reschedule'}; seguimientos con POST /api/agent/brain {action:'update_dossier', nodeId, nextFollowupDate, nextFollowupAction}" },

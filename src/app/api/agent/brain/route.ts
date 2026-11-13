@@ -19,6 +19,7 @@ import {
 import { getVaultPath as getVaultPathForBackup } from '@/lib/smjBrainService';
 import { ensureDailySnapshot } from '@/lib/vaultBackup';
 import { recordUpdate } from '@/lib/recordUpdate';
+import { nodeContext } from '@/lib/brainLens';
 import { withChange } from '@/lib/journal';
 
 export const dynamic = 'force-dynamic';
@@ -82,6 +83,11 @@ async function _GET(req: NextRequest) {
 
     // Detalle completo de un nodo (cuerpo + encabezado íntegros), pedido al abrir su ficha.
     const nodeId = searchParams.get('node');
+    if (nodeId && searchParams.get('context') === '1') {
+      const ctx = nodeContext(nodeId);
+      if (!ctx) return NextResponse.json({ ok: false, error: `Nodo '${nodeId}' no encontrado` }, { status: 404, headers: CORS_HEADERS });
+      return NextResponse.json({ ok: true, ...ctx }, { status: 200, headers: CORS_HEADERS });
+    }
     if (nodeId) {
       const detail = getBrainNodeDetail(nodeId);
       if (!detail) {

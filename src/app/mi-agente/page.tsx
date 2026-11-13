@@ -69,6 +69,7 @@ export default function MiAgentePage() {
           <p>{T('Dirección:')} <span className="font-mono">{base}</span></p>
           <p>{T('En cada llamada, el encabezado')} <span className="font-mono">x-agent-key: tu-llave</span> {T('(o')} <span className="font-mono">Authorization: Bearer tu-llave</span>).</p>
           <div className="space-y-1 rounded-xl bg-[#0b1f4d] p-3 font-mono text-xs text-[#dbeafe]">
+            <p>GET /api/agent/dossier?q=Busta en Canadá · GET /api/agent/search?q=…</p>
             <p>GET /api/agent/brief · GET /api/agent/changes?since=AAAA-MM-DD</p>
             <p>POST /api/agent/brain {'{'}"action":"record","nodeId":"…","summary":"…"{'}'}</p>
             <p>GET /api/agent/brain?node=… · GET /api/agent/tasks · GET /api/agent/dots-sleep</p>

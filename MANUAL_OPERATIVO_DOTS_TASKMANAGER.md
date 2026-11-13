@@ -34,6 +34,19 @@ Reglas nuevas que la app hace cumplir:
 
 ---
 
+## 0b. Leer rápido y con contexto (fase 2, 13 de noviembre de 2026)
+
+| Para… | Usa | Qué devuelve |
+|---|---|---|
+| Preguntar por algo («Busta en Canadá», «contactos de MEDIMEX», «distribuidores de Estados Unidos») | `GET /api/agent/dossier?q=<pregunta>&size=breve|normal|completo` (o `?node=id1,id2`) | Expediente: respuesta corta, fichas de origen, contactos (con correo y teléfono), último contacto, próximos pasos, agenda, cambios recientes, cifras, archivos, «puede interesarte» (con el porqué), «lo que falta» y la hora de los datos. Cada dato trae `from` (ficha de origen) y `verification`. |
+| Buscar | `GET /api/agent/search?q=<texto>&type=person,distributor&limit=20&catalog=0` | Fichas ordenadas por relevancia, con extracto. Sin acentos; entiende Belice/Belize, EE. UU./United States. |
+| Ver todo el cerebro de un vistazo | `GET /api/agent/map?catalog=0` | Una fila por ficha: id, nombre, tipo, padre, país, fecha, conexiones (~16 KB sin catálogo). |
+| Leer una ficha con su entorno | `GET /api/agent/brain?node=<id>&context=1` | Ficha limpia (sin datos de procedencia) + `hash` + a quién apunta + quién la menciona + tareas abiertas + agenda + cambios + memoria abierta. |
+
+Reglas: usa el expediente antes de redactar un correo o un resumen. Si algo aparece en «lo que falta», pregúntaselo a HB; no lo inventes. Evita `GET /api/agent/brain` completo (3 MB): usa el mapa, el buscador o el expediente.
+
+---
+
 ## 1. Principio Fundamental: El Cerebro en Markdown es la Única Fuente de Verdad (SSOT)
 
 A partir de esta actualización, **el Task Manager y el Segundo Cerebro operan como un solo sistema unificado**. 
