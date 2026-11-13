@@ -9,6 +9,10 @@ export default function UsuariosPage() {
   const [roles, setRoles] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [brains, setBrains] = useState<{ brains: { brainId: string; owner: string; exists: boolean }[]; viewing: string | null; mine: string } | null>(null);
+  const loadBrains = useCallback(async () => { const r = await fetch('/api/admin/brain-view', { cache: 'no-store' }); setBrains(r.ok ? await r.json() : null); }, []);
+  useEffect(() => { loadBrains(); }, [loadBrains]);
+  async function viewBrain(brainId: string | null) { await fetch('/api/admin/brain-view', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ brainId }) }); if (brainId) window.location.href = '/cerebro'; else loadBrains(); }
   const [form, setForm] = useState({ name: '', email: '', role: 'Miembro', password: genPassword() });
   const load = useCallback(async () => {
     const r = await fetch('/api/admin/users', { cache: 'no-store' });
@@ -40,6 +44,22 @@ export default function UsuariosPage() {
         <p className="text-sm text-primary-600">Crea cuentas, cambia roles, desactiva accesos y restablece contraseñas. Las contraseñas nunca se guardan en claro.</p></div>
       {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {info && <p className="rounded-lg bg-green-50 p-3 text-sm break-all">{info}</p>}
+      {!error && brains && (
+        <div className="rounded-xl border border-primary-200 p-4 space-y-2">
+          <h2 className="text-sm font-semibold">Cerebros</h2>
+          <p className="text-xs text-primary-500">Cada persona ve solo su cerebro. Como administrador puedes abrir cualquiera; cada vez que lo haces queda registrado.</p>
+          {brains.viewing && brains.viewing !== brains.mine && (
+            <p className="rounded-lg bg-amber-50 p-2 text-xs">Estás viendo el cerebro «{brains.viewing}». <button className="underline" onClick={() => viewBrain(null)}>Volver al mío</button></p>
+          )}
+          <ul className="text-sm divide-y divide-primary-100">
+            {brains.brains.map(b => (
+              <li key={b.brainId} className="flex items-center justify-between py-1.5">
+                <span>{b.owner}{b.brainId === brains.mine ? ' · el tuyo' : ''}{!b.exists ? ' · se crea en su primer ingreso' : ''}</span>
+                {b.brainId !== brains.mine && b.exists && <button className="underline text-xs" onClick={() => viewBrain(b.brainId)}>Abrir su cerebro</button>}
+              </li>))}
+          </ul>
+        </div>
+      )}
       {!error && (<>
         <form onSubmit={create} className="grid gap-2 sm:grid-cols-5 rounded-xl border border-primary-200 p-4">
           <input className={input} placeholder="Nombre" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />

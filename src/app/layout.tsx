@@ -20,6 +20,7 @@ export default async function RootLayout({
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get('hermes_session');
   let sessionData = null;
+  let ownBrain = false;
   
   if (sessionCookie && sessionCookie.value) {
     const parsed = decryptSession(sessionCookie.value);
@@ -27,7 +28,7 @@ export default async function RootLayout({
       if (parsed.userId.startsWith('local-')) {
         const { getAccount } = await import('@/lib/localAccounts');
         const acc = getAccount(parsed.userId);
-        if (acc?.isActive) sessionData = { userId: acc.id, personId: acc.id, email: acc.email, name: acc.name, role: acc.role };
+        if (acc?.isActive) { sessionData = { userId: acc.id, personId: acc.id, email: acc.email, name: acc.name, role: acc.role }; ownBrain = parsed.brain !== 'hb'; }
       } else try {
         const data=await dbService.readData();
         const person=verifiedProfile(data,parsed);
@@ -88,7 +89,7 @@ export default async function RootLayout({
             </div>
 
             {/* Navigation Menu Links */}
-            <WorkspaceNavigation publicOnly={!sessionData} />
+            <WorkspaceNavigation publicOnly={!sessionData} ownBrain={ownBrain} />
 
             {/* Footer Profile Container */}
             <FooterProfile session={sessionData} />
@@ -131,7 +132,7 @@ export default async function RootLayout({
             </main>
 
             {/* Mobile Bottom Navigation Bar */}
-            <WorkspaceNavigation mobile publicOnly={!sessionData} />
+            <WorkspaceNavigation mobile publicOnly={!sessionData} ownBrain={ownBrain} />
           </div>
         </div>
       </body>

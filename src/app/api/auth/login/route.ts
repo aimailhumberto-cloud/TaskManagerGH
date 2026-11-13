@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import dbService from '@/services/dbService';
 import { encryptSession } from '@/lib/session';
 import { authenticateLocal } from '@/lib/localAccounts';
+import { brainIdForAccount } from '@/lib/brains';
 const attempts = new Map<string, { count: number; until: number }>();
 
 export async function POST(request: NextRequest) {
@@ -26,7 +27,7 @@ export async function POST(request: NextRequest) {
     // 0. Cuentas propias de la app (creadas desde «Usuarios»)
     const local = authenticateLocal(email, password);
     if (local) {
-      const token = encryptSession({ userId: local.id, personId: local.id, email: local.email, role: local.role, createdAt: new Date().toISOString() });
+      const token = encryptSession({ userId: local.id, personId: local.id, email: local.email, role: local.role, brain: brainIdForAccount(local), createdAt: new Date().toISOString() });
       (await cookies()).set('hermes_session', token, { httpOnly: true, secure: process.env.NODE_ENV === 'production', maxAge: 60 * 60 * 24 * 7, path: '/', sameSite: 'lax' });
       attempts.delete(key);
       return NextResponse.json({ success: true, user: { id: local.id, email: local.email, name: local.name, role: local.role, mustChange: local.mustChange } });

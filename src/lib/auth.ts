@@ -27,6 +27,8 @@ export async function validateApiKey(request: NextRequest): Promise<AuthValidati
   if (isLocalId(session.userId)) {
     const acc = getAccount(session.userId);
     if (!acc?.isActive) return { valid: false, status: 401, error: 'Sesión revocada.' };
+    // El espacio de trabajo (tareas, empresas, agenda) es del cerebro principal: las demás cuentas no entran.
+    if (session.brain !== 'hb') return { valid: false, status: 403, error: 'Esta sección todavía no está disponible para tu cerebro.' };
     const role = acc.role === 'Gerente' ? 'Admin' : acc.role; // Gerente opera como administrador de la app
     const writing = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);
     const adminOnly = request.nextUrl.pathname.startsWith('/api/settings') || request.nextUrl.pathname.startsWith('/api/users');

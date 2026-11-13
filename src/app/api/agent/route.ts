@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { primaryOnly } from '@/lib/brains';
 import { dbService } from '@/services/dbService';
 import { validateApiKey } from '@/lib/auth';
 
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const auth = await validateApiKey(req);
   if (!auth.valid) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
@@ -20,7 +21,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const auth = await validateApiKey(req);
   if (!auth.valid) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
@@ -101,3 +102,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+
+// Cada verbo corre dentro del cerebro de quien hace la petición (ver src/lib/brains.ts).
+export const GET = primaryOnly(_GET);
+export const POST = primaryOnly(_POST);

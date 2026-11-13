@@ -26,8 +26,8 @@ export const canManageUsers = (role: unknown) => typeof role === 'string' && MAN
 
 export function accountsFile(): string {
   if (process.env.LOCAL_ACCOUNTS_FILE) return process.env.LOCAL_ACCOUNTS_FILE;
-  const { getVaultPath } = require('./smjBrainService');
-  return path.join(path.dirname(path.resolve(getVaultPath())), 'accounts', 'accounts.json');
+  const { getPrimaryVaultPath } = require('./smjBrainService');
+  return path.join(path.dirname(path.resolve(getPrimaryVaultPath())), 'accounts', 'accounts.json');
 }
 
 const hashPw = (password: string, salt: string) =>

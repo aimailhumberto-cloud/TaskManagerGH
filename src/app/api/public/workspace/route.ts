@@ -1,3 +1,4 @@
+import { primaryOnly } from '@/lib/brains';
 import { NextRequest,NextResponse } from 'next/server';
 import { readPublicHbWorkspace } from '@/services/publicHbWorkspace';
 import {applyPublicTaskCommand} from '@/services/workspaceService';
@@ -5,11 +6,11 @@ import {PUBLIC_HB_CSRF_COOKIE,validPublicHbCsrf} from '@/lib/publicHbCsrf';
 import {sameRequestOrigin} from '@/lib/auth';
 import {WorkspaceError} from '@/lib/projects';
 export const dynamic='force-dynamic';
-export async function GET(){
+async function _GET(){
  try{return NextResponse.json(await readPublicHbWorkspace(),{headers:{'Cache-Control':'no-store'}});}
  catch{return NextResponse.json({error:'Datos HB no disponibles. La base existente no se inicializó ni se sustituyó.'},{status:503,headers:{'Cache-Control':'no-store'}});}
 }
-export async function POST(request:NextRequest){
+async function _POST(request:NextRequest){
  try{
   if(!sameRequestOrigin(request)||!validPublicHbCsrf(request.cookies.get(PUBLIC_HB_CSRF_COOKIE)?.value,request.headers.get('x-public-hb-csrf')))return NextResponse.json({error:'Origen o protección CSRF inválidos.'},{status:403});
   if(request.headers.get('content-type')?.split(';')[0].trim()!=='application/json')return NextResponse.json({error:'Se requiere JSON.'},{status:415});
@@ -20,3 +21,5 @@ export async function POST(request:NextRequest){
  }catch(error){return NextResponse.json({error:error instanceof WorkspaceError?error.message:'No se confirmó el guardado. Verifica antes de reintentar.'},{status:error instanceof WorkspaceError?error.status:503});}
 }
 export function PUT(){return NextResponse.json({error:'Operación no permitida.'},{status:405,headers:{Allow:'GET, HEAD, POST'}});}export const PATCH=PUT;export const DELETE=PUT;
+export const GET = primaryOnly(_GET);
+export const POST = primaryOnly(_POST);

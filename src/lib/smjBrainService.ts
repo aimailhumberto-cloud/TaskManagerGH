@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import YAML from 'yaml';
+import { currentBrain, isPrimaryBrain } from './brainContext';
 import { resolveOwnership, getDefaultBrainIdentity, type BrainVisibility } from './brainOwnership';
 import { updateNoteFile, writeNoteFile, readNoteStrict, parseNoteStrict, atomicWriteFile, pushRecentAction, uniqueWorkingMemoryId } from './vaultFiles';
 
@@ -178,7 +179,26 @@ function copyFolderRecursiveSync(source: string, target: string) {
   }
 }
 
+/** Bóveda del cerebro de la petición en curso; sin contexto, la del cerebro principal. */
 export function getVaultPath(): string {
+  const ctx = currentBrain();
+  return ctx ? ctx.vaultPath : getPrimaryVaultPath();
+}
+
+/** Ruta dentro de la bóveda actual, o null si intenta salirse de ella. */
+export function confineToVault(relativePath: string): string | null {
+  const root = path.resolve(getVaultPath());
+  const abs = path.resolve(root, String(relativePath || '').replace(/^[\\\/]+/, ''));
+  return abs === root || abs.startsWith(root + path.sep) ? abs : null;
+}
+
+/** Quita cualquier «..» o raíz de una ruta relativa: lo que se pida siempre queda dentro de la bóveda. */
+export function safeRelative(rel: string): string {
+  return String(rel || '').split(/[\\/]+/).filter(seg => seg && seg !== '.' && seg !== '..').join('/');
+}
+
+/** Bóveda del cerebro principal (el de HB): la ubicación histórica. */
+export function getPrimaryVaultPath(): string {
   if (process.env.SMJ_VAULT_PATH && fs.existsSync(process.env.SMJ_VAULT_PATH)) {
     return process.env.SMJ_VAULT_PATH;
   }
@@ -304,13 +324,17 @@ export function getVaultVersion(): string {
 }
 
 type BrainIndex = { version: string; nodes: BrainNode[]; links: BrainLink[]; summary: BrainGraph['summary'] };
-let brainIndexCache: BrainIndex | null = null;
+const brainIndexCaches = new Map<string, BrainIndex>(); // una entrada por bóveda: nunca se mezclan cerebros
 
 export function loadBrainGraph(lens?: string, marketFilter?: string): BrainGraph & { version: string } {
   const version = getVaultVersion();
+  const vaultKey = path.resolve(getVaultPath());
+  let brainIndexCache = brainIndexCaches.get(vaultKey);
   if (!brainIndexCache || brainIndexCache.version !== version) {
     const built = buildBrainIndex(getVaultPath());
     brainIndexCache = { version, ...built };
+    if (brainIndexCaches.size >= 12 && !brainIndexCaches.has(vaultKey)) brainIndexCaches.delete(brainIndexCaches.keys().next().value as string);
+    brainIndexCaches.set(vaultKey, brainIndexCache);
   }
   const { nodes, links, summary } = brainIndexCache;
 
@@ -722,7 +746,7 @@ export function updateDossierMetadata(input: {
 
 export function writeVaultFile(relativePath: string, content: string): { ok: boolean; path: string; fullPath: string } {
   const vaultDir = getVaultPath();
-  const sanitizedRel = relativePath.replace(/^(\.\.[\/\\])+/, '').replace(/^[\\\/]+/, '');
+  const sanitizedRel = safeRelative(relativePath);
   const targetPath = path.join(vaultDir, sanitizedRel);
   const targetDir = path.dirname(targetPath);
 
@@ -734,7 +758,7 @@ export function writeVaultFile(relativePath: string, content: string): { ok: boo
 
   // Also sync to bundled repository folder if separate
   const bundled = path.join(process.cwd(), 'vault');
-  if (fs.existsSync(bundled) && !targetPath.startsWith(bundled)) {
+  if (isPrimaryBrain() && fs.existsSync(bundled) && !targetPath.startsWith(bundled)) {
     try {
       const bTarget = path.join(bundled, sanitizedRel);
       const bDir = path.dirname(bTarget);
@@ -748,7 +772,7 @@ export function writeVaultFile(relativePath: string, content: string): { ok: boo
 
 export function deleteVaultFile(relativePath: string): { ok: boolean; path: string } {
   const vaultDir = getVaultPath();
-  const sanitizedRel = relativePath.replace(/^(\.\.[\/\\])+/, '').replace(/^[\\\/]+/, '');
+  const sanitizedRel = safeRelative(relativePath);
   const targetPath = path.join(vaultDir, sanitizedRel);
 
   if (fs.existsSync(targetPath)) {
@@ -756,7 +780,7 @@ export function deleteVaultFile(relativePath: string): { ok: boolean; path: stri
   }
 
   const bundled = path.join(process.cwd(), 'vault');
-  if (fs.existsSync(bundled)) {
+  if (isPrimaryBrain() && fs.existsSync(bundled)) {
     try {
       const bTarget = path.join(bundled, sanitizedRel);
       if (fs.existsSync(bTarget)) fs.unlinkSync(bTarget);
@@ -768,7 +792,7 @@ export function deleteVaultFile(relativePath: string): { ok: boolean; path: stri
 
 export function readVaultFile(relativePath: string): { ok: boolean; path: string; content?: string; mtime?: string; size?: number } {
   const vaultDir = getVaultPath();
-  const sanitizedRel = relativePath.replace(/^(\.\.[\/\\])+/, '').replace(/^[\\\/]+/, '');
+  const sanitizedRel = safeRelative(relativePath);
   const targetPath = path.join(vaultDir, sanitizedRel);
 
   if (!fs.existsSync(targetPath)) {
@@ -817,8 +841,9 @@ function getCountryCode(countryName?: string): string {
 }
 
 function syncToBundledVault(relativeRel: string, content: string) {
+  if (!isPrimaryBrain()) return; // la copia del repositorio es solo del cerebro principal
   const bundledPath = path.join(process.cwd(), 'vault');
-  const sanitizedRel = relativeRel.replace(/^(\.\.[\/\\])+/, '').replace(/^[\\\/]+/, '');
+  const sanitizedRel = safeRelative(relativeRel);
   if (fs.existsSync(bundledPath)) {
     try {
       const bTarget = path.join(bundledPath, sanitizedRel);
@@ -834,11 +859,11 @@ const tasksCache = new Map<string, UnifiedTasksResponse>();
 /** Tareas calculadas del vault, con caché: se recalculan solo si el vault cambió o cambió el día (hora de Panamá). */
 export function getUnifiedBrainTasks(options?: { lens?: string; market?: string }): UnifiedTasksResponse {
   const { dateStr, timeStr } = getPanamaDate();
-  const key = `${getVaultVersion()}|${dateStr}|${options?.lens || ''}|${options?.market || ''}`;
+  const key = `${path.resolve(getVaultPath())}|${getVaultVersion()}|${dateStr}|${options?.lens || ''}|${options?.market || ''}`;
   let cached = tasksCache.get(key);
   if (!cached) {
     cached = computeUnifiedBrainTasks(options);
-    if (tasksCache.size >= 6) tasksCache.clear();
+    if (tasksCache.size >= 24) tasksCache.clear();
     tasksCache.set(key, cached);
   }
   return { ...cached, summary: { ...cached.summary, panamaTimestamp: `${dateStr} ${timeStr}` } };
@@ -1701,7 +1726,7 @@ export function upsertNode(input: {
   body: string;
 }): { ok: boolean; message: string; fullPath?: string } {
   const vaultDir = getVaultPath();
-  const sanitizedRel = input.relativePath.replace(/^(\.\.[\/\\])+/, '').replace(/^[\\\/]+/, '');
+  const sanitizedRel = safeRelative(input.relativePath);
   const targetPath = path.join(vaultDir, sanitizedRel);
 
   input.frontmatter.updated_at = new Date().toISOString();

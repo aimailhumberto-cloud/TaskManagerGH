@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withBrain } from '@/lib/brains';
 import {
   getUnifiedBrainTasks,
   completeBrainTask,
@@ -23,7 +24,7 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const lens = searchParams.get('lens') || undefined;
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   try {
     const body = await req.json();
     const action = body.action;
@@ -128,3 +129,7 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+// Cada verbo corre dentro del cerebro de quien hace la petición (ver src/lib/brains.ts).
+export const GET = withBrain(_GET);
+export const POST = withBrain(_POST);

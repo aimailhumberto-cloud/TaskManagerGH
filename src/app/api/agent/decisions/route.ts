@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { primaryOnly } from '@/lib/brains';
 import { getVaultPath, loadBrainGraph } from '@/lib/smjBrainService';
 import { applyDecisions, getSleepDir, loadDecisions, loadLatestReport } from '@/lib/dotsSleep';
 import { configuredProvider, DecisionError, lastLog, loadReviews, logCall, reviewProposals, saveReviews } from '@/lib/decisionEngine';
@@ -11,12 +12,12 @@ export const dynamic = 'force-dynamic';
  * POST {action:'ping'}   → llamada mínima de prueba (no envía nada del cerebro).
  * POST {action:'review'} → Jev revisa las propuestas pendientes del informe nocturno y anota confianza y urgencia.
  */
-export async function GET() {
+async function _GET() {
   const sleepDir = getSleepDir(getVaultPath());
   return NextResponse.json({ ok: true, configured: !!configuredProvider(), provider: 'jev', mode: 'solo_propuestas', reviews: Object.keys(loadReviews(sleepDir)).length, last: lastLog(sleepDir) });
 }
 
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const vaultPath = getVaultPath();
   const sleepDir = getSleepDir(vaultPath);
   const body = await req.json().catch(() => ({}));
@@ -48,3 +49,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: msg }, { status: e instanceof DecisionError ? e.status : 500 });
   }
 }
+
+// Cada verbo corre dentro del cerebro de quien hace la petición (ver src/lib/brains.ts).
+export const GET = primaryOnly(_GET);
+export const POST = primaryOnly(_POST);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { withBrain } from '@/lib/brains';
 import { getVaultPath, loadBrainGraph } from '@/lib/smjBrainService';
 import {
   applyDecisions, loadDecisions, loadLatestReport, listReportDays, needsNightlyReport,
@@ -45,7 +46,7 @@ function view(vaultPath: string, report: SleepReport | null, generated: boolean)
  * GET ?history=1 → días con informe.   GET ?day=YYYY-MM-DD → informe de ese día.
  * POST {action:'run'} → genera ahora.   POST {action:'decide', id, decision, by?, note?} → registra la decisión.
  */
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   try {
     const vaultPath = getVaultPath();
     const { searchParams } = new URL(req.url);
@@ -76,7 +77,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   try {
     const vaultPath = getVaultPath();
     const body = await req.json().catch(() => ({}));
@@ -120,3 +121,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: e?.message || 'error' }, { status: 500, headers: CORS_HEADERS });
   }
 }
+
+// Cada verbo corre dentro del cerebro de quien hace la petición (ver src/lib/brains.ts).
+export const GET = withBrain(_GET);
+export const POST = withBrain(_POST);

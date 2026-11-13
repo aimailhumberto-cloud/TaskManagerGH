@@ -7,9 +7,12 @@ import { usePathname } from 'next/navigation';
 export default function WorkspaceNavigation({
   mobile = false,
   publicOnly = false,
+  ownBrain = false,
 }: {
   mobile?: boolean;
   publicOnly?: boolean;
+  /** Cuenta con cerebro propio: por ahora solo ve su Cerebro y Usuarios. */
+  ownBrain?: boolean;
 }) {
   const pathname = usePathname();
 
@@ -35,7 +38,8 @@ export default function WorkspaceNavigation({
     ['/buscar', 'Buscar', 'M21 21l-6-6M17 10a7 7 0 11-14 0 7 7 0 0114 0'],
     ['/whatsapp', 'WhatsApp', 'M4 4h16v13H9l-5 4z'],
     ['/usuarios', 'Usuarios', 'M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21a8 8 0 0116 0'],
-  ].filter(([href]) => !publicOnly || href !== '/whatsapp');
+  ].filter(([href]) => (!publicOnly || href !== '/whatsapp') && (!ownBrain || href === '/cerebro' || href === '/usuarios'))
+    .map(([href, label, icon]) => [href, ownBrain && href === '/cerebro' ? 'Mi cerebro' : label, icon]);
 
   return (
     <nav

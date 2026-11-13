@@ -29,7 +29,8 @@
     "test:login-gate": "tsx scripts/test-login-gate.ts",
     "test:accounts": "tsx scripts/test-local-accounts.ts",
     "test:decisions": "tsx scripts/test-decision-engine.ts",
-    "test:apply": "tsx scripts/test-sleep-apply.ts"
+    "test:apply": "tsx scripts/test-sleep-apply.ts",
+    "test:isolation": "tsx scripts/test-brain-isolation.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

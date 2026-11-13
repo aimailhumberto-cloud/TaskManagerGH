@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { primaryOnly } from '@/lib/brains';
 import { NextRequest, NextResponse } from 'next/server';
 import { dbService } from '@/services/dbService';
 import { readPublicHbWorkspace } from '@/services/publicHbWorkspace';
@@ -149,7 +150,7 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 
-export async function GET(req: NextRequest) {
+async function _GET(req: NextRequest) {
   const auth = checkAgentAuth(req);
   if (!auth.ok) {
     return NextResponse.json({ ok: false, error: auth.error }, { status: 401, headers: CORS_HEADERS });
@@ -318,7 +319,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const auth = checkAgentAuth(req);
   if (!auth.ok) {
     return NextResponse.json({ ok: false, error: auth.error }, { status: 401, headers: CORS_HEADERS });
@@ -801,3 +802,7 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+// Cada verbo corre dentro del cerebro de quien hace la petición (ver src/lib/brains.ts).
+export const GET = primaryOnly(_GET);
+export const POST = primaryOnly(_POST);

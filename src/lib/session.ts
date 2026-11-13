@@ -3,6 +3,8 @@ import { validSessionPayload } from './sessionPayload';
 export interface SessionData {
   userId: string; personId: string; email: string; role: string;
   companyId?: string; createdAt: string;
+  /** Cerebro de la cuenta ('hb' = principal). Lo usa el middleware para confinar a las cuentas con cerebro propio. */
+  brain?: string;
 }
 export function encryptSession(session: SessionData): string {
   const secret = process.env.SESSION_SECRET;
@@ -20,6 +22,7 @@ export function decryptSession(token: string): SessionData | null {
     const actual = Buffer.from(signature, 'base64url');
     if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) return null;
     const session = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    if (typeof session?.userId === 'string' && session.userId.startsWith('local-') && typeof session.brain !== 'string') return null;
     return validSessionPayload(session) ? session : null;
   } catch { return null; }
 }

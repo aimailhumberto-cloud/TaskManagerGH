@@ -1,4 +1,5 @@
 import { getVaultPath, loadBrainGraph } from './smjBrainService';
+import { isPrimaryBrain } from './brainContext';
 import { getSleepDir, needsNightlyReport, runSleepCycle } from './dotsSleep';
 import { configuredProvider, logCall, reviewProposals, saveReviews } from './decisionEngine';
 
@@ -9,7 +10,22 @@ import { configuredProvider, logCall, reviewProposals, saveReviews } from './dec
  */
 const g = globalThis as unknown as { __dotsSleepTimer?: NodeJS.Timeout };
 
+/** Recorre todos los cerebros: cada uno recibe su informe en su propia carpeta. */
 export function checkNightlyOnce(): boolean {
+  let any = false;
+  try {
+    const { listBrains, vaultPathFor } = require('./brains');
+    const { runInBrain } = require('./brainContext');
+    for (const b of listBrains()) {
+      const vaultPath = vaultPathFor(b.brainId);
+      if (!b.exists || !vaultPath) continue;
+      any = runInBrain({ brainId: b.brainId, vaultPath, primary: b.brainId === 'hb', via: 'ciclo-nocturno' }, checkCurrentBrain) || any;
+    }
+  } catch (e: any) { console.error('[dots-sleep] no se pudo recorrer los cerebros:', e?.message || e); }
+  return any;
+}
+
+function checkCurrentBrain(): boolean {
   try {
     const vaultPath = getVaultPath();
     if (!needsNightlyReport(vaultPath)) return false;
@@ -18,7 +34,7 @@ export function checkNightlyOnce(): boolean {
     console.log(`[dots-sleep] informe ${report.day}: ${report.proposals.length} propuestas`);
     // Revisión nocturna con Jev (si hay llave). Solo anota confianza y urgencia; no cambia notas. JEV_NIGHTLY_DISABLED=1 la apaga.
     const provider = configuredProvider();
-    if (provider && process.env.JEV_NIGHTLY_DISABLED !== '1') {
+    if (provider && isPrimaryBrain() && process.env.JEV_NIGHTLY_DISABLED !== '1') {
       const sleepDir = getSleepDir(vaultPath);
       reviewProposals(provider, report.proposals, (graph.allNodes || graph.nodes) as any)
         .then((out) => {

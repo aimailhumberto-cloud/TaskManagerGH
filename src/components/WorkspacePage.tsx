@@ -15,6 +15,7 @@ export default async function WorkspacePage({ entry }: { entry: Entry }) {
   // Cuentas propias (creadas en «Usuarios»): ven el espacio de trabajo de HB, ya protegido por el login.
   const localOk = !!session && isLocalId(session.userId) && !!getAccount(session.userId)?.isActive;
   if (session && isLocalId(session.userId) && !localOk) redirect('/login?expired=1');
+  if (localOk && session!.brain !== 'hb') redirect('/cerebro'); // su espacio es su propio cerebro
   if (!session || localOk) {
     if (!localOk && !['home','companies','agenda','search','supervision'].includes(entry)) redirect('/login');
     try { return <PublicHbWorkspace entry={entry} initial={await readPublicHbWorkspace()} />; }

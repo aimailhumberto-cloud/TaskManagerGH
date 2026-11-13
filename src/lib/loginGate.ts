@@ -35,3 +35,18 @@ export function serviceKeyMatches(headers: { get(name: string): string | null },
   const header = headers.get('x-agent-key')?.trim() || '';
   return bearer === key || header === key;
 }
+
+/**
+ * Cuentas con cerebro propio (no el principal): solo pueden usar su Cerebro, Usuarios y su cuenta.
+ * El resto de la app todavía pertenece al espacio de trabajo del cerebro principal. Denegar por defecto.
+ */
+const OWN_BRAIN_ALLOWED = [
+  /^\/(cerebro|usuarios|cambiar-clave|login|setup)(\/|$)/,
+  /^\/api\/auth(\/|$)/, /^\/api\/admin(\/|$)/,
+  /^\/api\/agent\/(brain|tasks|dots-sleep|vault-sync)(\/|$)/,
+];
+export function ownBrainDecision(path: string, brain: unknown): 'allow' | 'redirect' | 'deny' {
+  if (typeof brain !== 'string' || brain === 'hb') return 'allow';
+  if (OWN_BRAIN_ALLOWED.some(r => r.test(path))) return 'allow';
+  return path.startsWith('/api/') ? 'deny' : 'redirect';
+}
