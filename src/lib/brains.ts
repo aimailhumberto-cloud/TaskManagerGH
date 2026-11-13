@@ -144,12 +144,36 @@ export function withBrain<H extends Handler>(handler: H): H {
     if (r.ctx.scope === 'leer' && writing) return NextResponse.json({ ok: false, error: 'Esta llave es de solo lectura.' }, { status: 403 });
     // Lo que escribe un agente queda en el registro del cerebro (acción y resultado, nunca el contenido).
     const byAgent = writing && (r.ctx.via === 'llave' || r.ctx.via === 'llave-de-agente');
-    let action: string | undefined;
-    if (byAgent) { try { const b = await req.clone().json(); action = typeof b?.action === 'string' ? b.action.slice(0, 40) : undefined; } catch {} }
+    let body: any;
+    if (writing) { try { body = await req.clone().json(); } catch {} }
+    const action = typeof body?.action === 'string' ? body.action.slice(0, 40) : undefined;
     r.ctx.role = r.role;
-    const res = await runInBrain(r.ctx, () => handler(req, ...rest));
+    // Reintentos: la misma petición (misma clave) no se aplica dos veces; se devuelve la respuesta guardada.
+    const idemKey = writing ? String(req.headers.get('idempotency-key') || req.headers.get('x-request-id') || (typeof body?.requestId === 'string' ? body.requestId : '')).slice(0, 120) : '';
+    const { idemGet, idemSave } = await import('./idempotency');
+    if (idemKey) {
+      const hit = idemGet(r.ctx.vaultPath, r.ctx.actor || 'anon', idemKey);
+      if (hit) return NextResponse.json({ ...(hit.body as Record<string, unknown>), repeated: true, note: 'Esta petición ya se había aplicado; no se repitió.' }, { status: hit.status, headers: { 'x-repeated': '1' } });
+    }
+    const handle = () => runInBrain(r.ctx, () => handler(req, ...rest));
+    let res: Response;
+    let entry: import('./journal').JournalEntry | null = null;
+    if (writing) {
+      // Diario: todo lo que esta petición escriba queda con su antes y después, y se puede deshacer.
+      const { withChange } = await import('./journal');
+      const who = r.ctx.actor?.startsWith('local-') ? getAccount(r.ctx.actor)?.name || r.ctx.actor : r.ctx.actor === 'agente' ? 'Agente (llave general)' : r.ctx.actor?.startsWith('agente:') ? `Agente ${r.ctx.actor.slice(7)}` : r.ctx.actor || 'sin identificar';
+      ({ result: res, entry } = await withChange(r.ctx.vaultPath, { actor: who, via: r.ctx.via, route: req.nextUrl.pathname, action, request: idemKey || undefined }, handle));
+    } else res = await handle();
     if (byAgent) { const { logActivity } = await import('./autonomy'); logActivity(r.ctx.vaultPath, { actor: r.ctx.actor || 'agente', via: r.ctx.via, path: req.nextUrl.pathname, action, status: res.status }); }
-    return res;
+    if (!entry && !idemKey) return res;
+    // Recibo: la respuesta dice qué cambió y cómo deshacerlo.
+    let json: any = null;
+    try { if ((res.headers.get('content-type') || '').includes('application/json')) json = await res.clone().json(); } catch {}
+    if (!json || typeof json !== 'object' || Array.isArray(json)) return res;
+    if (entry) { const { receiptOf } = await import('./journal'); json.receipt = receiptOf(entry); }
+    if (idemKey) idemSave(r.ctx.vaultPath, r.ctx.actor || 'anon', idemKey, res.status, json);
+    const headers = new Headers(res.headers); headers.delete('content-length');
+    return new NextResponse(JSON.stringify(json), { status: res.status, headers });
   }) as H;
 }
 

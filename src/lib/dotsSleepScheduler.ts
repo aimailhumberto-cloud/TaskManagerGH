@@ -43,8 +43,11 @@ function checkCurrentBrain(): boolean {
       reviewProposals(provider, report.proposals, (graph.allNodes || graph.nodes) as any)
         .then((out) => {
           saveReviews(sleepDir, out.reviews, new Set(report.proposals.map((p) => p.id)));
-          const auto = autoApply(vaultPath, report.proposals, out.reviews, (graph.allNodes || graph.nodes) as any);
-          if (auto.applied.length) console.log(`[jev] aplicó solo ${auto.applied.length} cambios en ${report.day}`);
+          const { withChange } = require('./journal');
+          return withChange(vaultPath, { actor: 'Jev (automático)', via: 'ciclo-nocturno', action: 'auto-aplicar' }, () => autoApply(vaultPath, report.proposals, out.reviews, (graph.allNodes || graph.nodes) as any))
+            .then(({ result: auto }: { result: ReturnType<typeof autoApply> }) => { if (auto.applied.length) console.log(`[jev] aplicó solo ${auto.applied.length} cambios en ${report.day}`); return out; });
+        })
+        .then((out) => {
           logCall(sleepDir, { action: 'review-nocturna', ok: out.errors.length === 0, ms: out.ms, input_tokens: out.usage.input_tokens, reviewed: out.reviewed, error: out.errors[0] });
         })
         .catch((e) => logCall(sleepDir, { action: 'review-nocturna', ok: false, error: e?.message || 'error' }));

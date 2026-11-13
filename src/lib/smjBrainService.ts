@@ -5,7 +5,9 @@ import YAML from 'yaml';
 import { currentBrain, isPrimaryBrain } from './brainContext';
 import { actorLabel } from './actor';
 import { resolveOwnership, getDefaultBrainIdentity, type BrainVisibility } from './brainOwnership';
-import { updateNoteFile, writeNoteFile, readNoteStrict, parseNoteStrict, atomicWriteFile, pushRecentAction, uniqueWorkingMemoryId } from './vaultFiles';
+import { updateNoteFile, writeNoteFile, readNoteStrict, parseNoteStrict, atomicWriteFile, pushRecentAction, uniqueWorkingMemoryId, contentHash, serializeNote, stampUpdated } from './vaultFiles';
+import { trackBefore } from './journal';
+import { appendLog, logLine } from './noteLog';
 
 export interface BrainNode {
   id: string;
@@ -383,7 +385,9 @@ export function getBrainNodeDetail(nodeId: string): BrainNode | null {
   const key = (nodeId || '').toLowerCase();
   const node = (graph.allNodes || graph.nodes).find(n => n.id.toLowerCase() === key);
   if (!node) return null;
-  return { ...node, filePath: path.relative(getVaultPath(), node.filePath).replace(/\\/g, '/') };
+  let hash: string | undefined;
+  try { hash = contentHash(fs.readFileSync(node.filePath, 'utf-8')); } catch {}
+  return { ...node, hash, filePath: path.relative(getVaultPath(), node.filePath).replace(/\\/g, '/') } as BrainNode;
 }
 
 function buildBrainIndex(vaultDir: string): { nodes: BrainNode[]; links: BrainLink[]; summary: BrainGraph['summary'] } {
@@ -562,12 +566,14 @@ export function saveWorkingMemory(input: {
   links: string[];
   relationType?: string;
   source?: string;
-}): { ok: boolean; filePath: string; id: string } {
+}): { ok: boolean; filePath: string; id: string; duplicate?: boolean } {
   const vaultDir = getVaultPath();
   const wmDir = path.join(vaultDir, '00-Working-Memory');
   if (!fs.existsSync(wmDir)) fs.mkdirSync(wmDir, { recursive: true });
 
   const { dateStr: panamaDate, timeStr } = getPanamaDate();
+  const dup = recentDuplicateCapture(wmDir, input.title, input.content);
+  if (dup) return { ok: true, filePath: dup.filePath, id: dup.id, duplicate: true };
   const id = uniqueWorkingMemoryId(panamaDate, timeStr);
   const cleanTitle = input.title.replace(/[/\\?%*:|"<>]/g, '-').trim().slice(0, 80);
   const filename = `${id} - ${cleanTitle}.md`;
@@ -595,9 +601,26 @@ export function saveWorkingMemory(input: {
   return { ok: true, filePath, id };
 }
 
+/** La misma captura (título y texto) guardada hace menos de 15 minutos: se devuelve esa en vez de crear otra. */
+function recentDuplicateCapture(wmDir: string, title: string, content: string): { id: string; filePath: string } | null {
+  const now = Date.now();
+  let names: string[] = [];
+  try { names = fs.readdirSync(wmDir).filter(f => f.endsWith('.md')); } catch { return null; }
+  for (const n of names) {
+    const f = path.join(wmDir, n);
+    try {
+      if (now - fs.statSync(f).mtimeMs > 15 * 60_000) continue;
+      const note = readNoteStrict(f);
+      if (note.ok && note.frontmatter.title === `Working Memory: ${title}` && note.body.includes(String(content).trim())) return { id: String(note.frontmatter.id), filePath: f };
+    } catch {}
+  }
+  return null;
+}
+
 export function consolidateWorkingMemory(sessionSummary: string): {
   ok: boolean;
   promotedCount: number;
+  loggedCount?: number;
   sessionFile: string;
   skipped?: string[];
 } {
@@ -621,7 +644,7 @@ export function consolidateWorkingMemory(sessionSummary: string): {
   // Estados que NO se consolidan: instrucciones abiertas para DOTS y notas archivadas.
   const PROTECTED_STATUS = new Set(['in_review_dots', 'solicitado', 'recibido', 'en_analisis', 'borrador_listo', 'archived']);
 
-  let promoted = 0;
+  let promoted = 0, logged = 0;
   const promotedNames: string[] = [];
   const skipped: string[] = [];
   for (const f of wmFiles) {
@@ -648,6 +671,7 @@ export function consolidateWorkingMemory(sessionSummary: string): {
       syncToBundledVault(path.relative(vaultDir, f), upd.content);
       promoted++;
       promotedNames.push(name);
+      logged += copyToTargetLogs(fm, note.body, name, dateStr);
     } else {
       skipped.push(`${name} (${upd.error})`);
     }
@@ -657,6 +681,8 @@ export function consolidateWorkingMemory(sessionSummary: string): {
   const body = `# Sesión de Consolidación ${dateStr}
 
 ${sessionSummary || ''}
+
+Entradas copiadas a la bitácora de sus fichas: ${logged}
 
 ## Archivos Consolidados & Promovidos (${promoted}):
 ${promotedNames.map(n => `- [[${n}]]`).join('\n') || '- No habían notas temporales pendientes.'}
@@ -681,9 +707,30 @@ ${skipped.length ? `\n## Omitidos (${skipped.length}):\n${skipped.map(s => `- ${
   return {
     ok: true,
     promotedCount: promoted,
+    loggedCount: logged,
     sessionFile: sessionFilePath,
     skipped,
   };
+}
+
+/** Al consolidar, lo que decía la nota pasa a la bitácora de las fichas que menciona (solo coincidencias exactas, máx. 5). */
+function copyToTargetLogs(fm: Record<string, any>, body: string, noteName: string, dateStr: string): number {
+  const touches: string[] = Array.isArray(fm?.relations?.touches) ? fm.relations.touches : [];
+  const text = String(body || '').replace(/^#.*$/m, '').replace(/\s+/g, ' ').trim().slice(0, 600);
+  const title = String(fm.title || noteName).replace(/^Working Memory:\s*/i, '');
+  let n = 0;
+  for (const t of touches.slice(0, 5)) {
+    const r = resolveNodeFile(String(t), true);
+    if (!r.ok) continue;
+    const peek = readNoteStrict(r.filePath);
+    if (!peek.ok || peek.frontmatter.type === 'working_memory' || peek.frontmatter.type === 'consolidation_session') continue;
+    const u = updateNoteFile(r.filePath, (tfm, tbody) => {
+      pushRecentAction(tfm, { date: dateStr, type: 'memoria', summary: `${title}${text ? ': ' + text.slice(0, 200) : ''}` });
+      return { body: appendLog(tbody, logLine({ date: dateStr, type: 'memoria', summary: `${title}${text ? ': ' + text : ''}`, source: `[[${noteName}]]` })) };
+    });
+    if (u.ok) { syncToBundledVault(path.relative(getVaultPath(), r.filePath), u.content); n++; }
+  }
+  return n;
 }
 
 export function updateDossierMetadata(input: {
@@ -745,7 +792,7 @@ export function updateDossierMetadata(input: {
   return { ok: true, message: `Ficha '${path.basename(foundFile, '.md')}' actualizada exitosamente`, updatedFile: foundFile };
 }
 
-export function writeVaultFile(relativePath: string, content: string): { ok: boolean; path: string; fullPath: string } {
+export function writeVaultFile(relativePath: string, content: string): { ok: boolean; path: string; fullPath: string; hash: string } {
   const vaultDir = getVaultPath();
   const sanitizedRel = safeRelative(relativePath);
   const targetPath = path.join(vaultDir, sanitizedRel);
@@ -755,6 +802,15 @@ export function writeVaultFile(relativePath: string, content: string): { ok: boo
     fs.mkdirSync(targetDir, { recursive: true });
   }
 
+  // Una nota con encabezado roto no entra; una buena recibe su fecha de cambio.
+  if (sanitizedRel.endsWith('.md')) {
+    const check = parseNoteStrict(content);
+    if (!check.ok) throw new VaultWriteError(`${sanitizedRel}: ${check.error}. No se guardó.`);
+    if (check.hasFrontmatter) {
+      const fm = { ...check.frontmatter }; stampUpdated(fm, { u: undefined, l: undefined });
+      content = serializeNote(fm, check.body);
+    }
+  }
   atomicWriteFile(targetPath, content);
 
   // Also sync to bundled repository folder if separate
@@ -768,8 +824,10 @@ export function writeVaultFile(relativePath: string, content: string): { ok: boo
     } catch {}
   }
 
-  return { ok: true, path: sanitizedRel, fullPath: targetPath };
+  return { ok: true, path: sanitizedRel, fullPath: targetPath, hash: contentHash(content) };
 }
+
+export class VaultWriteError extends Error { constructor(message: string, public status = 400) { super(message); } }
 
 export function deleteVaultFile(relativePath: string): { ok: boolean; path: string } {
   const vaultDir = getVaultPath();
@@ -777,6 +835,7 @@ export function deleteVaultFile(relativePath: string): { ok: boolean; path: stri
   const targetPath = path.join(vaultDir, sanitizedRel);
 
   if (fs.existsSync(targetPath)) {
+    trackBefore(targetPath); // el diario guarda el archivo para poder deshacer
     fs.unlinkSync(targetPath);
   }
 
@@ -791,7 +850,7 @@ export function deleteVaultFile(relativePath: string): { ok: boolean; path: stri
   return { ok: true, path: sanitizedRel };
 }
 
-export function readVaultFile(relativePath: string): { ok: boolean; path: string; content?: string; mtime?: string; size?: number } {
+export function readVaultFile(relativePath: string): { ok: boolean; path: string; content?: string; mtime?: string; size?: number; hash?: string } {
   const vaultDir = getVaultPath();
   const sanitizedRel = safeRelative(relativePath);
   const targetPath = path.join(vaultDir, sanitizedRel);
@@ -808,6 +867,7 @@ export function readVaultFile(relativePath: string): { ok: boolean; path: string
     content,
     mtime: stat.mtime.toISOString(),
     size: stat.size,
+    hash: contentHash(content),
   };
 }
 
@@ -1611,7 +1671,7 @@ export function advanceDotsStage(input: { workingMemoryId?: string; taskId?: str
 }
 
 /** Busca el archivo de un nodo: id exacto, título exacto, nombre de archivo exacto; solo si no hay, coincidencia parcial ÚNICA. */
-function resolveNodeFile(key: string): { ok: true; filePath: string } | { ok: false; message: string } {
+export function resolveNodeFile(key: string, exactOnly = false): { ok: true; filePath: string } | { ok: false; message: string } {
   const k = (key || '').trim().replace(/^\[\[|\]\]$/g, '').toLowerCase();
   if (!k) return { ok: false, message: 'Falta el identificador del nodo.' };
   const nodes = loadBrainGraph().nodes;
@@ -1624,6 +1684,7 @@ function resolveNodeFile(key: string): { ok: true; filePath: string } | { ok: fa
   );
   if (exact.length === 1) return { ok: true, filePath: exact[0].filePath };
   if (exact.length > 1) return { ok: false, message: `"${key}" coincide con ${exact.length} nodos; usa el id exacto.` };
+  if (exactOnly) return { ok: false, message: `Nodo destino "${key}" no encontrado en el vault` };
   const partial = nodes.filter(n => nk.length >= 4 && (norm(n.id) === nk || norm(n.title || '').includes(nk) || norm(path.basename(n.filePath, '.md')).includes(nk)));
   if (partial.length === 1) return { ok: true, filePath: partial[0].filePath };
   if (partial.length > 1) return { ok: false, message: `"${key}" es ambiguo (${partial.length} nodos: ${partial.slice(0, 4).map(n => n.id).join(', ')}). Usa el id exacto.` };
@@ -1640,7 +1701,7 @@ export function createBrainTask(input: {
   /** Quién la asignó (cuando viene de otra persona) y a qué cerebros hace referencia. Solo etiquetas. */
   assignedBy?: string;
   mentions?: string[];
-}): { ok: boolean; message: string; task?: UnifiedBrainTask } {
+}): { ok: boolean; message: string; task?: UnifiedBrainTask; taskId?: string; nodeId?: string } {
   const vaultDir = getVaultPath();
   const { dateStr, timeStr } = getPanamaDate();
   const nowIso = new Date().toISOString();
@@ -1689,6 +1750,8 @@ export function createBrainTask(input: {
     return {
       ok: true,
       message: `Tarea creada y verificada en el nodo ${nodeId}`,
+      taskId,
+      nodeId,
     };
   }
 
@@ -1723,6 +1786,8 @@ export function createBrainTask(input: {
   return {
     ok: true,
     message: `Tarea registrada y verificada en el Cerebro: ${input.title}`,
+    taskId: `wm-${wmId}`,
+    nodeId: wmId,
   };
 }
 
@@ -1730,23 +1795,48 @@ export function upsertNode(input: {
   relativePath: string;
   frontmatter: Record<string, any>;
   body: string;
-}): { ok: boolean; message: string; fullPath?: string } {
+  /** true = reemplaza la ficha entera (exige ifMatch si ya existe). Por defecto combina: los campos enviados pisan, el resto se conserva. */
+  replace?: boolean;
+  /** Huella del archivo leído (GET ?node= o vault-sync ?path=). Si no coincide, no se escribe. */
+  ifMatch?: string;
+}): { ok: boolean; message: string; fullPath?: string; hash?: string; merged?: boolean; status?: number } {
   const vaultDir = getVaultPath();
   const sanitizedRel = safeRelative(input.relativePath);
+  if (!sanitizedRel.endsWith('.md')) return { ok: false, status: 400, message: 'relativePath debe terminar en .md' };
   const targetPath = path.join(vaultDir, sanitizedRel);
+  const fm0 = { ...(input.frontmatter || {}) };
+  let fm = fm0, body = input.body || '', merged = false;
 
-  input.frontmatter.updated_at = new Date().toISOString();
-  const written = writeNoteFile(targetPath, input.frontmatter, input.body || '');
+  if (fs.existsSync(targetPath)) {
+    const raw = fs.readFileSync(targetPath, 'utf-8');
+    if (input.ifMatch && input.ifMatch !== contentHash(raw)) return { ok: false, status: 409, message: `La ficha ${sanitizedRel} cambió desde que la leíste. Vuelve a leerla y reintenta.` };
+    if (input.replace && !input.ifMatch) return { ok: false, status: 428, message: 'Para reemplazar una ficha entera envía ifMatch con la huella que te dio la lectura.' };
+    if (!input.replace) {
+      const cur = parseNoteStrict(raw);
+      if (!cur.ok) return { ok: false, status: 409, message: `${sanitizedRel}: ${cur.error}. No se modificó.` };
+      fm = { ...cur.frontmatter, ...fm0 };
+      body = String(input.body || '').trim() ? input.body : cur.body;
+      merged = true;
+    }
+  } else if (fm0.id) {
+    // Una ficha nueva no puede repetir el id de otra.
+    const other = loadBrainGraph().allNodes?.find(n => String(n.id).toLowerCase() === String(fm0.id).toLowerCase());
+    if (other) return { ok: false, status: 409, message: `Ya existe una ficha con id "${fm0.id}" en ${path.relative(vaultDir, other.filePath).replace(/\\/g, '/')}. Usa esa ruta para cambiarla.` };
+  }
+
+  const written = writeNoteFile(targetPath, fm, body);
   if (!written.ok) {
-    return { ok: false, message: `Fallo al escribir el archivo en ${sanitizedRel}: ${written.error}` };
+    return { ok: false, status: 400, message: `Fallo al escribir el archivo en ${sanitizedRel}: ${written.error}` };
   }
 
   syncToBundledVault(sanitizedRel, written.content);
 
   return {
     ok: true,
-    message: `Nodo guardado y verificado exitosamente en ${sanitizedRel}`,
+    message: merged ? `Ficha ${sanitizedRel} actualizada (se conservaron los campos que no enviaste)` : `Nodo guardado y verificado exitosamente en ${sanitizedRel}`,
     fullPath: targetPath,
+    hash: contentHash(written.content),
+    merged,
   };
 }
 

@@ -16,6 +16,12 @@ export const dynamic = 'force-dynamic';
 /** De dónde sale cada bloque del tablero y cómo lo mantiene un agente. Se sirve con ?guide=1. */
 const GUIDE = {
   nota: 'Casi todo el tablero se calcula solo del cerebro: basta con mantener el cerebro al día. Solo los indicadores, las cuotas y las ciudades se cargan a propósito. No inventes cifras: si no tienes el dato, pregúntale a la persona.',
+  primero: [
+    "Registrar una novedad: POST /api/agent/brain {action:'record', nodeId, summary, source?, followup?, lastEmail?, state?, event?, task?} — ficha, agenda y tarea en una llamada; devuelve receipt.",
+    'Qué cambió: GET /api/agent/changes?since=AAAA-MM-DD. Deshacer: POST /api/agent/changes {action:\'undo\', changeId}.',
+    'Brief de la mañana: GET /api/agent/brief?since=AAAA-MM-DD — se arma solo con esos datos.',
+    'Reescribir un archivo existente exige ifMatch (el hash de la lectura). Reintentos: encabezado Idempotency-Key.',
+  ],
   bloques: [
     { bloque: 'Tareas vencidas, Para hoy, Mis tareas de hoy, Agenda de la semana, Mis tareas abiertas', origen: 'Tareas y seguimientos con fecha del cerebro', como: "POST /api/agent/tasks {action:'create'|'complete'|'reschedule'}; seguimientos con POST /api/agent/brain {action:'update_dossier', nodeId, nextFollowupDate, nextFollowupAction}" },
     { bloque: 'Fichas en mi cerebro, De qué está hecho mi cerebro, Fichas por país, Mis marcas', origen: 'Fichas del cerebro (tipo, país, enlaces)', como: "POST /api/agent/brain {action:'remember_working'} para capturar; {action:'upsert_node'} para crear o corregir fichas" },

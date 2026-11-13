@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import YAML from 'yaml';
+import { trackBefore } from './journal';
 
 /**
  * Helpers de escritura segura para el vault de Markdown.
@@ -43,6 +44,7 @@ export function serializeNote(frontmatter: Record<string, any>, body: string): s
 
 /** Escribe en un temporal del mismo directorio y renombra: o queda el archivo completo o queda el anterior. */
 export function atomicWriteFile(filePath: string, content: string): void {
+  trackBefore(filePath); // el diario guarda cómo estaba antes
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   const tmp = `${filePath}.${process.pid}.${crypto.randomBytes(4).toString('hex')}.tmp`;
   try {
@@ -77,7 +79,9 @@ export function updateNoteFile(
   if (!note.ok) return { ok: false, error: `${path.basename(filePath)}: ${note.error}. No se modificó el archivo.` };
 
   const fm = note.frontmatter;
+  const prev = { u: fm.updated_at, l: fm.last_updated_at };
   const result = mutate(fm, note.body);
+  stampUpdated(fm, prev);
   const newBody = result && typeof result.body === 'string' ? result.body : note.body;
   const content = serializeNote(fm, newBody);
 
@@ -101,6 +105,8 @@ export function updateNoteFile(
 
 /** Escribe una nota nueva (o completa) validando que el resultado se pueda volver a leer. */
 export function writeNoteFile(filePath: string, frontmatter: Record<string, any>, body: string): { ok: true; content: string } | { ok: false; error: string } {
+  frontmatter = { ...frontmatter };
+  stampUpdated(frontmatter, { u: undefined, l: undefined });
   const content = serializeNote(frontmatter, body);
   const check = parseNoteStrict(content);
   if (!check.ok) return { ok: false, error: check.error };
@@ -123,4 +129,20 @@ export function uniqueWorkingMemoryId(dateStr: string, timeStr = ''): string {
   const t = (timeStr || '').replace(/[^0-9]/g, '').slice(0, 6) || Date.now().toString().slice(-6);
   const rnd = crypto.randomBytes(4).toString('hex');
   return `wm-${dateStr.replace(/-/g, '')}-${t}-${rnd}`;
+}
+
+/** Huella corta del contenido de un archivo: sirve para saber si cambió desde que se leyó. */
+export const contentHash = (content: string) => crypto.createHash('sha256').update(content, 'utf8').digest('hex').slice(0, 16);
+
+/**
+ * Una sola fecha de cambio: toda escritura deja `updated_at` (y `last_updated_at`, si la ficha lo usa, con el
+ * mismo valor). Si la propia acción acaba de fijar una fecha reciente, se respeta esa para no desordenar deshacer.
+ */
+export function stampUpdated(fm: Record<string, any>, prev: { u: unknown; l: unknown }, now = new Date()): void {
+  // Si la acción fijó ella misma una fecha (aplicar o deshacer una propuesta), esa manda: deshacer debe encontrarla igual.
+  const stamp = fm.updated_at !== prev.u && typeof fm.updated_at === 'string' ? fm.updated_at
+    : fm.last_updated_at !== prev.l && typeof fm.last_updated_at === 'string' ? fm.last_updated_at : now.toISOString();
+  fm.updated_at = stamp;
+  if ('last_updated_at' in fm && fm.last_updated_at !== prev.l) fm.last_updated_at = stamp;
+  else if ('last_updated_at' in fm) fm.last_updated_at = stamp;
 }

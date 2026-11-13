@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getSleepDir } from './dotsSleep';
+import { atomicWriteFile } from './vaultFiles';
 
 export interface KpiPoint { at: string; value: number; by?: string; note?: string }
 export interface Kpi { id: string; name: string; unit: string; value: number; target: number | null; period: string; updatedAt: string; updatedBy?: string; history: KpiPoint[] }
@@ -16,7 +17,7 @@ export const MAX_KPIS = 24, MAX_HISTORY = 60;
 
 const file = (vaultPath: string, name: string) => path.join(getSleepDir(vaultPath), name);
 function readJson<T>(f: string, fallback: T): T { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return fallback; } }
-function writeJson(f: string, data: unknown) { fs.mkdirSync(path.dirname(f), { recursive: true }); const tmp = `${f}.${process.pid}.tmp`; fs.writeFileSync(tmp, JSON.stringify(data, null, 2)); fs.renameSync(tmp, f); }
+function writeJson(f: string, data: unknown) { atomicWriteFile(f, JSON.stringify(data, null, 2)); }
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48);
 const num = (v: unknown): number | null => { const n = typeof v === 'string' ? Number(v.replace(/,/g, '')) : v; return typeof n === 'number' && Number.isFinite(n) && Math.abs(n) < 1e15 ? n : null; };
 

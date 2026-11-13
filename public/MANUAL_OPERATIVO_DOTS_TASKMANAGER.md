@@ -9,6 +9,31 @@
 
 ---
 
+## 0. Novedades de la fase 1 (13 de noviembre de 2026) — LEER PRIMERO
+
+La única fuente es la app en Render. No partas de copias locales (la carpeta `Downloads\SMJaleel\vault` está congelada).
+
+| Para… | Usa | Qué devuelve |
+|---|---|---|
+| Registrar una novedad (correo, reunión, acuerdo) | `POST /api/agent/brain` `{"action":"record", nodeId, summary, type?, source?, date?, state?, followup?:{date,action}, lastEmail?:{subject,date,sender}, event?:{title,date,time?,endTime?,location?}, task?:{title,dueDate?,priority?}}` | Una sola llamada deja al día la ficha (bitácora, estado actual, próximo paso, último correo), la agenda (crea o **mueve** la reunión del mismo título) y la tarea. Todo o nada. |
+| Saber qué cambió | `GET /api/agent/changes?since=AAAA-MM-DD` | Diario: quién, cuándo, por dónde, qué fichas y qué campos. Incluye archivos que cambiaron sin pasar por la app. |
+| Deshacer un cambio | `POST /api/agent/changes {"action":"undo","changeId":"ch-…"}` | Vuelve los archivos a como estaban, si nadie los tocó después. |
+| Armar el brief de la mañana | `GET /api/agent/brief?since=AAAA-MM-DD` | Tareas (vencidas, hoy, 48 h), seguimientos, agenda de 7 días, novedades, memoria abierta, indicadores, distribuidores y la hora de los datos. **El brief se arma solo con esto.** |
+
+Reglas nuevas que la app hace cumplir:
+1. **Recibo:** toda escritura devuelve `receipt` (qué cambió y cómo deshacerlo). Léelo y confírmale a HB lo que dice.
+2. **Copias viejas:** reescribir un archivo que ya existe (`write_file`, `batch_sync`) exige `ifMatch` = el `hash` que dio la lectura (`GET /api/agent/vault-sync?path=` o `GET /api/agent/brain?node=`). Sin él: 428. Si alguien cambió el archivo entre medio: 409; vuelve a leer y reintenta.
+3. **`upsert_node` combina:** los campos que envías pisan y el resto se conserva. Para reemplazar la ficha entera: `"replace": true` + `ifMatch`. No se puede crear otra ficha con un `id` que ya existe.
+4. **Encabezado roto no entra** por ninguna puerta (400).
+5. **Reintentos:** manda el encabezado `Idempotency-Key` (o `requestId` en el cuerpo); si repites la misma petición no se aplica dos veces.
+6. **Agenda:** la misma reunión (tipo, título, día y hora) no se duplica. Para lo que viene de Outlook usa `source:"outlook"` + `externalId`.
+7. **Fecha única:** toda escritura pone `updated_at`. No hace falta escribirla a mano.
+8. **Cada ficha tiene dos partes en el texto:** «Estado actual» (se reescribe con `state`) y «Bitácora» (entradas con fecha y fuente; solo se agregan). No dejes en el texto dos versiones contradictorias.
+9. `consolidate_session` ahora copia el contenido de cada nota a la bitácora de las fichas que menciona.
+10. `POST /api/agent/hub` es del sistema anterior: lo que entra por ahí no llega al cerebro. No lo uses.
+
+---
+
 ## 1. Principio Fundamental: El Cerebro en Markdown es la Única Fuente de Verdad (SSOT)
 
 A partir de esta actualización, **el Task Manager y el Segundo Cerebro operan como un solo sistema unificado**. 

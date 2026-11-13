@@ -18,6 +18,8 @@ import {
 } from '@/lib/smjBrainService';
 import { getVaultPath as getVaultPathForBackup } from '@/lib/smjBrainService';
 import { ensureDailySnapshot } from '@/lib/vaultBackup';
+import { recordUpdate } from '@/lib/recordUpdate';
+import { withChange } from '@/lib/journal';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +50,7 @@ function classifyInBackground(noteId: string, title: string, content: string) {
         let applied = false;
         if (a.mode === 'auto' && sug.parentId && (sug.parentScore || 0) >= a.threshold) {
           const fresh = loadBrainGraph(); const all = (fresh.allNodes || fresh.nodes) as any[];
-          const r = applyProposal(ctx.vaultPath, { id: captureProposalId(noteId), kind: 'clasificar_captura', title: `Ubicar captura: ${title}`, nodeIds: [noteId, sug.parentId] }, all, AUTO_ACTOR);
+          const { result: r } = await withChange(ctx.vaultPath, { actor: AUTO_ACTOR, via: 'jev', action: 'clasificar_captura' }, () => applyProposal(ctx.vaultPath, { id: captureProposalId(noteId), kind: 'clasificar_captura', title: `Ubicar captura: ${title}`, nodeIds: [noteId, sug.parentId as string] }, all, AUTO_ACTOR));
           if (r.ok) { applied = true; recordDecision(ctx.vaultPath, captureProposalId(noteId), 'aprobada', AUTO_ACTOR, `Conectada sola a «${sug.parentTitle}» con confianza ${Math.round((sug.parentScore || 0) * 100)} %`); }
         }
         logCall(sleepDir, { action: applied ? 'captura-conectada' : 'captura-sugerida', ok: true, model: sug.model });
@@ -121,6 +123,7 @@ async function _GET(req: NextRequest) {
         lens: lens || 'global-core',
         marketFilter: market || 'all',
         capabilities: [
+          'record',
           'remember_working',
           'consolidate_session',
           'update_dossier',
@@ -175,8 +178,8 @@ async function _POST(req: NextRequest) {
       if (!result.ok) {
         return NextResponse.json({ ok: false, error: 'No se pudo guardar la memoria de trabajo' }, { status: 500, headers: CORS_HEADERS });
       }
-      classifyInBackground(result.id, String(title), String(content));
-      return NextResponse.json({ ok: true, result }, { status: 201, headers: CORS_HEADERS });
+      if (!result.duplicate) classifyInBackground(result.id, String(title), String(content));
+      return NextResponse.json({ ok: true, result, ...(result.duplicate ? { note: 'Esa misma captura ya se había guardado hace menos de 15 minutos; no se repitió.' } : {}) }, { status: result.duplicate ? 200 : 201, headers: CORS_HEADERS });
     }
 
     if (action === 'consolidate_session') {
@@ -208,8 +211,13 @@ async function _POST(req: NextRequest) {
       return NextResponse.json(result, { status: result.ok ? 200 : 404, headers: CORS_HEADERS });
     }
 
+    if (action === 'record') {
+      const result = recordUpdate(body);
+      return NextResponse.json(result, { status: result.ok ? 200 : result.status, headers: CORS_HEADERS });
+    }
+
     if (action === 'upsert_node') {
-      const { relativePath, frontmatter, body: nodeBody } = body;
+      const { relativePath, frontmatter, body: nodeBody, replace, ifMatch } = body;
       if (!relativePath || !frontmatter) {
         return NextResponse.json(
           { ok: false, error: 'relativePath and frontmatter son requeridos para upsert_node' },
@@ -220,8 +228,10 @@ async function _POST(req: NextRequest) {
         relativePath,
         frontmatter,
         body: nodeBody || '',
+        replace: replace === true,
+        ifMatch: typeof ifMatch === 'string' ? ifMatch : undefined,
       });
-      return NextResponse.json(result, { status: result.ok ? 200 : 500, headers: CORS_HEADERS });
+      return NextResponse.json(result, { status: result.ok ? 200 : result.status || 500, headers: CORS_HEADERS });
     }
 
     if (action === 'reconfigure_node_topology') {
@@ -276,7 +286,7 @@ async function _POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { ok: false, error: `Acción '${action}' no reconocida. Usa 'remember_working', 'consolidate_session', 'update_dossier', 'upsert_node', 'reconfigure_node_topology', 'assign_parent', 'update_layout_config' o 'reset_layout_config'.` },
+      { ok: false, error: `Acción '${action}' no reconocida. Usa 'record', 'remember_working', 'consolidate_session', 'update_dossier', 'upsert_node', 'reconfigure_node_topology', 'assign_parent', 'update_layout_config' o 'reset_layout_config'.` },
       { status: 400, headers: CORS_HEADERS }
     );
   } catch (error: any) {

@@ -10,7 +10,23 @@ import {
   readVaultFile,
   listVaultFiles,
   loadBrainGraph,
+  VaultWriteError,
 } from '@/lib/smjBrainService';
+
+/**
+ * Regla de la fase 1: reescribir un archivo que ya existe exige `ifMatch` = la huella que dio la lectura
+ * (GET ?path= o GET /api/agent/brain?node=). Así nadie pisa sin saber lo que otro guardó entre medio.
+ * Se puede apagar con VAULT_REQUIRE_MATCH=0 (no recomendado).
+ */
+function staleCheck(relPath: string, ifMatch: unknown): { status: number; error: string; currentHash?: string } | null {
+  const cur = readVaultFile(relPath);
+  if (!cur.ok) return null; // archivo nuevo
+  if (typeof ifMatch === 'string' && ifMatch) {
+    return ifMatch === cur.hash ? null : { status: 409, error: `${relPath} cambió desde que lo leíste. Vuelve a leerlo (GET /api/agent/vault-sync?path=...) y aplica tu cambio sobre la versión actual.`, currentHash: cur.hash };
+  }
+  if (process.env.VAULT_REQUIRE_MATCH === '0') return null;
+  return { status: 428, error: `${relPath} ya existe. Para reescribirlo envía ifMatch con la huella (hash) que te dio la lectura. Para registrar una novedad usa POST /api/agent/brain {action:'record'}.`, currentHash: cur.hash };
+}
 
 export const dynamic = 'force-dynamic';
 
@@ -156,7 +172,11 @@ async function _POST(req: NextRequest) {
           { status: 400, headers: CORS_HEADERS }
         );
       }
-      const res = writeVaultFile(relPath, content);
+      const stale = staleCheck(relPath, body.ifMatch);
+      if (stale) return NextResponse.json({ ok: false, ...stale }, { status: stale.status, headers: CORS_HEADERS });
+      let res;
+      try { res = writeVaultFile(relPath, content); }
+      catch (e: any) { if (e instanceof VaultWriteError) return NextResponse.json({ ok: false, error: e.message }, { status: e.status, headers: CORS_HEADERS }); throw e; }
       return NextResponse.json(
         {
           message: `Archivo '${relPath}' guardado instantáneamente en la nube`,
@@ -168,7 +188,7 @@ async function _POST(req: NextRequest) {
     }
 
     if (action === 'batch_sync') {
-      const files: { path: string; content: string }[] = body.files;
+      const files: { path: string; content: string; ifMatch?: string }[] = body.files;
       if (!Array.isArray(files)) {
         return NextResponse.json(
           { ok: false, error: 'files array es requerido para batch_sync' },
@@ -186,15 +206,18 @@ async function _POST(req: NextRequest) {
               continue;
             }
           }
-          results.push(writeVaultFile(item.path, item.content));
+          const stale = staleCheck(item.path, item.ifMatch);
+          if (stale) { rejected.push({ path: item.path, error: stale.error }); continue; }
+          try { results.push(writeVaultFile(item.path, item.content)); }
+          catch (e: any) { rejected.push({ path: item.path, error: e?.message || 'error' }); }
         }
       }
       return NextResponse.json(
         {
-          ok: true,
+          ok: rejected.length === 0,
           syncedCount: results.length,
           rejected,
-          message: `${results.length} archivos sincronizados en la nube exitosamente${rejected.length ? `; ${rejected.length} rechazados por YAML ilegible` : ''}`,
+          message: `${results.length} archivos guardados${rejected.length ? `; ${rejected.length} rechazados (ver rejected)` : ''}`,
           timestamp: new Date().toISOString(),
         },
         { status: 200, headers: CORS_HEADERS }

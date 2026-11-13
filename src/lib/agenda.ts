@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { getSleepDir } from './dotsSleep';
+import { atomicWriteFile } from './vaultFiles';
 
 export const EVENT_KINDS = ['reunion', 'viaje', 'evento'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
@@ -24,7 +25,7 @@ export const MAX_EVENTS = 2000;
 const DAY = /^\d{4}-\d{2}-\d{2}$/, TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const file = (vaultPath: string) => path.join(getSleepDir(vaultPath), 'agenda.json');
 export const listEvents = (vaultPath: string): AgendaEvent[] => { try { const d = JSON.parse(fs.readFileSync(file(vaultPath), 'utf8')); return Array.isArray(d.events) ? d.events : []; } catch { return []; } };
-function save(vaultPath: string, events: AgendaEvent[]) { const f = file(vaultPath); fs.mkdirSync(path.dirname(f), { recursive: true }); const tmp = `${f}.${process.pid}.tmp`; fs.writeFileSync(tmp, JSON.stringify({ version: 1, events }, null, 2)); fs.renameSync(tmp, f); }
+function save(vaultPath: string, events: AgendaEvent[]) { atomicWriteFile(file(vaultPath), JSON.stringify({ version: 1, events }, null, 2)); }
 const validDay = (v: unknown): v is string => typeof v === 'string' && DAY.test(v) && !Number.isNaN(Date.parse(v + 'T00:00:00Z')) && new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) === v;
 export const addDays = (day: string, n: number) => new Date(Date.parse(day + 'T12:00:00Z') + n * 86400000).toISOString().slice(0, 10);
 const weekday = (day: string) => new Date(day + 'T12:00:00Z').getUTCDay(); // 0 = domingo
@@ -35,6 +36,12 @@ export function upsertEvent(vaultPath: string, input: Record<string, unknown>, b
   const source = typeof input.source === 'string' && input.source ? input.source.slice(0, 20) : 'manual';
   const externalId = typeof input.externalId === 'string' && input.externalId ? input.externalId.slice(0, 200) : undefined;
   let ev = (typeof input.id === 'string' && events.find(e => e.id === input.id)) || (externalId && events.find(e => e.externalId === externalId && e.source === source)) || null;
+  // Sin id ni externalId: la misma reunión (tipo, título, día y hora) no se crea dos veces; se actualiza la que hay.
+  if (!ev && !input.id && !externalId) {
+    const norm = (v: unknown) => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const kind = typeof input.kind === 'string' ? input.kind : 'reunion';
+    ev = events.find(e => e.kind === kind && norm(e.title) === norm(input.title) && e.date === input.date && (e.time || '') === (typeof input.time === 'string' ? input.time : '')) || null;
+  }
   const creating = !ev;
   if (typeof input.id === 'string' && input.id && !ev && !externalId) throw new AgendaError('Ese evento no existe.', 404);
   if (!ev) {
