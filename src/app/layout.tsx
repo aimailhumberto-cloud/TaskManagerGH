@@ -57,32 +57,24 @@ export default async function RootLayout({
 
           {/* Sidebar Navigation Panel (Premium Tailwind Design) */}
           <aside className="
-            fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-primary-900 text-primary-100 border-r border-primary-800/80
+            fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-[#0b1f4d] text-white
             transform -translate-x-full transition-transform duration-300 ease-in-out
             peer-checked:translate-x-0
-            lg:translate-x-0 lg:static lg:z-auto lg:flex
+            lg:translate-x-0 lg:sticky lg:top-0 lg:h-screen lg:self-start lg:shrink-0 lg:z-auto lg:flex
           ">
-            {/* Header: Logo and Brand Title */}
-            <div className="flex h-16 shrink-0 items-center justify-between px-6 border-b border-primary-800/60 bg-primary-950/40">
-              <div className="flex items-center gap-3">
-                {/* Premium Golden Winged Logo SVG */}
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-gold-400 to-gold-600 shadow-md shadow-gold-500/20">
-                  <svg className="w-5 h-5 text-primary-950 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                </div>
+            {/* Marca: logo de S.M. Jaleel */}
+            <div className="flex h-[76px] shrink-0 items-center justify-between px-5 border-b border-white/10">
+              <a href={ownBrain ? '/inicio' : '/'} className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/brands/smjaleel_white.png" alt="S.M. Jaleel" className="h-12 w-12 rounded-full bg-white" />
                 <div className="flex flex-col">
-                  <span className="text-lg font-extrabold tracking-wide bg-gradient-to-r from-gold-300 via-gold-400 to-gold-200 bg-clip-text text-transparent">
-                    SEGUNDO CEREBRO
-                  </span>
-                  <span className="text-[10px] font-semibold text-gold-500/80 tracking-widest uppercase -mt-1">
-                    S.M. Jaleel
-                  </span>
+                  <span className="text-[15px] font-bold text-white leading-tight">S.M. Jaleel</span>
+                  <span className="text-[11px] font-medium text-[#9fdcff] tracking-wide">Segundo Cerebro</span>
                 </div>
-              </div>
+              </a>
 
               {/* Close Drawer Button for Mobile */}
-              <label htmlFor="sidebar-mobile-toggle" className="p-1 rounded-md hover:bg-primary-800 text-primary-400 hover:text-white cursor-pointer lg:hidden">
+              <label htmlFor="sidebar-mobile-toggle" className="p-1 rounded-md hover:bg-white/10 text-[#9fdcff] hover:text-white cursor-pointer lg:hidden">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -90,7 +82,7 @@ export default async function RootLayout({
             </div>
 
             {/* Navigation Menu Links */}
-            <WorkspaceNavigation publicOnly={!sessionData} local={ownBrain} canManage={canManage} />
+            <WorkspaceNavigation publicOnly={!sessionData} local={ownBrain} canManage={canManage} userName={sessionData?.name || ''} />
 
             {/* Footer Profile Container */}
             <FooterProfile session={sessionData} />
@@ -105,30 +97,32 @@ export default async function RootLayout({
           {/* Core Page Content Shell */}
           <div className="flex min-w-0 flex-col flex-1 min-h-screen overflow-hidden">
             {/* Header for Mobile (lg:hidden) */}
-            <header className="lg:hidden flex h-16 shrink-0 items-center justify-between px-6 bg-primary-900 border-b border-primary-850 shadow-md">
+            <header className="lg:hidden flex h-16 shrink-0 items-center justify-between px-5 bg-[#0b1f4d] shadow-md">
               <div className="flex items-center gap-3">
                 <label 
                   htmlFor="sidebar-mobile-toggle" 
-                  className="p-1 rounded-md text-primary-300 hover:text-white cursor-pointer select-none"
+                  className="p-1 rounded-md text-[#9fdcff] hover:text-white cursor-pointer select-none"
                 >
                   {/* Hamburger Menu Icon */}
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
                 </label>
-                <span className="text-md font-bold tracking-wider text-gold-400">SEGUNDO CEREBRO</span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/brands/smjaleel_white.png" alt="" className="h-9 w-9 rounded-full bg-white" />
+                <span className="text-[15px] font-bold text-white">S.M. Jaleel</span>
               </div>
 
               {/* Mini avatar */}
-              <div className="h-8 w-8 rounded-full bg-gradient-to-tr from-gold-500 to-gold-400 p-[1px]">
-                <div className="h-full w-full rounded-full bg-primary-850 flex items-center justify-center">
-                  <span className="text-[10px] font-bold text-gold-400">{sessionData?.email.slice(0, 2).toUpperCase() || 'TM'}</span>
+              <div className="h-8 w-8 rounded-full bg-[#00a8f0]">
+                <div className="h-full w-full rounded-full flex items-center justify-center">
+                  <span className="text-[10px] font-bold text-[#0b1f4d]">{sessionData?.email.slice(0, 2).toUpperCase() || 'TM'}</span>
                 </div>
               </div>
             </header>
 
             {/* Scrollable Main Area containing page components */}
-            <main className="min-w-0 flex-1 overflow-y-auto bg-primary-50 focus:outline-none pb-20 lg:pb-0">
+            <main className="min-w-0 flex-1 overflow-y-auto bg-[#f2f6fd] focus:outline-none pb-20 lg:pb-0">
               {children}
             </main>
 

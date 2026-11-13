@@ -75,6 +75,7 @@ async function _GET(req: NextRequest) {
   const viewingName = ctx.brainId === COMPANY_BRAIN_ID ? 'la compañía' : ctx.brainId === PRIMARY_BRAIN_ID ? 'HB' : getAccount(ctx.brainId)?.name || ctx.brainId;
   return NextResponse.json({
     ok: true, today: dateStr,
+    nav: { tasks: open.filter(x => x.isOverdue || x.isToday).length, meetings: merged.filter(o => o.date === dateStr && (o.layer === 'reuniones' || o.layer === 'viajes')).length, notes: nodes.length },
     me: { name: me?.name || 'HB', role, isPrimary: own === PRIMARY_BRAIN_ID, canManage: canManageUsers(role), isTop: TOP_ROLES.includes(role) },
     brain: { id: ctx.brainId, viewingOther, viewingName, readOnly: !!ctx.readOnly, isEmpty: nodes.length <= 1 && open.length === 0 },
     counts: { overdue: open.filter(x => x.isOverdue).length, today: open.filter(x => x.isToday && !x.isOverdue).length, open: open.length, completed: t.tasks.length - open.length },
