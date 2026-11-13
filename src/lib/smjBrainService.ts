@@ -1636,6 +1636,9 @@ export function createBrainTask(input: {
   country?: string;
   targetNodeId?: string;
   description?: string;
+  /** Quién la asignó (cuando viene de otra persona) y a qué cerebros hace referencia. Solo etiquetas. */
+  assignedBy?: string;
+  mentions?: string[];
 }): { ok: boolean; message: string; task?: UnifiedBrainTask } {
   const vaultDir = getVaultPath();
   const { dateStr, timeStr } = getPanamaDate();
@@ -1709,6 +1712,8 @@ export function createBrainTask(input: {
     priority: input.priority || 'Medium',
     country: input.country || 'Global',
     source: 'Task Manager Ejecutivo',
+    ...(input.assignedBy ? { assigned_by: input.assignedBy } : {}),
+    ...(input.mentions?.length ? { mentions_brains: input.mentions } : {}),
   }, `# ${input.title}\n\n${input.description || 'Tarea ejecutiva registrada directamente en el Task Manager amarrado al Cerebro.'}`);
   if (!written.ok) return { ok: false, message: `No se pudo registrar la tarea: ${written.error}` };
 

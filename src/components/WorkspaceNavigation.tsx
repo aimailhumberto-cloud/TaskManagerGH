@@ -37,8 +37,9 @@ export default function WorkspaceNavigation({
     ],
     ['/buscar', 'Buscar', 'M21 21l-6-6M17 10a7 7 0 11-14 0 7 7 0 0114 0'],
     ['/whatsapp', 'WhatsApp', 'M4 4h16v13H9l-5 4z'],
+    ['/mis-tareas', 'Mis tareas', 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'],
     ['/usuarios', 'Usuarios', 'M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21a8 8 0 0116 0'],
-  ].filter(([href]) => (!publicOnly || href !== '/whatsapp') && (!ownBrain || href === '/cerebro' || href === '/usuarios'))
+  ].filter(([href]) => (!publicOnly || href !== '/whatsapp') && (ownBrain ? ['/cerebro', '/mis-tareas', '/usuarios'].includes(href) : href !== '/mis-tareas'))
     .map(([href, label, icon]) => [href, ownBrain && href === '/cerebro' ? 'Mi cerebro' : label, icon]);
 
   return (
