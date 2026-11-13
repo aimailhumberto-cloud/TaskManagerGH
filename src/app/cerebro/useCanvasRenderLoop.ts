@@ -11,6 +11,7 @@ import { brandCatalogNodes, packagingDescription } from '@/lib/portfolioConnecti
 import { PortfolioConnections } from '@/components/PortfolioConnections';
 import { CommercialConnections } from '@/components/CommercialConnections';
 import { resolveCollisions } from './collision';
+import { stepPhysics, LabelBoard } from './physics';
 import type { RenderLoopProps } from './props';
 import type { NodeData, LinkData, BrainGraphResponse } from './types';
 import { BRAND_AVATARS, getPhotoUrlWithBust, getNodeCustomPhoto, drawPanamaFlag, drawCanadaFlag, drawUSAFlag, drawBelizeFlag, drawTrinidadFlag, drawSMJCorporateCrest, drawPersonAvatar, drawDistributorBadge, drawOrganizationBadge, drawBrandBadge, drawGlassDomeOverlay, drawAmericasMapBackdrop } from './nodeArt';
@@ -35,6 +36,8 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
     if (!ctx) return;
 
     let time = 0;
+    // Quien pide menos movimiento en su sistema no ve el vaivén en reposo.
+    const reducedMotion = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
     // Medición opcional por sección (apagada por defecto): en la consola, window.__cerebroPerf = {}
     const render = () => {
@@ -58,36 +61,8 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
 
       // 1. Physics Engine: Spring Pull + Anti-Overlap Collision Repulsion
       if (gravityActive) {
-        // A. Resorte amortiguado hacia el destino: los nodos grandes pesan mas y llegan con calma,
-        //    los pequenos llegan rapido con un rebote corto. Sin vaiven permanente: al llegar, reposan.
-        for (const n of nodes) {
-          if (n.isPinned) {
-            n.vx = 0;
-            n.vy = 0;
-            n.x = n.pinnedX ?? n.x;
-            n.y = n.pinnedY ?? n.y;
-            continue;
-          }
-          if (n.isDragged) {
-            n.vx = 0;
-            n.vy = 0;
-            continue;
-          }
-          const mass = Math.max(0.7, (n.radius || 24) / 24);
-          const stiffness = 0.085 / mass;
-          const damping = 0.78;
-          const dx = n.targetX - n.x;
-          const dy = n.targetY - n.y;
-          n.vx = ((n.vx || 0) + dx * stiffness) * damping;
-          n.vy = ((n.vy || 0) + dy * stiffness) * damping;
-          if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05 && Math.abs(n.vx) < 0.02 && Math.abs(n.vy) < 0.02) {
-            n.vx = 0;
-            n.vy = 0;
-            continue;
-          }
-          n.x += n.vx;
-          n.y += n.vy;
-        }
+        // A. Resorte con inercia hacia el destino, vaivén en reposo y tirón de las conexiones al arrastrar.
+        stepPhysics(nodes as any, links as any, { time, breathe: !reducedMotion });
 
         mark('resortes');
         // Point 10: separación anti-solapamiento (con rejilla espacial si hay muchos nodos)
@@ -465,6 +440,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
 
       mark('enlaces');
       // 6. Draw Celestial Nodes
+      const labelBoard = new LabelBoard();
       for (const n of nodes) {
         // Nodo fuera de la zona visible: no se dibuja (ni se piden sus imágenes).
         if (n.x < viewLeft || n.x > viewRight || n.y < viewTop || n.y > viewBottom) continue;
@@ -527,7 +503,9 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         const emphasized = isSelected || isHovered || isOpen;
         const isMinorNode = (n.radius || 24) < 22;
         const showTitle = emphasized || (isFocusActive && isConnectedToFocus && (focusConnectedCount <= 10 || scale >= 1.8)) || scale >= (isMinorNode ? 1.4 : 0.5);
-        if (showTitle) {
+        // La etiqueta ocupa un rectángulo; si choca con otra ya puesta no se dibuja (las destacadas siempre se ven).
+        const labelW = Math.min(25, (n.title || '').length) * 6.6 + 8;
+        if (showTitle && labelBoard.claim(n.x - labelW / 2, n.y + r + 5, labelW, 30, emphasized)) {
           ctx.font = emphasized ? '600 13px Poppins, system-ui, -apple-system, "Segoe UI", sans-serif' : '12px Poppins, system-ui, -apple-system, "Segoe UI", sans-serif';
           ctx.fillStyle = emphasized ? '#ffffff' : 'rgba(229, 231, 235, 0.88)';
           ctx.textAlign = 'center';
