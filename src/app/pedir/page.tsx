@@ -3,9 +3,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import PageHero from '@/components/PageHero';
 import { useUiLang } from '@/lib/uiLang';
 
-type Req = { id: string; at: string; by: string; text: string; status: string; plan: string[]; why?: string; results?: string[]; message?: string; changeId?: string; model?: string; ms?: number; confidence?: number | null; decidedBy?: string; dialog?: { q: string; a?: string }[]; recognized?: { id: string; name: string; type: string; verification?: string; isNew?: boolean }[]; links?: { label: string; href: string }[] };
-type Settings = { models: { rapido: string; grande: string }; mode: 'proponer' | 'auto'; bigTouch: number; bigCreate: number; agentCanApprove: boolean; threshold: number };
-type State = { ready: boolean; jev: boolean; settings: Settings; usage: { today: { calls: number; usd: number }; month: { calls: number; usd: number }; avgMs: number; unknownPrice: boolean }; canApprove: boolean; pending: Req[]; questions?: Req[]; recent: Req[] };
+type Req = { id: string; at: string; by: string; text: string; status: string; plan: string[]; why?: string; results?: string[]; message?: string; changeId?: string; model?: string; ms?: number; confidence?: number | null; decidedBy?: string; dialog?: { q: string; a?: string }[]; recognized?: { id: string; name: string; type: string; verification?: string; isNew?: boolean }[]; links?: { label: string; href: string }[]; summary?: string; kind?: string; obs?: { supuso: string[]; fuertes: string[]; avisos: string[]; falta: string[]; jev?: { fiel: number | null; coherente?: number | null } } };
+type Auto = { agenda: boolean; novedades: boolean; contactos: boolean; cifras: boolean };
+type Settings = { models: { rapido: string; grande: string }; mode: 'proponer' | 'auto' | 'mixto'; auto: Auto; bigTouch: number; bigCreate: number; agentCanApprove: boolean; threshold: number };
+type State = { ready: boolean; jev: boolean; settings: Settings; usage: { today: { calls: number; usd: number }; month: { calls: number; usd: number }; avgMs: number; unknownPrice: boolean }; canApprove: boolean; pending: Req[]; questions?: Req[]; review?: { id: string; kind: string; text: string; at: string }[]; recent: Req[] };
 const card = 'rounded-2xl border border-[#dbe4f3] bg-white p-5 shadow-[0_12px_28px_-18px_rgba(11,31,77,0.22)]';
 const input = 'w-full rounded-xl border border-[#dbe4f3] bg-white px-3 py-2 text-sm outline-none focus:border-[#0a3fbf]';
 const btn = 'rounded-xl bg-[#0a3fbf] px-4 py-2 text-sm font-semibold text-white hover:bg-[#08318f] disabled:opacity-50';
@@ -23,6 +24,7 @@ export default function PedirPage() {
   const [test, setTest] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [reply, setReply] = useState('');
+  const [omit, setOmit] = useState<Record<string, number[]>>({});
 
   const load = useCallback(async () => {
     const r = await fetch('/api/agent/cerebro', { cache: 'no-store' }); const d = await r.json().catch(() => ({}));
@@ -33,10 +35,10 @@ export default function PedirPage() {
     const r = await fetch('/api/agent/cerebro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     return { r, d: await r.json().catch(() => ({})) };
   };
-  async function pedir() {
+  async function pedir(kind: 'pedir' | 'leer' = 'pedir') {
     if (text.trim().length < 3) return;
-    setBusy('pedir'); setError(null); setAnswer(null); setLast(null);
-    const { d } = await post({ action: 'pedir', text });
+    setBusy(kind); setError(null); setAnswer(null); setLast(null);
+    const { d } = await post({ action: kind, text });
     if (d?.id) { setLast(d); if (d.status === 'aplicado' || d.status === 'pendiente') setText(''); } else setError(d.error || 'No se pudo.');
     setBusy(null); load();
   }
@@ -56,10 +58,11 @@ export default function PedirPage() {
   }
   async function decide(id: string, action: 'aprobar' | 'rechazar') {
     setBusy(id); setError(null);
-    const { r, d } = await post({ action, id });
+    const { r, d } = await post({ action, id, ...(action === 'aprobar' && omit[id]?.length ? { omitir: omit[id] } : {}) });
     if (!r.ok) setError(d.error || 'No se pudo.'); else if (last?.id === id) setLast(d.request);
     setBusy(null); load();
   }
+  async function revisado(id: string) { await post({ action: 'revisado', id }); load(); }
   async function undo(changeId: string) {
     setBusy(changeId); setError(null);
     const r = await fetch('/api/agent/changes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'undo', changeId }) });
@@ -90,7 +93,18 @@ export default function PedirPage() {
   const Plan = ({ r }: { r: Req }) => (
     <>
       {!!r.recognized?.length && <p className="mt-2 text-xs text-slate-600">{L('Reconocí a:', 'I recognized:')} {r.recognized.map(x => `${x.name} (${TYPE[x.type] || x.type}${x.isNew ? `, ${L('NUEVA', 'NEW')}` : x.verification === 'verified' ? `, ${L('verificada', 'verified')}` : `, ${L('sin verificar', 'unverified')}`})`).join(' · ')}</p>}
-      <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-[#0b1f4d]">{(r.results?.length ? r.results : r.plan).map((p, i) => <li key={i}>{p}</li>)}</ol>
+      {r.summary && <p className="mt-2 text-sm font-semibold">{L('Encontré:', 'I found:')} {r.summary}</p>}
+      {r.status === 'pendiente' && r.plan.length > 1 && st?.canApprove
+        ? <ul className="mt-2 space-y-1 text-sm text-[#0b1f4d]">{r.plan.map((p, i) => { const off = (omit[r.id] || []).includes(i); return (<li key={i}><label className="flex cursor-pointer items-start gap-2"><input type="checkbox" className="mt-1" checked={!off} onChange={() => setOmit(o => ({ ...o, [r.id]: off ? (o[r.id] || []).filter(x => x !== i) : [...(o[r.id] || []), i] }))} /><span className={off ? 'text-slate-400 line-through' : ''}>{p}</span></label></li>); })}</ul>
+        : <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-[#0b1f4d]">{(r.results?.length ? r.results : r.plan).map((p, i) => <li key={i}>{p}</li>)}</ol>}
+      {r.obs && (r.obs.supuso.length + r.obs.fuertes.length + r.obs.avisos.length + r.obs.falta.length > 0 || r.obs.jev?.fiel != null) && (
+        <div className="mt-3 space-y-1 rounded-xl bg-[#f7f9fd] p-3 text-xs text-slate-700">
+          <p className="font-semibold text-[#0b1f4d]">{L('Observaciones', 'Notes')}{r.obs.jev?.fiel != null ? ` · Jev: ${Math.round(r.obs.jev.fiel * 100)} % ${L('de confianza en el plan', 'confidence in the plan')}` : ''}{r.obs.jev?.coherente != null ? ` · ${Math.round(r.obs.jev.coherente * 100)} % ${L('coherente con lo anterior', 'consistent with before')}` : ''}</p>
+          {r.obs.supuso.map((t, i) => <p key={'s' + i}><span className="font-semibold">{L('Supuse:', 'Assumed:')}</span> {t}</p>)}
+          {r.obs.fuertes.map((t, i) => <p key={'f' + i} className="text-amber-800"><span className="font-semibold">{L('Ojo:', 'Check:')}</span> {t}</p>)}
+          {r.obs.avisos.map((t, i) => <p key={'a' + i} className="text-amber-800"><span className="font-semibold">{L('Aviso:', 'Note:')}</span> {t}</p>)}
+          {r.obs.falta.map((t, i) => <p key={'m' + i}><span className="font-semibold">{L('Falta:', 'Missing:')}</span> {t}</p>)}
+        </div>)}
       {r.status === 'aplicado' && !!r.links?.length && <p className="mt-3 flex flex-wrap gap-2 text-xs">{L('Ver dónde quedó:', 'See where it went:')}{r.links.map(l => <a key={l.href} href={l.href} className="rounded-full bg-[#eef3fb] px-2.5 py-1 font-semibold text-[#0a3fbf] hover:bg-[#dbe7fb]">{l.label} →</a>)}</p>}
     </>
   );
@@ -123,11 +137,13 @@ export default function PedirPage() {
           <textarea className={`${input} min-h-[110px]`} value={text} onChange={e => setText(e.target.value)} maxLength={60000}
             placeholder={L('Ej.: «La reunión con MEDIMEX pasó al lunes 16 a las 3 pm; anótalo y crea tarea de enviar la propuesta el viernes.»', 'E.g.: “The MEDIMEX meeting moved to Monday 16 at 3 pm; note it and add a task to send the proposal on Friday.”')} />
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button className={btn} disabled={!!busy || !st?.ready} onClick={pedir}>{busy === 'pedir' ? L('Pensando…', 'Thinking…') : L('Pedir un cambio', 'Make a change')}</button>
+            <button className={btn} disabled={!!busy || !st?.ready} onClick={() => pedir('pedir')}>{busy === 'pedir' ? L('Pensando…', 'Thinking…') : L('Pedir un cambio', 'Make a change')}</button>
+            <button className={ghost} disabled={!!busy || !st?.ready} onClick={() => pedir('leer')}>{busy === 'leer' ? L('Leyendo…', 'Reading…') : L('Leer y extraer', 'Read and extract')}</button>
             <button className={ghost} disabled={!!busy} onClick={preguntar}>{busy === 'preguntar' ? L('Buscando…', 'Searching…') : L('Solo preguntar', 'Just ask')}</button>
           </div>
           <div className="mt-3 space-y-0.5 text-xs text-slate-500">
-            <p><span className="font-semibold text-[#0a3fbf]">{L('Pedir un cambio', 'Make a change')}:</span> {L('anota, agenda, crea tareas o fichas. ', 'notes, schedules, creates tasks or notes. ')}{s?.mode === 'auto' ? L('Lo simple se aplica solo; lo grande y lo delicado espera tu aprobación.', 'Simple things apply on their own; big or sensitive ones wait for you.') : L('Nada cambia hasta que apruebes.', 'Nothing changes until you approve.')}</p>
+            <p><span className="font-semibold text-[#0a3fbf]">{L('Pedir un cambio', 'Make a change')}:</span> {L('anota, agenda, crea tareas o fichas. ', 'notes, schedules, creates tasks or notes. ')}{s?.mode === 'auto' ? L('Se aplica solo; lo grande y lo delicado espera tu aprobación.', 'Applies on its own; big or sensitive things wait for you.') : s?.mode === 'proponer' ? L('Nada cambia hasta que apruebes.', 'Nothing changes until you approve.') : L('Lo que marcaste como automático en Ajustes se aplica solo; el resto espera tu aprobación.', 'What you set as automatic in Settings applies on its own; the rest waits for you.')}</p>
+            <p><span className="font-semibold text-[#0a3fbf]">{L('Leer y extraer', 'Read and extract')}:</span> {L('pega un correo o una nota; saca personas, fechas, compromisos y cifras, y te muestra el resumen.', 'paste an email or note; it pulls people, dates, commitments and figures and shows you the summary.')}</p>
             <p><span className="font-semibold text-[#0a3fbf]">{L('Solo preguntar', 'Just ask')}:</span> {L('consulta lo que el cerebro sabe. No cambia nada.', 'looks up what the brain knows. Changes nothing.')}</p>
           </div>
         </div>
@@ -173,6 +189,18 @@ export default function PedirPage() {
               </div>))}
           </div>
         </div>
+        {!!st?.review?.length && (
+          <div className={card}>
+            <h2 className="text-base font-semibold">{L('Por revisar', 'To review')} <span className="ml-1 rounded-full bg-[#eef3fb] px-2 py-0.5 text-xs text-[#0a3fbf]">{st.review.length}</span></h2>
+            <p className="mt-1 text-xs text-slate-500">{L('Pendientes de calidad. No bloquean nada; ciérralos cuando los resuelvas.', 'Quality follow-ups. They block nothing; close them once resolved.')}</p>
+            <div className="mt-2 divide-y divide-[#eef3fb]">
+              {st.review.slice(0, 15).map(i => (
+                <div key={i.id} className="flex items-start justify-between gap-3 py-2 text-sm">
+                  <p className="min-w-0"><span className={`mr-2 rounded-full px-2 py-0.5 text-xs font-semibold ${i.kind === 'falta' ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-800'}`}>{i.kind === 'falta' ? L('Falta', 'Missing') : L('Aviso', 'Note')}</span>{i.text}</p>
+                  <button className="shrink-0 text-xs font-semibold text-[#0a3fbf] underline underline-offset-2" onClick={() => revisado(i.id)}>{L('Listo', 'Done')}</button>
+                </div>))}
+            </div>
+          </div>)}
         <div className={card}>
           <h2 className="text-base font-semibold">{L('Últimos pedidos', 'Recent requests')}</h2>
           <div className="mt-2 divide-y divide-[#eef3fb]">
@@ -195,8 +223,10 @@ export default function PedirPage() {
                   <select className={input} value={s.models[k]} onChange={e => saveSettings({ models: { ...s.models, [k]: e.target.value } })}>
                     {[...new Set([s.models[k], ...(models || [])])].map(m => <option key={m} value={m}>{m}</option>)}
                   </select></label>))}
-              <label className="space-y-1"><span className="text-xs font-semibold text-slate-600">{L('Modo', 'Mode')}</span>
-                <select className={input} value={s.mode} onChange={e => saveSettings({ mode: e.target.value as Settings['mode'] })}><option value="proponer">{L('Proponer: todo espera mi aprobación', 'Propose: everything waits for me')}</option><option value="auto">{L('Automático: lo simple se aplica solo', 'Automatic: simple things apply')}</option></select></label>
+              <div className="space-y-1.5 sm:col-span-2"><span className="text-xs font-semibold text-slate-600">{L('Qué se aplica solo (lo demás espera tu aprobación)', 'What applies on its own (the rest waits for you)')}</span>
+                {([['agenda', L('Tareas y agenda', 'Tasks and agenda')], ['novedades', L('Novedades y datos de fichas', 'Updates and note data')], ['contactos', L('Fichas nuevas: contactos y empresas', 'New notes: contacts and companies')], ['cifras', L('Cifras e indicadores', 'Figures and indicators')]] as [keyof Auto, string][]).map(([k, name]) => (
+                  <label key={k} className="flex items-center gap-2"><input type="checkbox" checked={!!s.auto?.[k]} onChange={e => saveSettings({ auto: { ...s.auto, [k]: e.target.checked } })} /><span>{name}</span></label>))}
+              </div>
               <label className="space-y-1"><span className="text-xs font-semibold text-slate-600">{L('Confianza mínima de Jev', 'Minimum Jev confidence')} ({Math.round(s.threshold * 100)} %)</span>
                 <input type="range" min={50} max={100} step={5} className="w-full" value={Math.round(s.threshold * 100)} onChange={e => saveSettings({ threshold: Number(e.target.value) / 100 })} /></label>
               <label className="space-y-1"><span className="text-xs font-semibold text-slate-600">{L('Pedido grande si toca más de… fichas', 'Big request if it touches more than… notes')}</span>

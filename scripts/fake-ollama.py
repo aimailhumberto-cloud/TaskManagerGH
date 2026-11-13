@@ -9,6 +9,15 @@ def plan(text, msgs, full=''):
     searched = any(m.get('role') == 'tool' for m in msgs)
     t = text.lower()
     talk = 'CONVERSACIÓN:' in full
+    if 'ticasur' in t: return [tc('crear_ficha', tipo='distributor', nombre='Tica Sur E2E', conectar_con=[{'hacia': 'market-panama', 'relacion': 'operates_in_market'}]),
+        tc('crear_ficha', tipo='person', nombre='Ana Ruiz E2E', campos={'email_primary': 'ana@ticasur.test', 'job_title': 'Gerente de compras', 'organization': 'Tica Sur E2E'}, conectar_con=[{'hacia': 'dist-tica-sur-e2e', 'relacion': 'works_at'}]),
+        tc('crear_ficha', tipo='person', nombre='Luis Paz E2E', campos={'email_primary': 'luis@ticasur.test'}, conectar_con=[{'hacia': 'dist-tica-sur-e2e', 'relacion': 'works_at'}]),
+        tc('actualizar_campos', ficha='person-richard-bailey', campos={'phone_mobile': '+507 6000-0000'}),
+        tc('registrar_novedad', ficha='dist-tica-sur-e2e', resumen='Piden lista de precios de Chubby para enero', fuente='Correo de Ana Ruiz, 13 nov', proximo_paso_fecha='2026-11-20', proximo_paso='Enviar lista de precios'),
+        tc('registrar_indicador', nombre='Pedido Tica Sur E2E', valor=300, unidad='cajas', nota='Correo de Ana Ruiz'),
+        tc('observar', texto='«J. Hector» podría ser Jenna Hector; lo dejé fuera.')]
+    if 'tarea-parecida' in t: return [tc('crear_tarea', ficha='person-richard-bailey', titulo='Enviar la propuesta a MEDIMEX hoy')]
+    if 'correo-repetido' in t: return [tc('crear_ficha', tipo='person', nombre='Ricardo Bailey Dos', campos={'email_primary': 'richard.bailey@smjaleel.com'})]
     if 'bren' in t: return [tc('crear_ficha', tipo='person', nombre='Bren Prueba', campos={'job_title': 'Gerente de compras', 'organization': 'MEDIMEX'}, conectar_con=[{'hacia': 'dist-medimex', 'relacion': 'works_at'}]), tc('agendar', titulo='conocerse', fecha='2026-11-19', hora='10:00', con=['person-bren-prueba', 'person-richard-bailey'])] if talk else [tc('preguntar', pregunta='No conozco a Bren. ¿Quién es (empresa, cargo) y con quién se relaciona?')]
     if 'richard' in t and 'mueve' in t: return [tc('agendar', titulo='ver second brain', fecha='2026-11-17', hora='09:30', con=['person-richard-bailey'])]
     if 'richard' in t: return [tc('agendar', titulo='ver second brain', fecha='2026-11-13', hora='08:00', con=['person-richard-bailey'])]

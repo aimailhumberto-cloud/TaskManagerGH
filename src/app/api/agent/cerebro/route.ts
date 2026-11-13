@@ -5,6 +5,8 @@ import { pedir, responder, consultar, decidir, listRequests, usageSummary, canDe
 import { loadSettings, saveSettings } from '@/lib/cerebro/settings';
 import { llmConfigured, listModels, balance, chat, LlmError } from '@/lib/cerebro/ollama';
 import { MENU } from '@/lib/cerebro/ops';
+import { listReview, closeReview } from '@/lib/cerebro/review';
+import { actorLabel } from '@/lib/actor';
 import { configuredProvider } from '@/lib/decisionEngine';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -16,6 +18,8 @@ export const maxDuration = 300;
  * GET ?models=1            → modelos disponibles en Ollama y saldo
  * GET ?id=ped-…            → un pedido
  * POST {action:'pedir', text, deep?, dryRun?}   → arma el plan y lo aplica o lo deja «Por aprobar»
+ * POST {action:'leer', text, source?, dryRun?}    → lee un correo o nota y extrae personas, fechas, compromisos y cifras
+ * POST {action:'revisado', id}                   → cierra un pendiente de «Por revisar»
  * POST {action:'responder', id, text}            → contesta lo que el Cerebro preguntó; sigue con el mismo pedido
  * POST {action:'consultar', q, size?}           → igual que GET ?q=
  * POST {action:'aprobar'|'rechazar', id, omitir?:[n]} → decide una propuesta
@@ -42,7 +46,7 @@ async function _GET(req: NextRequest) {
   if (sp.get('id')) { const r = all.find(x => x.id === sp.get('id')); return r ? NextResponse.json({ ok: true, request: r }) : bad('No existe ese pedido.', 404); }
   return NextResponse.json({
     ok: true, name: 'el Cerebro', ready: llmConfigured(), jev: !!configuredProvider(), settings: loadSettings(ctx.vaultPath), usage: usageSummary(ctx.vaultPath),
-    canApprove: canDecide().ok, pending: all.filter(r => r.status === 'pendiente'), questions: all.filter(r => r.status === 'pregunta' && Date.now() - Date.parse(r.at) < 3 * 86400_000).slice(0, 10), recent: all.filter(r => r.status !== 'pendiente').slice(0, 20),
+    canApprove: canDecide().ok, pending: all.filter(r => r.status === 'pendiente'), review: listReview(ctx.vaultPath).filter(i => !i.closedAt).slice(0, 50), questions: all.filter(r => r.status === 'pregunta' && Date.now() - Date.parse(r.at) < 3 * 86400_000).slice(0, 10), recent: all.filter(r => r.status !== 'pendiente').slice(0, 20),
     menu: Object.entries(MENU).map(([name, d]) => ({ name, level: d.level, what: d.desc })),
     how: "POST {action:'pedir', text} para pedir un cambio en palabras; GET ?q= para consultar. Borrar, verificar y compartir siempre esperan a una persona.",
   });
@@ -52,11 +56,12 @@ async function _POST(req: NextRequest) {
   const ctx = currentBrain(); if (!ctx) return bad('Sin cerebro.', 401);
   const b = await req.json().catch(() => ({})); const action = String(b?.action || '');
   if (action === 'consultar') { const q = String(b.q || b.text || '').trim(); if (!q) return bad('Envía q.'); const r = await consultar(q, sizeOf(b.size)); return NextResponse.json(r, { status: r.status }); }
-  if (action === 'pedir') {
+  if (action === 'revisado') { const okk = closeReview(ctx.vaultPath, String(b.id || ''), isAgent() ? 'Agente' : actorLabel('Persona')); return okk ? NextResponse.json({ ok: true }) : bad('No existe ese pendiente o ya está cerrado.', 404); }
+  if (action === 'pedir' || action === 'leer') {
     const text = String(b.text || '').trim();
-    if (text.length < 3) return bad('Escribe el pedido en «text».');
+    if (text.length < 3) return bad(action === 'leer' ? 'Pega el correo o la nota en «text».' : 'Escribe el pedido en «text».');
     if (text.length > 60000) return bad('El pedido es demasiado largo (máximo 60 000 caracteres). Divídelo.', 413);
-    const r = await pedir({ text, deep: b.deep === true, dryRun: b.dryRun === true });
+    const r = await pedir({ text: action === 'leer' && typeof b.source === 'string' && b.source.trim() ? `Fuente: ${b.source.trim().slice(0, 200)}\n\n${text}` : text, deep: b.deep === true, dryRun: b.dryRun === true, kind: action === 'leer' ? 'leer' : 'pedir' });
     return NextResponse.json({ ...r, ok: httpOf(r.status) < 400, next: nextOf(r.status) }, { status: httpOf(r.status) });
   }
   if (action === 'responder') {
@@ -73,7 +78,7 @@ async function _POST(req: NextRequest) {
     if (isAgent()) return bad('Los ajustes del Cerebro los cambia una persona en la app.', 403);
     if (action === 'ajustes') {
       const patch: Record<string, unknown> = {};
-      for (const k of ['models', 'mode', 'bigTouch', 'bigCreate', 'agentCanApprove', 'threshold']) if (b[k] !== undefined) patch[k] = b[k];
+      for (const k of ['models', 'mode', 'auto', 'bigTouch', 'bigCreate', 'agentCanApprove', 'threshold']) if (b[k] !== undefined) patch[k] = b[k];
       return NextResponse.json({ ok: true, settings: saveSettings(ctx.vaultPath, patch) });
     }
     const s = loadSettings(ctx.vaultPath); const out: Record<string, unknown> = {};
@@ -84,7 +89,7 @@ async function _POST(req: NextRequest) {
     }
     return NextResponse.json({ ok: Object.values(out).every((o: any) => o.ok), test: out });
   }
-  return bad("action debe ser 'pedir', 'responder', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.");
+  return bad("action debe ser 'pedir', 'leer', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.");
 }
 export const GET = withBrain(_GET);
 export const POST = withBrain(_POST);

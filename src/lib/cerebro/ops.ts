@@ -77,6 +77,8 @@ export function validateOp(op: Op, created: Set<string> = new Set()): string | n
     const id = newId(a.tipo, String(a.nombre)); if (nodeOk(id) || created.has(id)) return `crear_ficha: ya existe la ficha «${id}». Úsala en vez de crear otra.`;
     const same = loadBrainGraph().allNodes?.find(n => n.type === a.tipo && slug(String(n.title).replace(/^[A-Za-z ]+:\s*/, '')) === slug(String(a.nombre)));
     if (same) return `crear_ficha: ya existe «${same.title}» (${same.id}). Úsala en vez de crear otra.`;
+    const mail = String(a.campos?.email_primary || '').trim().toLowerCase();
+    if (mail) { const owner = loadBrainGraph().allNodes?.find(n => String(n.frontmatter?.email_primary || '').trim().toLowerCase() === mail); if (owner) return `crear_ficha: el correo ${mail} ya es de «${owner.title}» (${owner.id}). Usa esa ficha (actualizar_campos si hay datos nuevos).`; }
     for (const c of Array.isArray(a.conectar_con) ? a.conectar_con : []) { if (!exists(c?.hacia)) return `crear_ficha: no existe la ficha «${c?.hacia}» para conectar.`; if (!RELATIONS.includes(String(c?.relacion))) return `crear_ficha: relación «${c?.relacion}» no permitida.`; }
   }
   if (op.name === 'crear_tarea') {
@@ -90,6 +92,10 @@ export function validateOp(op: Op, created: Set<string> = new Set()): string | n
 }
 /** Id que crearía una operación crear_ficha (para que el resto del plan pueda referirse a ella). */
 export const createdIdOf = (op: Op) => (op.name === 'crear_ficha' && FOLDER[op.args?.tipo] ? newId(op.args.tipo, String(op.args.nombre || '')) : null);
+/** A qué interruptor de autonomía pertenece cada operación. */
+const KIND: Record<string, 'agenda' | 'novedades' | 'contactos' | 'cifras'> = { crear_tarea: 'agenda', completar_tarea: 'agenda', reprogramar_tarea: 'agenda', agendar: 'agenda', cancelar_evento: 'agenda', registrar_novedad: 'novedades', actualizar_campos: 'novedades', conectar: 'novedades', desconectar: 'novedades', crear_ficha: 'contactos', registrar_indicador: 'cifras' };
+export const kindOf = (op: Op) => KIND[op.name] || null;
+export const KIND_NAME: Record<string, string> = { agenda: 'tareas y agenda', novedades: 'novedades y datos de fichas', contactos: 'fichas nuevas (contactos, empresas)', cifras: 'cifras e indicadores' };
 export const levelOf = (op: Op): Level => MENU[op.name]?.level || 'aprobar';
 export const touchesOf = (op: Op): string[] => (MENU[op.name]?.touches?.(op.args || {}) || []).filter(Boolean);
 
@@ -107,7 +113,7 @@ export function describeOp(op: Op): string {
     case 'actualizar_campos': return `Actualizar ${a.ficha}: ${Object.entries(a.campos || {}).map(([k, v]) => `${k} = ${String(v).slice(0, 60)}`).join(', ')}`;
     case 'conectar': return `Conectar ${a.desde} → ${a.hacia} (${a.relacion})`;
     case 'desconectar': return `Desconectar ${a.desde} → ${a.hacia} (${a.relacion})`;
-    case 'crear_ficha': return `Crear ficha de ${a.tipo}: «${a.nombre}»`;
+    case 'crear_ficha': return `Crear ficha de ${a.tipo}: «${a.nombre}»${a.campos && Object.keys(a.campos).length ? ` (${Object.entries(a.campos).map(([k, v]) => `${k}: ${String(v).slice(0, 50)}`).join(', ').slice(0, 200)})` : ''}${Array.isArray(a.conectar_con) && a.conectar_con.length ? ` · conectada a ${a.conectar_con.map((c: any) => c?.hacia).join(', ')}` : ' · SIN CONECTAR'}`;
     case 'borrar_ficha': return `BORRAR la ficha ${a.ficha} (motivo: ${a.motivo})`;
     case 'marcar_verificado': return `Marcar ${a.ficha} como verificada (fuente: ${a.fuente})`;
     case 'compartir': return `Cambiar quién ve ${a.ficha}: ${a.visibilidad}`;

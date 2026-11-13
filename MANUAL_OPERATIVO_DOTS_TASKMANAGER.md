@@ -59,10 +59,14 @@ El cerebro ya tiene su propia inteligencia, «el Cerebro». En vez de armar cada
 - **La respuesta dice a quién reconoció** (`recognized`: ficha, tipo, verificada o no, nueva) y, al aplicar, **dónde quedó** (`links`). Revisa `recognized` antes de dar el pedido por bueno.
 - **Reuniones:** di con quién y para qué; el Cerebro arma el título («Reunión con Tomás Casas: tema»), la pone en la agenda y la anota en la ficha de cada persona o empresa. Mover una reunión no la duplica.
 - **No dupliques:** una tarea igual en la misma ficha se rechaza. Un pedido = un `Idempotency-Key`.
+- **Leer un correo o nota:** `{"action":"leer","text":"<el correo entero>","source":"Correo de Fulano, 13 nov"}`. El Cerebro extrae personas (con correo, teléfono, cargo, empresa), fechas, compromisos y cifras; compara con lo que ya existe y devuelve `summary` («2 personas nuevas, 1 ficha con datos nuevos, 1 cifra, 1 punto dudoso») con el plan. No pregunta: lo dudoso queda en `obs.supuso`. No reenvíes el mismo correo: lo ya guardado se rechaza.
+- **Observaciones (`obs`) en cada respuesta:** `supuso` (lo que asumió), `fuertes` (posible duplicado o cambio a una ficha verificada: va a aprobación), `avisos` (choque de agenda, posible contradicción), `falta` (datos que le faltan a las fichas) y `jev` (confianza). Léelas: si `falta` un dato que tú tienes, envíalo.
+- **Por revisar:** `GET /api/agent/cerebro` trae `review` (pendientes de calidad). Ciérralos con `{"action":"revisado","id":"rev-…"}` cuando los resuelvas.
+- **Qué se aplica solo lo decide la persona por tipo** (Ajustes): tareas y agenda, novedades, fichas nuevas, cifras. `why` dice por qué algo quedó esperando.
 - **Ensayar sin aplicar:** añade `"dryRun": true` y devuelve el plan.
 - **Consultar:** `GET /api/agent/cerebro?q=Busta en Canadá` → `answer` (respuesta corta) + `dossier` (el expediente completo de la sección 0b).
 - **Ver estado y bandeja:** `GET /api/agent/cerebro` → ajustes, consumo, `pending`, `recent` y `menu` (lo que el Cerebro sabe hacer).
-- **Siempre esperan a una persona:** borrar una ficha, marcarla verificada y cambiar quién la ve. También los pedidos grandes (más de 10 fichas tocadas o más de 5 creadas) y todo mientras el modo sea «proponer». Fusionar fichas todavía se hace a mano.
+- **Siempre esperan a una persona:** borrar una ficha, marcarla verificada y cambiar quién la ve. También los pedidos grandes (más de 10 fichas tocadas o más de 5 creadas), los tipos que la persona dejó en «proponer», las tareas o fichas que se parecen a una existente y los cambios a fichas verificadas. Fusionar fichas todavía se hace a mano.
 - Un agente solo puede aprobar (`{"action":"aprobar","id":"ped-…"}`) si la persona lo permitió en Ajustes y la llave es de alcance «Escribir».
 - Pedidos largos (un archivo de correcciones, hasta 60 000 caracteres): envíalos igual en `text`; van a propuesta para que la persona revise el plan entero.
 - Usa `Idempotency-Key` en los pedidos para que un reintento no se aplique dos veces.

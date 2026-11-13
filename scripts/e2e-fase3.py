@@ -26,7 +26,8 @@ s, d = http('/api/auth/login', {'email': 'hb@prueba.test', 'password': 'Clave-de
 s, tok = http('/api/auth/csrf', session=True); X = {'x-csrf-token': tok.get('token', '')}
 P = lambda body: http(C, body, session=True, headers=X)
 
-s, st = http(C); check('estado: listo, modo proponer por defecto', s == 200 and st['ready'] and st['settings']['mode'] == 'proponer' and len(st['menu']) >= 14, st.get('settings'))
+s, st = http(C); check('estado: listo; por defecto tareas, agenda y novedades solas; contactos y cifras esperan', s == 200 and st['ready'] and st['settings']['auto'] == {'agenda': True, 'novedades': True, 'contactos': False, 'cifras': False} and st['settings']['mode'] == 'mixto' and len(st['menu']) >= 14, st.get('settings'))
+s, d = P({'action': 'ajustes', 'mode': 'proponer'}); check('atajo: todo en proponer', d['settings']['mode'] == 'proponer' and not any(d['settings']['auto'].values()), d.get('settings'))
 s, m = http(C + '?models=1'); check('lista de modelos y saldo', s == 200 and 'gemma4' in m['models'] and m['balance']['includedUsd'] == 19.5)
 s, d = http(C, {'action': 'ajustes', 'mode': 'auto'}); check('un agente no cambia los ajustes', s == 403, s)
 s, d = P({'action': 'probar'}); check('probar conexión', s == 200 and d['ok'] and d['test']['rapido']['ok'], d)
@@ -95,6 +96,27 @@ check('3b: con la respuesta sigue el MISMO pedido, crea la persona y la conecta'
 check('3b: la persona nueva sale marcada como nueva y sin verificar', any(x.get('isNew') for x in r['recognized']) and n['frontmatter'].get('verification_status') == 'unverified')
 check('3b: reunión con las dos personas, anotada en ambas fichas', 'Reunión con Bren Prueba y Richard Bailey: conocerse' in r['results'][1] and 'conocerse' in n['body'] and 'conocerse' in node('person-richard-bailey')['body'], r.get('results'))
 s, d = http(C, {'action': 'responder', 'id': qid, 'text': 'otra vez'}); check('3b: no se responde dos veces', s == 409, s)
+
+# Fase 3b, publicación 2: observaciones, por revisar, leer y extraer, autonomía por tipo
+check('3b2: lo que falta pasa a «Por revisar»', any('Bren Prueba: sin correo' in i['text'] for i in http(C)[1]['review']), [i['text'] for i in http(C)[1]['review']][:4])
+rid = next(i['id'] for i in http(C)[1]['review'] if 'Bren Prueba' in i['text']); s, d = http(C, {'action': 'revisado', 'id': rid})
+check('3b2: cerrar un pendiente de «Por revisar»', s == 200 and not any(i['id'] == rid for i in http(C)[1]['review']))
+s, r = ask('tarea-parecida: crea la tarea de la propuesta'); check('3b2: una tarea parecida a otra no se aplica sola', s == 202 and 'se parece a una que ya existe' in r['why'] and r['obs']['fuertes'], r.get('why'))
+P({'action': 'rechazar', 'id': r['id']})
+s, r = ask('correo-repetido: guarda este contacto'); check('3b2: no crea una persona con un correo que ya es de otra', s == 422 and 'ya es de' in r['message'], r.get('message'))
+s, d = P({'action': 'ajustes', 'auto': {'contactos': False, 'cifras': False}}); check('3b2: autonomía por tipo (mixto)', d['settings']['mode'] == 'mixto' and d['settings']['auto']['agenda'] and not d['settings']['auto']['contactos'], d.get('settings'))
+s, r = ask('buscar-primero: confirmaron recibido'); check('3b2: mixto: una novedad se aplica sola', s == 200 and r['status'] == 'aplicado', (s, r.get('why')))
+MAIL = 'De: Ana Ruiz <ana@ticasur.test>\nPara: HB\nHola, somos Tica Sur. Copio a Luis Paz (luis@ticasur.test). El celular nuevo de Richard es +507 6000-0000. Necesitamos la lista de precios de Chubby para enero; pedimos 300 cajas. Saludos, J. Hector también está al tanto.'
+s, r = http(C, {'action': 'leer', 'text': MAIL, 'source': 'Correo de Ana Ruiz, 13 nov'})
+check('3b2: leer un correo: resumen de lo extraído', s == 202 and r['kind'] == 'leer' and '2 personas nuevas' in r['summary'] and '1 ficha con datos nuevos' in r['summary'] and '1 cifra' in r['summary'] and 'dudoso' in r['summary'], r.get('summary'))
+check('3b2: leer: espera porque trae fichas nuevas y cifras', 'fichas nuevas' in r['why'] and 'cifras' in r['why'], r.get('why'))
+check('3b2: leer: lo dudoso queda en observaciones', any('Jenna Hector' in t for t in r['obs']['supuso']), r.get('obs'))
+s, d = P({'action': 'aprobar', 'id': r['id'], 'omitir': [5]}); a, b = node('person-ana-ruiz-e2e'), node('dist-tica-sur-e2e')
+check('3b2: aprobar quitando una parte (la cifra)', s == 200 and len(d['request']['results']) == 5 and not any(x['name'] == 'Pedido Tica Sur E2E' for x in http('/api/agent/kpis')[1].get('kpis', [])), d.get('error'))
+check('3b2: contactos conectados a su empresa, con correo y sin verificar', a.get('frontmatter', {}).get('email_primary') == 'ana@ticasur.test' and 'works_at' in json.dumps(a['frontmatter']) and a['frontmatter'].get('verification_status') == 'unverified' and node('person-luis-paz-e2e').get('id'), a.get('frontmatter'))
+check('3b2: la novedad queda en la empresa con su fuente y próximo paso', 'lista de precios' in b.get('body', '') and str(b['frontmatter'].get('next_followup_date'))[:10] == '2026-11-20' and node('person-richard-bailey')['frontmatter'].get('phone_mobile') == '+507 6000-0000')
+s, r = http(C, {'action': 'leer', 'text': MAIL}); check('3b2: leer el mismo correo otra vez no duplica', s == 422 and 'ya existe' in r.get('message', ''), (s, r.get('message')))
+P({'action': 'ajustes', 'mode': 'auto'})
 
 # Consultar
 s, d = http(C + '?q=' + urllib.parse.quote('Busta en Canadá')); check('consultar: respuesta redactada + expediente', s == 200 and d['writtenBy'] == 'gemma4' and d['dossier']['contacts'] and 'redactada' in d['answer'], d.get('writtenBy'))
