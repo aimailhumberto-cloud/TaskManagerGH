@@ -54,8 +54,11 @@ El cerebro ya tiene su propia inteligencia, «el Cerebro». En vez de armar cada
 - **Pedir un cambio:** `POST /api/agent/cerebro` con `{"action":"pedir","text":"La reunión con MEDIMEX pasó al lunes 16 a las 3 pm; anótalo y crea tarea de enviar la propuesta el viernes."}`. El Cerebro arma el plan, la app lo revisa y responde con `status`:
   - `aplicado` (200): hecho; trae `results`, `changeId` y `receipt` para deshacer.
   - `pendiente` (202): quedó en «Por aprobar»; `why` dice por qué. Lo aprueba una persona en la app (Pedir → Por aprobar).
-  - `pregunta` (200): falta un dato; `message` trae la pregunta. Vuelve a enviar el pedido completo con el dato.
+  - `pregunta` (200): falta un dato o no conoce a alguien; `message` trae la pregunta. Contesta con `{"action":"responder","id":"ped-…","text":"solo lo que falta"}`: el Cerebro recuerda el pedido y sigue. Si ya tienes el contexto (quién es la persona, su empresa, cargo, correo, la fuente), mándalo desde el primer pedido y no preguntará.
   - `no_entendido` (422) o `fallo` (502): no se cambió nada; `message` dice por qué.
+- **La respuesta dice a quién reconoció** (`recognized`: ficha, tipo, verificada o no, nueva) y, al aplicar, **dónde quedó** (`links`). Revisa `recognized` antes de dar el pedido por bueno.
+- **Reuniones:** di con quién y para qué; el Cerebro arma el título («Reunión con Tomás Casas: tema»), la pone en la agenda y la anota en la ficha de cada persona o empresa. Mover una reunión no la duplica.
+- **No dupliques:** una tarea igual en la misma ficha se rechaza. Un pedido = un `Idempotency-Key`.
 - **Ensayar sin aplicar:** añade `"dryRun": true` y devuelve el plan.
 - **Consultar:** `GET /api/agent/cerebro?q=Busta en Canadá` → `answer` (respuesta corta) + `dossier` (el expediente completo de la sección 0b).
 - **Ver estado y bandeja:** `GET /api/agent/cerebro` → ajustes, consumo, `pending`, `recent` y `menu` (lo que el Cerebro sabe hacer).

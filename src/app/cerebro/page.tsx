@@ -205,6 +205,9 @@ export default function CerebroPage() {
       if (target) pushToStackedDeck(target);
       return !!target;
     };
+    // Enlace directo: /cerebro?node=<id> abre esa ficha cuando el mapa termina de cargar.
+    const wantNode = new URLSearchParams(window.location.search).get('node');
+    if (wantNode) { let tries = 0; const iv = setInterval(() => { const t = nodesRef.current.find(n => n.id === wantNode); if (t) { pushToStackedDeck(t); clearInterval(iv); } else if (++tries > 40) clearInterval(iv); }, 400); }
     (window as any).handleWikilinkClick = (target: string) => handleWikilinkClick(target);
     (window as any).__cerebroHandleWikilinkClick = (target: string) => handleWikilinkClick(target);
     const handleWikilinkEvent = (e: any) => {

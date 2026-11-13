@@ -73,6 +73,29 @@ check('con permiso, el agente aprueba', s == 200 and s2 == 200 and d2['request']
 s, d = http(C, {'action': 'pedir', 'text': 'indicador: ensayo', 'dryRun': True}); s2, k = http('/api/agent/kpis')
 check('ensayo (dryRun): muestra el plan y no aplica', d['status'] == 'pendiente' and not any(x['name'] == 'Ventas Canadá E2E' for x in k.get('kpis', [])), d.get('why'))
 
+# Fase 3b: conversa, guarda en todas partes
+s, r = ask('agrega reunion para hoy con richard para ver second brain tipo 8 am')
+check('3b: reconoce a la persona y lo dice', s == 200 and r['status'] == 'aplicado' and r['recognized'][0]['id'] == 'person-richard-bailey' and r['recognized'][0]['type'] == 'person', r.get('recognized'))
+check('3b: título completo «Reunión con …: tema»', 'Reunión con Richard Bailey: ver second brain' in r['results'][0], r.get('results'))
+check('3b: dice dónde quedó (agenda y ficha)', {'/mi-agenda?day=2026-11-13', '/cerebro?node=person-richard-bailey'} <= {l['href'] for l in r['links']}, r.get('links'))
+check('3b: la reunión queda anotada en la ficha de la persona', 'agendada para el 2026-11-13 a las 08:00' in node('person-richard-bailey')['body'])
+s, ag = http('/api/agent/agenda?from=2026-11-13&to=2026-11-13'); o = [x for x in ag['occurrences'] if 'Richard Bailey' in x['title']]
+check('3b: la agenda sabe con quién es (enlace a la ficha)', o and o[0]['links'][0]['id'] == 'person-richard-bailey', o[:1])
+s, r = ask('mueve la reunion con richard al martes 17 a las 9:30'); s2, ag = http('/api/agent/agenda?from=2026-11-10&to=2026-11-20')
+o = [x for x in ag['occurrences'] if 'Richard Bailey' in x['title']]
+check('3b: mover no duplica; anota el cambio en la ficha', 'movida del 2026-11-13' in r['results'][0] and len(o) == 1 and o[0]['date'] == '2026-11-17' and 'pasó del 2026-11-13 08:00 al 2026-11-17' in node('person-richard-bailey')['body'], r.get('results'))
+s, r = ask('mueve la reunion de medimex al miercoles 18 a las 11'); fm = node('dist-medimex')['frontmatter']
+check('3b: mover la reunión actualiza el próximo paso de la ficha', s == 200 and str(fm.get('next_followup_date'))[:10] == '2026-11-18', (r.get('results'), fm.get('next_followup_date')))
+s, r = ask('agendar reunion con richard para verse con Bren'); qid = r.get('id')
+check('3b: si no conoce a alguien, pregunta quién es', r['status'] == 'pregunta' and 'Bren' in r['message'] and r['dialog'][0]['q'], r.get('message'))
+s, st2 = http(C); check('3b: la pregunta queda esperando respuesta', any(q['id'] == qid for q in st2.get('questions', [])))
+s, r = http(C, {'action': 'responder', 'id': qid, 'text': 'Es gerente de compras de MEDIMEX, el jueves 19 a las 10'})
+n = node('person-bren-prueba')
+check('3b: con la respuesta sigue el MISMO pedido, crea la persona y la conecta', s == 200 and r['id'] == qid and r['status'] == 'aplicado' and n.get('id') and 'works_at' in json.dumps(n['frontmatter']) and r['dialog'][0]['a'], (s, r.get('message'), r.get('errors')))
+check('3b: la persona nueva sale marcada como nueva y sin verificar', any(x.get('isNew') for x in r['recognized']) and n['frontmatter'].get('verification_status') == 'unverified')
+check('3b: reunión con las dos personas, anotada en ambas fichas', 'Reunión con Bren Prueba y Richard Bailey: conocerse' in r['results'][1] and 'conocerse' in n['body'] and 'conocerse' in node('person-richard-bailey')['body'], r.get('results'))
+s, d = http(C, {'action': 'responder', 'id': qid, 'text': 'otra vez'}); check('3b: no se responde dos veces', s == 409, s)
+
 # Consultar
 s, d = http(C + '?q=' + urllib.parse.quote('Busta en Canadá')); check('consultar: respuesta redactada + expediente', s == 200 and d['writtenBy'] == 'gemma4' and d['dossier']['contacts'] and 'redactada' in d['answer'], d.get('writtenBy'))
 s, d = P({'action': 'ajustes', 'models': {'rapido': 'modelo-roto'}}); s2, d2 = http(C + '?q=MEDIMEX')

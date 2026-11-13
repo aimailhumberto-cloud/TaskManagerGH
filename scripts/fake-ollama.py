@@ -4,10 +4,15 @@ import json, sys, re
 from http.server import BaseHTTPRequestHandler, HTTPServer
 MANY = ['brand-oasis', 'brand-fruta', 'brand-chubby', 'brand-busta', 'brand-altitude', 'person-richard-bailey', 'person-angelo-martinez', 'person-amir-hosein', 'person-alanna-ramjattan', 'person-luisa-santos', 'person-sonia-harris', 'person-eesa-mohammed']
 tc = lambda name, **args: {'function': {'name': name, 'arguments': args}}
-def plan(text, msgs):
+def plan(text, msgs, full=''):
     fixed = any('encontró errores' in m.get('content', '') for m in msgs)
     searched = any(m.get('role') == 'tool' for m in msgs)
     t = text.lower()
+    talk = 'CONVERSACIÓN:' in full
+    if 'bren' in t: return [tc('crear_ficha', tipo='person', nombre='Bren Prueba', campos={'job_title': 'Gerente de compras', 'organization': 'MEDIMEX'}, conectar_con=[{'hacia': 'dist-medimex', 'relacion': 'works_at'}]), tc('agendar', titulo='conocerse', fecha='2026-11-19', hora='10:00', con=['person-bren-prueba', 'person-richard-bailey'])] if talk else [tc('preguntar', pregunta='No conozco a Bren. ¿Quién es (empresa, cargo) y con quién se relaciona?')]
+    if 'richard' in t and 'mueve' in t: return [tc('agendar', titulo='ver second brain', fecha='2026-11-17', hora='09:30', con=['person-richard-bailey'])]
+    if 'richard' in t: return [tc('agendar', titulo='ver second brain', fecha='2026-11-13', hora='08:00', con=['person-richard-bailey'])]
+    if 'medimex' in t and 'mueve' in t: return [tc('agendar', titulo='Reunión MEDIMEX E2E', fecha='2026-11-18', hora='11:00', ficha='dist-medimex')]
     if 'siempre-mal' in t: return [tc('registrar_novedad', ficha='dist-no-existe', resumen='x')]
     if 'ficha-inventada' in t: return [tc('registrar_novedad', ficha='dist-medimex' if fixed else 'dist-inventado', resumen='Corregido tras revisión')]
     if 'buscar-primero' in t: return [tc('registrar_novedad', ficha='dist-medimex', resumen='Encontrado con buscar')] if searched else [tc('buscar', q='medimex')]
@@ -42,6 +47,6 @@ class H(BaseHTTPRequestHandler):
         if not body.get('tools'):
             return self.send(200, {'model': body['model'], 'message': {'role': 'assistant', 'content': 'listo' if 'listo' in first else 'Respuesta redactada por el modelo con los datos del cerebro.'}, 'prompt_eval_count': 900, 'eval_count': 40})
         m = re.search(r'"""\n(.*)\n"""', first, re.S)
-        calls = plan(m.group(1) if m else first, msgs)
+        calls = plan(m.group(1) if m else first, msgs, first)
         self.send(200, {'model': body['model'], 'message': {'role': 'assistant', 'content': '' if calls else 'No sé qué hacer con eso.', 'tool_calls': calls}, 'prompt_eval_count': 2100, 'eval_count': 120})
 HTTPServer(('127.0.0.1', int(sys.argv[1]) if len(sys.argv) > 1 else 3981), H).serve_forever()

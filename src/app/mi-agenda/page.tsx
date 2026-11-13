@@ -2,7 +2,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useUiLang } from '@/lib/uiLang';
 
-type Occ = { id: string; eventId: string; layer: 'reuniones' | 'viajes' | 'tareas' | 'seguimientos'; kind: string; title: string; date: string; endDate?: string; time?: string; endTime?: string; location?: string; recurring: boolean; source: string; overdue?: boolean; taskId?: string; detail?: string };
+type Occ = { id: string; eventId: string; layer: 'reuniones' | 'viajes' | 'tareas' | 'seguimientos'; kind: string; title: string; date: string; endDate?: string; time?: string; endTime?: string; location?: string; recurring: boolean; source: string; overdue?: boolean; taskId?: string; links?: { id: string; title: string; type: string; role?: string }[]; detail?: string };
 type View = 'mes' | 'semana' | 'lista';
 const BLUE = '#0a3fbf', NAVY = '#0b1f4d', CYAN = '#00a8f0', SOFT = '#f2f6fd', LINE = '#dbe4f3';
 const SHADOW = '0 1px 2px rgba(11,31,77,0.04), 0 12px 28px -18px rgba(11,31,77,0.22)';
@@ -23,6 +23,7 @@ export default function MiAgendaPage() {
   const [readOnly, setReadOnly] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [openRow, setOpenRow] = useState<string | null>(null);
   const [form, setForm] = useState({ open: false, kind: 'reunion', title: '', time: '', endTime: '', endDate: '', location: '', repeat: 'none', weekdays: [] as number[], until: '' });
 
   const fmt = useCallback((day: string, opt: Intl.DateTimeFormatOptions) => { if (!day) return ''; const [y, m, d] = day.split('-').map(Number); const s = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(locale, { ...opt, timeZone: 'UTC' }); return s.charAt(0).toUpperCase() + s.slice(1); }, [locale]);
@@ -37,7 +38,7 @@ export default function MiAgendaPage() {
     try { const r = await fetch(`/api/agent/agenda${qs}`, { cache: 'no-store' }); const j = await r.json();
       if (!r.ok || !j.ok) return setMsg(j.error || L('No se pudo cargar la agenda.', 'Could not load the agenda.'));
       setOcc(j.occurrences); setReadOnly(!!j.readOnly);
-      if (!today) { setToday(j.today); setCursor(j.today); setSelected(j.today); if (window.innerWidth < 768) setView('lista'); }
+      if (!today) { const want = new URLSearchParams(window.location.search).get('day'); const day = want && /^\d{4}-\d{2}-\d{2}$/.test(want) ? want : j.today; setToday(j.today); setCursor(day); setSelected(day); if (window.innerWidth < 768) setView('lista'); }
     } catch { setMsg(L('No se pudo cargar la agenda.', 'Could not load the agenda.')); }
   }, [range, today, L]);
   useEffect(() => { load(); }, [load]);
@@ -70,8 +71,14 @@ export default function MiAgendaPage() {
     <li className="flex items-start gap-3 rounded-2xl px-3 py-2.5" style={{ border: '1px solid #eef2f9', background: '#fff' }}>
       <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: LAYERS[o.layer].color }} aria-hidden />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-slate-800">{o.title}</p>
+        <button type="button" onClick={() => setOpenRow(openRow === o.id ? null : o.id)} aria-expanded={openRow === o.id} className="block w-full text-left text-sm font-medium text-slate-800 hover:underline">{o.title}</button>
         <p className="text-xs text-slate-500">{[o.time ? `${o.time}${o.endTime ? `–${o.endTime}` : ''}` : null, layerName(o.layer), o.recurring ? L('se repite', 'recurring') : null, o.endDate ? `${fmt(o.date, { day: 'numeric', month: 'short' })} – ${fmt(o.endDate, { day: 'numeric', month: 'short' })}` : null, o.location, o.detail, o.source === 'outlook' ? 'Outlook' : null].filter(Boolean).join(' · ')}</p>
+        {openRow === o.id && (
+          <div className="mt-2 space-y-1.5 rounded-xl p-2.5 text-xs" style={{ background: SOFT }}>
+            {o.links?.length ? <p className="flex flex-wrap items-center gap-1.5"><span className="font-semibold" style={{ color: NAVY }}>{L('Con:', 'With:')}</span>{o.links.map(l => <a key={l.id} href={`/cerebro?node=${encodeURIComponent(l.id)}`} className="rounded-full bg-white px-2 py-0.5 font-semibold" style={{ color: BLUE }}>{l.title}{l.role ? ` · ${l.role}` : ''} →</a>)}</p> : <p className="text-slate-500">{o.taskId ? L('Tarea del cerebro.', 'Brain task.') : L('Sin personas enlazadas.', 'No linked people.')}</p>}
+            {o.detail && <p className="text-slate-600">{o.detail}</p>}
+            {o.location && <p className="text-slate-600">{L('Lugar:', 'Place:')} {o.location}</p>}
+          </div>)}
         {o.overdue && <span className="mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: '#fde8ea', color: '#b01e2b' }}>{L('Vencida', 'Overdue')}</span>}
       </div>
       {!readOnly && (o.taskId

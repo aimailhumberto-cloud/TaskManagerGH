@@ -6,6 +6,7 @@ import type { UnifiedBrainTask, DistributorSummary } from '@/lib/smjBrainService
 import TaskDotsModal from '@/components/TaskDotsModal';
 import TaskDossierModal from '@/components/TaskDossierModal';
 import NewBrainTaskModal from '@/components/NewBrainTaskModal';
+import MeetingsStrip from '@/components/MeetingsStrip';
 import { useTasksT } from '@/lib/tasksI18n';
 
 type ActiveTab = 'radar' | 'distributors' | 'markets' | 'universe' | 'calendar';
@@ -372,6 +373,7 @@ export default function TasksPage() {
           </div>
         ) : (
           <>
+            {(activeTab === 'radar' || activeTab === 'universe') && <MeetingsStrip filter={activeTab === 'universe' ? searchQuery : ''} />}
             {/* VIEW 1: MI DÍA (RADAR DIARIO) */}
             {activeTab === 'radar' && (
               <div className="space-y-6">

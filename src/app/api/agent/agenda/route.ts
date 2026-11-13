@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withBrain } from '@/lib/brains';
 import { canWriteFully, currentBrain } from '@/lib/brainContext';
+import { loadBrainGraph } from '@/lib/smjBrainService';
+import { displayTitle } from '@/lib/brainLens';
 import { AgendaError, addDays, dayLoads, deleteEvent, listEvents, mergedAgenda, upsertEvent } from '@/lib/agenda';
 import { getUnifiedBrainTasks, getPanamaDate } from '@/lib/smjBrainService';
 import { actorLabel } from '@/lib/actor';
@@ -21,6 +23,12 @@ async function _GET(req: NextRequest) {
   if (to < from) to = from; if (addDays(from, 400) < to) to = addDays(from, 400);
   const events = listEvents(ctx.vaultPath);
   const occ = mergedAgenda(events, getUnifiedBrainTasks().tasks as any, from, to);
+  // Con quién es cada evento: nombre, tipo y cargo de las fichas enlazadas.
+  const wanted = new Set(occ.flatMap(o => o.nodeIds || []));
+  if (wanted.size) {
+    const byId = new Map((loadBrainGraph().allNodes || []).filter(n => wanted.has(n.id)).map(n => [n.id, { id: n.id, title: displayTitle(n.title), type: n.type, role: n.frontmatter?.job_title || n.frontmatter?.organization || undefined }]));
+    for (const o of occ) if (o.nodeIds) o.links = o.nodeIds.map(id => byId.get(id)).filter(Boolean) as typeof o.links;
+  }
   return NextResponse.json({ ok: true, today, from, to, occurrences: occ, loads: dayLoads(occ, from, to), events: sp.get('events') === '1' ? events : undefined, readOnly: !!ctx.readOnly });
 }
 async function _POST(req: NextRequest) {

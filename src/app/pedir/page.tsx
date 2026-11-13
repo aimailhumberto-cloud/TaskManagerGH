@@ -3,9 +3,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import PageHero from '@/components/PageHero';
 import { useUiLang } from '@/lib/uiLang';
 
-type Req = { id: string; at: string; by: string; text: string; status: string; plan: string[]; why?: string; results?: string[]; message?: string; changeId?: string; model?: string; ms?: number; confidence?: number | null; decidedBy?: string };
+type Req = { id: string; at: string; by: string; text: string; status: string; plan: string[]; why?: string; results?: string[]; message?: string; changeId?: string; model?: string; ms?: number; confidence?: number | null; decidedBy?: string; dialog?: { q: string; a?: string }[]; recognized?: { id: string; name: string; type: string; verification?: string; isNew?: boolean }[]; links?: { label: string; href: string }[] };
 type Settings = { models: { rapido: string; grande: string }; mode: 'proponer' | 'auto'; bigTouch: number; bigCreate: number; agentCanApprove: boolean; threshold: number };
-type State = { ready: boolean; jev: boolean; settings: Settings; usage: { today: { calls: number; usd: number }; month: { calls: number; usd: number }; avgMs: number; unknownPrice: boolean }; canApprove: boolean; pending: Req[]; recent: Req[] };
+type State = { ready: boolean; jev: boolean; settings: Settings; usage: { today: { calls: number; usd: number }; month: { calls: number; usd: number }; avgMs: number; unknownPrice: boolean }; canApprove: boolean; pending: Req[]; questions?: Req[]; recent: Req[] };
 const card = 'rounded-2xl border border-[#dbe4f3] bg-white p-5 shadow-[0_12px_28px_-18px_rgba(11,31,77,0.22)]';
 const input = 'w-full rounded-xl border border-[#dbe4f3] bg-white px-3 py-2 text-sm outline-none focus:border-[#0a3fbf]';
 const btn = 'rounded-xl bg-[#0a3fbf] px-4 py-2 text-sm font-semibold text-white hover:bg-[#08318f] disabled:opacity-50';
@@ -22,6 +22,7 @@ export default function PedirPage() {
   const [models, setModels] = useState<string[] | null>(null);
   const [test, setTest] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [reply, setReply] = useState('');
 
   const load = useCallback(async () => {
     const r = await fetch('/api/agent/cerebro', { cache: 'no-store' }); const d = await r.json().catch(() => ({}));
@@ -37,6 +38,13 @@ export default function PedirPage() {
     setBusy('pedir'); setError(null); setAnswer(null); setLast(null);
     const { d } = await post({ action: 'pedir', text });
     if (d?.id) { setLast(d); if (d.status === 'aplicado' || d.status === 'pendiente') setText(''); } else setError(d.error || 'No se pudo.');
+    setBusy(null); load();
+  }
+  async function responder(id: string) {
+    if (!reply.trim()) return;
+    setBusy('responder'); setError(null);
+    const { d } = await post({ action: 'responder', id, text: reply });
+    if (d?.id) { setLast(d); setReply(''); if (d.status === 'aplicado' || d.status === 'pendiente') setText(''); } else setError(d.error || 'No se pudo.');
     setBusy(null); load();
   }
   async function preguntar() {
@@ -78,8 +86,23 @@ export default function PedirPage() {
     pregunta: [L('Falta un dato', 'Needs detail'), 'bg-sky-100 text-sky-800'], no_entendido: [L('No entendido', 'Not understood'), 'bg-rose-100 text-rose-700'], fallo: [L('Falló', 'Failed'), 'bg-rose-100 text-rose-700'],
   };
   const Badge = ({ s }: { s: string }) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS[s]?.[1] || 'bg-slate-100'}`}>{STATUS[s]?.[0] || s}</span>;
+  const TYPE: Record<string, string> = { person: L('persona', 'person'), distributor: L('distribuidor', 'distributor'), brand: L('marca', 'brand'), market: L('mercado', 'market'), customer: L('cliente', 'customer'), organization: L('organización', 'organization'), department: L('departamento', 'department') };
   const Plan = ({ r }: { r: Req }) => (
-    <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-[#0b1f4d]">{(r.results?.length ? r.results : r.plan).map((p, i) => <li key={i}>{p}</li>)}</ol>
+    <>
+      {!!r.recognized?.length && <p className="mt-2 text-xs text-slate-600">{L('Reconocí a:', 'I recognized:')} {r.recognized.map(x => `${x.name} (${TYPE[x.type] || x.type}${x.isNew ? `, ${L('NUEVA', 'NEW')}` : x.verification === 'verified' ? `, ${L('verificada', 'verified')}` : `, ${L('sin verificar', 'unverified')}`})`).join(' · ')}</p>}
+      <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-[#0b1f4d]">{(r.results?.length ? r.results : r.plan).map((p, i) => <li key={i}>{p}</li>)}</ol>
+      {r.status === 'aplicado' && !!r.links?.length && <p className="mt-3 flex flex-wrap gap-2 text-xs">{L('Ver dónde quedó:', 'See where it went:')}{r.links.map(l => <a key={l.href} href={l.href} className="rounded-full bg-[#eef3fb] px-2.5 py-1 font-semibold text-[#0a3fbf] hover:bg-[#dbe7fb]">{l.label} →</a>)}</p>}
+    </>
+  );
+  const Talk = ({ r }: { r: Req }) => (
+    <div className="mt-2 space-y-2">
+      {(r.dialog || []).map((d, i) => (<div key={i} className="space-y-1 text-sm"><p className="rounded-xl bg-[#eef3fb] px-3 py-2"><span className="font-semibold">{L('El Cerebro:', 'The brain:')}</span> {d.q}</p>{d.a && <p className="ml-6 rounded-xl bg-[#0a3fbf] px-3 py-2 text-white">{d.a}</p>}</div>))}
+      {r.status === 'pregunta' && (
+        <form className="flex gap-2" onSubmit={e => { e.preventDefault(); responder(r.id); }}>
+          <input autoFocus className={input} value={reply} onChange={e => setReply(e.target.value)} placeholder={L('Responde solo lo que falta…', 'Answer just what is missing…')} />
+          <button className={btn} disabled={!!busy}>{busy === 'responder' ? L('Pensando…', 'Thinking…') : L('Responder', 'Reply')}</button>
+        </form>)}
+    </div>
   );
   const Actions = ({ r }: { r: Req }) => r.status === 'pendiente' && st?.canApprove ? (
     <div className="mt-3 flex gap-2">
@@ -95,14 +118,17 @@ export default function PedirPage() {
     <div className="min-h-full bg-[#f2f6fd] text-[#0b1f4d]" style={{ fontFamily: 'Poppins, system-ui, sans-serif' }}>
       <div className="mx-auto max-w-3xl space-y-5 p-4 sm:p-6">
         <PageHero title={L('Dile al cerebro', 'Tell the brain')} subtitle={L('Pide un cambio o haz una pregunta, con tus palabras.', 'Ask for a change or a question, in your own words.')} />
-        {st && !st.ready && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{L('El Cerebro aún no tiene modelo conectado (falta la llave de Ollama en Render). Mientras tanto, «Preguntar» responde con los datos del cerebro.', 'The brain has no model connected yet (Ollama key missing in Render). Meanwhile, “Ask” answers from the brain data.')}</p>}
+        {st && !st.ready && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{L('El Cerebro aún no tiene modelo conectado (falta la llave de Ollama en Render). Mientras tanto, «Solo preguntar» responde con los datos del cerebro.', 'The brain has no model connected yet (Ollama key missing in Render). Meanwhile, “Just ask” answers from the brain data.')}</p>}
         <div className={card}>
           <textarea className={`${input} min-h-[110px]`} value={text} onChange={e => setText(e.target.value)} maxLength={60000}
             placeholder={L('Ej.: «La reunión con MEDIMEX pasó al lunes 16 a las 3 pm; anótalo y crea tarea de enviar la propuesta el viernes.»', 'E.g.: “The MEDIMEX meeting moved to Monday 16 at 3 pm; note it and add a task to send the proposal on Friday.”')} />
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button className={btn} disabled={!!busy || !st?.ready} onClick={pedir}>{busy === 'pedir' ? L('Pensando…', 'Thinking…') : L('Pedir', 'Request')}</button>
-            <button className={ghost} disabled={!!busy} onClick={preguntar}>{busy === 'preguntar' ? L('Buscando…', 'Searching…') : L('Preguntar', 'Ask')}</button>
-            <span className="text-xs text-slate-500">{s?.mode === 'auto' ? L('Modo automático: lo simple se aplica solo; lo grande y lo delicado espera tu aprobación.', 'Automatic mode: simple things apply on their own; big or sensitive ones wait for you.') : L('Modo proponer: nada cambia hasta que apruebes.', 'Propose mode: nothing changes until you approve.')}</span>
+            <button className={btn} disabled={!!busy || !st?.ready} onClick={pedir}>{busy === 'pedir' ? L('Pensando…', 'Thinking…') : L('Pedir un cambio', 'Make a change')}</button>
+            <button className={ghost} disabled={!!busy} onClick={preguntar}>{busy === 'preguntar' ? L('Buscando…', 'Searching…') : L('Solo preguntar', 'Just ask')}</button>
+          </div>
+          <div className="mt-3 space-y-0.5 text-xs text-slate-500">
+            <p><span className="font-semibold text-[#0a3fbf]">{L('Pedir un cambio', 'Make a change')}:</span> {L('anota, agenda, crea tareas o fichas. ', 'notes, schedules, creates tasks or notes. ')}{s?.mode === 'auto' ? L('Lo simple se aplica solo; lo grande y lo delicado espera tu aprobación.', 'Simple things apply on their own; big or sensitive ones wait for you.') : L('Nada cambia hasta que apruebes.', 'Nothing changes until you approve.')}</p>
+            <p><span className="font-semibold text-[#0a3fbf]">{L('Solo preguntar', 'Just ask')}:</span> {L('consulta lo que el cerebro sabe. No cambia nada.', 'looks up what the brain knows. Changes nothing.')}</p>
           </div>
         </div>
         {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
@@ -117,12 +143,23 @@ export default function PedirPage() {
         {last && (
           <div className={card}>
             <div className="flex items-center gap-2"><Badge s={last.status} />{last.ms ? <span className="text-xs text-slate-500">{(last.ms / 1000).toFixed(1)} s · {last.model}</span> : null}</div>
-            {last.message && <p className="mt-2 text-sm">{last.message}</p>}
+            {last.status === 'pregunta' ? <Talk r={last} /> : last.message && <p className="mt-2 text-sm">{last.message}</p>}
             {last.why && last.status === 'pendiente' && <p className="mt-1 text-xs text-amber-700">{last.why}</p>}
             {last.plan?.length > 0 && <Plan r={last} />}
             <Actions r={last} />
           </div>
         )}
+        {!!st?.questions?.filter(q => q.id !== last?.id).length && (
+          <div className={card}>
+            <h2 className="text-base font-semibold">{L('El Cerebro espera tu respuesta', 'The brain is waiting for your answer')}</h2>
+            <div className="mt-2 divide-y divide-[#eef3fb]">
+              {st.questions.filter(q => q.id !== last?.id).map(r => (
+                <div key={r.id} className="flex items-start justify-between gap-3 py-2 text-sm">
+                  <div className="min-w-0"><p className="text-xs text-slate-500">«{r.text.length > 90 ? r.text.slice(0, 90) + '…' : r.text}» · {r.by}</p><p className="mt-0.5">{r.message}</p></div>
+                  <button className={ghost} onClick={() => { setLast(r); setReply(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>{L('Responder', 'Reply')}</button>
+                </div>))}
+            </div>
+          </div>)}
         <div className={card}>
           <h2 className="text-base font-semibold">{L('Por aprobar', 'To approve')} {st?.pending.length ? <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">{st.pending.length}</span> : null}</h2>
           {st && st.pending.length === 0 && <p className="mt-2 text-sm text-slate-500">{L('Nada pendiente.', 'Nothing pending.')}</p>}

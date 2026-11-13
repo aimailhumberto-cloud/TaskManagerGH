@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withBrain } from '@/lib/brains';
 import { currentBrain } from '@/lib/brainContext';
-import { pedir, consultar, decidir, listRequests, usageSummary, canDecide } from '@/lib/cerebro/engine';
+import { pedir, responder, consultar, decidir, listRequests, usageSummary, canDecide } from '@/lib/cerebro/engine';
 import { loadSettings, saveSettings } from '@/lib/cerebro/settings';
 import { llmConfigured, listModels, balance, chat, LlmError } from '@/lib/cerebro/ollama';
 import { MENU } from '@/lib/cerebro/ops';
@@ -16,6 +16,7 @@ export const maxDuration = 300;
  * GET ?models=1            → modelos disponibles en Ollama y saldo
  * GET ?id=ped-…            → un pedido
  * POST {action:'pedir', text, deep?, dryRun?}   → arma el plan y lo aplica o lo deja «Por aprobar»
+ * POST {action:'responder', id, text}            → contesta lo que el Cerebro preguntó; sigue con el mismo pedido
  * POST {action:'consultar', q, size?}           → igual que GET ?q=
  * POST {action:'aprobar'|'rechazar', id, omitir?:[n]} → decide una propuesta
  * POST {action:'ajustes', models?, mode?, bigTouch?, bigCreate?, agentCanApprove?, threshold?}
@@ -25,6 +26,9 @@ const isAgent = () => String(currentBrain()?.actor || '').startsWith('agente');
 const bad = (error: string, status = 400) => NextResponse.json({ ok: false, error }, { status });
 const SIZES = ['breve', 'normal', 'completo'] as const;
 const sizeOf = (v: unknown) => (SIZES.includes(v as any) ? v : 'normal') as (typeof SIZES)[number];
+
+const httpOf = (st: string) => (st === 'fallo' ? 502 : st === 'no_entendido' ? 422 : st === 'pendiente' ? 202 : 200);
+const nextOf = (st: string) => (st === 'pendiente' ? 'Una persona lo aprueba en la app (Pedir → Por aprobar).' : st === 'pregunta' ? "Contesta con POST {action:'responder', id, text}: solo lo que falta; el Cerebro recuerda el pedido." : undefined);
 
 async function _GET(req: NextRequest) {
   const ctx = currentBrain(); if (!ctx) return bad('Sin cerebro.', 401);
@@ -38,7 +42,7 @@ async function _GET(req: NextRequest) {
   if (sp.get('id')) { const r = all.find(x => x.id === sp.get('id')); return r ? NextResponse.json({ ok: true, request: r }) : bad('No existe ese pedido.', 404); }
   return NextResponse.json({
     ok: true, name: 'el Cerebro', ready: llmConfigured(), jev: !!configuredProvider(), settings: loadSettings(ctx.vaultPath), usage: usageSummary(ctx.vaultPath),
-    canApprove: canDecide().ok, pending: all.filter(r => r.status === 'pendiente'), recent: all.filter(r => r.status !== 'pendiente').slice(0, 20),
+    canApprove: canDecide().ok, pending: all.filter(r => r.status === 'pendiente'), questions: all.filter(r => r.status === 'pregunta' && Date.now() - Date.parse(r.at) < 3 * 86400_000).slice(0, 10), recent: all.filter(r => r.status !== 'pendiente').slice(0, 20),
     menu: Object.entries(MENU).map(([name, d]) => ({ name, level: d.level, what: d.desc })),
     how: "POST {action:'pedir', text} para pedir un cambio en palabras; GET ?q= para consultar. Borrar, verificar y compartir siempre esperan a una persona.",
   });
@@ -53,8 +57,13 @@ async function _POST(req: NextRequest) {
     if (text.length < 3) return bad('Escribe el pedido en «text».');
     if (text.length > 60000) return bad('El pedido es demasiado largo (máximo 60 000 caracteres). Divídelo.', 413);
     const r = await pedir({ text, deep: b.deep === true, dryRun: b.dryRun === true });
-    const status = r.status === 'fallo' ? 502 : r.status === 'no_entendido' ? 422 : r.status === 'pendiente' ? 202 : 200;
-    return NextResponse.json({ ok: status < 400, ...r, next: r.status === 'pendiente' ? 'Una persona lo aprueba en la app (Pedir → Por aprobar).' : r.status === 'pregunta' ? 'Responde la pregunta enviando el pedido de nuevo, completo.' : undefined }, { status });
+    return NextResponse.json({ ...r, ok: httpOf(r.status) < 400, next: nextOf(r.status) }, { status: httpOf(r.status) });
+  }
+  if (action === 'responder') {
+    const text = String(b.text || '').trim(); if (!text) return bad('Escribe la respuesta en «text».');
+    const r = await responder(String(b.id || ''), text);
+    if (!r.ok) return bad(r.error, r.status);
+    return NextResponse.json({ ...r, ok: !['fallo', 'no_entendido'].includes(r.status), next: nextOf(r.status) }, { status: httpOf(r.status) });
   }
   if (action === 'aprobar' || action === 'rechazar') {
     const r = await decidir(String(b.id || ''), action === 'aprobar', Array.isArray(b.omitir) ? b.omitir.map(Number).filter(Number.isInteger) : []);
@@ -75,7 +84,7 @@ async function _POST(req: NextRequest) {
     }
     return NextResponse.json({ ok: Object.values(out).every((o: any) => o.ok), test: out });
   }
-  return bad("action debe ser 'pedir', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.");
+  return bad("action debe ser 'pedir', 'responder', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.");
 }
 export const GET = withBrain(_GET);
 export const POST = withBrain(_POST);

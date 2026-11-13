@@ -15,10 +15,12 @@ export const REPEATS = ['none', 'daily', 'weekly', 'monthly', 'yearly'] as const
 export type Repeat = (typeof REPEATS)[number];
 export interface AgendaEvent {
   id: string; kind: EventKind; title: string; date: string; endDate?: string; time?: string; endTime?: string;
-  location?: string; notes?: string; repeat: Repeat; weekdays?: number[]; until?: string; cancelled?: string[];
+  location?: string; notes?: string;
+  /** Fichas (personas, empresas) con las que es este evento. */
+  nodeIds?: string[]; repeat: Repeat; weekdays?: number[]; until?: string; cancelled?: string[];
   source: string; externalId?: string; createdBy?: string; createdAt: string; updatedAt: string;
 }
-export interface Occurrence { id: string; eventId: string; layer: 'reuniones' | 'viajes' | 'tareas' | 'seguimientos'; kind: string; title: string; date: string; endDate?: string; time?: string; endTime?: string; location?: string; recurring: boolean; source: string; overdue?: boolean; taskId?: string; detail?: string }
+export interface Occurrence { id: string; eventId: string; layer: 'reuniones' | 'viajes' | 'tareas' | 'seguimientos'; kind: string; title: string; date: string; endDate?: string; time?: string; endTime?: string; location?: string; recurring: boolean; source: string; overdue?: boolean; taskId?: string; detail?: string; nodeIds?: string[]; links?: { id: string; title: string; type: string; role?: string }[] }
 export class AgendaError extends Error { constructor(message: string, public status = 400) { super(message); } }
 export const MAX_EVENTS = 2000;
 
@@ -57,6 +59,7 @@ export function upsertEvent(vaultPath: string, input: Record<string, unknown>, b
   for (const k of ['time', 'endTime'] as const) if (has(k)) { if (input[k] === null || input[k] === '') delete ev[k]; else { if (typeof input[k] !== 'string' || !TIME.test(input[k] as string)) throw new AgendaError(`${k} debe ser HH:MM (24 horas).`); ev[k] = input[k] as string; } }
   if (has('location')) { const v = str('location', 120); if (v) ev.location = v; else delete ev.location; }
   if (has('notes')) { const v = str('notes', 1000); if (v) ev.notes = v; else delete ev.notes; }
+  if (has('nodeIds')) { const ids = Array.isArray(input.nodeIds) ? Array.from(new Set((input.nodeIds as unknown[]).filter((x): x is string => typeof x === 'string' && /^[\w.\-]{2,120}$/.test(x)))).slice(0, 12) : []; if (ids.length) ev.nodeIds = ids; else delete ev.nodeIds; }
   if (has('repeat')) { if (!(REPEATS as readonly string[]).includes(input.repeat as string)) throw new AgendaError('repeat debe ser none, daily, weekly, monthly o yearly.'); ev.repeat = input.repeat as Repeat; }
   if (has('weekdays')) { const w = Array.isArray(input.weekdays) ? Array.from(new Set((input.weekdays as unknown[]).filter((x): x is number => Number.isInteger(x) && (x as number) >= 0 && (x as number) <= 6))).sort() : []; if (w.length) ev.weekdays = w; else delete ev.weekdays; }
   if (has('until')) { if (input.until === null || input.until === '') delete ev.until; else { if (!validDay(input.until)) throw new AgendaError('until debe ser AAAA-MM-DD.'); ev.until = input.until; } }
@@ -104,7 +107,7 @@ export function expandEvents(events: AgendaEvent[], from: string, to: string): O
   const out: Occurrence[] = [];
   for (const ev of events) for (const start of startsIn(ev, from, to)) {
     const span = ev.endDate ? Math.round((Date.parse(ev.endDate) - Date.parse(ev.date)) / 86400000) : 0;
-    out.push({ id: `${ev.id}@${start}`, eventId: ev.id, layer: ev.kind === 'viaje' ? 'viajes' : 'reuniones', kind: ev.kind, title: ev.title, date: start, endDate: span ? addDays(start, span) : undefined, time: ev.time, endTime: ev.endTime, location: ev.location, recurring: ev.repeat !== 'none', source: ev.source, detail: ev.notes });
+    out.push({ id: `${ev.id}@${start}`, eventId: ev.id, layer: ev.kind === 'viaje' ? 'viajes' : 'reuniones', kind: ev.kind, title: ev.title, date: start, endDate: span ? addDays(start, span) : undefined, time: ev.time, endTime: ev.endTime, location: ev.location, recurring: ev.repeat !== 'none', source: ev.source, detail: ev.notes, nodeIds: ev.nodeIds });
   }
   return out;
 }
