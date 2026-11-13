@@ -336,7 +336,7 @@ async function splitTopics(vault: string, text: string): Promise<string[]> {
   } catch { return [text]; }
 }
 /**
- * Pedido de varios temas: cada tema se piensa por separado (con el modelo grande) y queda como su propio pedido.
+ * Pedido de varios temas: cada tema se piensa por separado y queda como su propio pedido.
  * Lo claro se graba; lo dudoso espera o pregunta, sin frenar lo demás.
  */
 export async function pedirVarios(input: { text: string; deep?: boolean; dryRun?: boolean; replaces?: string }): Promise<{ multi: false; one: Awaited<ReturnType<typeof pedir>> } | { multi: true; parts: Awaited<ReturnType<typeof pedir>>[]; message: string }> {
@@ -344,7 +344,7 @@ export async function pedirVarios(input: { text: string; deep?: boolean; dryRun?
   const topics = input.replaces || CORRECTION.test(text) ? [text] : await splitTopics(vault, text);
   if (topics.length < 2) return { multi: false, one: await pedir(input) };
   const group = newId();
-  const parts = await Promise.all(topics.map((t, i) => pedir({ text: t, deep: true, dryRun: input.dryRun, sub: true, group, part: `${i + 1}/${topics.length}` })));
+  const parts = await Promise.all(topics.map((t, i) => pedir({ text: t, deep: input.deep, dryRun: input.dryRun, sub: true, group, part: `${i + 1}/${topics.length}` })));
   const word = (r: CerebroRequest) => r.status === 'aplicado' ? tr('HECHO', 'DONE') : r.status === 'pendiente' ? tr('ESPERA APROBACIÓN (no se aplicó)', 'WAITING FOR APPROVAL (not applied)') : r.status === 'pregunta' ? tr('PREGUNTA (no se aplicó)', 'QUESTION (not applied)') : tr('NO SE HIZO', 'NOT DONE');
   const message = tr(`Partí el pedido en ${parts.length} temas; cada uno es un pedido aparte. `, `I split the request into ${parts.length} topics; each one is a separate request. `)
     + parts.map((r, i) => `${tr('Tema', 'Topic')} ${i + 1} (${r.id}) — ${word(r)}: ${r.status === 'aplicado' ? (r.results || r.plan).join('; ') : r.status === 'pendiente' ? `${r.plan.join('; ')}${r.why ? ` · ${tr('motivo', 'reason')}: ${r.why}` : ''}` : (r.message || '')}`.slice(0, 900)).join(' || ');
@@ -365,7 +365,7 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
   if (!leer && !dialog.length) { const ask = preAsk(vault, text); if (ask) return done({ status: 'pregunta', message: ask, dialog: [{ q: ask }] }); }
   if (!llmConfigured()) return done({ message: tr('El Cerebro todavía no tiene modelo: falta OLLAMA_API_KEY en Render.', 'The Brain has no model yet: OLLAMA_API_KEY is missing in Render.') });
   const heavy = text.length > 2500 || (text.match(/\b\d{1,2}:\d{2}\b/g) || []).length >= 4; // textos largos o itinerarios con muchas horas
-  const model = input.deep || heavy || (isAgent() && text.length > 200) ? s.models.grande : s.models.rapido;
+  let model = input.deep || heavy || (isAgent() && !input.sub && text.length > 200) ? s.models.grande : s.models.rapido;
   const tools = [...toolDefs(), ...META];
   const messages: ChatMessage[] = [{ role: 'system', content: systemFor(replyLang(), leer) }, { role: 'user', content: `${contextBlock(talk ? `${text}\n${dialog.map(d => d.a || '').join('\n')}` : text)}\n\n${leer ? tr('TEXTO PARA LEER Y EXTRAER, ENVIADO POR', 'TEXT TO READ AND EXTRACT, SENT BY') : tr('PEDIDO DE', 'REQUEST FROM')} ${base.by.toUpperCase()}:\n"""\n${text.slice(0, 60000)}\n"""${talk ? `\n\n${tr('CONVERSACIÓN', 'CONVERSATION')}:\n${talk}` : ''}${replyLang() === 'en' ? '\n\nLANGUAGE: write every text you produce in English.' : ''}` }];
   let inTok = 0, outTok = 0, ms = 0, rounds = 0, repaired = false, gapTried = false, ops: Op[] = [], errors: string[] = [], supuso: string[] = [];
@@ -373,7 +373,8 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
   try {
     for (;;) {
       if (++rounds > 6) return done({ ...stats(), status: 'no_entendido', message: tr('No logré armar el plan en pocos pasos. Di el pedido con el nombre exacto de la ficha.', 'I could not build the plan in a few steps. Say the request with the exact name of the note.') });
-      const r = await chat(model, messages, tools, heavy ? 180_000 : 90_000);
+      // Si el modelo grande tarda demasiado o falla, se sigue con el rápido: las revisiones de la app son las mismas.
+      const r = await chat(model, messages, tools, model === s.models.rapido ? 90_000 : 60_000).catch(e => { if (model === s.models.rapido) throw e; model = s.models.rapido; return chat(model, messages, tools, 90_000); });
       inTok += r.inputTokens; outTok += r.outputTokens; ms += r.ms;
       logUsage(vault, { kind: 'pedir', model: r.model, inputTokens: r.inputTokens, outputTokens: r.outputTokens, ms: r.ms });
       const ask = r.toolCalls.find(c => c.name === 'preguntar');

@@ -74,6 +74,6 @@ fill = ' Esto viene de los correos de hoy y hay que dejarlo anotado con cuidado,
 s, m = P({'action': 'pedir', 'text': 'indicador de ventas de la semana.' + fill + fill + ' || verificad: marca lo de medimex.' + fill})
 parts = m.get('parts', [])
 check('13. pedido de varios temas: se parte y cada tema es un pedido aparte', m.get('multi') and len(parts) == 2 and parts[0]['id'] != parts[1]['id'] and parts[0].get('group') == parts[1].get('group'), (m.get('status'), m.get('message', '')[:200]))
-check('13b. cada tema con su plan propio y el modelo grande', [p['ops'][0]['name'] for p in parts if p.get('ops')] == ['registrar_indicador', 'marcar_verificado'] and all(p.get('model') == GRANDE for p in parts), [(p.get('status'), p.get('model')) for p in parts])
+check('13b. cada tema con su plan propio', [p['ops'][0]['name'] for p in parts if p.get('ops')] == ['registrar_indicador', 'marcar_verificado'], [(p.get('status'), p.get('model')) for p in parts])
 check('13c. el mensaje dice el estado de cada tema', 'Tema 1' in m.get('message', '') and 'Tema 2' in m.get('message', ''), m.get('message', '')[:260])
 res_n = len(res); print(f"\n{sum(res)}/{res_n} pruebas"); raise SystemExit(0 if all(res) else 1)
