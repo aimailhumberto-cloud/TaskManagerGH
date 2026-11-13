@@ -21,6 +21,7 @@
     "test:vault": "tsx scripts/testVaultSafety.ts",
     "test:collision": "tsx scripts/testCollision.ts",
     "test:physics": "tsx scripts/testPhysics.ts",
+    "test:assets": "tsx scripts/testAssets.ts",
     "bench:layout": "tsx scripts/benchCerebroLayout.ts",
     "test:i18n": "tsx scripts/testCerebroI18n.ts",
     "test:sleep": "tsx scripts/testDotsSleep.ts",

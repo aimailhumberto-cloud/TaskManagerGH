@@ -47,3 +47,38 @@ export function assetFilePath(file: string): { path: string; mime: string } | nu
   const p = path.join(dir(), file); if (!fs.existsSync(p)) return null;
   return { path: p, mime: m[1] === 'png' ? 'image/png' : m[1] === 'jpg' ? 'image/jpeg' : 'image/webp' };
 }
+
+/** Sitios de los que se permite copiar fotos a la biblioteca: solo la tienda en línea de la empresa y su CDN. */
+export const IMPORT_HOSTS = new Set(['cdn.shopify.com', 'shopsmj.com', 'www.shopsmj.com']);
+export function isImportableUrl(u: unknown): u is string {
+  if (typeof u !== 'string') return false;
+  try { const x = new URL(u); return x.protocol === 'https:' && !x.username && !x.password && (x.port === '' || x.port === '443') && IMPORT_HOSTS.has(x.hostname.toLowerCase()); } catch { return false; }
+}
+/**
+ * Descarga una imagen de un sitio permitido. Rechaza otros sitios (y no sigue redirecciones hacia fuera),
+ * respuestas que pasen de 2 MB y cualquier cosa que no sea una imagen. `fetchImpl` permite probarla sin red.
+ */
+export async function fetchRemoteImage(url: string, fetchImpl: typeof fetch = fetch): Promise<Buffer> {
+  if (!isImportableUrl(url)) throw new AssetError('Ese sitio no está en la lista permitida.');
+  const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 10000);
+  try {
+    // Las redirecciones se siguen a mano (máximo dos) para comprobar cada destino ANTES de llamarlo.
+    let r = await fetchImpl(url, { signal: ctl.signal, redirect: 'manual', headers: { Accept: 'image/*' } });
+    for (let hop = 0; hop < 2 && r.status >= 300 && r.status < 400; hop++) {
+      let next = ''; try { next = new URL(r.headers.get('location') || '', url).toString(); } catch {}
+      if (!isImportableUrl(next)) throw new AssetError('El sitio redirigió a un lugar no permitido.');
+      r = await fetchImpl(next, { signal: ctl.signal, redirect: 'manual', headers: { Accept: 'image/*' } });
+    }
+    if (r.status >= 300 && r.status < 400) throw new AssetError('Demasiadas redirecciones.', 502);
+    if (!r.ok) throw new AssetError(`El sitio respondió ${r.status}.`, 502);
+    const len = Number(r.headers.get('content-length') || 0);
+    if (len > MAX_BYTES) throw new AssetError('La imagen pasa de 2 MB.', 413);
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (!buf.length || buf.length > MAX_BYTES) throw new AssetError('La imagen está vacía o pasa de 2 MB.', 413);
+    if (!sniff(buf)) throw new AssetError('Lo descargado no es una imagen PNG, JPG o WEBP.');
+    return buf;
+  } catch (e) {
+    if (e instanceof AssetError) throw e;
+    throw new AssetError((e as Error)?.name === 'AbortError' ? 'El sitio tardó demasiado.' : 'No se pudo descargar.', 502);
+  } finally { clearTimeout(timer); }
+}

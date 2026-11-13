@@ -6,7 +6,8 @@ import { getAccount } from '@/lib/localAccounts';
 import { loadBrainGraph } from '@/lib/smjBrainService';
 import { updateNoteFile } from '@/lib/vaultFiles';
 import { ensureDailySnapshot } from '@/lib/vaultBackup';
-import { AssetError, findAsset, listAssets, saveAsset } from '@/lib/assetStore';
+import { AssetError, fetchRemoteImage, findAsset, isImportableUrl, listAssets, saveAsset } from '@/lib/assetStore';
+import { brandOf } from '@/lib/assetCatalog';
 export const dynamic = 'force-dynamic';
 
 /**
@@ -15,6 +16,8 @@ export const dynamic = 'force-dynamic';
  * POST {action:'assign', nodeId, assetId} → pone esa imagen en la ficha.
  * POST {action:'unassign', nodeId} → quita la imagen puesta desde la biblioteca.
  * POST {action:'upload', name, brand?, kind?, dataBase64} → agrega una imagen PNG/JPG/WEBP de hasta 2 MB.
+ * POST {action:'localize', limit?, dryRun?} → copia a la biblioteca las fotos que hoy dependen de enlaces a la tienda en línea
+ *   (por tandas; la ficha conserva su enlace original y se puede deshacer con 'unassign').
  */
 async function _GET(req: NextRequest) {
   const ctx = currentBrain(); if (!ctx) return NextResponse.json({ ok: false, error: 'Sin cerebro.' }, { status: 401 });
@@ -48,7 +51,25 @@ async function _POST(req: NextRequest) {
       if (!upd.ok) return NextResponse.json({ ok: false, error: upd.error }, { status: 409 });
       return NextResponse.json({ ok: true, nodeId: node.id, asset });
     }
-    return NextResponse.json({ ok: false, error: "action debe ser 'assign', 'unassign' o 'upload'." }, { status: 400 });
+    if (b?.action === 'localize') {
+      const g = loadBrainGraph(); const root = path.resolve(ctx.vaultPath) + path.sep;
+      const pending = (g.allNodes || g.nodes).filter(n => { const fm = n.frontmatter || {}; return !fm.avatar_image && isImportableUrl(fm.visual_photo_url || fm.visual_logo_url) && path.resolve(n.filePath).startsWith(root); });
+      const limit = Math.max(1, Math.min(60, Number(b.limit) || 25));
+      if (b.dryRun) return NextResponse.json({ ok: true, dryRun: true, pending: pending.length, sample: pending.slice(0, 5).map(n => ({ id: n.id, url: n.frontmatter.visual_photo_url || n.frontmatter.visual_logo_url })) });
+      ensureDailySnapshot(ctx.vaultPath);
+      const done: string[] = [], failed: { id: string; error: string }[] = [];
+      for (const n of pending.slice(0, limit)) {
+        const url = String(n.frontmatter.visual_photo_url || n.frontmatter.visual_logo_url);
+        try {
+          const buf = await fetchRemoteImage(url);
+          const asset = saveAsset({ name: n.title, brand: brandOf(`${n.id} ${n.title}`) || 'otros', kind: n.frontmatter.visual_photo_url ? 'product' : 'logo', dataBase64: buf.toString('base64') }, who);
+          const upd = updateNoteFile(path.resolve(n.filePath), (fm) => { fm.asset_id = asset.id; fm.avatar_image = asset.url; fm.asset_source_url = url; fm.asset_assigned_by = who; fm.updated_at = new Date().toISOString(); });
+          if (upd.ok) done.push(n.id); else failed.push({ id: n.id, error: upd.error || 'No se pudo escribir la ficha.' });
+        } catch (e) { failed.push({ id: n.id, error: e instanceof AssetError ? e.message : 'Error inesperado.' }); }
+      }
+      return NextResponse.json({ ok: true, copied: done.length, failed, remaining: Math.max(0, pending.length - done.length) });
+    }
+    return NextResponse.json({ ok: false, error: "action debe ser 'assign', 'unassign', 'upload' o 'localize'." }, { status: 400 });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof AssetError ? e.message : 'No se pudo guardar la imagen.' }, { status: e instanceof AssetError ? e.status : 500 });
   }
