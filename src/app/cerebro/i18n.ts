@@ -198,7 +198,6 @@ export const EN: Record<string, string> = {
   'aprobadas': 'approved',
   'Nada cambia sin tu aprobación. «Consolidar» y «Marcar como verificada» cambian la nota y se pueden deshacer; «Aprobar» solo registra tu decisión.': 'Nothing changes without your approval. “Consolidate” and “Mark as verified” change the note and can be undone; “Approve” only records your decision.',
   'Marcar como verificada': 'Mark as verified',
-  'Consolidar': 'Consolidate',
   'Revisar con Jev': 'Review with Jev',
   'Consultando…': 'Asking…',
   'Jev no respondió.': 'Jev did not respond.',
