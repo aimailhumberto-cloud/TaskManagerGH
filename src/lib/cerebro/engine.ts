@@ -268,7 +268,7 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
   // Jev puntúa siempre que esté conectado: decide en automático y orienta a quien aprueba.
   const confidence = await judge(text, plan); obs.jev = { fiel: confidence };
   if (!why && confidence !== null && confidence < s.threshold) why = `Jev no está seguro de que el plan refleje el pedido (confianza ${Math.round(confidence * 100)} %, mínimo ${Math.round(s.threshold * 100)} %).`;
-  else if (confidence !== null && confidence < 0.8) obs.avisos.push(`Jev dio ${Math.round(confidence * 100)} % de confianza a este plan: échale un ojo.`);
+  else if (confidence !== null && confidence < 0.65) obs.avisos.push(`Jev dio ${Math.round(confidence * 100)} % de confianza a este plan: échale un ojo.`);
   const common = { ...stats(), ops, plan, recognized, obs, confidence, ...(summary ? { summary } : {}) };
   if (input.dryRun) return done({ ...common, status: 'pendiente', why: why || 'Ensayo: se aplicaría solo.' });
   if (why) return done({ ...common, status: 'pendiente', why, message: 'Quedó en «Por aprobar».' });
