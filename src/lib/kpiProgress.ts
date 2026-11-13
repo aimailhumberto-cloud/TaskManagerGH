@@ -17,7 +17,8 @@ export interface KpiProgress {
 const DAY = 86400000;
 const day = (s: string) => Date.parse(s.slice(0, 10) + 'T00:00:00Z');
 export function kpiProgress(k: KpiLike, today: string): KpiProgress {
-  const start = k.baseline ?? (k.history.length ? k.history[0].value : k.value);
+  // Sin arranque explícito: se cuenta desde 0 (conteos, ventas). Si bajar es lo bueno, desde el primer valor registrado.
+  const start = k.baseline ?? (k.direction === 'down' ? (k.history.length ? k.history[0].value : k.value) : 0);
   let pct: number | null = null;
   if (k.target !== null && k.target !== start) pct = Math.max(0, ((k.value - start) / (k.target - start)) * 100);
   else if (k.target !== null) pct = k.value === k.target ? 100 : 0;

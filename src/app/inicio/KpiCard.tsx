@@ -13,15 +13,15 @@ const BAR: Record<KpiStatus, string> = { done: '#2a9d8f', ahead: '#2a9d8f', on: 
 /** Barras: un valor por actualización, con la meta como línea. */
 function HistoryBars({ points, target, big, T, fmt, color }: { points: { at: string; value: number }[]; target: number | null; big: boolean; T: (s: string) => string; fmt: (n: number) => string; color: string }) {
   const pts = points.slice(-(big ? 24 : 12));
-  if (pts.length === 0) return null;
-  const W = 300, H = big ? 120 : 44, base = H - 2, top = big ? 14 : 4;
-  const max = Math.max(...pts.map(p => p.value), target ?? 0, 1), min = Math.min(0, ...pts.map(p => p.value));
+  if (pts.length < (big ? 2 : 3)) return null;
+  const W = 300, H = big ? 90 : 40, base = H - 2, top = big ? 14 : 4;
+  const max = Math.max(...pts.map(p => p.value), big ? target ?? 0 : 0, 1), min = Math.min(0, ...pts.map(p => p.value));
   const y = (v: number) => base - ((v - min) / (max - min || 1)) * (base - top);
-  const gap = 4, bw = Math.max(4, (W - gap * (pts.length - 1)) / pts.length);
+  const gap = 6, bw = Math.min(22, Math.max(4, (W - gap * (pts.length - 1)) / pts.length));
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={T('Valores registrados')} className="block h-auto w-full">
+    <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={T('Valores registrados')} className="block w-full" style={{ height: H }} preserveAspectRatio="xMinYMid meet">
       {pts.map((p, i) => <rect key={i} x={i * (bw + gap)} y={Math.min(y(p.value), base)} width={bw} height={Math.max(2, Math.abs(base - y(p.value)))} rx="2" fill={color} fillOpacity={i === pts.length - 1 ? 1 : 0.45} />)}
-      {target !== null && <g><line x1="0" x2={W} y1={y(target)} y2={y(target)} stroke={NAVY} strokeDasharray="4 4" strokeWidth="1.2" />{big && <text x={W} y={Math.max(10, y(target) - 3)} fontSize="10" fill={NAVY} textAnchor="end">{T('Meta')} {fmt(target)}</text>}</g>}
+      {big && target !== null && <g><line x1="0" x2={W} y1={y(target)} y2={y(target)} stroke={NAVY} strokeDasharray="4 4" strokeWidth="1.2" /><text x={W} y={Math.max(10, y(target) - 3)} fontSize="10" fill={NAVY} textAnchor="end">{T('Meta')} {fmt(target)}</text></g>}
     </svg>
   );
 }
@@ -47,7 +47,7 @@ export default function KpiCard({ k, today, readOnly, T, fmt, locale, onEdit, on
         <p className="mt-1 text-xs text-slate-500">{Math.round(pr.pct)} % {T('de la meta de')} {fmt(k.target as number)} {k.unit}{pr.daysLeft !== null && pr.status !== 'done' ? ` · ${pr.daysLeft >= 0 ? `${pr.daysLeft} ${T('días restantes')}` : `${-pr.daysLeft} ${T('días de atraso')}`}` : ''}</p>
         {pr.projected !== null && pr.status !== 'done' && <p className="mt-1 text-xs font-medium" style={{ color: TONE[pr.status].fg }}>{T('A este ritmo cierras en')} {fmt(pr.projected)} {k.unit}{pr.projectedPct !== null ? ` (${Math.round(pr.projectedPct)} %)` : ''}</p>}
       </>)}
-      {k.history.length > 1 && <div className="mt-2"><HistoryBars points={k.history} target={k.target} big={false} T={T} fmt={fmt} color={color} /></div>}
+      {k.history.length > 2 && <div className="mt-2"><HistoryBars points={k.history} target={k.target} big={false} T={T} fmt={fmt} color={color} /></div>}
       <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-slate-500">
         <span>{k.updatedBy ? `${k.updatedBy} · ` : ''}{new Date(k.updatedAt).toLocaleDateString(locale, { day: 'numeric', month: 'short' })}</span>
         <span className="flex gap-3">
