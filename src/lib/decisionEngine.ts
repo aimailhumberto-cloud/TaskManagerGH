@@ -159,3 +159,31 @@ export function logCall(sleepDir: string, entry: { action: string; ok: boolean; 
 export function lastLog(sleepDir: string): Record<string, unknown> | null {
   try { const lines = fs.readFileSync(logFile(sleepDir), 'utf8').trim().split('\n'); return JSON.parse(lines[lines.length - 1]); } catch { return null; }
 }
+
+// ---------- Preguntas libres del agente (DOTS le pregunta a Jev lo que necesite) ----------
+export const MAX_QUESTIONS = 12;
+/** Valida las preguntas que manda un agente. Devuelve las preguntas limpias o un mensaje de error. */
+export function sanitizeQuestions(raw: unknown): Record<string, Question> | string {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return 'questions debe ser un objeto { id: pregunta }.';
+  const entries = Object.entries(raw as Record<string, any>);
+  if (entries.length === 0 || entries.length > MAX_QUESTIONS) return `Envía de 1 a ${MAX_QUESTIONS} preguntas.`;
+  const out: Record<string, Question> = {};
+  for (const [id, q] of entries) {
+    if (!/^[a-zA-Z0-9_-]{1,40}$/.test(id)) return `Id de pregunta no válido: ${id.slice(0, 40)}`;
+    const instructions = typeof q?.instructions === 'string' ? q.instructions.trim() : '';
+    if (instructions.length < 5 || instructions.length > 600) return `La pregunta «${id}» necesita instructions de 5 a 600 caracteres.`;
+    if (q.type === 'noul') out[id] = { type: 'noul', instructions };
+    else if (q.type === 'choice') {
+      const c = q.criteria;
+      if (!c || typeof c !== 'object' || Array.isArray(c)) return `«${id}»: criteria debe ser { opción: descripción }.`;
+      const opts = Object.entries(c).filter(([k, v]) => /^[a-zA-Z0-9_-]{1,40}$/.test(k) && typeof v === 'string' && v.length <= 300);
+      if (opts.length < 2 || opts.length > 12 || opts.length !== Object.keys(c).length) return `«${id}»: de 2 a 12 opciones con id simple y descripción corta.`;
+      out[id] = { type: 'choice', instructions, criteria: Object.fromEntries(opts) as Record<string, string> };
+    } else if (q.type === 'score') {
+      const c = q.criteria;
+      if (!Array.isArray(c) || c.length < 2 || c.length > 7 || c.some((x: unknown) => typeof x !== 'string' || x.length > 300)) return `«${id}»: criteria debe ser una lista de 2 a 7 niveles.`;
+      out[id] = { type: 'score', instructions, criteria: c };
+    } else return `«${id}»: type debe ser noul, choice o score.`;
+  }
+  return out;
+}

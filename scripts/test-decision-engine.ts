@@ -53,3 +53,11 @@ const good = { model: 'jev-1.14.0', answers: { apply: { type: 'noul', noul: 0.91
   eq('sin llave no hay proveedor', (delete process.env.TYPESAFE_API_KEY, D.configuredProvider()), null);
   if (fail) { console.error(fail + ' fallas'); process.exit(1); } console.log('decision engine: todo ok');
 })();
+// preguntas libres
+{
+  const D2 = require('../src/lib/decisionEngine');
+  const ok = D2.sanitizeQuestions({ a: { type: 'noul', instructions: 'Is this urgent today?' }, b: { type: 'choice', instructions: 'Which kind is it?', criteria: { x: 'uno', y: 'dos' } }, c: { type: 'score', instructions: 'How strong is the evidence?', criteria: ['none', 'some', 'strong'] } });
+  const bad = [D2.sanitizeQuestions(null), D2.sanitizeQuestions({}), D2.sanitizeQuestions({ 'a b': { type: 'noul', instructions: 'xxxxx' } }), D2.sanitizeQuestions({ a: { type: 'box', instructions: 'xxxxx' } }), D2.sanitizeQuestions({ a: { type: 'choice', instructions: 'xxxxx', criteria: { x: 'solo' } } }), D2.sanitizeQuestions({ a: { type: 'noul', instructions: 'x' } }), D2.sanitizeQuestions(Object.fromEntries(Array.from({ length: 13 }, (_, i) => ['q' + i, { type: 'noul', instructions: 'xxxxx' }])))];
+  if (typeof ok === 'string' || Object.keys(ok).length !== 3 || bad.some((b: unknown) => typeof b !== 'string')) { console.error('FALLA sanitizeQuestions'); process.exit(1); }
+  console.log('preguntas libres: ok');
+}
