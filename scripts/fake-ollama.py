@@ -10,6 +10,16 @@ def plan(text, msgs, full=''):
     searched = any(m.get('role') == 'tool' for m in msgs)
     t = text.lower()
     talk = 'CONVERSACIÓN:' in full or 'CONVERSATION:' in full
+    if 'itinerario-prueba' in t:
+        gaprep = any('no recoge todo' in m.get('content', '') or 'does not capture everything' in m.get('content', '') for m in msgs)
+        legs = [('2026-11-17', '16:00', '19:06', None, 'Vuelo Panamá - Miami', 'Copa, directo'), ('2026-11-22', '20:14', '23:37', None, 'Vuelo Miami - Toronto', 'American, directo'), ('2026-11-26', '16:00', '02:10', '2026-11-27', 'Vuelo Toronto - Panamá', 'con escala en San Salvador')]
+        out = []
+        for i, (f, h, hf, ff, ti, det) in enumerate(legs):
+            a = dict(titulo=ti, fecha=f, hora=h, tipo='viaje', con=['person-humberto-bouche'] + (['market-us-miami'] if i == 0 else ['dist-morgan-williams'] if i == 1 else []))
+            if gaprep: a.update(hora_fin=hf, detalle=det + '. Boleto sin verificar; zona horaria no explícita.', **({'fecha_fin': ff} if ff else {}))
+            out.append(tc('agendar', **a))
+        out.append(tc('observar', texto='He agendado los tres tramos. Las zonas horarias no son explícitas.'))
+        return out
     if 'ticasur' in t: return [tc('crear_ficha', tipo='distributor', nombre='Tica Sur E2E', conectar_con=[{'hacia': 'market-panama', 'relacion': 'operates_in_market'}]),
         tc('crear_ficha', tipo='person', nombre='Ana Ruiz E2E', campos={'email_primary': 'ana@ticasur.test', 'job_title': 'Gerente de compras', 'organization': 'Tica Sur E2E'}, conectar_con=[{'hacia': 'nueva:Tica Sur E2E', 'relacion': 'works_at'}]),
         tc('crear_ficha', tipo='person', nombre='Luis Paz E2E', campos={'email_primary': 'luis@ticasur.test'}, conectar_con=[{'hacia': 'dist-tica-sur-e2e', 'relacion': 'works_at'}]),

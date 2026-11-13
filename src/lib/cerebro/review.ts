@@ -45,6 +45,42 @@ export function completeMeetings(ops: Op[], text: string): string[] {
   a.con = [...con, ...add.map(p => p.id)];
   return [tr(`Añadí a ${add.map(p => p.title).join(', ')} a la reunión porque el pedido lo nombra.`, `I added ${add.map(p => p.title).join(', ')} to the meeting because the request names them.`)];
 }
+
+const titleOf = (id: string) => { const n = nodesById().get(id); return n ? displayTitle(n.title) : id; };
+/**
+ * No inventa: en una agenda solo quedan las personas y empresas que el pedido nombra.
+ * En un viaje, «con» solo lleva personas (nunca ciudades ni mercados). Devuelve lo que quitó, en palabras.
+ */
+export function pruneUnnamed(ops: Op[], text: string): string[] {
+  const out: string[] = []; const tw_ = new Set(words(text)); const nt = ' ' + words(text).join(' ') + ' ';
+  const named = (id: string) => { if (nt.includes(' ' + id.toLowerCase() + ' ') || text.includes(id)) return true; const n = nodesById().get(id); if (!n) return true; const ws = words(displayTitle(n.title)).filter(w => w.length >= 4); return ws.some(w => tw_.has(w)) && (n.type === 'person' ? true : ws.filter(w => tw_.has(w)).length * 2 >= ws.length); };
+  for (const op of ops) {
+    if (op.name !== 'agendar') continue; const a = op.args; const con: string[] = Array.isArray(a.con) ? a.con.map(String) : typeof a.con === 'string' && a.con ? a.con.split(/[,;]\s*/) : [];
+    if (!con.length) continue;
+    const drop = con.filter(id => { const n = nodesById().get(id); if (!n) return false; if (a.tipo === 'viaje' && n.type !== 'person') return true; return !named(id); });
+    if (!drop.length) continue;
+    a.con = con.filter(id => !drop.includes(id));
+    out.push(tr(`Quité ${drop.map(titleOf).join(', ')} de «${a.titulo}» porque el pedido no lo nombra como participante.`, `I removed ${drop.map(titleOf).join(', ')} from “${a.titulo}” because the request does not name them as a participant.`));
+  }
+  return out;
+}
+const AIRLINES = ['Copa', 'American', 'Delta', 'United', 'Avianca', 'Air Canada', 'Iberia', 'KLM', 'LATAM', 'Spirit', 'JetBlue', 'Southwest', 'Air France', 'Lufthansa', 'Emirates', 'Aeromexico', 'Volaris', 'Wingo'];
+/**
+ * Datos que el pedido trae y el plan no recoge (horas, aerolíneas, escala, dudas dichas). Devuelve una lista corta, en palabras.
+ * Se usa para pedir una vuelta de arreglo al modelo y, si aún falta, para mandar el plan a aprobación.
+ */
+export function coverageGaps(ops: Op[], text: string): string[] {
+  if (!ops.length) return [];
+  const plan = JSON.stringify(ops.map(o => o.args)).toLowerCase(); const t = text.replace(/PLAN DE LA PROPUESTA ANTERIOR[\s\S]*$/i, '').replace(/PLAN OF THE PREVIOUS PROPOSAL[\s\S]*$/i, '');
+  const out: string[] = [];
+  const times = [...new Set([...t.matchAll(/\b([01]?\d|2[0-3]):([0-5]\d)\b/g)].map(m => `${m[1].padStart(2, '0')}:${m[2]}`))].filter(x => !plan.includes(x) && !plan.includes(x.replace(/^0/, '')));
+  if (times.length && ops.some(o => o.name === 'agendar')) out.push(tr(`horas ${times.join(', ')}`, `times ${times.join(', ')}`));
+  const air = AIRLINES.filter(x => new RegExp(`\\b${x}\\b`, 'i').test(t) && !plan.includes(x.toLowerCase())); if (air.length && ops.some(o => o.name === 'agendar')) out.push(tr(`aerolíneas ${air.join(', ')}`, `airlines ${air.join(', ')}`));
+  const esc = t.match(/(?:escala|layover|stopover|connection)\s+(?:en|in|at)\s+([A-ZÁÉÍÓÚ][\wáéíóúñ]+(?:\s+[A-ZÁÉÍÓÚ][\wáéíóúñ]+)?)/i);
+  if (esc && !plan.includes(esc[1].toLowerCase())) out.push(tr(`la escala en ${esc[1]}`, `the stop in ${esc[1]}`));
+  if (/(no (se ha )?verific|sin verificar|not (yet )?verified|unverified|no (est[aá]n?|aparece[n]?) expl[ií]cit|not explicit|not confirmed|sin confirmar|zonas? horarias?|time ?zones?)/i.test(t) && !/(verific|zona|huso|time ?zone|confirm|expl[ií]cit)/i.test(plan)) out.push(tr('las dudas que dice el pedido (sin verificar, zona horaria)', 'the doubts the request states (unverified, time zone)'));
+  return out;
+}
 export function inspectPlan(ops: Op[], supuso: string[] = [], text = ''): Observations {
   const o: Observations = { supuso: supuso.slice(0, 8), fuertes: [], avisos: [], falta: [] };
   const nodes = nodesById(); const vault = getVaultPath();
@@ -87,6 +123,7 @@ export function inspectPlan(ops: Op[], supuso: string[] = [], text = ''): Observ
           ? tr(`«${x.word}» puede ser ${x.people.map(p => p.title).join(' o ')}: el plan usa a ${used.map(p => p.title).join(', ')}. ¿Es esa persona?`, `“${x.word}” can be ${x.people.map(p => p.title).join(' or ')}: the plan uses ${used.map(p => p.title).join(', ')}. Is that the right person?`)
           : tr(`«${x.word}» no es el nombre exacto de nadie y el plan usa a ${used.map(p => p.title).join(', ')}. ¿Es esa persona?`, `“${x.word}” is nobody’s exact name and the plan uses ${used.map(p => p.title).join(', ')}. Is that the right person?`));
       }
+      const gaps = coverageGaps(ops, text); if (gaps.length) o.fuertes.push(tr(`El plan no recoge todo lo que dice el pedido: ${gaps.join('; ')}.`, `The plan does not capture everything the request says: ${gaps.join('; ')}.`));
       for (const p of peopleMentioned(text)) if (!refs.has(p.id)) o.avisos.push(tr(`El pedido nombra a ${p.title}, pero el plan no lo menciona.`, `The request names ${p.title}, but the plan does not mention them.`));
     } catch {}
   }

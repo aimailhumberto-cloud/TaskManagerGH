@@ -325,3 +325,11 @@ Existen el vault de Obsidian (local), la carpeta `vault/` del repositorio y el d
 
 **Aprobado por:** Oficina Ejecutiva / Chairman Office  
 **S.M. Jaleel & Co. Ltd. — 2026**
+
+## Pedir libre, corregir y leer el resultado (vuelta 36)
+
+- Pide como quieras: «agrega», «cambia», «corrige lo del viaje», «dime…». No hace falta formato.
+- **Corregir una propuesta que espera aprobación:** di «corrige la propuesta…» (o manda `reemplaza: "<id>"`). El Cerebro parte de la propuesta anterior, devuelve el plan completo y la anterior queda `reemplazado`. Siempre queda una sola pendiente por tema. Si hay varias y no está claro cuál, pregunta.
+- **Viajes y vuelos:** un evento por tramo, con salida, llegada (también si es al día siguiente) y `detalle` (aerolínea, vuelo, escala, dudas como «boleto sin verificar»).
+- **No inventa:** en un evento solo quedan las personas que el pedido nombra; lo que quita lo dice en «Supuse».
+- **Lee `report` y `message`:** `report.hecho`, `report.esperando`, `report.noHice`. Si `status` es `pendiente`, NO se aplicó nada.

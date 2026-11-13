@@ -92,7 +92,7 @@ async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: a
     const text = String(b.text || '').trim();
     if (text.length < 3) return bad(action === 'leer' ? tr('Pega el correo o la nota en «text».', 'Paste the email or note in “text”.') : tr('Escribe el pedido en «text».', 'Write the request in “text”.'));
     if (text.length > 60000) return bad(tr('El pedido es demasiado largo (máximo 60 000 caracteres). Divídelo.', 'The request is too long (60,000 characters maximum). Split it.'), 413);
-    const r = await pedir({ text: action === 'leer' && typeof b.source === 'string' && b.source.trim() ? `Fuente: ${b.source.trim().slice(0, 200)}\n\n${text}` : text, deep: b.deep === true, dryRun: b.dryRun === true, kind: action === 'leer' ? 'leer' : 'pedir' });
+    const r = await pedir({ text: action === 'leer' && typeof b.source === 'string' && b.source.trim() ? `Fuente: ${b.source.trim().slice(0, 200)}\n\n${text}` : text, deep: b.deep === true, dryRun: b.dryRun === true, replaces: typeof (b.reemplaza || b.replaces) === 'string' ? String(b.reemplaza || b.replaces) : undefined, kind: action === 'leer' ? 'leer' : 'pedir' });
     return NextResponse.json({ ...r, ok: httpOf(r.status) < 400, next: nextOf(r.status) }, { status: httpOf(r.status) });
   }
   if (action === 'responder') {

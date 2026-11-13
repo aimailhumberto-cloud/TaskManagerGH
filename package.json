@@ -42,7 +42,8 @@
     "test:growth": "tsx scripts/test-growth.ts",
     "test:agenda": "tsx scripts/test-agenda.ts",
     "test:journal": "tsx scripts/test-journal.ts",
-    "test:motor": "SMJ_VAULT_PATH=vault tsx scripts/test-motor.ts"
+    "test:motor": "SMJ_VAULT_PATH=vault tsx scripts/test-motor.ts",
+    "test:e2e-motor": "python3 scripts/e2e-motor.py"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

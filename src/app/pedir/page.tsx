@@ -102,7 +102,7 @@ export default function PedirPage() {
   }
   const when = (iso: string) => new Date(iso).toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   const STATUS: Record<string, [string, string]> = {
-    aplicado: [L('Hecho', 'Done'), 'bg-emerald-100 text-emerald-800'], pendiente: [L('Por aprobar', 'To approve'), 'bg-amber-100 text-amber-800'], rechazado: [L('Rechazado', 'Rejected'), 'bg-slate-100 text-slate-600'],
+    aplicado: [L('Hecho', 'Done'), 'bg-emerald-100 text-emerald-800'], pendiente: [L('Por aprobar', 'To approve'), 'bg-amber-100 text-amber-800'], rechazado: [L('Rechazado', 'Rejected'), 'bg-slate-100 text-slate-600'], reemplazado: [L('Reemplazada', 'Replaced'), 'bg-slate-100 text-slate-600'],
     pregunta: [L('Falta un dato', 'Needs detail'), 'bg-sky-100 text-sky-800'], no_entendido: [L('No entendido', 'Not understood'), 'bg-rose-100 text-rose-700'], fallo: [L('Falló', 'Failed'), 'bg-rose-100 text-rose-700'],
   };
   const Badge = ({ s }: { s: string }) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS[s]?.[1] || 'bg-slate-100'}`}>{STATUS[s]?.[0] || s}</span>;
