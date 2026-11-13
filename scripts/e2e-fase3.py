@@ -75,19 +75,19 @@ s, d = http(C, {'action': 'pedir', 'text': 'indicador: ensayo', 'dryRun': True})
 check('ensayo (dryRun): muestra el plan y no aplica', d['status'] == 'pendiente' and not any(x['name'] == 'Ventas Canadá E2E' for x in k.get('kpis', [])), d.get('why'))
 
 # Fase 3b: conversa, guarda en todas partes
-s, r = ask('agrega reunion para hoy con richard para ver second brain tipo 8 am')
+s, r = ask('agrega reunion para hoy con Richard Bailey para ver second brain tipo 8 am')
 check('3b: reconoce a la persona y lo dice', s == 200 and r['status'] == 'aplicado' and r['recognized'][0]['id'] == 'person-richard-bailey' and r['recognized'][0]['type'] == 'person', r.get('recognized'))
 check('3b: título completo «Reunión con …: tema»', 'Reunión con Richard Bailey: ver second brain' in r['results'][0], r.get('results'))
 check('3b: dice dónde quedó (agenda y ficha)', {'/mi-agenda?day=2026-11-13', '/cerebro?node=person-richard-bailey'} <= {l['href'] for l in r['links']}, r.get('links'))
 check('3b: la reunión queda anotada en la ficha de la persona', 'agendada para el 2026-11-13 a las 08:00' in node('person-richard-bailey')['body'])
 s, ag = http('/api/agent/agenda?from=2026-11-13&to=2026-11-13'); o = [x for x in ag['occurrences'] if 'Richard Bailey' in x['title']]
 check('3b: la agenda sabe con quién es (enlace a la ficha)', o and o[0]['links'][0]['id'] == 'person-richard-bailey', o[:1])
-s, r = ask('mueve la reunion con richard al martes 17 a las 9:30'); s2, ag = http('/api/agent/agenda?from=2026-11-10&to=2026-11-20')
+s, r = ask('mueve la reunion con Richard Bailey al martes 17 a las 9:30'); s2, ag = http('/api/agent/agenda?from=2026-11-10&to=2026-11-20')
 o = [x for x in ag['occurrences'] if 'Richard Bailey' in x['title']]
 check('3b: mover no duplica; anota el cambio en la ficha', 'movida del 2026-11-13' in r['results'][0] and len(o) == 1 and o[0]['date'] == '2026-11-17' and 'pasó del 2026-11-13 08:00 al 2026-11-17' in node('person-richard-bailey')['body'], r.get('results'))
 s, r = ask('mueve la reunion de medimex al miercoles 18 a las 11'); fm = node('dist-medimex')['frontmatter']
 check('3b: mover la reunión actualiza el próximo paso de la ficha', s == 200 and str(fm.get('next_followup_date'))[:10] == '2026-11-18', (r.get('results'), fm.get('next_followup_date')))
-s, r = ask('agendar reunion con richard para verse con Bren'); qid = r.get('id')
+s, r = ask('agendar reunion con Richard Bailey para verse con Bren'); qid = r.get('id')
 check('3b: si no conoce a alguien, pregunta quién es', r['status'] == 'pregunta' and 'Bren' in r['message'] and r['dialog'][0]['q'], r.get('message'))
 s, st2 = http(C); check('3b: la pregunta queda esperando respuesta', any(q['id'] == qid for q in st2.get('questions', [])))
 s, r = http(C, {'action': 'responder', 'id': qid, 'text': 'Es gerente de compras de MEDIMEX, el jueves 19 a las 10'})
@@ -106,7 +106,7 @@ P({'action': 'rechazar', 'id': r['id']})
 s, r = ask('correo-repetido: guarda este contacto'); check('3b2: no crea una persona con un correo que ya es de otra', s == 422 and 'ya es de' in r['message'], r.get('message'))
 s, d = P({'action': 'ajustes', 'auto': {'contactos': False, 'cifras': False}}); check('3b2: autonomía por tipo (mixto)', d['settings']['mode'] == 'mixto' and d['settings']['auto']['agenda'] and not d['settings']['auto']['contactos'], d.get('settings'))
 s, r = ask('buscar-primero: confirmaron recibido'); check('3b2: mixto: una novedad se aplica sola', s == 200 and r['status'] == 'aplicado', (s, r.get('why')))
-MAIL = 'De: Ana Ruiz <ana@ticasur.test>\nPara: HB\nHola, somos Tica Sur. Copio a Luis Paz (luis@ticasur.test). El celular nuevo de Richard es +507 6000-0000. Necesitamos la lista de precios de Chubby para enero; pedimos 300 cajas. Saludos, J. Hector también está al tanto.'
+MAIL = 'De: Ana Ruiz <ana@ticasur.test>\nPara: HB\nHola, somos Tica Sur. Copio a Luis Paz (luis@ticasur.test). El celular nuevo de Richard Bailey es +507 6000-0000. Necesitamos la lista de precios de Chubby para enero; pedimos 300 cajas. Saludos, J. Hector también está al tanto.'
 s, r = http(C, {'action': 'leer', 'text': MAIL, 'source': 'Correo de Ana Ruiz, 13 nov'})
 check('3b2: leer un correo: resumen de lo extraído', s == 202 and r['kind'] == 'leer' and '2 personas nuevas' in r['summary'] and '1 ficha con datos nuevos' in r['summary'] and '1 cifra' in r['summary'] and 'dudoso' in r['summary'], r.get('summary'))
 check('3b2: leer: espera porque trae fichas nuevas y cifras', 'fichas nuevas' in r['why'] and 'cifras' in r['why'], r.get('why'))

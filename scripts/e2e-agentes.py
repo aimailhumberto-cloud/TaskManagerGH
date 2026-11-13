@@ -57,7 +57,7 @@ s, d = http('/api/agent/vault-sync?path=00-Working-Memory/Directo.md'); check('l
 s, d = http('/api/agent/kpis'); check('…ni indicadores', not any(k['name'] == 'Directo' for k in d.get('kpis', [])), s)
 # 3. Pedir y consultar siguen abiertos
 s, d = http(C, {'action': 'consultar', 'q': 'Qué sabemos de MEDIMEX'}); check('consultar: abierto', s == 200 and d.get('ok'), s)
-s, r = http(C, {'action': 'pedir', 'text': 'Crea una tarea para hoy: revisar el pedido de MEDIMEX'}) if False else http(C, {'action': 'pedir', 'text': 'Schedule a meeting with Richard tomorrow at 8'}); check('pedir: abierto y el Cerebro escribe (aplicado)', s == 200 and r['status'] == 'aplicado', (s, r.get('status'), r.get('message')))
+s, r = http(C, {'action': 'pedir', 'text': 'Crea una tarea para hoy: revisar el pedido de MEDIMEX'}) if False else http(C, {'action': 'pedir', 'text': 'Schedule a meeting with Richard Bailey tomorrow at 8'}); check('pedir: abierto y el Cerebro escribe (aplicado)', s == 200 and r['status'] == 'aplicado', (s, r.get('status'), r.get('message')))
 cid = r.get('changeId'); check('…con recibo y deshacer en el diario, a nombre del Cerebro', bool(cid), r.get('changeId'))
 s, d = P(C, {'action': 'ajustes', 'mode': 'proponer'}); s, r = http(C, {'action': 'pedir', 'text': 'move the MEDIMEX meeting to Wednesday'}); check('pedir en modo proponer: queda por aprobar', s == 202 and r['status'] == 'pendiente', (s, r.get('status')))
 s, d = http(C, {'action': 'aprobar', 'id': r['id']}); check('aprobar por el agente (permitido en Ajustes): no se bloquea', s == 200 and d.get('ok'), (s, str(d)[:100]))

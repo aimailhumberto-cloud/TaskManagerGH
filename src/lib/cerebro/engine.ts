@@ -12,13 +12,13 @@ import { getVaultPath, getPanamaDate, getUnifiedBrainTasks } from '../smjBrainSe
 import { currentBrain } from '../brainContext';
 import { actorLabel } from '../actor';
 import { withChange, rollbackCurrent, receiptOf } from '../journal';
-import { dossier, searchBrain, resolveEntities, displayTitle } from '../brainLens';
+import { dossier, searchBrain, resolveEntities, displayTitle, nameAmbiguities, peopleMentioned } from '../brainLens';
 import { listEvents } from '../agenda';
 import { configuredProvider } from '../decisionEngine';
 import { chat, llmConfigured, LlmError, type ChatMessage, type ToolDef } from './ollama';
 import { loadSettings, cerebroDir, type CerebroSettings } from './settings';
 import { MENU, toolDefs, validateOp, createdIdOf, levelOf, kindOf, kindName, resolveRefs, touchesOf, describeOp, executeOp, linked, type Op } from './ops';
-import { inspectPlan, snapshotBefore, fileObservations, type Observations } from './review';
+import { inspectPlan, completeMeetings, snapshotBefore, fileObservations, type Observations } from './review';
 import { loadBrainGraph } from '../smjBrainService';
 import { tr, tw, replyLang, type Lang } from '../reqLang';
 
@@ -90,11 +90,22 @@ function candidateLines(q: string, limit: number): string[] {
   // Correos que vienen en el texto: si ya son de alguien, esa ficha va primero.
   const mails = new Set((q.match(/[\w.+-]+@[\w-]+\.[\w.-]+/g) || []).map(m => m.toLowerCase()).slice(0, 40));
   if (mails.size) for (const n of loadBrainGraph().allNodes || []) { const m = String(n.frontmatter?.email_primary || '').toLowerCase(); if (m && mails.has(m)) { if (!seen.has(n.id) && out.length < limit) { seen.add(n.id); out.push(`${n.id} | ${displayTitle(n.title)} | ${n.type} | ${tr('ya tiene el correo', 'already has the email')} ${m}`); } } }
-  try { for (const n of resolveEntities(q.slice(0, 600))) push(n.id, n.title, n.type); } catch {}
+  let hold = new Set<string>(); try { hold = new Set(nameAmbiguities(q).flatMap(a => a.people.map(p => p.id))); } catch {}
+  try { for (const n of resolveEntities(q.slice(0, 600))) if (!hold.has(n.id)) push(n.id, n.title, n.type); } catch {}
   // Un pedido largo nombra muchas cosas: se busca por tramos.
   const chunks = q.length > 300 ? q.split(/\n+|(?<=[.;])\s+/).filter(s => s.trim().length > 3).slice(0, 40) : [q];
-  for (const c of chunks) { try { for (const h of searchBrain(c.slice(0, 200), { limit: chunks.length > 1 ? 4 : 14, catalog: false })) push(h.id, h.title, h.type); } catch {} }
+  for (const c of chunks) { try { for (const h of searchBrain(c.slice(0, 200), { limit: chunks.length > 1 ? 4 : 14, catalog: false })) if (!hold.has(h.id)) push(h.id, h.title, h.type); } catch {} }
   return out;
+}
+/** Nombres que pueden ser de varias personas o que solo se parecen: el motor no elige, pregunta. */
+function ambigNote(q: string): string {
+  let a: ReturnType<typeof nameAmbiguities> = []; try { a = nameAmbiguities(q.slice(0, 1500)); } catch {}
+  if (!a.length) return '';
+  const en = replyLang() === 'en';
+  return (en ? 'AMBIGUOUS NAMES (do not pick one; call «preguntar» unless the request or the conversation already says which):\n' : 'NOMBRES AMBIGUOS (no elijas una; llama a «preguntar» salvo que el pedido o la conversación ya diga cuál):\n')
+    + a.map(x => x.kind === 'igual'
+      ? (en ? `“${x.word}” can be: ` : `«${x.word}» puede ser: `) + x.people.map(p => `${p.id} (${p.title})`).join(' / ')
+      : (en ? `“${x.word}” is not anyone’s exact name; it only looks like: ` : `«${x.word}» no es el nombre exacto de nadie; solo se parece a: `) + x.people.map(p => `${p.id} (${p.title})`).join(' / ')).join('\n');
 }
 function contextBlock(text: string): string {
   const { dateStr, timeStr, now } = getPanamaDate(); const vault = getVaultPath();
@@ -105,6 +116,7 @@ function contextBlock(text: string): string {
   const en = replyLang() === 'en'; const day = (en ? DAYS_EN : DAYS_ES)[new Date(dateStr + 'T12:00:00Z').getUTCDay()];
   return [en ? `TODAY: ${day} ${dateStr}, ${timeStr} (Panama time). Year ${now.getFullYear()}.` : `HOY: ${day} ${dateStr}, ${timeStr} (hora de Panamá). Año ${now.getFullYear()}.`,
     (en ? `NOTES THAT MAY MATCH (id | name | type):\n` : `FICHAS QUE PUEDEN SER (id | nombre | tipo):\n`) + (fichas.join('\n') || (en ? '(none match; use buscar)' : '(ninguna coincide; usa buscar)')),
+    ambigNote(text),
     tasks.length ? (en ? `OPEN TASKS OF THOSE NOTES (id | title | due | note):\n` : `TAREAS ABIERTAS DE ESAS FICHAS (id | título | vence | ficha):\n`) + tasks.join('\n') : '', events.length ? (en ? `UPCOMING AGENDA (title | date | type):\n` : `AGENDA PRÓXIMA (título | fecha | tipo):\n`) + events.join('\n') : ''].filter(Boolean).join('\n\n');
 }
 const SYSTEM = `Eres «el Cerebro», la inteligencia interna del segundo cerebro de una persona de S.M. Jaleel. Recibes un pedido en palabras (de la persona o de su agente) y lo conviertes en operaciones del menú (herramientas). Tú decides QUÉ PASÓ; la aplicación revisa, ejecuta y decide dónde se guarda.
@@ -207,21 +219,30 @@ async function applyPlan(vault: string, ops: Op[], note: string, actor: string):
   return { ok: true, results, changeId: entry?.id, receipt: entry ? receiptOf(entry) : undefined };
 }
 
-async function judge(text: string, plan: string[]): Promise<number | null> {
-  const jev = configuredProvider(); if (!jev) return null;
+/** Último motivo por el que Jev no respondió (para mostrarlo y no fallar en silencio). */
+let jevProblem = '';
+/** Pregunta de puntaje a Jev. Las «criteria» son los peldaños de la escala, de peor a mejor; el resultado sale normalizado 0–1. */
+async function jevScore(state: string, id: string, instructions: string, anchors: string[]): Promise<number | null> {
+  const jev = configuredProvider();
+  if (!jev) { jevProblem = tr('Jev no está conectado (falta TYPESAFE_API_KEY).', 'Jev is not connected (TYPESAFE_API_KEY is missing).'); return null; }
   try {
-    const r = await jev.decide(`PEDIDO:\n${text.slice(0, 4000)}\n\nPLAN PROPUESTO:\n${plan.map((p, i) => `${i + 1}. ${p}`).join('\n')}`, { fiel: { type: 'score', instructions: 'Qué tan fielmente el plan hace lo que pide el pedido. 0 = no corresponde, 1 = corresponde exactamente.', criteria: ['Cada operación del plan responde a algo que el pedido dice', 'El plan no añade ni inventa datos, fechas o cifras', 'Las fichas y personas elegidas son las que el pedido nombra, no otras de nombre parecido'] } });
-    const a = r.answers?.fiel; const v = a && a.type === 'score' ? a.score : null;
-    return v === null ? null : Math.max(0, Math.min(1, v));
-  } catch { return null; }
+    const r = await jev.decide(state, { [id]: { type: 'score', instructions, criteria: anchors } });
+    const a = r.answers?.[id];
+    if (!a || a.type !== 'score') { jevProblem = tr('Jev respondió sin el puntaje esperado.', 'Jev answered without the expected score.'); return null; }
+    jevProblem = ''; return Math.max(0, Math.min(1, a.score / (anchors.length - 1)));
+  } catch (e: any) { jevProblem = String(e?.message || tr('Jev no respondió.', 'Jev did not answer.')).slice(0, 200); return null; }
+}
+async function judge(text: string, plan: string[]): Promise<number | null> {
+  return jevScore(`PEDIDO:\n${text.slice(0, 4000)}\n\nPLAN PROPUESTO:\n${plan.map((p, i) => `${i + 1}. ${p}`).join('\n')}`, 'fiel',
+    'Qué tan fielmente el plan hace lo que pide el pedido: que cada operación responda a algo que el pedido dice, que no invente datos, fechas ni cifras, y que las fichas y personas elegidas sean las que el pedido nombra y no otras de nombre parecido.',
+    ['No corresponde al pedido, o usa otra persona o ficha', 'Corresponde en parte: falta algo o hay un dato dudoso', 'Corresponde, con algún detalle menor por revisar', 'Corresponde exactamente']);
 }
 /** Después de guardar: ¿lo nuevo contradice lo que la ficha ya decía? 1 = coherente, 0 = contradice. */
 async function coherence(before: string, results: string[], text: string): Promise<number | null> {
-  const jev = configuredProvider(); if (!jev || !before) return null;
-  try {
-    const r = await jev.decide(`LO QUE LAS FICHAS DECÍAN ANTES:\n${before.slice(0, 3000)}\n\nLO NUEVO QUE SE GUARDÓ:\n${results.join('\n').slice(0, 2000)}\n\nPEDIDO ORIGINAL:\n${text.slice(0, 2000)}`, { coherente: { type: 'score', instructions: 'Qué tan coherente es lo nuevo con lo que ya decía la ficha. 1 = coherente o es una actualización normal; 0 = lo contradice sin explicarlo.', criteria: ['Lo nuevo no contradice fechas, cifras o acuerdos que la ficha ya tenía', 'Si cambia algo, el pedido explica el cambio'] } });
-    const a = r.answers?.coherente; return a && a.type === 'score' ? Math.max(0, Math.min(1, a.score)) : null;
-  } catch { return null; }
+  if (!before) return null;
+  return jevScore(`LO QUE LAS FICHAS DECÍAN ANTES:\n${before.slice(0, 3000)}\n\nLO NUEVO QUE SE GUARDÓ:\n${results.join('\n').slice(0, 2000)}\n\nPEDIDO ORIGINAL:\n${text.slice(0, 2000)}`, 'coherente',
+    'Qué tan coherente es lo nuevo con lo que ya decía la ficha: sin contradecir fechas, cifras o acuerdos que la ficha ya tenía, o explicando el cambio el pedido.',
+    ['Contradice lo que la ficha decía, sin explicarlo', 'Es coherente o es una actualización normal']);
 }
 /** Resumen de lo extraído de un correo o nota. */
 function summarize(ops: Op[], obs: Observations): string {
@@ -258,7 +279,7 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
       if (!r.toolCalls.length) { const q = r.content.trim().slice(0, 800); return done(q ? { ...stats(), status: 'pregunta', message: q, dialog: [...dialog, { q }] } : { ...stats(), status: 'no_entendido', message: tr('No entendí el pedido. Dilo de otra forma.', 'I did not understand the request. Say it another way.') }); }
       if (searches.length && !ops.length) {
         messages.push({ role: 'assistant', content: r.content, tool_calls: searches.map(c => ({ function: { name: c.name, arguments: c.args } })) });
-        for (const c of searches) messages.push({ role: 'tool', tool_name: 'buscar', content: candidateLines(String(c.args.q || ''), 10).join('\n') || tr('Sin resultados.', 'No results.') });
+        for (const c of searches) messages.push({ role: 'tool', tool_name: 'buscar', content: [candidateLines(String(c.args.q || ''), 10).join('\n'), ambigNote(String(c.args.q || ''))].filter(Boolean).join('\n\n') || tr('Sin resultados.', 'No results.') });
         continue;
       }
       errors = validatePlan(ops);
@@ -272,12 +293,13 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
     return done({ ...stats(), status: 'fallo', message: e instanceof LlmError ? e.message : tr('El Cerebro tuvo un problema al pensar el pedido.', 'The Brain had a problem thinking through the request.') });
   }
   if (ops.length > 80) return done({ ...stats(), status: 'no_entendido', message: tr('El plan tiene más de 80 operaciones. Divide el pedido en partes.', 'The plan has more than 80 operations. Split the request into parts.') });
+  const added = completeMeetings(ops, text); if (added.length) supuso.push(...added);
   const plan = ops.map(describeOp); const recognized = recognizedOf(ops);
-  const obs = inspectPlan(ops, supuso); const summary = leer ? summarize(ops, obs) : undefined;
+  const obs = inspectPlan(ops, supuso, text); const summary = leer ? summarize(ops, obs) : undefined;
   let why = whyProposal(ops, s, currentBrain()?.scope);
   if (!why && obs.fuertes.length) why = obs.fuertes[0];
   // Jev puntúa siempre que esté conectado: decide en automático y orienta a quien aprueba.
-  const confidence = await judge(text, plan); obs.jev = { fiel: confidence };
+  const confidence = await judge(text, plan); obs.jev = { fiel: confidence, ...(confidence === null ? { error: jevProblem } : {}) };
   if (!why && confidence !== null && confidence < s.threshold) why = tr(`Jev no está seguro de que el plan refleje el pedido (confianza ${Math.round(confidence * 100)} %, mínimo ${Math.round(s.threshold * 100)} %).`, `Jev is not sure the plan reflects the request (confidence ${Math.round(confidence * 100)}%, minimum ${Math.round(s.threshold * 100)}%).`);
   else if (confidence !== null && confidence < 0.65) obs.avisos.push(tr(`Jev dio ${Math.round(confidence * 100)} % de confianza a este plan: échale un ojo.`, `Jev gave this plan ${Math.round(confidence * 100)}% confidence: take a look.`));
   const common = { ...stats(), ops, plan, recognized, obs, confidence, ...(summary ? { summary } : {}) };
@@ -291,7 +313,7 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
 }
 /** Después de guardar: Jev compara con lo que había y lo pendiente pasa a «Por revisar». */
 async function afterApply(vault: string, requestId: string, obs: Observations, before: string, results: string[], text: string) {
-  const c = await coherence(before, results, text); obs.jev = { fiel: obs.jev?.fiel ?? null, coherente: c };
+  const c = await coherence(before, results, text); obs.jev = { fiel: obs.jev?.fiel ?? null, coherente: c, ...(obs.jev?.error ? { error: obs.jev.error } : {}) };
   if (c !== null && c < 0.5) obs.avisos.push(tr('Jev ve una posible contradicción entre lo nuevo y lo que la ficha ya decía. Revísalo.', 'Jev sees a possible contradiction between the new data and what the note already said. Please check it.'));
   // Un duplicado posible que una persona ya aprobó no vuelve a la bandeja; lo demás sí.
   fileObservations(vault, requestId, { ...obs, fuertes: [] });

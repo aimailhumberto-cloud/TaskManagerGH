@@ -32,7 +32,7 @@ s, st = http(C + '?lang=en'); check('GET ?lang=en: respuesta del estado en ingl�
 s, st = http(C); check('GET sin idioma: español', 'pedir un cambio en palabras' in st['how'] and st['lang'] == 'es')
 
 # 1. Pedido en inglés con llave de agente: responde en inglés; las fichas siguen en el idioma de trabajo (español, aún sin elegir)
-s, r = ask('Schedule a meeting with Richard to see the second brain tomorrow at 8')
+s, r = ask('Schedule a meeting with Richard Bailey to see the second brain tomorrow at 8')
 check('inglés → respuesta en inglés (lang, mensaje, plan, resultados)', s == 200 and r['lang'] == 'en' and r['message'] == 'Done.' and r['plan'][0].startswith('Agenda: “') and 'on the agenda for 2026-11-13 at 08:00' in r['results'][0] and not ES_WORDS.search(json.dumps(r['plan'] + r['results'] + [r['message']])), (r.get('message'), r.get('plan'), r.get('results')))
 check('…los enlaces salen en inglés', any(l['label'].startswith('Note of') or l['label'].startswith('Agenda for') for l in r.get('links', [])) and not any(l['label'].startswith('Ficha de') for l in r['links']), r.get('links'))
 check('…y el título guardado sigue el idioma de TRABAJO (español)', any('Reunión con Richard' in e.get('title', '') for e in (lambda g: g.get('occurrences', g.get('events', [])))(http('/api/agent/agenda?from=2026-11-13&to=2026-11-13')[1])), '')
@@ -43,7 +43,7 @@ s, r = ask('La reunión con MEDIMEX pasó al lunes 16 a las 3 pm; anótalo y cre
 check('español → respuesta en español', s == 200 and r['lang'] == 'es' and r['message'] == 'Hecho.' and r['plan'][0].startswith('Anotar en'), (s, r.get('message'), r.get('plan')))
 
 # 3. Persona con la pantalla en inglés, cerebro sin idioma elegido: se toma el de la pantalla y queda guardado
-s, r = P({'action': 'pedir', 'text': 'move the Richard meeting to next week', 'uiLang': 'en'})
+s, r = P({'action': 'pedir', 'text': 'move the Richard Bailey meeting to next week', 'uiLang': 'en'})
 check('persona escribe en inglés: aplica y responde en inglés', s == 200 and r['status'] == 'aplicado' and r['lang'] == 'en' and 'moved from' in r['results'][0], (s, r.get('message'), r.get('results')))
 s, st = http(C); check('…el idioma de trabajo del cerebro quedó en inglés (tomado de lo que escribió)', st['settings']['workLang'] == 'en' and st['settings']['workLangSet'] is True, st['settings'].get('workLang'))
 b = node('person-richard-bailey').get('body', ''); check('…la bitácora nueva ya sale en inglés (logged by, source)', 'logged by:' in b and 'moved from' in b, b[:400])

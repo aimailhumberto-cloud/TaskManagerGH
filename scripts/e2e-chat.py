@@ -33,7 +33,7 @@ check('…con las fuentes que usó', len(r['added'][1].get('sources', [])) > 0, 
 # 2. charla
 s, r = chat('hola'); check('charla: responde breve sin modelo ni cambios', r['intent'] == 'charla' and r['added'][1]['kind'] == 'talk' and len(r['added'][1]['text']) < 120, r)
 # 3. pedido: aplica con recibo, en el hilo
-s, r = chat('Schedule a meeting with Richard tomorrow at 8')
+s, r = chat('Schedule a meeting with Richard Bailey tomorrow at 8')
 check('pedido en inglés: se aplica y responde en inglés', s == 200 and r['intent'] == 'pedido' and r['request']['status'] == 'aplicado' and r['added'][1]['kind'] == 'request' and r['added'][1]['lang'] == 'en', (r.get('intent'), r.get('request', {}).get('status'), r['added'][1].get('lang')))
 rid = r['request']['id']
 msgs, reqs = thread()

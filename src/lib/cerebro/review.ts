@@ -9,7 +9,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { getUnifiedBrainTasks, getVaultPath, loadBrainGraph, type BrainNode } from '../smjBrainService';
 import { listEvents } from '../agenda';
-import { displayTitle, norm, words } from '../brainLens';
+import { displayTitle, norm, words, nameAmbiguities, peopleMentioned } from '../brainLens';
 import { cerebroDir } from './settings';
 import { createdIdOf, linked, eventTitle, type Op } from './ops';
 import { tr } from '../reqLang';
@@ -23,7 +23,7 @@ export interface Observations {
   avisos: string[];
   /** Datos que faltan en las fichas tocadas. */
   falta: string[];
-  jev?: { fiel: number | null; coherente?: number | null };
+  jev?: { fiel: number | null; coherente?: number | null; error?: string };
 }
 export interface ReviewItem { id: string; at: string; requestId?: string; kind: 'falta' | 'aviso'; text: string; nodeId?: string; closedAt?: string; closedBy?: string }
 
@@ -31,7 +31,21 @@ const overlap = (a: string, b: string) => { const A = new Set(words(a)), B = new
 const nodesById = () => new Map((loadBrainGraph().allNodes || []).map(n => [n.id, n] as [string, BrainNode]));
 
 /** Revisión exacta del plan ANTES de aplicar. */
-export function inspectPlan(ops: Op[], supuso: string[] = []): Observations {
+/** Todos los ids de fichas a los que apunta el plan (principal, con, desde, hacia, conexiones). */
+const refsOf = (ops: Op[]): Set<string> => new Set(ops.flatMap(op => { const a = op.args || {}; return [a.ficha, a.desde, a.hacia, ...linked(a), ...(Array.isArray(a.conectar_con) ? a.conectar_con.map((c: any) => c?.hacia) : []), createdIdOf(op)]; }).filter(Boolean).map(String));
+/**
+ * Si el pedido nombra a una persona que el plan no menciona y hay UNA sola reunión en el plan, la persona se añade a «con».
+ * Devuelve lo que añadió, en palabras (el modelo omitió algo que el pedido decía claramente).
+ */
+export function completeMeetings(ops: Op[], text: string): string[] {
+  const meets = ops.filter(o => o.name === 'agendar'); if (meets.length !== 1) return [];
+  let people: { id: string; title: string }[] = []; try { people = peopleMentioned(text); } catch { return []; }
+  const have = refsOf(ops); const add = people.filter(p => !have.has(p.id) && !!nodesById().get(p.id)); if (!add.length) return [];
+  const a = meets[0].args; const con = Array.isArray(a.con) ? [...a.con] : typeof a.con === 'string' && a.con ? a.con.split(/[,;]\s*/) : [];
+  a.con = [...con, ...add.map(p => p.id)];
+  return [tr(`Añadí a ${add.map(p => p.title).join(', ')} a la reunión porque el pedido lo nombra.`, `I added ${add.map(p => p.title).join(', ')} to the meeting because the request names them.`)];
+}
+export function inspectPlan(ops: Op[], supuso: string[] = [], text = ''): Observations {
   const o: Observations = { supuso: supuso.slice(0, 8), fuertes: [], avisos: [], falta: [] };
   const nodes = nodesById(); const vault = getVaultPath();
   const open = getUnifiedBrainTasks().tasks.filter(t => !t.isCompleted);
@@ -63,6 +77,18 @@ export function inspectPlan(ops: Op[], supuso: string[] = []): Observations {
       const clash = events.find(e => e.date === a.fecha && e.time === a.hora && norm(e.title) !== norm(title) && e.repeat === 'none');
       if (clash) o.avisos.push(tr(`El ${a.fecha} a las ${a.hora} ya tienes «${clash.title}».`, `On ${a.fecha} at ${a.hora} you already have “${clash.title}”.`));
     }
+  }
+  if (text) {
+    const refs = refsOf(ops);
+    try {
+      for (const x of nameAmbiguities(text)) {
+        const used = x.people.filter(p => refs.has(p.id)); if (!used.length) continue;
+        o.fuertes.push(x.kind === 'igual'
+          ? tr(`«${x.word}» puede ser ${x.people.map(p => p.title).join(' o ')}: el plan usa a ${used.map(p => p.title).join(', ')}. ¿Es esa persona?`, `“${x.word}” can be ${x.people.map(p => p.title).join(' or ')}: the plan uses ${used.map(p => p.title).join(', ')}. Is that the right person?`)
+          : tr(`«${x.word}» no es el nombre exacto de nadie y el plan usa a ${used.map(p => p.title).join(', ')}. ¿Es esa persona?`, `“${x.word}” is nobody’s exact name and the plan uses ${used.map(p => p.title).join(', ')}. Is that the right person?`));
+      }
+      for (const p of peopleMentioned(text)) if (!refs.has(p.id)) o.avisos.push(tr(`El pedido nombra a ${p.title}, pero el plan no lo menciona.`, `The request names ${p.title}, but the plan does not mention them.`));
+    } catch {}
   }
   // Lo que falta en las fichas de personas que el plan usa.
   const used = new Set(ops.flatMap(op => [op.args?.ficha, ...linked(op.name === 'agendar' ? op.args : {})]).filter(Boolean).map(String));

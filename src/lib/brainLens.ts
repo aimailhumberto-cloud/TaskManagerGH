@@ -188,6 +188,54 @@ export function resolveEntities(q: string): BrainNode[] {
   }
   return found.slice(0, 4);
 }
+
+// ---------- Nombres ambiguos y personas nombradas (motor del Cerebro) ----------
+export interface NameAmbig { word: string; kind: 'igual' | 'parecido'; people: { id: string; title: string }[] }
+/** Palabras del texto que cubre un nombre completo de alguna ficha («Morgan Williams», «Tomás Casas»): esas ya no son ambiguas. */
+function coveredWords(ix: Idx, q: string): Set<string> {
+  const qw = words(q); const out = new Set<string>(); if (qw.length < 2) return out;
+  const pairs = qw.slice(1).map((w, i) => [qw[i], w] as const);
+  for (const n of ix.nodes) {
+    if ((TYPE_RANK[n.type] || 0) < 3) continue; const t = ' ' + words(displayTitle(n.title)).join(' ') + ' ';
+    for (const [x, y] of pairs) if (t.includes(' ' + x + ' ' + y + ' ')) { out.add(x); out.add(y); }
+  }
+  return out;
+}
+/**
+ * Palabras del pedido que pueden ser de varias personas («Richard» → Richard Bailey / Richard Williams) o que solo se parecen
+ * al nombre de alguien («Luis» ≠ «Luisa»). El motor no debe elegir: pregunta.
+ */
+export function nameAmbiguities(q: string): NameAmbig[] {
+  const ix = index(); const covered = coveredWords(ix, q);
+  const persons = ix.nodes.filter(n => n.type === 'person').map(n => ({ id: n.id, title: displayTitle(n.title), tok: words(displayTitle(n.title)).filter(w => w.length >= 3) }));
+  const out: NameAmbig[] = []; const seen = new Set<string>();
+  for (const w of words(q)) {
+    if (w.length < 4 || seen.has(w) || covered.has(w) || TYPE_WORDS[w] || COUNTRY_WORDS.has(w)) continue; seen.add(w);
+    const exact = persons.filter(p => p.tok.includes(w));
+    if (exact.length >= 2) { out.push({ word: w, kind: 'igual', people: exact.map(p => ({ id: p.id, title: p.title })) }); continue; }
+    if (exact.length === 1) continue;
+    if (ix.nodes.some(n => ix.title.get(n.id)!.has(w))) continue; // la palabra existe como tal en otra ficha
+    const near = persons.filter(p => p.tok.some(t => t !== w && t.startsWith(w)));
+    if (near.length) out.push({ word: w, kind: 'parecido', people: near.map(p => ({ id: p.id, title: p.title })) });
+  }
+  return out;
+}
+/** Personas que el pedido nombra sin duda: nombre completo, o nombre de pila único entre las personas. */
+export function peopleMentioned(q: string): { id: string; title: string }[] {
+  const ix = index(); const ws = new Set(words(q)); const nq = ' ' + [...words(q)].join(' ') + ' ';
+  const amb = new Set(nameAmbiguities(q).flatMap(a => a.people.map(p => p.id)));
+  const persons = ix.nodes.filter(n => n.type === 'person');
+  const firsts = new Map<string, number>(); for (const n of persons) { const f = words(displayTitle(n.title))[0]; if (f) firsts.set(f, (firsts.get(f) || 0) + 1); }
+  const out: { id: string; title: string }[] = [];
+  for (const n of persons) {
+    if (amb.has(n.id)) continue;
+    const w = words(displayTitle(n.title)); if (!w.length) continue;
+    const full = w.length >= 2 && nq.includes(' ' + w.join(' ') + ' ');
+    const first = w[0].length >= 4 && ws.has(w[0]) && firsts.get(w[0]) === 1;
+    if (full || first) out.push({ id: n.id, title: displayTitle(n.title) });
+  }
+  return out.slice(0, 8);
+}
 const deg = (ix: Idx, id: string) => (ix.out.get(id)?.length || 0) + (ix.inn.get(id)?.length || 0);
 
 // ---------- Expediente ----------
