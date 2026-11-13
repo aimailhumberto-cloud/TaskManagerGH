@@ -1,0 +1,40 @@
+import * as fs from 'fs'; import * as os from 'os'; import * as path from 'path';
+import * as A from '../src/lib/agenda';
+let fail = 0;
+const eq = (n: string, a: unknown, b: unknown) => { if (JSON.stringify(a) !== JSON.stringify(b)) { fail++; console.error('FALLA', n, JSON.stringify(a), '!=', JSON.stringify(b)); } };
+const throws = (n: string, f: () => unknown, st?: number) => { try { f(); fail++; console.error('FALLA no lanzó', n); } catch (e: any) { if (st && e.status !== st) { fail++; console.error('FALLA estado', n, e.status); } } };
+const vault = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'ag-')), 'vault'); fs.mkdirSync(vault);
+throws('sin título', () => A.upsertEvent(vault, { date: '2026-11-12' })); throws('sin fecha', () => A.upsertEvent(vault, { title: 'Comité' }));
+throws('fecha imposible', () => A.upsertEvent(vault, { title: 'Comité', date: '2026-02-30' })); throws('hora mala', () => A.upsertEvent(vault, { title: 'Comité', date: '2026-11-12', time: '25:00' }));
+throws('fin antes', () => A.upsertEvent(vault, { title: 'Viaje', date: '2026-11-12', endDate: '2026-11-10' })); throws('kind', () => A.upsertEvent(vault, { title: 'Xx', date: '2026-11-12', kind: 'fiesta' }));
+throws('id inexistente', () => A.upsertEvent(vault, { id: 'ev-nope', title: 'Xx' }), 404);
+const comite = A.upsertEvent(vault, { kind: 'reunion', title: 'Comité de abastecimiento', date: '2026-11-12', time: '10:00', endTime: '11:00', repeat: 'weekly' }, 'DOTS');
+const viaje = A.upsertEvent(vault, { kind: 'viaje', title: 'Puerto España', date: '2026-11-12', endDate: '2026-11-14', location: 'Trinidad' });
+const mensual = A.upsertEvent(vault, { title: 'Cierre mensual', date: '2026-10-31', repeat: 'monthly' });
+const anual = A.upsertEvent(vault, { kind: 'evento', title: 'Aniversario', date: '2024-11-20', repeat: 'yearly' });
+const lmv = A.upsertEvent(vault, { title: 'Stand-up', date: '2026-11-02', time: '08:30', repeat: 'weekly', weekdays: [1, 3, 5, 9, 1], until: '2026-11-13' });
+eq('crea', [comite.id.startsWith('ev-'), comite.createdBy, comite.source, lmv.weekdays], [true, 'DOTS', 'manual', [1, 3, 5]]);
+eq('semanal', A.startsIn(comite, '2026-11-01', '2026-11-30'), ['2026-11-12', '2026-11-19', '2026-11-26']);
+eq('días elegidos con fin', A.startsIn(lmv, '2026-11-01', '2026-11-30'), ['2026-11-02', '2026-11-04', '2026-11-06', '2026-11-09', '2026-11-11', '2026-11-13']);
+eq('mensual día 31 salta meses cortos', A.startsIn(mensual, '2026-10-01', '2027-01-31'), ['2026-10-31', '2026-12-31', '2027-01-31']);
+eq('anual', A.startsIn(anual, '2026-01-01', '2027-12-31'), ['2026-11-20', '2027-11-20']);
+eq('antes de empezar no hay', A.startsIn(comite, '2026-10-01', '2026-10-31'), []);
+eq('viaje que empezó antes del rango', A.startsIn(viaje, '2026-11-13', '2026-11-20'), ['2026-11-12']);
+// editar y cancelar una repetición
+A.upsertEvent(vault, { id: comite.id, time: '09:30', endTime: '10:30' });
+eq('edita', [A.listEvents(vault).find(e => e.id === comite.id)?.time, A.listEvents(vault).length], ['09:30', 5]);
+eq('cancela una', A.deleteEvent(vault, comite.id, '2026-11-19'), true);
+eq('ya no sale', A.startsIn(A.listEvents(vault).find(e => e.id === comite.id)!, '2026-11-01', '2026-11-30'), ['2026-11-12', '2026-11-26']);
+// sincronización: mismo externalId no duplica
+const o1 = A.upsertEvent(vault, { source: 'outlook', externalId: 'AAA', title: 'Junta', date: '2026-11-18', time: '14:00' });
+const o2 = A.upsertEvent(vault, { source: 'outlook', externalId: 'AAA', title: 'Junta directiva', date: '2026-11-18', time: '15:00' });
+eq('upsert externo', [o1.id === o2.id, o2.title, A.listEvents(vault).length], [true, 'Junta directiva', 6]);
+// fusión con tareas
+const tasks = [{ id: 'pt-x', title: 'Tarea A', dueDate: '2026-11-12', isCompleted: false, isOverdue: false }, { id: 'fu-y', title: 'Seguimiento B', dueDate: '2026-11-13', isCompleted: false, isOverdue: false, sourceNodeTitle: 'MEDIMEX' }, { id: 'pt-z', title: 'Hecha', dueDate: '2026-11-12', isCompleted: true, isOverdue: false }, { id: 'pt-s', title: 'Sin fecha', isCompleted: false, isOverdue: false }, { id: 'pt-f', title: 'Fuera', dueDate: '2027-01-01', isCompleted: false, isOverdue: false }];
+const occ = A.mergedAgenda(A.listEvents(vault), tasks, '2026-11-12', '2026-11-14');
+eq('orden y capas', occ.map(o => `${o.date} ${o.time || '--'} ${o.layer}`), ['2026-11-12 09:30 reuniones', '2026-11-12 -- viajes', '2026-11-12 -- tareas', '2026-11-13 08:30 reuniones', '2026-11-13 -- seguimientos']);
+const loads = A.dayLoads(occ, '2026-11-12', '2026-11-14');
+eq('carga', [loads['2026-11-12'], loads['2026-11-13'].total, loads['2026-11-14']], [{ total: 3, reuniones: 1, viajes: 1, tareas: 1, seguimientos: 0 }, 3, { total: 1, reuniones: 0, viajes: 1, tareas: 0, seguimientos: 0 }]);
+eq('borra', [A.deleteEvent(vault, viaje.id), A.deleteEvent(vault, 'nope'), A.listEvents(vault).length], [true, false, 5]);
+eq('fuera de la bóveda', fs.readdirSync(vault).length, 0);
+if (fail) { console.error(fail + ' fallas'); process.exit(1); } console.log('agenda: todo ok');

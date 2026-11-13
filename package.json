@@ -36,7 +36,8 @@
     "test:capture": "tsx scripts/test-capture.ts",
     "test:sharing": "tsx scripts/test-sharing.ts",
     "test:kpis": "tsx scripts/test-kpis.ts",
-    "test:growth": "tsx scripts/test-growth.ts"
+    "test:growth": "tsx scripts/test-growth.ts",
+    "test:agenda": "tsx scripts/test-agenda.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

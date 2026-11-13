@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import HslAvatar from './HslAvatar';
+import { useUiLang } from '@/lib/uiLang';
 
 interface FooterProfileProps {
   session: {
@@ -16,6 +17,7 @@ interface FooterProfileProps {
 
 export default function FooterProfile({ session }: FooterProfileProps) {
   const [loading, setLoading] = useState(false);
+  const { lang, setLang, L } = useUiLang();
 
   const handleLogout = async () => {
     setLoading(true);
@@ -44,8 +46,11 @@ export default function FooterProfile({ session }: FooterProfileProps) {
     <div className="shrink-0 border-t border-primary-800/80 bg-primary-950/20 p-4">
       {isLocal && (
         <div className="mb-2 flex gap-3 px-2 text-[11px] text-primary-300">
-          <a href="/mi-agente" className="hover:text-white underline-offset-2 hover:underline">Mi agente</a>
-          <a href="/cambiar-clave" className="hover:text-white underline-offset-2 hover:underline">Cambiar clave</a>
+          <a href="/mi-agente" className="hover:text-white underline-offset-2 hover:underline">{L('Mi agente', 'My agent')}</a>
+          <a href="/cambiar-clave" className="hover:text-white underline-offset-2 hover:underline">{L('Cambiar clave', 'Change password')}</a>
+          <span className="ml-auto flex overflow-hidden rounded-full border border-primary-700" role="group" aria-label={L('Idioma', 'Language')}>
+            {(['es', 'en'] as const).map(l => (<button key={l} onClick={() => setLang(l)} aria-pressed={lang === l} className={`px-2 py-0.5 text-[10px] font-bold uppercase ${lang === l ? 'bg-gold-500 text-primary-950' : 'text-primary-300 hover:text-white'}`}>{l}</button>))}
+          </span>
         </div>
       )}
       <div className="flex items-center justify-between gap-2 rounded-lg p-2 hover:bg-primary-800/20 transition-colors">
@@ -66,7 +71,7 @@ export default function FooterProfile({ session }: FooterProfileProps) {
           onClick={handleLogout}
           disabled={loading}
           className="p-1.5 rounded-lg hover:bg-red-950/40 text-primary-400 hover:text-red-400 transition"
-          title="Cerrar sesión" aria-label="Cerrar sesión"
+          title={L('Cerrar sesión', 'Sign out')} aria-label={L('Cerrar sesión', 'Sign out')}
         >
           {loading ? (
             <span className="animate-spin text-xs">🔄</span>

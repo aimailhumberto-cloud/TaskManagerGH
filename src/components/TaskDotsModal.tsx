@@ -59,7 +59,6 @@ export default function TaskDotsModal({ task, isOpen, onClose, onDispatched }: T
           action: 'ask_dots',
           taskId: task.id,
           instruction: instruction.trim(),
-          requestedBy: 'Chairman / Executive Office',
         }),
       });
 

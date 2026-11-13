@@ -3,6 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import YAML from 'yaml';
 import { currentBrain, isPrimaryBrain } from './brainContext';
+import { actorLabel } from './actor';
 import { resolveOwnership, getDefaultBrainIdentity, type BrainVisibility } from './brainOwnership';
 import { updateNoteFile, writeNoteFile, readNoteStrict, parseNoteStrict, atomicWriteFile, pushRecentAction, uniqueWorkingMemoryId } from './vaultFiles';
 
@@ -1257,7 +1258,7 @@ export function completeBrainTask(taskId: string, completedBy?: string): { ok: b
 
   const { dateStr, timeStr } = getPanamaDate();
   const nowIso = new Date().toISOString();
-  const actor = completedBy || 'Chairman / Executive Office';
+  const actor = completedBy || actorLabel();
 
   let modified = false;
 
@@ -1474,7 +1475,7 @@ export function askDotsTask(taskId: string, instruction: string, requestedBy?: s
   const filename = `${wmId} - ${cleanTitle}.md`;
   const filePath = path.join(wmDir, filename);
 
-  const actor = requestedBy || 'Chairman / Executive Office';
+  const actor = requestedBy || actorLabel();
   const targetNodeLink = targetTask.sourceNodeTitle.startsWith('[[') ? targetTask.sourceNodeTitle : `[[${targetTask.sourceNodeTitle}]]`;
 
   const wmFrontmatter = {
@@ -1670,7 +1671,7 @@ export function createBrainTask(input: {
         status: 'Pending',
         completed: false,
         created_at: nowIso,
-        created_by: 'Chairman / Executive Office',
+        created_by: actorLabel(),
       };
 
       if (!Array.isArray(frontmatter.pending_tasks)) frontmatter.pending_tasks = [];
@@ -1711,10 +1712,10 @@ export function createBrainTask(input: {
     due_date: input.dueDate || '',
     priority: input.priority || 'Medium',
     country: input.country || 'Global',
-    source: 'Task Manager Ejecutivo',
+    source: 'Segundo Cerebro',
     ...(input.assignedBy ? { assigned_by: input.assignedBy } : {}),
     ...(input.mentions?.length ? { mentions_brains: input.mentions } : {}),
-  }, `# ${input.title}\n\n${input.description || 'Tarea ejecutiva registrada directamente en el Task Manager amarrado al Cerebro.'}`);
+  }, `# ${input.title}\n\n${input.description || 'Tarea registrada en el Segundo Cerebro.'}`);
   if (!written.ok) return { ok: false, message: `No se pudo registrar la tarea: ${written.error}` };
 
   syncToBundledVault(path.join('00-Working-Memory', filename), written.content);

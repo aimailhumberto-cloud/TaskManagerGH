@@ -9,6 +9,7 @@ import { querySharedNodes } from '@/lib/sharing';
 import { getAccount, listAccounts, TOP_ROLES, canManageUsers } from '@/lib/localAccounts';
 import { listKpis, loadPrefs, savePrefs } from '@/lib/kpis';
 import { computeGrowth, recordGrowth } from '@/lib/brainGrowth';
+import { addDays, dayLoads, listEvents, mergedAgenda } from '@/lib/agenda';
 export const dynamic = 'force-dynamic';
 
 /** Todo lo que necesita el tablero inicial, del cerebro de quien entra. Solo lectura. */
@@ -24,6 +25,7 @@ const GUIDE = {
     { bloque: 'Cómo crece mi cerebro', origen: 'Foto diaria de cifras, fechas de creación de las fichas (created_at, captured_at), consolidaciones (promoted_at), cambios aplicados e informes nocturnos', como: 'No se carga a mano. Para que la curva sea fiel, pon created_at en cada ficha nueva' },
     { bloque: 'Mis indicadores', origen: 'Lista de indicadores del cerebro', como: "POST /api/agent/kpis {action:'set', name, value, unit?, target?, period?, note?}" },
     { bloque: 'Cuotas de distribuidores', origen: 'Campos target_cases_year y actual_cases_ytd de la ficha de cada distribuidor', como: "POST /api/agent/kpis {action:'set_quota', nodeId, targetCasesYear?, actualCasesYtd?, note?}" },
+    { bloque: 'Agenda (calendario fusionado) y Agenda de la semana', origen: 'Eventos de la agenda (reuniones, viajes) más tareas y seguimientos con fecha', como: "POST /api/agent/agenda {action:'set', kind:'reunion'|'viaje'|'evento', title, date, time?, endTime?, endDate?, location?, repeat?:'none'|'daily'|'weekly'|'monthly'|'yearly', weekdays?:[0=domingo..6], until?}. Para lo que venga de Outlook usa source:'outlook' y externalId: así no se duplica al volver a cargarlo. GET /api/agent/agenda?from=&to= devuelve el calendario fusionado." },
     { bloque: 'Lo que hicieron Jev y mi agente', origen: 'Registro automático de cambios y de escrituras con llave', como: 'No se carga a mano' },
     { bloque: 'Clima y ciudades', origen: 'Ubicación del navegador y ciudades guardadas', como: "POST /api/agent/dashboard {action:'places', home:{name,lat,lon}, hq:{name,lat,lon}}" },
     { bloque: 'Compañía y compartido', origen: 'Cerebro de la compañía y fichas que otros comparten', como: "POST /api/agent/shared {action:'set_visibility', nodeId, visibility, sharedWith?}" },
@@ -62,7 +64,10 @@ async function _GET(req: NextRequest) {
     if (typeof n.completeness_score === 'number') { scored++; scoreSum += n.completeness_score; }
   }
   const top = (m: Record<string, number>, k: number) => Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, k).map(([name, value]) => ({ name, value }));
-  const week = Array.from({ length: 7 }, (_, i) => { const dt = new Date(Date.parse(dateStr + 'T12:00:00Z') + i * 86400000).toISOString().slice(0, 10); return { date: dt, count: open.filter(x => (x.dueDate || '').slice(0, 10) === dt).length }; });
+  // La semana y la agenda salen del calendario fusionado: reuniones, viajes, tareas y seguimientos.
+  const merged = mergedAgenda(listEvents(ctx.vaultPath), t.tasks as any, dateStr, addDays(dateStr, 13));
+  const loads = dayLoads(merged, dateStr, addDays(dateStr, 6));
+  const week = Array.from({ length: 7 }, (_, i) => { const dt = addDays(dateStr, i); return { date: dt, count: loads[dt]?.total || 0 }; });
   const brands = nodes.filter(n => n.type === 'brand').map(b => { const name = b.title.replace(/^Brand:\s*/i, '').trim(); const key = name.toLowerCase(); return { name, slug: key.replace(/[^a-z0-9]/g, ''), count: nodes.filter(n => n.id !== b.id && (n.title.toLowerCase().includes(key) || n.links.some(l => l.toLowerCase().includes(key)))).length }; });
   recordGrowth(ctx.vaultPath, nodes, g.links.length, dateStr); // foto diaria de cifras
   const growth = computeGrowth(ctx.vaultPath, nodes, g.links.length, dateStr);
@@ -74,7 +79,7 @@ async function _GET(req: NextRequest) {
     brain: { id: ctx.brainId, viewingOther, viewingName, readOnly: !!ctx.readOnly, isEmpty: nodes.length <= 1 && open.length === 0 },
     counts: { overdue: open.filter(x => x.isOverdue).length, today: open.filter(x => x.isToday && !x.isOverdue).length, open: open.length, completed: t.tasks.length - open.length },
     tasksToday: open.filter(x => x.isOverdue || x.isToday).sort(byDate).slice(0, 6).map(lite),
-    agenda: open.filter(x => x.dueDate && !x.isOverdue).sort(byDate).slice(0, 6).map(lite),
+    agenda: merged.slice(0, 6).map(o => ({ id: o.id, title: o.title, dueDate: o.date, priority: 'Medium', isOverdue: !!o.overdue, isToday: o.date === dateStr, source: o.detail || '', time: o.time || null, layer: o.layer })),
     log: {
       autonomy: ctx.primary ? loadAutonomy(ctx.vaultPath).mode : null,
       applied: recentAppliedAll(ctx.vaultPath, 6).filter(a => !a.undoneAt),

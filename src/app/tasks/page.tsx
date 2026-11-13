@@ -100,7 +100,6 @@ export default function TasksPage() {
         body: JSON.stringify({
           action: 'complete',
           taskId: task.id,
-          completedBy: 'Chairman / Executive Office',
         }),
       });
       const data = await res.json();
