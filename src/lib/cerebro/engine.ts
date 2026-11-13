@@ -141,7 +141,7 @@ MODO LEER: el pedido es un correo, minuta o nota. Extrae TODO lo útil y convié
 - Cada persona nombrada con datos (correo, teléfono, cargo, empresa): si ya existe (mira «ya tiene el correo» y los nombres del contexto), usa actualizar_campos solo con lo nuevo; si no existe, crear_ficha tipo person con email_primary, phone_mobile, job_title, organization y conectar_con hacia su empresa (works_at; si la empresa es nueva: «nueva:Nombre de la empresa»). Si su empresa no existe y el texto dice qué es, créala en el mismo plan.
 - Lo que pasó o se acordó: registrar_novedad en la ficha de la empresa o persona principal, con «fuente» (quién escribió y la fecha).
 - Fechas y compromisos: agendar (reuniones, viajes) o proximo_paso_fecha / crear_tarea (cosas por hacer).
-- Cifras con su unidad y periodo: registrar_indicador, con «nota» = la fuente.
+- Cifras con su unidad y periodo: registrar_indicador, con «nota» = la fuente. Si dice desde/hasta cuándo, pasa inicio y fin (AAAA-MM-DD); «arranque» si da el valor de partida; sentido «down» solo si bajar es lo bueno (costos, devoluciones).
 - En este modo NO uses «preguntar». Lo dudoso (una persona que podría ser otra, un dato incompleto) va en «observar», y esa parte se deja fuera del plan.
 - No guardes firmas legales, avisos de confidencialidad ni a la propia persona dueña del cerebro como contacto nuevo.`;
 const META: ToolDef[] = [

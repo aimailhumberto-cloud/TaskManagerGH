@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Indicadores del cerebro. GET → lista con historial.
- * POST {action:'set', name, value, unit?, target?, period?, note?, id?} → crea el indicador o registra un valor nuevo.
+ * POST {action:'set', name, value, unit?, target?, period?, startDate?, endDate? (AAAA-MM-DD), baseline? (valor de arranque), direction? ('up'|'down'), note?, id?} → crea el indicador o registra un valor nuevo.
  * POST {action:'set_quota', nodeId, targetCasesYear?, actualCasesYtd?, note?} → cuota y avance de un distribuidor (se guardan en su ficha).
  * POST {action:'delete', id} → lo borra (personas, o agentes con alcance «escribir»).
  */

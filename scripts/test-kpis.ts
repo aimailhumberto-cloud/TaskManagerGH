@@ -1,5 +1,6 @@
 import * as fs from 'fs'; import * as os from 'os'; import * as path from 'path';
 import * as K from '../src/lib/kpis';
+import { kpiProgress } from '../src/lib/kpiProgress';
 let fail = 0;
 const eq = (n: string, a: unknown, b: unknown) => { if (JSON.stringify(a) !== JSON.stringify(b)) { fail++; console.error('FALLA', n, JSON.stringify(a), '!=', JSON.stringify(b)); } };
 const throws = (n: string, f: () => unknown) => { try { f(); fail++; console.error('FALLA no lanzó', n); } catch {} };
@@ -23,4 +24,22 @@ eq('ciudades por defecto', K.loadPrefs(vault), { home: null, hq: null });
 eq('guarda casa', K.savePrefs(vault, { home: { name: 'Panamá', lat: 8.98, lon: -79.52 } }).home?.name, 'Panamá');
 eq('inválida se descarta', K.savePrefs(vault, { hq: { name: 'X', lat: 999, lon: 0 } }).hq, null);
 eq('casa se conserva', K.loadPrefs(vault).home?.lat, 8.98);
+
+// Fechas, arranque y sentido (vuelta 32)
+const v2 = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'kpi2-')), 'vault'); fs.mkdirSync(v2);
+const d1 = K.setKpi(v2, { name: 'Ventas Q4', value: 0, target: 1000, startDate: '2026-10-01', endDate: '2026-12-31', baseline: 0 }, 'HB', new Date('2026-10-01T12:00:00Z'));
+eq('crea con fechas', [d1.startDate, d1.endDate, d1.baseline, d1.direction], ['2026-10-01', '2026-12-31', 0, undefined]);
+throws('fecha mala', () => K.setKpi(v2, { id: 'ventas-q4', startDate: '1/10/2026' })); throws('fin antes de inicio', () => K.setKpi(v2, { id: 'ventas-q4', endDate: '2026-09-01' }));
+throws('sentido malo', () => K.setKpi(v2, { id: 'ventas-q4', direction: 'sideways' })); throws('arranque texto', () => K.setKpi(v2, { id: 'ventas-q4', baseline: 'cero' }));
+eq('quitar fecha', K.setKpi(v2, { id: 'ventas-q4', endDate: null }).endDate, undefined); K.setKpi(v2, { id: 'ventas-q4', endDate: '2026-12-31' });
+const mid = { value: 500, target: 1000, baseline: 0, startDate: '2026-10-01', endDate: '2026-12-31', history: [{ at: '2026-10-01T00:00:00Z', value: 0 }] };
+const p1 = kpiProgress(mid, '2026-11-16');
+eq('avance 50 %', p1.pct, 50); eq('tiempo ~50 %', Math.abs((p1.timePct as number) - 50) < 2, true); eq('al ritmo', p1.status, 'on'); eq('días que quedan', p1.daysLeft, 45);
+eq('proyección ~1000', Math.abs((p1.projected as number) - 1000) < 30, true);
+eq('adelantado', kpiProgress({ ...mid, value: 800 }, '2026-11-16').status, 'ahead'); eq('atrasado', kpiProgress({ ...mid, value: 100 }, '2026-11-16').status, 'behind');
+eq('cumplida', kpiProgress({ ...mid, value: 1200 }, '2026-11-16').status, 'done'); eq('vencida sin llegar', kpiProgress({ ...mid, value: 600 }, '2027-01-10').status, 'late');
+const down = { value: 7, target: 5, baseline: 10, direction: 'down' as const, startDate: '2026-10-01', endDate: '2026-12-31', history: [] };
+eq('bajar es bueno: avance 60 %', kpiProgress(down, '2026-11-16').pct, 60);
+eq('sin fechas ni meta: sin estado', kpiProgress({ value: 3, target: null, history: [] }, '2026-11-16').status, 'none');
+eq('sin fechas con meta: avance sin tiempo', [kpiProgress({ value: 5, target: 10, baseline: 0, history: [] }, '2026-11-16').pct, kpiProgress({ value: 5, target: 10, baseline: 0, history: [] }, '2026-11-16').timePct], [50, null]);
 if (fail) { console.error(fail + ' fallas'); process.exit(1); } console.log('indicadores: todo ok');

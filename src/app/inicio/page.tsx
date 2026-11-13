@@ -3,6 +3,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useUiLang } from '@/lib/uiLang';
 import { EN } from './en';
+import KpiCard from './KpiCard';
 
 // Idioma: el componente fija _lang en cada render; T traduce en el momento de pintar.
 let _lang: 'es' | 'en' = 'es';
@@ -12,7 +13,9 @@ const T = (es: string) => (_lang === 'en' ? EN[es] ?? es : es);
 type Tk = { id: string; title: string; dueDate: string | null; priority: string; isOverdue: boolean; isToday: boolean; source: string; time?: string | null; layer?: string };
 type NV = { name: string; value: number };
 type Place = { name: string; lat: number; lon: number };
-type Kpi = { id: string; name: string; unit: string; value: number; target: number | null; period: string; updatedAt: string; updatedBy?: string; history: { at: string; value: number }[] };
+type KpiForm = { open: boolean; id: string; name: string; value: string; unit: string; target: string; period: string; startDate: string; endDate: string; baseline: string; direction: 'up' | 'down' };
+const KPI_EMPTY: KpiForm = { open: false, id: '', name: '', value: '', unit: '', target: '', period: '', startDate: '', endDate: '', baseline: '', direction: 'up' };
+type Kpi = import('./KpiCard').KpiData;
 type D = {
   today: string;
   me: { name: string; role: string; isPrimary: boolean; canManage: boolean; isTop: boolean };
@@ -100,13 +103,6 @@ function GrowthChart({ series }: { series: { date: string; nodes: number; links:
     <text x="0" y={H - 4} fontSize="11" fill="#64748b">{fmtDay(series[0]?.date || null, { day: 'numeric', month: 'short' })}</text><text x={W} y={H - 4} fontSize="11" fill="#64748b" textAnchor="end">{T('hoy')}</text>
   </svg>);
 }
-function Spark({ points }: { points: number[] }) {
-  if (points.length < 2) return null;
-  const min = Math.min(...points), max = Math.max(...points), span = max - min || 1;
-  const d = points.map((v, i) => `${i ? 'L' : 'M'}${(i / (points.length - 1)) * 96 + 2} ${26 - ((v - min) / span) * 22}`).join(' ');
-  return <svg width="100" height="28" viewBox="0 0 100 28" aria-hidden="true"><path d={d} fill="none" stroke={CYAN} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-}
-
 export default function InicioPage() {
   const ui = useUiLang(); _lang = ui.lang; _locale = ui.locale;
   const [d, setD] = useState<D | null>(null);
@@ -119,7 +115,7 @@ export default function InicioPage() {
   const [wx, setWx] = useState<Record<string, { temp: number; code: number; time: string }>>({});
   const [placeForm, setPlaceForm] = useState<{ open: boolean; which: 'home' | 'hq'; q: string; results: Place[] }>({ open: false, which: 'home', q: '', results: [] });
   const [range, setRange] = useState<'7' | '30' | '90'>('30');
-  const [kpiForm, setKpiForm] = useState<{ open: boolean; id: string; name: string; value: string; unit: string; target: string; period: string }>({ open: false, id: '', name: '', value: '', unit: '', target: '', period: '' });
+  const [kpiForm, setKpiForm] = useState<KpiForm>(KPI_EMPTY);
 
   const load = useCallback(async () => {
     try { const r = await fetch('/api/agent/dashboard', { cache: 'no-store' }); const j = await r.json(); if (r.ok && j.ok) { setD(j); setErr(null); } else setErr(j.error || T('No se pudo cargar tu tablero.')); }
@@ -170,9 +166,9 @@ export default function InicioPage() {
   };
   const saveKpi = async (e: React.FormEvent) => {
     e.preventDefault();
-    const body: Record<string, unknown> = { action: 'set', name: kpiForm.name, unit: kpiForm.unit, period: kpiForm.period, target: kpiForm.target === '' ? null : kpiForm.target };
+    const body: Record<string, unknown> = { action: 'set', name: kpiForm.name, unit: kpiForm.unit, period: kpiForm.period, target: kpiForm.target === '' ? null : kpiForm.target, startDate: kpiForm.startDate || null, endDate: kpiForm.endDate || null, baseline: kpiForm.baseline === '' ? null : kpiForm.baseline, direction: kpiForm.direction };
     if (kpiForm.id) body.id = kpiForm.id; if (kpiForm.value !== '') body.value = kpiForm.value;
-    if (await post('/api/agent/kpis', body, T('Indicador guardado.'))) setKpiForm({ open: false, id: '', name: '', value: '', unit: '', target: '', period: '' });
+    if (await post('/api/agent/kpis', body, T('Indicador guardado.'))) setKpiForm(KPI_EMPTY);
   };
 
   const hour = Number(new Date().toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: 'America/Panama' }));
@@ -262,7 +258,7 @@ export default function InicioPage() {
         )}
         {note && <p className="rounded-xl bg-white px-4 py-2 text-sm text-slate-700" style={{ border: `1px solid ${LINE}` }}>{note}</p>}
 
-        <Card icon="target" title={T('Mis indicadores')} action={!d.brain.readOnly ? <button onClick={() => setKpiForm({ open: !kpiForm.open, id: '', name: '', value: '', unit: '', target: '', period: '' })} className={linkCls} style={{ color: BLUE, background: SOFT }}>{kpiForm.open ? T('Cerrar') : T('Agregar indicador')}</button> : undefined}>
+        <Card icon="target" title={T('Mis indicadores')} action={!d.brain.readOnly ? <button onClick={() => setKpiForm({ ...KPI_EMPTY, open: !kpiForm.open })} className={linkCls} style={{ color: BLUE, background: SOFT }}>{kpiForm.open ? T('Cerrar') : T('Agregar indicador')}</button> : undefined}>
           {kpiForm.open && (
             <form onSubmit={saveKpi} className="mb-4 grid gap-2 sm:grid-cols-6">
               <input className={`${input} sm:col-span-2`} placeholder={T('Nombre (ej.: Volumen Belice)')} value={kpiForm.name} onChange={e => setKpiForm({ ...kpiForm, name: e.target.value })} aria-label={T('Nombre')} />
@@ -270,18 +266,18 @@ export default function InicioPage() {
               <input className={input} placeholder={T('Unidad')} value={kpiForm.unit} onChange={e => setKpiForm({ ...kpiForm, unit: e.target.value })} aria-label={T('Unidad')} />
               <input className={input} placeholder={T('Meta')} inputMode="decimal" value={kpiForm.target} onChange={e => setKpiForm({ ...kpiForm, target: e.target.value })} aria-label={T('Meta')} />
               <button disabled={busy} className="rounded-xl px-4 py-2 text-sm font-semibold text-white" style={{ background: BLUE }}>{T('Guardar')}</button>
-              <input className={`${input} sm:col-span-6`} placeholder={T('Periodo (ej.: Q4 2026)')} value={kpiForm.period} onChange={e => setKpiForm({ ...kpiForm, period: e.target.value })} aria-label={T('Periodo')} />
+              <label className="flex flex-col gap-1 text-[11px] text-slate-500 sm:col-span-2">{T('Inicio')}<input type="date" className={input} value={kpiForm.startDate} onChange={e => setKpiForm({ ...kpiForm, startDate: e.target.value })} /></label>
+              <label className="flex flex-col gap-1 text-[11px] text-slate-500 sm:col-span-2">{T('Fin')}<input type="date" className={input} value={kpiForm.endDate} onChange={e => setKpiForm({ ...kpiForm, endDate: e.target.value })} /></label>
+              <label className="flex flex-col gap-1 text-[11px] text-slate-500 sm:col-span-2">{T('Valor de arranque')}<input className={input} placeholder="0" inputMode="decimal" value={kpiForm.baseline} onChange={e => setKpiForm({ ...kpiForm, baseline: e.target.value })} /></label>
+              <label className="flex items-center gap-2 text-xs text-slate-600 sm:col-span-3"><input type="checkbox" checked={kpiForm.direction === 'down'} onChange={e => setKpiForm({ ...kpiForm, direction: e.target.checked ? 'down' : 'up' })} />{T('Bajar es bueno (costos, devoluciones)')}</label>
+              <input className={`${input} sm:col-span-3`} placeholder={T('Nota (ej.: Q4 2026)')} value={kpiForm.period} onChange={e => setKpiForm({ ...kpiForm, period: e.target.value })} aria-label={T('Nota')} />
             </form>
           )}
           {d.kpis.length === 0 ? <p className="text-sm text-slate-500">{T('Aquí van los números que quieras seguir: volumen, ventas, cuotas. Agrégalos tú o díselo a tu agente y él los mantiene al día.')}</p> : (
-            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))' }}>{d.kpis.map(k => { const pct = k.target ? Math.min(100, Math.max(0, (k.value / k.target) * 100)) : null; return (
-              <div key={k.id} className="rounded-2xl p-4" style={{ background: SOFT }}>
-                <div className="flex items-start justify-between gap-2"><p className="text-xs font-semibold text-slate-600">{k.name}{k.period ? ` · ${k.period}` : ''}</p><Spark points={k.history.map(h => h.value)} /></div>
-                <p className="text-2xl font-bold" style={{ color: NAVY }}>{fmt(k.value)} <span className="text-sm font-medium text-slate-500">{k.unit}</span></p>
-                {pct !== null && <><div className="mt-2 h-2.5 rounded-full bg-white"><div className="h-2.5 rounded-full" style={{ width: `${pct}%`, background: pct >= 100 ? '#2a9d8f' : BLUE }} /></div><p className="mt-1 text-xs text-slate-500">{Math.round(pct)} % {T('de la meta de')} {fmt(k.target as number)} {k.unit}</p></>}
-                <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-slate-500"><span>{k.updatedBy ? `${k.updatedBy} · ` : ''}{new Date(k.updatedAt).toLocaleDateString(_locale, { day: 'numeric', month: 'short' })}</span>
-                  {!d.brain.readOnly && <span className="flex gap-3"><button className="underline" onClick={() => setKpiForm({ open: true, id: k.id, name: k.name, value: '', unit: k.unit, target: k.target === null ? '' : String(k.target), period: k.period })}>{T('Actualizar')}</button><button className="underline" onClick={() => post('/api/agent/kpis', { action: 'delete', id: k.id }, T('Indicador borrado.'))}>{T('Borrar')}</button></span>}</div>
-              </div>); })}</div>)}
+            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>{d.kpis.map(k => (
+              <KpiCard key={k.id} k={k} today={d.today} readOnly={d.brain.readOnly} T={T} fmt={fmt} locale={_locale}
+                onEdit={() => setKpiForm({ open: true, id: k.id, name: k.name, value: '', unit: k.unit, target: k.target === null ? '' : String(k.target), period: k.period, startDate: k.startDate || '', endDate: k.endDate || '', baseline: k.baseline === undefined ? '' : String(k.baseline), direction: k.direction || 'up' })}
+                onDelete={() => post('/api/agent/kpis', { action: 'delete', id: k.id }, T('Indicador borrado.'))} />))}</div>)}
         </Card>
 
         <section className="grid gap-5 lg:grid-cols-3">

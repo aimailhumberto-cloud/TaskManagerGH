@@ -10,7 +10,7 @@ import { atomicWriteFile } from './vaultFiles';
 import { tr } from './reqLang';
 
 export interface KpiPoint { at: string; value: number; by?: string; note?: string }
-export interface Kpi { id: string; name: string; unit: string; value: number; target: number | null; period: string; updatedAt: string; updatedBy?: string; history: KpiPoint[] }
+export interface Kpi { id: string; name: string; unit: string; value: number; target: number | null; period: string; updatedAt: string; updatedBy?: string; history: KpiPoint[]; startDate?: string; endDate?: string; baseline?: number; direction?: 'up' | 'down' }
 export interface Place { name: string; lat: number; lon: number }
 export interface DashboardPrefs { home: Place | null; hq: Place | null }
 export class KpiError extends Error { constructor(message: string, public status = 400) { super(message); } }
@@ -25,7 +25,7 @@ const num = (v: unknown): number | null => { const n = typeof v === 'string' ? N
 export const listKpis = (vaultPath: string): Kpi[] => { const d = readJson<{ kpis?: Kpi[] }>(file(vaultPath, 'kpis.json'), {}); return Array.isArray(d.kpis) ? d.kpis : []; };
 
 /** Crea el indicador si no existe (por id o por nombre) o registra un valor nuevo. */
-export function setKpi(vaultPath: string, input: { id?: unknown; name?: unknown; value?: unknown; unit?: unknown; target?: unknown; period?: unknown; note?: unknown }, by?: string, now = new Date()): Kpi {
+export function setKpi(vaultPath: string, input: { id?: unknown; name?: unknown; value?: unknown; unit?: unknown; target?: unknown; period?: unknown; note?: unknown; startDate?: unknown; endDate?: unknown; baseline?: unknown; direction?: unknown }, by?: string, now = new Date()): Kpi {
   const kpis = listKpis(vaultPath);
   const name = typeof input.name === 'string' ? input.name.trim().slice(0, 80) : '';
   const id = typeof input.id === 'string' && input.id ? slug(input.id) : slug(name);
@@ -43,6 +43,15 @@ export function setKpi(vaultPath: string, input: { id?: unknown; name?: unknown;
   if (typeof input.unit === 'string') k.unit = input.unit.trim().slice(0, 16);
   if (typeof input.period === 'string') k.period = input.period.trim().slice(0, 40);
   if (input.target !== undefined) { if (input.target === null || input.target === '') k.target = null; else { const t = num(input.target); if (t === null) throw new KpiError(tr('La meta debe ser un número.', 'The target must be a number.')); k.target = t; } }
+  for (const f of ['startDate', 'endDate'] as const) {
+    const v = input[f]; if (v === undefined) continue;
+    if (v === null || v === '') { delete k[f]; continue; }
+    if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(Date.parse(v))) throw new KpiError(tr(`${f} debe ser AAAA-MM-DD.`, `${f} must be YYYY-MM-DD.`));
+    k[f] = v;
+  }
+  if (k.startDate && k.endDate && k.endDate < k.startDate) throw new KpiError(tr('La fecha de fin no puede ser anterior a la de inicio.', 'The end date cannot be earlier than the start date.'));
+  if (input.baseline !== undefined) { if (input.baseline === null || input.baseline === '') delete k.baseline; else { const b = num(input.baseline); if (b === null) throw new KpiError(tr('El valor de arranque debe ser un número.', 'The starting value must be a number.')); k.baseline = b; } }
+  if (input.direction !== undefined) { if (input.direction === 'up' || input.direction === 'down') k.direction = input.direction; else if (input.direction === null || input.direction === '') delete k.direction; else throw new KpiError(tr("El sentido debe ser 'up' (subir es bueno) o 'down' (bajar es bueno).", "direction must be 'up' (higher is better) or 'down' (lower is better).")); }
   if (value !== null) {
     k.value = value;
     k.history = [...k.history, { at: now.toISOString(), value, by, note: typeof input.note === 'string' ? input.note.slice(0, 200) : undefined }].slice(-MAX_HISTORY);
