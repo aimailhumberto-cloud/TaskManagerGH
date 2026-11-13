@@ -250,7 +250,7 @@ async function jevScore(state: string, id: string, instructions: string, anchors
 }
 async function judge(text: string, plan: string[]): Promise<number | null> {
   return jevScore(`PEDIDO:\n${text.slice(0, 4000)}\n\nPLAN PROPUESTO:\n${plan.map((p, i) => `${i + 1}. ${p}`).join('\n')}`, 'fiel',
-    'Qué tan fielmente el plan hace lo que pide el pedido: que cada operación responda a algo que el pedido dice, que no invente datos, fechas ni cifras, y que las fichas y personas elegidas sean las que el pedido nombra y no otras de nombre parecido.',
+    'Qué tan fielmente el plan recoge los HECHOS del pedido: que cada operación responda a algo que el pedido dice, que no invente datos, fechas ni cifras, y que las fichas elegidas sean las de las personas o empresas que el pedido nombra (un id como «person-jenna-hector» es la ficha de Jenna Hector) y no otras de nombre parecido. NO cuentes como falta las instrucciones generales del pedido («revisa lo existente», «evita duplicados», «muestra los cambios», «no envíes mensajes»): esas las cumple la aplicación. Anotar el mismo hecho también en la ficha de la empresa de esa persona es correcto. Resumir con otras palabras sin cambiar el sentido es correcto.',
     ['No corresponde al pedido, o usa otra persona o ficha', 'Corresponde en parte: falta algo o hay un dato dudoso', 'Corresponde, con algún detalle menor por revisar', 'Corresponde exactamente']);
 }
 /** Después de guardar: ¿lo nuevo contradice lo que la ficha ya decía? 1 = coherente, 0 = contradice. */
