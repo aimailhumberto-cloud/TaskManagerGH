@@ -47,6 +47,24 @@ Reglas: usa el expediente antes de redactar un correo o un resumen. Si algo apar
 
 ---
 
+## 0c. Hablar con «el Cerebro» en palabras (fase 3, 13 de noviembre de 2026)
+
+El cerebro ya tiene su propia inteligencia, «el Cerebro». En vez de armar cada escritura, un agente puede decirle qué pasó o preguntarle, en palabras.
+
+- **Pedir un cambio:** `POST /api/agent/cerebro` con `{"action":"pedir","text":"La reunión con MEDIMEX pasó al lunes 16 a las 3 pm; anótalo y crea tarea de enviar la propuesta el viernes."}`. El Cerebro arma el plan, la app lo revisa y responde con `status`:
+  - `aplicado` (200): hecho; trae `results`, `changeId` y `receipt` para deshacer.
+  - `pendiente` (202): quedó en «Por aprobar»; `why` dice por qué. Lo aprueba una persona en la app (Pedir → Por aprobar).
+  - `pregunta` (200): falta un dato; `message` trae la pregunta. Vuelve a enviar el pedido completo con el dato.
+  - `no_entendido` (422) o `fallo` (502): no se cambió nada; `message` dice por qué.
+- **Ensayar sin aplicar:** añade `"dryRun": true` y devuelve el plan.
+- **Consultar:** `GET /api/agent/cerebro?q=Busta en Canadá` → `answer` (respuesta corta) + `dossier` (el expediente completo de la sección 0b).
+- **Ver estado y bandeja:** `GET /api/agent/cerebro` → ajustes, consumo, `pending`, `recent` y `menu` (lo que el Cerebro sabe hacer).
+- **Siempre esperan a una persona:** borrar una ficha, marcarla verificada y cambiar quién la ve. También los pedidos grandes (más de 10 fichas tocadas o más de 5 creadas) y todo mientras el modo sea «proponer». Fusionar fichas todavía se hace a mano.
+- Un agente solo puede aprobar (`{"action":"aprobar","id":"ped-…"}`) si la persona lo permitió en Ajustes y la llave es de alcance «Escribir».
+- Pedidos largos (un archivo de correcciones, hasta 60 000 caracteres): envíalos igual en `text`; van a propuesta para que la persona revise el plan entero.
+- Usa `Idempotency-Key` en los pedidos para que un reintento no se aplique dos veces.
+- Las rutas directas de las secciones 0 y 0b siguen funcionando igual.
+
 ## 1. Principio Fundamental: El Cerebro en Markdown es la Única Fuente de Verdad (SSOT)
 
 A partir de esta actualización, **el Task Manager y el Segundo Cerebro operan como un solo sistema unificado**. 

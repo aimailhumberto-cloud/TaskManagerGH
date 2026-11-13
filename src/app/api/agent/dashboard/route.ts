@@ -21,6 +21,7 @@ const GUIDE = {
     'Qué cambió: GET /api/agent/changes?since=AAAA-MM-DD. Deshacer: POST /api/agent/changes {action:\'undo\', changeId}.',
     'Brief de la mañana: GET /api/agent/brief?since=AAAA-MM-DD — se arma solo con esos datos.',
     'Reescribir un archivo existente exige ifMatch (el hash de la lectura). Reintentos: encabezado Idempotency-Key.',
+    "Hablarle al Cerebro en palabras: POST /api/agent/cerebro {action:'pedir', text} hace cambios (o los deja por aprobar); GET /api/agent/cerebro?q= responde con contexto.",
     'Preguntar con contexto: GET /api/agent/dossier?q=Busta en Canadá — expediente con contactos, último contacto, próximos pasos, agenda, cifras, puede interesarte y lo que falta.',
     'Buscar: GET /api/agent/search?q=. Mapa liviano: GET /api/agent/map?catalog=0. Ficha con su entorno: GET /api/agent/brain?node=<id>&context=1.',
   ],
