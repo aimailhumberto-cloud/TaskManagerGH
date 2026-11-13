@@ -78,6 +78,11 @@ El cerebro ya tiene su propia inteligencia, «el Cerebro». En vez de armar cada
 - **Lo que tú o tu gente escribe se guarda tal cual, sin traducir.** Lo que escribe la app dentro de las fichas (título «Reunión con X: tema» / «Meeting with X: topic», líneas de la bitácora, notas del diario, encabezados «Bitácora» / «Log») sigue el **idioma de trabajo del cerebro**: ajuste `workLang` (`es` o `en`), que una persona cambia en Pedir → Ajustes. Si aún no se eligió, el cerebro toma el idioma de la pantalla de quien lo usa primero (un agente nunca lo fija).
 - **Los mensajes y errores de todas las rutas** (agenda, indicadores, compartir, deshacer, llaves, cuentas, login) también salen en los dos idiomas. Se elige así: encabezado `x-lang: en`, o `?lang=en` en la URL, o la cookie `cerebro_lang` de la pantalla. Sin nada, **español**, como siempre. Los nombres de los campos y las acciones (`action`, `date`, `nodeId`…) no se traducen.
 
+### Chat con el Cerebro (solo personas)
+- En **Pedir** hay un solo hilo por persona. Cada mensaje se reparte solo: pregunta → `consultar` (solo lee, respuesta de máximo 3 frases, con fuentes y «Más detalle»); pedido → `pedir` (plan, aprobación según la autonomía, deshacer); saludo → respuesta breve. Si el Cerebro hizo una pregunta, tu siguiente mensaje es la respuesta, salvo que claramente sea otra cosa.
+- API: `POST /api/agent/cerebro {action:'chat', text, mode?:'leer'}` (devuelve `added`, `intent`, `request`) y `{action:'chat_reset'}`; el hilo viaja en el `GET` (`chat`, `chatRequests`). Guarda los últimos 50 mensajes. **Un agente con llave recibe 403**: los agentes siguen usando `pedir` y `consultar`.
+- El chat no escribe por ningún camino propio: todo cambio pasa por el menú de operaciones, la revisión, el diario y el deshacer de siempre.
+
 ## 1. Principio Fundamental: El Cerebro en Markdown es la Única Fuente de Verdad (SSOT)
 
 A partir de esta actualización, **el Task Manager y el Segundo Cerebro operan como un solo sistema unificado**. 

@@ -7,6 +7,7 @@ import { llmConfigured, listModels, balance, chat, LlmError } from '@/lib/cerebr
 import { MENU } from '@/lib/cerebro/ops';
 import { listReview, closeReview } from '@/lib/cerebro/review';
 import { actorLabel } from '@/lib/actor';
+import { chatTurn, loadChat, resetChat, chatRequests } from '@/lib/cerebro/chat';
 import { configuredProvider } from '@/lib/decisionEngine';
 import { withLang, tr, tw, replyLang, asLang, detectLang, type Lang } from '@/lib/reqLang';
 export const dynamic = 'force-dynamic';
@@ -30,6 +31,7 @@ export const maxDuration = 300;
  * POST {action:'probar'}                        → prueba la conexión con el modelo
  */
 const isAgent = () => String(currentBrain()?.actor || '').startsWith('agente');
+const chatWho = () => String(currentBrain()?.actor || 'principal');
 const bad = (error: string, status = 400) => NextResponse.json({ ok: false, error }, { status });
 const SIZES = ['breve', 'normal', 'completo'] as const;
 const sizeOf = (v: unknown) => (SIZES.includes(v as any) ? v : 'normal') as (typeof SIZES)[number];
@@ -62,7 +64,7 @@ async function getInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, sp: U
   const all = listRequests(ctx.vaultPath);
   if (sp.get('id')) { const r = all.find(x => x.id === sp.get('id')); return r ? NextResponse.json({ ok: true, request: r }) : bad(tr('No existe ese pedido.', 'That request does not exist.'), 404); }
   return NextResponse.json({
-    ok: true, name: 'el Cerebro', lang: replyLang(), ready: llmConfigured(), jev: !!configuredProvider(), settings: loadSettings(ctx.vaultPath), usage: usageSummary(ctx.vaultPath),
+    ok: true, name: 'el Cerebro', lang: replyLang(), ...(isAgent() ? {} : (() => { const chatThread = loadChat(ctx.vaultPath, chatWho()); return { chat: chatThread, chatRequests: chatRequests(ctx.vaultPath, chatThread) }; })()), ready: llmConfigured(), jev: !!configuredProvider(), settings: loadSettings(ctx.vaultPath), usage: usageSummary(ctx.vaultPath),
     canApprove: canDecide().ok, pending: all.filter(r => r.status === 'pendiente'), review: listReview(ctx.vaultPath).filter(i => !i.closedAt).slice(0, 50), questions: all.filter(r => r.status === 'pregunta' && Date.now() - Date.parse(r.at) < 3 * 86400_000).slice(0, 10), recent: all.filter(r => r.status !== 'pendiente').slice(0, 20),
     menu: Object.entries(MENU).map(([name, d]) => ({ name, level: d.level, what: d.desc })),
     how: tr("POST {action:'pedir', text} para pedir un cambio en palabras; GET ?q= para consultar. Borrar, verificar y compartir siempre esperan a una persona.", "POST {action:'pedir', text} to ask for a change in words; GET ?q= to look something up. Deleting, verifying and sharing always wait for a person."),
@@ -73,12 +75,18 @@ async function _POST(req: NextRequest) {
   const ctx = currentBrain(); if (!ctx) return bad('Sin cerebro.', 401);
   const b = await req.json().catch(() => ({})); const action = String(b?.action || '');
   const known = ['responder', 'aprobar', 'rechazar'].includes(action) ? listRequests(ctx.vaultPath).find(x => x.id === String(b?.id || ''))?.lang : undefined;
-  const text = action === 'consultar' ? String(b?.q || b?.text || '') : ['pedir', 'leer', 'responder'].includes(action) ? String(b?.text || '') : '';
-  const { reply, work } = langsFor(ctx.vaultPath, { forced: b?.lang, ui: b?.uiLang, text: text.trim() || undefined, fallback: known, persist: ['pedir', 'leer', 'consultar', 'responder'].includes(action) });
+  const text = action === 'consultar' ? String(b?.q || b?.text || '') : ['pedir', 'leer', 'responder', 'chat'].includes(action) ? String(b?.text || '') : '';
+  const { reply, work } = langsFor(ctx.vaultPath, { forced: b?.lang, ui: b?.uiLang, text: text.trim() || undefined, fallback: known, persist: ['pedir', 'leer', 'consultar', 'responder', 'chat'].includes(action) });
   return withLang(reply, work, () => postInner(ctx, b, action));
 }
 async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: any, action: string) {
   if (action === 'consultar') { const q = String(b.q || b.text || '').trim(); if (!q) return bad(tr('Envía q.', 'Send q.')); const r = await consultar(q, sizeOf(b.size)); return NextResponse.json(r, { status: r.status }); }
+  if (action === 'chat' || action === 'chat_reset') {
+    if (isAgent()) return bad(tr('El chat es para personas; los agentes usan pedir y consultar.', 'The chat is for people; agents use pedir and consultar.'), 403);
+    if (action === 'chat_reset') { resetChat(ctx.vaultPath, chatWho()); return NextResponse.json({ ok: true }); }
+    const r = await chatTurn(ctx.vaultPath, chatWho(), String(b.text || ''), { mode: b.mode === 'leer' ? 'leer' : undefined, deep: b.deep === true });
+    return NextResponse.json({ ok: r.ok, error: r.error, intent: r.intent, added: r.added, request: r.request, next: r.request ? nextOf(r.request.status) : undefined }, { status: r.status });
+  }
   if (action === 'revisado') { const okk = closeReview(ctx.vaultPath, String(b.id || ''), isAgent() ? tw('Agente', 'Agent') : actorLabel(tw('Persona', 'Person'))); return okk ? NextResponse.json({ ok: true }) : bad(tr('No existe ese pendiente o ya está cerrado.', 'That item does not exist or is already closed.'), 404); }
   if (action === 'pedir' || action === 'leer') {
     const text = String(b.text || '').trim();
@@ -113,7 +121,7 @@ async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: a
     }
     return NextResponse.json({ ok: Object.values(out).every((o: any) => o.ok), test: out });
   }
-  return bad(tr("action debe ser 'pedir', 'leer', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.", "action must be 'pedir', 'leer', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' or 'probar'."));
+  return bad(tr("action debe ser 'pedir', 'leer', 'chat', 'chat_reset', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.", "action must be 'pedir', 'leer', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' or 'probar'."));
 }
 export const GET = withBrain(_GET);
 export const POST = withBrain(_POST);

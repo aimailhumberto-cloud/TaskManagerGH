@@ -6,7 +6,8 @@ import { useUiLang } from '@/lib/uiLang';
 type Req = { id: string; at: string; by: string; text: string; status: string; plan: string[]; why?: string; results?: string[]; message?: string; changeId?: string; model?: string; ms?: number; confidence?: number | null; decidedBy?: string; decidedVia?: string; decidedAt?: string; dialog?: { q: string; a?: string }[]; recognized?: { id: string; name: string; type: string; verification?: string; isNew?: boolean }[]; links?: { label: string; href: string }[]; summary?: string; kind?: string; obs?: { supuso: string[]; fuertes: string[]; avisos: string[]; falta: string[]; jev?: { fiel: number | null; coherente?: number | null } } };
 type Auto = { agenda: boolean; novedades: boolean; contactos: boolean; cifras: boolean };
 type Settings = { workLang?: 'es' | 'en'; workLangSet?: boolean; models: { rapido: string; grande: string }; mode: 'proponer' | 'auto' | 'mixto'; auto: Auto; bigTouch: number; bigCreate: number; agentCanApprove: boolean; threshold: number };
-type State = { ready: boolean; jev: boolean; settings: Settings; usage: { today: { calls: number; usd: number }; month: { calls: number; usd: number }; avgMs: number; unknownPrice: boolean }; canApprove: boolean; pending: Req[]; questions?: Req[]; review?: { id: string; kind: string; text: string; at: string }[]; recent: Req[] };
+type Msg = { id: string; at: string; role: 'user' | 'brain'; text: string; kind?: 'answer' | 'talk' | 'request' | 'error'; requestId?: string; sources?: string[]; lang?: string; model?: string };
+type State = { chat?: Msg[]; chatRequests?: Record<string, Req>; ready: boolean; jev: boolean; settings: Settings; usage: { today: { calls: number; usd: number }; month: { calls: number; usd: number }; avgMs: number; unknownPrice: boolean }; canApprove: boolean; pending: Req[]; questions?: Req[]; review?: { id: string; kind: string; text: string; at: string }[]; recent: Req[] };
 const card = 'rounded-2xl border border-[#dbe4f3] bg-white p-5 shadow-[0_12px_28px_-18px_rgba(11,31,77,0.22)]';
 const input = 'w-full rounded-xl border border-[#dbe4f3] bg-white px-3 py-2 text-sm outline-none focus:border-[#0a3fbf]';
 const btn = 'rounded-xl bg-[#0a3fbf] px-4 py-2 text-sm font-semibold text-white hover:bg-[#08318f] disabled:opacity-50';
@@ -19,12 +20,17 @@ export default function PedirPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [last, setLast] = useState<Req | null>(null);
-  const [answer, setAnswer] = useState<{ answer: string; writtenBy: string; sources: { title: string }[]; missing: string[] } | null>(null);
   const [models, setModels] = useState<string[] | null>(null);
   const [test, setTest] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [reply, setReply] = useState('');
   const [omit, setOmit] = useState<Record<string, number[]>>({});
+  const [pending, setPending] = useState<string | null>(null); // mensaje que se está enviando
+  const [readMode, setReadMode] = useState(false);
+  const [detail, setDetail] = useState<Record<string, string>>({});
+  const [listening, setListening] = useState(false);
+  const endRef = React.useRef<HTMLDivElement>(null);
+  const taRef = React.useRef<HTMLTextAreaElement>(null);
 
   const load = useCallback(async () => {
     const r = await fetch(`/api/agent/cerebro?uiLang=${lang}`, { cache: 'no-store' }); const d = await r.json().catch(() => ({}));
@@ -35,26 +41,37 @@ export default function PedirPage() {
     const r = await fetch('/api/agent/cerebro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uiLang: lang, ...(body as object) }) });
     return { r, d: await r.json().catch(() => ({})) };
   };
-  async function pedir(kind: 'pedir' | 'leer' = 'pedir') {
-    if (text.trim().length < 3) return;
-    setBusy(kind); setError(null); setAnswer(null); setLast(null);
-    const { d } = await post({ action: kind, text });
-    if (d?.id) { setLast(d); if (d.status === 'aplicado' || d.status === 'pendiente') setText(''); } else setError(d.error || L('No se pudo.', 'That did not work.'));
-    setBusy(null); load();
+  async function send() {
+    const t = text.trim(); if (t.length < 2 || pending) return;
+    setPending(t); setText(''); setError(null);
+    const { r, d } = await post({ action: 'chat', text: t, ...(readMode ? { mode: 'leer' } : {}) });
+    if (!r.ok && !d.added) { setError(d.error || L('No se pudo.', 'That did not work.')); setText(t); }
+    if (readMode) setReadMode(false);
+    setPending(null); await load();
   }
+  async function newThread() { if (!confirm(L('¿Empezar un hilo nuevo? El anterior se borra de esta pantalla (los cambios hechos siguen en el diario).', 'Start a new thread? The old one is cleared from this screen (changes made stay in the journal).'))) return; await post({ action: 'chat_reset' }); setDetail({}); load(); }
+  async function moreDetail(m: Msg, q: string) {
+    setBusy('detail' + m.id);
+    const { r, d } = await post({ action: 'consultar', q, size: 'completo' });
+    if (r.ok) setDetail(x => ({ ...x, [m.id]: d.answer })); else setError(d.error || L('No encontré más.', 'I found nothing more.'));
+    setBusy(null);
+  }
+  function dictate() {
+    const SR = typeof window !== 'undefined' ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition : null;
+    if (!SR) { setError(L('Tu navegador no dicta. En el celular usa el micrófono del teclado.', 'Your browser cannot dictate. On your phone use the keyboard microphone.')); return; }
+    const rec = new SR(); rec.lang = lang === 'en' ? 'en-US' : 'es-PA'; rec.interimResults = false; rec.continuous = false;
+    rec.onresult = (e: any) => { const tr = Array.from(e.results).map((x: any) => x[0]?.transcript || '').join(' ').trim(); if (tr) setText(p => (p ? `${p} ${tr}` : tr)); };
+    rec.onend = () => setListening(false); rec.onerror = () => setListening(false);
+    setListening(true); rec.start();
+  }
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [st?.chat?.length, pending]);
+  useEffect(() => { const el = taRef.current; if (el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 140) + 'px'; } }, [text]);
   async function responder(id: string) {
     if (!reply.trim()) return;
     setBusy('responder'); setError(null);
     const { d } = await post({ action: 'responder', id, text: reply });
     if (d?.id) { setLast(d); setReply(''); if (d.status === 'aplicado' || d.status === 'pendiente') setText(''); } else setError(d.error || L('No se pudo.', 'That did not work.'));
     setBusy(null); load();
-  }
-  async function preguntar() {
-    if (text.trim().length < 3) return;
-    setBusy('preguntar'); setError(null); setAnswer(null); setLast(null);
-    const { r, d } = await post({ action: 'consultar', q: text });
-    if (r.ok) setAnswer({ answer: d.answer, writtenBy: d.writtenBy, sources: (d.dossier?.sources || []).slice(0, 6), missing: d.dossier?.missing || [] }); else setError(d.error || L('No encontré eso en el cerebro.', 'I could not find that in the brain.'));
-    setBusy(null);
   }
   async function decide(id: string, action: 'aprobar' | 'rechazar') {
     setBusy(id); setError(null);
@@ -132,31 +149,62 @@ export default function PedirPage() {
   return (
     <div className="min-h-full bg-[#f2f6fd] text-[#0b1f4d]" style={{ fontFamily: 'Poppins, system-ui, sans-serif' }}>
       <div className="mx-auto max-w-3xl space-y-5 p-4 sm:p-6">
-        <PageHero title={L('Dile al cerebro', 'Tell the brain')} subtitle={L('Pide un cambio o haz una pregunta, con tus palabras.', 'Ask for a change or a question, in your own words.')} />
-        {st && !st.ready && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{L('El Cerebro aún no tiene modelo conectado (falta la llave de Ollama en Render). Mientras tanto, «Solo preguntar» responde con los datos del cerebro.', 'The brain has no model connected yet (Ollama key missing in Render). Meanwhile, “Just ask” answers from the brain data.')}</p>}
-        <div className={card}>
-          <textarea className={`${input} min-h-[110px]`} value={text} onChange={e => setText(e.target.value)} maxLength={60000}
-            placeholder={L('Ej.: «La reunión con MEDIMEX pasó al lunes 16 a las 3 pm; anótalo y crea tarea de enviar la propuesta el viernes.»', 'E.g.: “The MEDIMEX meeting moved to Monday 16 at 3 pm; note it and add a task to send the proposal on Friday.”')} />
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button className={btn} disabled={!!busy || !st?.ready} onClick={() => pedir('pedir')}>{busy === 'pedir' ? L('Pensando…', 'Thinking…') : L('Pedir un cambio', 'Make a change')}</button>
-            <button className={ghost} disabled={!!busy || !st?.ready} onClick={() => pedir('leer')}>{busy === 'leer' ? L('Leyendo…', 'Reading…') : L('Leer y extraer', 'Read and extract')}</button>
-            <button className={ghost} disabled={!!busy} onClick={preguntar}>{busy === 'preguntar' ? L('Buscando…', 'Searching…') : L('Solo preguntar', 'Just ask')}</button>
-          </div>
-          <div className="mt-3 space-y-0.5 text-xs text-slate-500">
-            <p><span className="font-semibold text-[#0a3fbf]">{L('Pedir un cambio', 'Make a change')}:</span> {L('anota, agenda, crea tareas o fichas. ', 'notes, schedules, creates tasks or notes. ')}{s?.mode === 'auto' ? L('Se aplica solo; lo grande y lo delicado espera tu aprobación.', 'Applies on its own; big or sensitive things wait for you.') : s?.mode === 'proponer' ? L('Nada cambia hasta que apruebes.', 'Nothing changes until you approve.') : L('Lo que marcaste como automático en Ajustes se aplica solo; el resto espera tu aprobación.', 'What you set as automatic in Settings applies on its own; the rest waits for you.')}</p>
-            <p><span className="font-semibold text-[#0a3fbf]">{L('Leer y extraer', 'Read and extract')}:</span> {L('pega un correo o una nota; saca personas, fechas, compromisos y cifras, y te muestra el resumen.', 'paste an email or note; it pulls people, dates, commitments and figures and shows you the summary.')}</p>
-            <p><span className="font-semibold text-[#0a3fbf]">{L('Solo preguntar', 'Just ask')}:</span> {L('consulta lo que el cerebro sabe. No cambia nada.', 'looks up what the brain knows. Changes nothing.')}</p>
-          </div>
-        </div>
+        <PageHero title={L('Habla con el Cerebro', 'Chat with the Brain')} subtitle={L('Pregunta o pide cambios en una sola conversación. Responde corto.', 'Ask or request changes in a single conversation. Short answers.')} />
+        {st && !st.ready && <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{L('El Cerebro aún no tiene modelo conectado (falta la llave de Ollama en Render). Mientras tanto responde con los datos del cerebro, sin redactar.', 'The brain has no model connected yet (Ollama key missing in Render). Meanwhile it answers from the brain data, unwritten.')}</p>}
         {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         {test && <p className="rounded-xl bg-[#eef3fb] p-3 text-sm text-[#0b1f4d]">{test}</p>}
-        {answer && (
-          <div className={card}>
-            <p className="whitespace-pre-wrap text-sm leading-relaxed">{answer.answer}</p>
-            {answer.missing.length > 0 && <p className="mt-3 text-xs text-amber-700">{L('Lo que falta:', 'Missing:')} {answer.missing.slice(0, 4).join(' · ')}</p>}
-            <p className="mt-3 text-xs text-slate-500">{L('Fuentes:', 'Sources:')} {answer.sources.map(x => x.title).join(' · ')} · {answer.writtenBy === 'app' ? L('respuesta directa del cerebro', 'direct answer from the brain') : `${L('redactó', 'written by')} ${answer.writtenBy}`}</p>
+        <div className="flex flex-col rounded-2xl border border-[#dbe4f3] bg-white shadow-[0_12px_28px_-18px_rgba(11,31,77,0.22)]">
+          <div className="flex items-center justify-between border-b border-[#eef3fb] px-4 py-2 text-xs text-slate-500">
+            <span>{s?.mode === 'auto' ? L('Lo simple se aplica solo; lo grande y lo delicado espera tu aprobación.', 'Simple things apply on their own; big or sensitive ones wait for your approval.') : s?.mode === 'proponer' ? L('Nada cambia hasta que apruebes.', 'Nothing changes until you approve.') : L('Lo que marcaste como automático se aplica solo; el resto espera tu aprobación.', 'What you set as automatic applies on its own; the rest waits for your approval.')}</span>
+            {!!st?.chat?.length && <button className="font-semibold text-[#0a3fbf] underline underline-offset-2" onClick={newThread}>{L('Nuevo hilo', 'New thread')}</button>}
           </div>
-        )}
+          <div className="max-h-[min(58vh,calc(100dvh_-_470px))] min-h-[200px] space-y-3 overflow-y-auto px-4 py-4" aria-live="polite">
+            {st && !st.chat?.length && !pending && (
+              <div className="space-y-2 py-6 text-center text-sm text-slate-500">
+                <p className="text-base font-semibold text-[#0b1f4d]">{L('¿En qué te ayudo?', 'How can I help?')}</p>
+                <p>{L('Pregunta lo que el cerebro sabe o pide un cambio, con tus palabras.', 'Ask what the brain knows or request a change, in your own words.')}</p>
+                <div className="flex flex-wrap justify-center gap-2 pt-1">{[L('¿Qué sabemos de MEDIMEX?', 'What do we know about MEDIMEX?'), L('Agenda una reunión con Richard mañana a las 8', 'Schedule a meeting with Richard tomorrow at 8'), L('¿Qué tengo para hoy?', 'What do I have for today?')].map(x => <button key={x} className="rounded-full border border-[#dbe4f3] px-3 py-1.5 text-xs font-medium text-[#0a3fbf] hover:bg-[#eef3fb]" onClick={() => { setText(x); taRef.current?.focus(); }}>{x}</button>)}</div>
+              </div>)}
+            {(st?.chat || []).map((m, i, all) => {
+              const r = m.requestId ? st?.chatRequests?.[m.requestId] : undefined;
+              if (m.role === 'user') return <div key={m.id} className="flex justify-end"><p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-[#0a3fbf] px-3.5 py-2 text-sm text-white">{m.text.length > 600 ? m.text.slice(0, 600) + '…' : m.text}</p></div>;
+              const q = [...all.slice(0, i)].reverse().find(x => x.role === 'user')?.text || '';
+              return (
+                <div key={m.id} className="flex justify-start"><div className="max-w-[92%] rounded-2xl rounded-bl-md bg-[#eef3fb] px-3.5 py-2.5 text-sm">
+                  {m.kind === 'error' ? <p className="text-rose-700">{m.text}</p> : (
+                    <>
+                      {r && <div className="mb-1"><Badge s={r.status} /></div>}
+                      {m.text && !(r?.status === 'aplicado' && m.text.length < 10) && <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>}
+                      {r?.why && r.status === 'pendiente' && <p className="mt-1 text-xs text-amber-700">{r.why}</p>}
+                      {r && r.plan?.length > 0 && r.status !== 'pregunta' && <Plan r={r} />}
+                      {r && <Actions r={r} />}
+                      {m.kind === 'answer' && (<>
+                        {!!m.sources?.length && <p className="mt-2 text-[11px] text-slate-500">{L('Fuentes:', 'Sources:')} {m.sources.join(' · ')}</p>}
+                        {detail[m.id] ? <p className="mt-2 whitespace-pre-wrap border-t border-white pt-2 text-[13px] leading-relaxed">{detail[m.id]}</p> : <button className="mt-2 text-xs font-semibold text-[#0a3fbf] underline underline-offset-2" disabled={!!busy} onClick={() => moreDetail(m, q)}>{busy === 'detail' + m.id ? L('Buscando…', 'Searching…') : L('Más detalle', 'More detail')}</button>}
+                      </>)}
+                    </>)}
+                </div></div>);
+            })}
+            {pending && (<>
+              <div className="flex justify-end"><p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-[#0a3fbf]/80 px-3.5 py-2 text-sm text-white">{pending.length > 600 ? pending.slice(0, 600) + '…' : pending}</p></div>
+              <div className="flex justify-start"><p className="rounded-2xl rounded-bl-md bg-[#eef3fb] px-3.5 py-2 text-sm text-slate-500">{L('Pensando…', 'Thinking…')}</p></div>
+            </>)}
+            <div ref={endRef} />
+          </div>
+          <form className="border-t border-[#eef3fb] p-3" onSubmit={e => { e.preventDefault(); send(); }}>
+            <div className="flex items-end gap-2">
+              <textarea ref={taRef} rows={1} className={`${input} max-h-[140px] resize-none`} value={text} maxLength={60000} disabled={!!pending}
+                onChange={e => setText(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(); } }}
+                placeholder={readMode ? L('Pega aquí el correo o la nota…', 'Paste the email or note here…') : L('Escribe o dicta: una pregunta o un cambio…', 'Type or dictate: a question or a change…')} aria-label={L('Mensaje para el Cerebro', 'Message for the Brain')} />
+              <button type="button" onClick={dictate} aria-label={L('Dictar', 'Dictate')} className={`${ghost} px-3 ${listening ? 'animate-pulse !border-rose-300 !text-rose-600' : ''}`}>🎤</button>
+              <button className={btn} disabled={!!pending || text.trim().length < 2}>{L('Enviar', 'Send')}</button>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              <button type="button" aria-pressed={readMode} onClick={() => setReadMode(v => !v)} className={`rounded-full border px-3 py-1 font-semibold ${readMode ? 'border-[#0a3fbf] bg-[#0a3fbf] text-white' : 'border-[#dbe4f3] text-[#0a3fbf] hover:bg-[#eef3fb]'}`}>{L('Leer correo o nota', 'Read an email or note')}</button>
+              <span className="text-slate-400">{readMode ? L('Saca personas, fechas, compromisos y cifras del texto pegado.', 'Pulls people, dates, commitments and figures from the pasted text.') : L('Enter envía · Shift+Enter, línea nueva', 'Enter sends · Shift+Enter, new line')}</span>
+            </div>
+          </form>
+        </div>
         {last && (
           <div className={card}>
             <div className="flex items-center gap-2"><Badge s={last.status} />{last.ms ? <span className="text-xs text-slate-500">{(last.ms / 1000).toFixed(1)} s · {last.model}</span> : null}</div>
@@ -166,17 +214,18 @@ export default function PedirPage() {
             <Actions r={last} />
           </div>
         )}
-        {!!st?.questions?.filter(q => q.id !== last?.id).length && (
+        {!!st?.questions?.filter(q => q.id !== last?.id && !st.chatRequests?.[q.id]).length && (
           <div className={card}>
             <h2 className="text-base font-semibold">{L('El Cerebro espera tu respuesta', 'The brain is waiting for your answer')}</h2>
             <div className="mt-2 divide-y divide-[#eef3fb]">
-              {st.questions.filter(q => q.id !== last?.id).map(r => (
+              {st.questions.filter(q => q.id !== last?.id && !st.chatRequests?.[q.id]).map(r => (
                 <div key={r.id} className="flex items-start justify-between gap-3 py-2 text-sm">
                   <div className="min-w-0"><p className="text-xs text-slate-500">«{r.text.length > 90 ? r.text.slice(0, 90) + '…' : r.text}» · {r.by}</p><p className="mt-0.5">{r.message}</p></div>
                   <button className={ghost} onClick={() => { setLast(r); setReply(''); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>{L('Responder', 'Reply')}</button>
                 </div>))}
             </div>
           </div>)}
+        <h2 className="px-1 pt-2 text-sm font-semibold uppercase tracking-wide text-slate-500">{L('Acciones y ajustes', 'Actions and settings')}</h2>
         <div className={card}>
           <h2 className="text-base font-semibold">{L('Por aprobar', 'To approve')} {st?.pending.length ? <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">{st.pending.length}</span> : null}</h2>
           {st && st.pending.length === 0 && <p className="mt-2 text-sm text-slate-500">{L('Nada pendiente.', 'Nothing pending.')}</p>}
