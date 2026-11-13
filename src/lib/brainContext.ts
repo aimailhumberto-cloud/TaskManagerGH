@@ -8,7 +8,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 
 export interface BrainCtx { brainId: string; vaultPath: string; primary: boolean; actor?: string; via?: string;
   /** Alcance cuando entra un agente con llave: 'leer' | 'proponer' | 'escribir'. Personas y la llave histórica: sin límite. */
-  scope?: 'leer' | 'proponer' | 'escribir';
+  scope?: 'leer' | 'cerebro' | 'proponer' | 'escribir';
   /** Cerebro propio de quien pide (distinto de brainId cuando mira el de la compañía o, como administrador, el de otro). */
   ownBrainId?: string;
   /** Rol de la cuenta que pide (cuando es una cuenta propia). */

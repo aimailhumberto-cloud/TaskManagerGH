@@ -16,8 +16,8 @@ const luis = createAccount({ email: 'luis@t.co', name: 'Luis', role: 'Miembro', 
 const H = (o: Record<string, string> = {}) => ({ get: (n: string) => o[n.toLowerCase()] ?? null });
 const res = (headers: Record<string, string>) => B.resolveBrain({ headers: H(headers), path: '/api/agent/brain', method: 'GET' });
 
-throws('nombre corto', () => K.createKey(ana.id, 'x', 'leer')); throws('alcance malo', () => K.createKey(ana.id, 'Agente', 'admin'));
-const a = K.createKey(ana.id, 'Agente de Ana', 'proponer'), l = K.createKey(luis.id, 'Agente de Luis', 'escribir'), h = K.createKey(hb.id, 'DOTS', 'leer');
+throws('nombre corto', () => K.createKey(ana.id, 'x', 'leer')); throws('alcance malo', () => K.createKey(ana.id, 'Agente', 'admin')); throws('alcance antiguo ya no se crea', () => K.createKey(ana.id, 'Agente', 'escribir'));
+const a = K.createKey(ana.id, 'Agente de Ana', 'cerebro'), l = K.createKey(luis.id, 'Agente de Luis', 'cerebro'), h = K.createKey(hb.id, 'DOTS', 'leer');
 eq('formato', /^tmk_[0-9a-f]{8}_[0-9a-f]{64}$/.test(a.key), true);
 const raw = fs.readFileSync(process.env.AGENT_KEYS_FILE!, 'utf8');
 eq('no guarda la llave', raw.includes(a.key) || raw.includes(a.key.split('_')[2]), false);
@@ -29,8 +29,8 @@ eq('id de otro con secreto propio', K.verifyKey(`tmk_${l.record.id}_${a.key.spli
 eq('basura', [K.verifyKey('tmk_'), K.verifyKey('tmk_zzzz_zz'), K.verifyKey('otra-cosa'), K.verifyKey('tmk_' + 'a'.repeat(500))], [null, null, null, null]);
 
 const ra = res({ 'x-agent-key': a.key }), rl = res({ authorization: `Bearer ${l.key}` }), rh = res({ 'x-agent-key': h.key });
-eq('Ana → su cerebro', ra.ok && [ra.ctx.brainId, ra.ctx.scope, ra.ctx.primary], [ana.id, 'proponer', false]);
-eq('Luis → su cerebro', rl.ok && [rl.ctx.brainId, rl.ctx.scope], [luis.id, 'escribir']);
+eq('Ana → su cerebro', ra.ok && [ra.ctx.brainId, ra.ctx.scope, ra.ctx.primary], [ana.id, 'cerebro', false]);
+eq('Luis → su cerebro', rl.ok && [rl.ctx.brainId, rl.ctx.scope], [luis.id, 'cerebro']);
 eq('HB → principal con alcance', rh.ok && [rh.ctx.brainId, rh.ctx.scope, rh.ctx.primary], ['hb', 'leer', true]);
 eq('rutas distintas', ra.ok && rl.ok && ra.ctx.vaultPath !== rl.ctx.vaultPath, true);
 const hist = res({ 'x-agent-key': 'llave-historica-de-prueba' });

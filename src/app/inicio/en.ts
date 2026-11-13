@@ -1,5 +1,7 @@
 /** Textos del tablero en inglés. La clave es el texto en español; si falta, se muestra el español. */
 export const EN: Record<string, string> = {
+  "Mi agente intentó escribir sin pasar por el Cerebro. Lo que se repita es lo que le falta al Cerebro:": "My agent tried to write without going through the Brain. Whatever repeats is what the Brain is missing:",
+  "intentos directos bloqueados (7 días)": "direct attempts blocked (7 days)",
   "Nota": "Note",
   "Nota (ej.: Q4 2026)": "Note (e.g. Q4 2026)",
   "Bajar es bueno (costos, devoluciones)": "Lower is better (costs, returns)",

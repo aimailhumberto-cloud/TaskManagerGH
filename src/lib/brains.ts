@@ -16,6 +16,7 @@ import { getAccount, isLocalId, listAccounts, TOP_ROLES, type PublicAccount } fr
 import { serviceKeyMatches, loginRequiredFrom } from './loginGate';
 import { looksLikeAgentKey, presentedKey, verifyKey } from './agentKeys';
 import { withLang, langFromRequest, tr } from './reqLang';
+import { agentMayWrite, legacyWriteMode, AGENT_ALLOWED, ASK_HINT } from './agentGate';
 
 export const PRIMARY_BRAIN_ID = 'hb';
 export const BRAIN_VIEW_COOKIE = 'brain_view';
@@ -152,6 +153,12 @@ async function withBrainInner(handler: Handler, req: NextRequest, rest: any[]): 
     if (writing) { try { body = await req.clone().json(); } catch {} }
     const action = typeof body?.action === 'string' ? body.action.slice(0, 40) : undefined;
     r.ctx.role = r.role;
+    // Regla de los agentes: leer todo, escribir solo pidiéndoselo al Cerebro (pedir y consultar).
+    if (byAgent && !legacyWriteMode() && !agentMayWrite(req.nextUrl.pathname, action)) {
+      const { logActivity } = await import('./autonomy');
+      logActivity(r.ctx.vaultPath, { actor: r.ctx.actor || 'agente', via: r.ctx.via, path: req.nextUrl.pathname, action, status: 403, blocked: true });
+      return NextResponse.json({ ok: false, blocked: true, error: tr('Las llaves de agente solo pueden pedir y consultar al Cerebro; él es quien escribe en las fichas.', 'Agent keys can only ask and consult the Brain; the Brain is the one that writes to the notes.'), how: ASK_HINT, allowed: AGENT_ALLOWED }, { status: 403 });
+    }
     // Reintentos: la misma petición (misma clave) no se aplica dos veces; se devuelve la respuesta guardada.
     const idemKey = writing ? String(req.headers.get('idempotency-key') || req.headers.get('x-request-id') || (typeof body?.requestId === 'string' ? body.requestId : '')).slice(0, 120) : '';
     const { idemGet, idemSave } = await import('./idempotency');

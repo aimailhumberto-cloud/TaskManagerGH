@@ -314,7 +314,7 @@ export function canDecide(): { ok: boolean; error?: string } {
   const c = currentBrain();
   if (c?.readOnly) return { ok: false, error: tr('Tu perfil es de solo consulta.', 'Your profile is read-only.') };
   if (!isAgent()) return { ok: true };
-  if (c?.scope && c.scope !== 'escribir') return { ok: false, error: tr('Esta llave no puede aprobar.', 'This key cannot approve.') };
+  if (c?.scope && c.scope !== 'escribir' && c.scope !== 'cerebro') return { ok: false, error: tr('Esta llave no puede aprobar.', 'This key cannot approve.') };
   if (!loadSettings(getVaultPath()).agentCanApprove) return { ok: false, error: tr('Las propuestas del Cerebro las aprueba una persona en la app. (Se puede permitir a los agentes en Ajustes.)', 'Proposals from the Brain are approved by a person in the app. (Agents can be allowed in Settings.)') };
   return { ok: true };
 }

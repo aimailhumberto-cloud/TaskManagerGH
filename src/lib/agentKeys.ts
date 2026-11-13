@@ -1,8 +1,8 @@
 /**
  * Llaves por agente. Cada llave pertenece a una cuenta, abre SOLO el cerebro de esa cuenta y tiene un alcance:
  *   leer      → solo consultar.
- *   proponer  → consultar, capturar notas y tareas, posponer o rechazar propuestas. No aprueba ni sincroniza la bóveda.
- *   escribir  → todo lo anterior más aprobar/deshacer y sincronizar la bóveda.
+ *   cerebro   → leer todo, y escribir SOLO pidiéndoselo al Cerebro (pedir, consultar, leer, responder; aprobar si la persona lo permite).
+ *   (proponer y escribir existen en llaves antiguas; todas las llaves de agente siguen la regla de pedir y consultar.)
  * Se guarda solo el hash; la llave se muestra una única vez al crearla.
  */
 import * as crypto from 'crypto';
@@ -10,8 +10,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { tr } from './reqLang';
 
-export const SCOPES = ['leer', 'proponer', 'escribir'] as const;
-export type Scope = (typeof SCOPES)[number];
+/** Alcances que se pueden crear hoy. «proponer» y «escribir» quedan solo para llaves viejas: ninguna llave escribe directo. */
+export const SCOPES = ['leer', 'cerebro'] as const;
+export type Scope = (typeof SCOPES)[number] | 'proponer' | 'escribir';
 export const KEY_PREFIX = 'tmk_';
 export const MAX_KEYS_PER_ACCOUNT = 5;
 

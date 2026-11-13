@@ -22,7 +22,7 @@ type D = {
   brain: { id: string; viewingOther: boolean; viewingName: string; readOnly: boolean; isEmpty: boolean };
   counts: { overdue: number; today: number; open: number; completed: number };
   tasksToday: Tk[]; agenda: Tk[];
-  log: { autonomy: string | null; applied: { id: string; title?: string; by?: string; at: string }[]; activity: { at: string; actor: string; action?: string; path: string }[]; pending: number };
+  log: { autonomy: string | null; applied: { id: string; title?: string; by?: string; at: string }[]; activity: { at: string; actor: string; action?: string; path: string }[]; blocked?: { count: number; byDoor: { door: string; count: number }[] }; pending: number };
   health: { nodes: number; links: number; brokenLinks: number; isolated: number; working: number };
   shared: { withMe: { title: string; owner: string; type: string }[]; companyExists: boolean };
   charts: { types: NV[]; countries: NV[]; verification: { verified: number; pending: number; other: number }; quality: number | null; scored: number; week: { date: string; count: number }[]; brands: { name: string; slug: string; count: number }[]; tasks: { overdue: number; today: number; later: number; undated: number } };
@@ -342,6 +342,9 @@ export default function InicioPage() {
               {groupActivity(d.log.activity).map((e, i) => (<li key={i} className="flex items-center gap-3 rounded-2xl px-3 py-2.5" style={{ border: '1px solid #eef2f9' }}>
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: '#e8f1ff' }}><Icon name="users" size={14} /></span>
                 <span className="min-w-0 flex-1 text-sm text-slate-800">{T('Mi agente')} {e.text}{e.n > 1 && <span className="ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold" style={{ background: '#e8f1ff', color: BLUE }}>×{e.n}</span>}<span className="block text-xs text-slate-500">{ago(e.at)}</span></span></li>))}
+              {!!d.log.blocked?.count && <li className="rounded-2xl px-3 py-2.5 text-sm" style={{ background: '#fff7e6', color: '#92400e', border: '1px solid #fde3b0' }}>
+                <p className="font-semibold">{d.log.blocked.count} {T('intentos directos bloqueados (7 días)')}</p>
+                <p className="text-xs">{T('Mi agente intentó escribir sin pasar por el Cerebro. Lo que se repita es lo que le falta al Cerebro:')} {d.log.blocked.byDoor.slice(0, 4).map(x => `${x.door} ×${x.count}`).join(' · ')}</p></li>}
               {d.log.pending > 0 && <li><Link href="/cerebro" className="flex items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium" style={{ background: '#fff7e6', color: '#92400e', border: '1px solid #fde3b0' }}><span>{d.log.pending} {d.log.pending === 1 ? T('propuesta espera tu criterio') : T('propuestas esperan tu criterio')}</span><span aria-hidden>→</span></Link></li>}
             </ul>
           </Card>

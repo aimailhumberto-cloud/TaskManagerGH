@@ -1,5 +1,9 @@
 /** Textos en inglés de Usuarios, Mi agente, Compañía, Cambiar clave y Login. La clave es el texto en español. */
 export const PAGES_EN: Record<string, string> = {
+  "Escribir (llave antigua): solo pide y consulta.": "Write (old key): only asks and consults.",
+  "Proponer (llave antigua): solo pide y consulta.": "Propose (old key): only asks and consults.",
+  "Pedir y consultar: lee todo y, para cambiar algo, se lo pide al Cerebro en palabras. El Cerebro es quien escribe; cada cambio queda en el diario con deshacer.": "Ask and consult: reads everything and, to change something, asks the Brain in words. The Brain is the one that writes; every change goes in the journal with undo.",
+  "Pedir y consultar": "Ask and consult",
   "Usuarios y perfiles": "Users and profiles",
   "Crea cuentas, cambia roles, desactiva accesos y restablece contraseñas. Las contraseñas nunca se guardan en claro. Para dejarle una tarea a alguien, usa ": "Create accounts, change roles, turn access off and reset passwords. Passwords are never stored in plain text. To leave someone a task, use ",
   "Asignar tarea": "Assign task",

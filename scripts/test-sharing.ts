@@ -45,7 +45,7 @@ B.ensureBrain(B.COMPANY_BRAIN_ID, 'la compañía');
 eq('Ana compañía solo lectura', [res(ana, 'compania').ctx.brainId, res(ana, 'compania').ctx.readOnly, res(ana, 'compania').ctx.ownBrainId], ['compania', true, ana.id]);
 eq('HB compañía edita', [res(hb, 'compania').ctx.brainId, res(hb, 'compania').ctx.readOnly], ['compania', false]);
 eq('compañía no es principal', res(hb, 'compania').ctx.primary, false);
-const k = createKey(ana.id, 'Agente', 'escribir');
+const k = createKey(ana.id, 'Agente', 'cerebro');
 const viaKey = B.resolveBrain({ headers: H({ 'x-agent-key': k.key, 'x-brain': 'compania' }), path: '/x', method: 'GET' }) as any;
 eq('agente compañía siempre solo lectura', [viaKey.ctx.brainId, viaKey.ctx.readOnly], ['compania', true]);
 eq('agente x-brain ajeno ignorado', (B.resolveBrain({ headers: H({ 'x-agent-key': k.key, 'x-brain': 'hb' }), path: '/x', method: 'GET' }) as any).ctx.brainId, ana.id);

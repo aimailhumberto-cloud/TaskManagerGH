@@ -48,12 +48,21 @@ export function autoApply(vaultPath: string, proposals: { id: string; kind: stri
 
 // ---------- Registro de actividad de agentes (quién escribió qué, sin contenido) ----------
 const activityFile = (vaultPath: string) => path.join(getSleepDir(vaultPath), 'activity.jsonl');
-export function logActivity(vaultPath: string, e: { actor: string; via?: string; path: string; action?: string; status: number }) {
+export function logActivity(vaultPath: string, e: { actor: string; via?: string; path: string; action?: string; status: number; blocked?: boolean }) {
   try { fs.mkdirSync(getSleepDir(vaultPath), { recursive: true }); fs.appendFileSync(activityFile(vaultPath), JSON.stringify({ at: new Date().toISOString(), ...e }) + '\n'); } catch {}
 }
 export function recentActivity(vaultPath: string, limit = 30): Record<string, unknown>[] {
   try {
     const lines = fs.readFileSync(activityFile(vaultPath), 'utf8').trim().split('\n');
-    return lines.slice(-limit).reverse().map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean) as Record<string, unknown>[];
+    return lines.map(l => { try { return JSON.parse(l); } catch { return null; } }).filter((e: any) => e && !e.blocked).slice(-limit).reverse() as Record<string, unknown>[];
   } catch { return []; }
+}
+
+/** Intentos de escribir por la puerta directa que la regla de pedir y consultar frenó (para ver qué le falta al Cerebro). */
+export function blockedAttempts(vaultPath: string, days = 7, now = Date.now()): { count: number; recent: Record<string, unknown>[]; byDoor: { door: string; count: number }[] } {
+  let all: Record<string, any>[] = [];
+  try { all = fs.readFileSync(activityFile(vaultPath), 'utf8').trim().split('\n').map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); } catch { /* sin registro */ }
+  const hits = all.filter(e => e.blocked && now - Date.parse(e.at) <= days * 86400000);
+  const by = new Map<string, number>(); for (const e of hits) { const d = `${String(e.path).replace('/api/agent/', '')}${e.action ? ' · ' + e.action : ''}`; by.set(d, (by.get(d) || 0) + 1); }
+  return { count: hits.length, recent: hits.slice(-8).reverse(), byDoor: [...by].map(([door, count]) => ({ door, count })).sort((a, b) => b.count - a.count).slice(0, 8) };
 }

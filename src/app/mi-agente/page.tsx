@@ -6,17 +6,18 @@ import { usePagesT } from '@/lib/pagesI18n';
 type K = { id: string; name: string; scope: string; hint: string; createdAt: string; lastUsedAt?: string; revokedAt?: string };
 const SCOPE_TEXT: Record<string, string> = {
   leer: 'Leer: solo consulta tu cerebro.',
-  proponer: 'Proponer: consulta, captura notas y tareas, pospone o rechaza propuestas. No aprueba.',
-  escribir: 'Escribir: todo lo anterior, y además aprueba, deshace y sincroniza la bóveda.',
+  cerebro: 'Pedir y consultar: lee todo y, para cambiar algo, se lo pide al Cerebro en palabras. El Cerebro es quien escribe; cada cambio queda en el diario con deshacer.',
+  proponer: 'Proponer (llave antigua): solo pide y consulta.',
+  escribir: 'Escribir (llave antigua): solo pide y consulta.',
 };
-const SCOPE_NAME: Record<string, string> = { leer: 'Leer', proponer: 'Proponer', escribir: 'Escribir' };
+const SCOPE_NAME: Record<string, string> = { leer: 'Leer', cerebro: 'Pedir y consultar', proponer: 'Proponer', escribir: 'Escribir' };
 
 export default function MiAgentePage() {
   const { T, locale } = usePagesT();
   const [keys, setKeys] = useState<K[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [fresh, setFresh] = useState<string | null>(null);
-  const [f, setF] = useState({ name: '', scope: 'proponer' });
+  const [f, setF] = useState({ name: '', scope: 'cerebro' });
   const load = useCallback(async () => {
     const r = await fetch('/api/keys', { cache: 'no-store' }); const d = await r.json().catch(() => ({}));
     if (r.ok) { setKeys(d.keys); setError(null); } else setError(d.error || 'Sin acceso.');
@@ -28,7 +29,7 @@ export default function MiAgentePage() {
     if (!r.ok) { setError(d.error || 'No se pudo completar.'); return null; }
     setError(null); await load(); return d;
   }
-  async function create(e: React.FormEvent) { e.preventDefault(); setFresh(null); const d = await call(f); if (d?.key) { setFresh(d.key); setF({ name: '', scope: 'proponer' }); } }
+  async function create(e: React.FormEvent) { e.preventDefault(); setFresh(null); const d = await call(f); if (d?.key) { setFresh(d.key); setF({ name: '', scope: 'cerebro' }); } }
   const input = 'rounded-xl border border-[#dbe4f3] bg-[#f2f6fd] px-3 py-2 text-sm outline-none focus:border-[#0a3fbf]';
   // La dirección se lee después de cargar, para que el servidor y el navegador pinten lo mismo al inicio.
   const [base, setBase] = useState('');
@@ -48,7 +49,7 @@ export default function MiAgentePage() {
         )}
         <form onSubmit={create} className="rounded-2xl border border-[#dbe4f3] bg-white p-5 shadow-[0_12px_28px_-18px_rgba(11,31,77,0.22)] grid gap-2 sm:grid-cols-3">
           <input className={input} placeholder={T('Nombre del agente')} value={f.name} onChange={e => setF({ ...f, name: e.target.value })} />
-          <select className={input} value={f.scope} onChange={e => setF({ ...f, scope: e.target.value })} aria-label={T('Alcance')}><option value="leer">{T('Leer')}</option><option value="proponer">{T('Proponer')}</option><option value="escribir">{T('Escribir')}</option></select>
+          <select className={input} value={f.scope} onChange={e => setF({ ...f, scope: e.target.value })} aria-label={T('Alcance')}><option value="leer">{T('Leer')}</option><option value="cerebro">{T('Pedir y consultar')}</option></select>
           <button className="rounded-xl bg-[#0a3fbf] px-4 py-2 text-sm font-semibold text-white hover:bg-[#08318f]">{T('Crear llave')}</button>
           <p className="text-xs text-slate-500 sm:col-span-3">{T(SCOPE_TEXT[f.scope])}</p>
         </form>

@@ -3,7 +3,7 @@ import { withBrain, listBrains, companyBrainExists, COMPANY_BRAIN_ID, PRIMARY_BR
 import { currentBrain } from '@/lib/brainContext';
 import { getUnifiedBrainTasks, loadBrainGraph, getPanamaDate } from '@/lib/smjBrainService';
 import { applyDecisions, loadDecisions, loadLatestReport } from '@/lib/dotsSleep';
-import { loadAutonomy, recentActivity } from '@/lib/autonomy';
+import { loadAutonomy, recentActivity, blockedAttempts } from '@/lib/autonomy';
 import { recentAppliedAll } from '@/lib/sleepApply';
 import { querySharedNodes } from '@/lib/sharing';
 import { getAccount, listAccounts, TOP_ROLES, canManageUsers } from '@/lib/localAccounts';
@@ -95,6 +95,7 @@ async function _GET(req: NextRequest) {
       autonomy: ctx.primary ? loadAutonomy(ctx.vaultPath).mode : null,
       applied: recentAppliedAll(ctx.vaultPath, 6).filter(a => !a.undoneAt),
       activity: recentActivity(ctx.vaultPath, 6),
+      blocked: blockedAttempts(ctx.vaultPath, 7),
       pending: pending.length,
       pendingKinds: pending.reduce((m: Record<string, number>, p: any) => { m[p.kind] = (m[p.kind] || 0) + 1; return m; }, {}),
     },

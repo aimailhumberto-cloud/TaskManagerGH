@@ -1,5 +1,8 @@
 # 🤖 TaskManager HB — Manual de Conectividad y Endpoints del Agente IA (`/api/agent/hub`)
 
+> **Regla vigente (vuelta 34): los agentes solo leen, piden y consultan.** Las escrituras directas de este manual (hub, tareas, brain, vault-sync, kpis, agenda…) devuelven 403 con una llave de agente; para cambiar algo usa `POST /api/agent/cerebro {action:'pedir', text}`. Ver «Regla de los agentes» en `MANUAL_OPERATIVO_DOTS_TASKMANAGER.md`.
+
+
 **URL de Producción (Render):** `https://taskmanagergh.onrender.com/api/agent/hub`  
 **Cuenta Google Vinculada:** `hebouche@gmail.com`  
 **Zona Horaria Operativa:** `America/Panama` (`UTC-5`)
