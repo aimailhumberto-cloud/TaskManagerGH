@@ -35,7 +35,8 @@
     "test:autonomy": "tsx scripts/test-autonomy.ts",
     "test:capture": "tsx scripts/test-capture.ts",
     "test:sharing": "tsx scripts/test-sharing.ts",
-    "test:kpis": "tsx scripts/test-kpis.ts"
+    "test:kpis": "tsx scripts/test-kpis.ts",
+    "test:growth": "tsx scripts/test-growth.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

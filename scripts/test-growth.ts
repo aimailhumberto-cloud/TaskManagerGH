@@ -1,0 +1,37 @@
+import * as fs from 'fs'; import * as os from 'os'; import * as path from 'path';
+import * as G from '../src/lib/brainGrowth';
+let fail = 0;
+const eq = (n: string, a: unknown, b: unknown) => { if (JSON.stringify(a) !== JSON.stringify(b)) { fail++; console.error('FALLA', n, JSON.stringify(a), '!=', JSON.stringify(b)); } };
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'grow-')), vault = path.join(root, 'vault'); fs.mkdirSync(vault);
+const today = '2026-11-12';
+const N = (id: string, type: string, fm: Record<string, any> = {}, tier = 'long_term') => ({ id, type, memory_tier: tier, frontmatter: fm });
+const nodes = [N('a', 'person'), N('b', 'person', { created_at: '2026-11-10T15:00:00Z' }), N('c', 'market', { created_at: '2026-10-20T15:00:00Z' }), N('d', 'working_memory', { captured_at: '2026-11-12T15:00:00Z' }, 'working'), N('e', 'working_memory', { captured_at: '2026-11-08T15:00:00Z', promoted_at: '2026-11-11T08:00:00Z' }), N('f', 'brand', { created_at: '2026-06-01T12:00:00Z' })];
+eq('nace', [G.bornDay(nodes[1]), G.bornDay(nodes[0]), G.bornDay(N('x', 'p', { created_at: 'no es fecha' }))], ['2026-11-10', null, null]);
+eq('medianoche Panamá', G.bornDay(N('x', 'p', { created_at: '2026-11-11T03:00:00Z' })), '2026-11-10');
+// sin fotos ni informes: todo estimado por fechas
+const g0 = G.computeGrowth(vault, nodes, 40, today);
+eq('7d fichas nuevas', g0.ranges['7'].newNodes, 3); eq('30d fichas nuevas', g0.ranges['30'].newNodes, 4); eq('90d', g0.ranges['90'].newNodes, 4);
+eq('conexiones sin historia', [g0.ranges['7'].newLinks, g0.ranges['7'].nodesEstimated], [0, true]);
+eq('capturas 7d', g0.ranges['7'].captures, 2); eq('consolidadas 7d', g0.ranges['7'].consolidated, 1);
+eq('por tipo 30d', g0.ranges['30'].byType, [{ name: 'person', value: 1 }, { name: 'market', value: 1 }]);
+eq('serie termina hoy', [g0.ranges['7'].series.length, g0.ranges['7'].series[6].nodes, g0.ranges['7'].series[0].nodes, g0.ranges['7'].series[6].links], [7, 6, 3, 40]);
+eq('serie 90 por pasos', g0.ranges['90'].series.length <= 32 && g0.ranges['90'].series.at(-1)!.date === today, true);
+eq('activo', [g0.active, g0.quietDays], [true, 0]);
+eq('sueño 14', [g0.sleep.length, g0.sleep.filter(s => s.slept).length, g0.sleep.find(s => s.date === '2026-11-11')?.tidied], [14, 0, 1]);
+// fotos e informes
+fs.mkdirSync(path.join(root, 'dots-sleep', 'reports'), { recursive: true });
+fs.writeFileSync(path.join(root, 'dots-sleep', 'reports', '2026-11-09.json'), JSON.stringify({ nodeCount: 3, linkCount: 20 }));
+fs.writeFileSync(path.join(root, 'dots-sleep', 'activity.jsonl'), [{ at: '2026-11-12T16:00:00Z' }, { at: '2026-11-11T16:00:00Z' }, { at: '2026-09-01T16:00:00Z' }].map(x => JSON.stringify(x)).join('\n') + '\n');
+fs.writeFileSync(path.join(root, 'dots-sleep', 'applied.json'), JSON.stringify({ p1: { id: 'p1', kind: 'k', at: '2026-11-12T12:00:00Z', changes: [] }, p2: { id: 'p2', kind: 'k', at: '2026-11-12T12:00:00Z', undoneAt: 'x', changes: [] } }));
+G.recordGrowth(vault, nodes.slice(0, 4), 30, '2026-11-11');
+const first = G.recordGrowth(vault, nodes, 40, today); eq('foto', [first.nodes, first.links, first.working, first.byType.person], [6, 40, 1, 2]);
+G.recordGrowth(vault, nodes, 40, today); eq('una por día', Object.keys(JSON.parse(fs.readFileSync(path.join(root, 'dots-sleep', 'growth.json'), 'utf8')).days), ['2026-11-11', today]);
+const g1 = G.computeGrowth(vault, nodes, 40, today);
+eq('conexiones nuevas 7d (desde el informe)', [g1.ranges['7'].newLinks, g1.ranges['7'].linksSince], [20, '2026-11-09']);
+eq('serie con conexiones', g1.ranges['7'].series.map(s => s.links), [null, null, null, 20, 20, 30, 40]);
+eq('limpiezas y agente', [g1.ranges['7'].cleanups, g1.ranges['7'].agentWrites, g1.ranges['90'].agentWrites], [1, 2, 3]);
+eq('durmió', g1.sleep.filter(s => s.slept).map(s => s.date), ['2026-11-09']);
+eq('fuera de la bóveda', fs.readdirSync(vault).length, 0);
+const quiet = G.computeGrowth(path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'grow2-')), 'vault'), [N('z', 'core', { created_at: '2026-10-01T12:00:00Z' })], 0, today);
+eq('quieto', [quiet.active, quiet.quietDays], [false, 42]);
+if (fail) { console.error(fail + ' fallas'); process.exit(1); } console.log('crecimiento: todo ok');

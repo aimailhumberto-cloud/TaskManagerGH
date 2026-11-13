@@ -8,6 +8,7 @@ import { recentAppliedAll } from '@/lib/sleepApply';
 import { querySharedNodes } from '@/lib/sharing';
 import { getAccount, listAccounts, TOP_ROLES, canManageUsers } from '@/lib/localAccounts';
 import { listKpis, loadPrefs, savePrefs } from '@/lib/kpis';
+import { computeGrowth, recordGrowth } from '@/lib/brainGrowth';
 export const dynamic = 'force-dynamic';
 
 /** Todo lo que necesita el tablero inicial, del cerebro de quien entra. Solo lectura. */
@@ -20,6 +21,7 @@ const GUIDE = {
     { bloque: 'Calidad de las fichas', origen: 'Campo completeness_score de cada ficha', como: "Completa los datos de la ficha con upsert_node y actualiza su completeness_score" },
     { bloque: 'Qué tan confiable es lo que sé', origen: 'Campo verification_status de cada ficha', como: 'Solo se marca verificado cuando hay una fuente confirmada; cita la fuente en la ficha' },
     { bloque: 'Salud', origen: 'Informe nocturno (enlaces rotos, fichas sin conexión) y memoria de trabajo', como: 'Corrige enlaces y conecta fichas; consolida la memoria de trabajo' },
+    { bloque: 'Cómo crece mi cerebro', origen: 'Foto diaria de cifras, fechas de creación de las fichas (created_at, captured_at), consolidaciones (promoted_at), cambios aplicados e informes nocturnos', como: 'No se carga a mano. Para que la curva sea fiel, pon created_at en cada ficha nueva' },
     { bloque: 'Mis indicadores', origen: 'Lista de indicadores del cerebro', como: "POST /api/agent/kpis {action:'set', name, value, unit?, target?, period?, note?}" },
     { bloque: 'Cuotas de distribuidores', origen: 'Campos target_cases_year y actual_cases_ytd de la ficha de cada distribuidor', como: "POST /api/agent/kpis {action:'set_quota', nodeId, targetCasesYear?, actualCasesYtd?, note?}" },
     { bloque: 'Lo que hicieron Jev y mi agente', origen: 'Registro automático de cambios y de escrituras con llave', como: 'No se carga a mano' },
@@ -62,6 +64,8 @@ async function _GET(req: NextRequest) {
   const top = (m: Record<string, number>, k: number) => Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, k).map(([name, value]) => ({ name, value }));
   const week = Array.from({ length: 7 }, (_, i) => { const dt = new Date(Date.parse(dateStr + 'T12:00:00Z') + i * 86400000).toISOString().slice(0, 10); return { date: dt, count: open.filter(x => (x.dueDate || '').slice(0, 10) === dt).length }; });
   const brands = nodes.filter(n => n.type === 'brand').map(b => { const name = b.title.replace(/^Brand:\s*/i, '').trim(); const key = name.toLowerCase(); return { name, slug: key.replace(/[^a-z0-9]/g, ''), count: nodes.filter(n => n.id !== b.id && (n.title.toLowerCase().includes(key) || n.links.some(l => l.toLowerCase().includes(key)))).length }; });
+  recordGrowth(ctx.vaultPath, nodes, g.links.length, dateStr); // foto diaria de cifras
+  const growth = computeGrowth(ctx.vaultPath, nodes, g.links.length, dateStr);
   const viewingOther = ctx.brainId !== own;
   const viewingName = ctx.brainId === COMPANY_BRAIN_ID ? 'la compañía' : ctx.brainId === PRIMARY_BRAIN_ID ? 'HB' : getAccount(ctx.brainId)?.name || ctx.brainId;
   return NextResponse.json({
@@ -83,6 +87,7 @@ async function _GET(req: NextRequest) {
     charts: { types: top(typeCounts, 12), countries: top(countryCounts, 6), verification: { verified, pending: pendingVer, other: Math.max(0, nodes.length - verified - pendingVer) }, quality: scored ? Math.round(scoreSum / scored) : null, scored, week, brands,
       tasks: { overdue: open.filter(x => x.isOverdue).length, today: open.filter(x => x.isToday && !x.isOverdue).length, later: open.filter(x => !x.isOverdue && !x.isToday && x.dueDate).length, undated: open.filter(x => !x.dueDate).length } },
     distributors: t.distributors.slice(0, 8).map(x => ({ name: x.name, country: x.country, status: x.status, compliance: typeof x.complianceRate === 'number' ? x.complianceRate : null, target: x.targetCasesYear ?? null, actual: x.actualCasesYTD ?? null })),
+    growth,
     kpis: listKpis(ctx.vaultPath),
     places: loadPrefs(ctx.vaultPath),
     people: TOP_ROLES.includes(role) ? { accounts: listAccounts().map(a => ({ name: a.name, role: a.role, isActive: a.isActive, lastLoginAt: a.lastLoginAt || null })), brains: listBrains().length } : null,

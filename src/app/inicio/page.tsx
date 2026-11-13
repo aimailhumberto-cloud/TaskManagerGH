@@ -17,6 +17,7 @@ type D = {
   shared: { withMe: { title: string; owner: string; type: string }[]; companyExists: boolean };
   charts: { types: NV[]; countries: NV[]; verification: { verified: number; pending: number; other: number }; quality: number | null; scored: number; week: { date: string; count: number }[]; brands: { name: string; slug: string; count: number }[]; tasks: { overdue: number; today: number; later: number; undated: number } };
   distributors: { name: string; country: string; status: string; compliance: number | null; target: number | null; actual: number | null }[];
+  growth: { ranges: Record<string, { days: number; series: { date: string; nodes: number; links: number | null }[]; newNodes: number; newLinks: number | null; captures: number; consolidated: number; cleanups: number; agentWrites: number; byType: NV[]; linksSince: string | null; nodesEstimated: boolean }>; sleep: { date: string; slept: boolean; tidied: number }[]; active: boolean; quietDays: number };
   kpis: Kpi[]; places: { home: Place | null; hq: Place | null };
   people: { accounts: { name: string; role: string; isActive: boolean; lastLoginAt: string | null }[]; brains: number } | null;
 };
@@ -74,6 +75,24 @@ function Donut({ rows, total }: { rows: NV[]; total: number }) {
     {rows.map((r, i) => { const len = total ? (r.value / total) * C : 0; const el = <circle key={r.name} cx="80" cy="80" r="60" fill="none" stroke={PALETTE[i % PALETTE.length]} strokeWidth="22" strokeDasharray={`${len} ${C - len}`} strokeDashoffset={-off} transform="rotate(-90 80 80)" />; off += len; return el; })}
     <text x="80" y="78" textAnchor="middle" fontSize="26" fontWeight="700" fill={NAVY}>{fmt(total)}</text><text x="80" y="96" textAnchor="middle" fontSize="11" fill="#64748b">fichas</text></svg>);
 }
+/** Curva de fichas y conexiones. Cada serie usa su propia escala: importa la forma del crecimiento, no comparar magnitudes. */
+function GrowthChart({ series }: { series: { date: string; nodes: number; links: number | null }[] }) {
+  const W = 640, H = 150, top = 14, bottom = 128;
+  const line = (vals: (number | null)[], color: string) => {
+    const pts = vals.map((v, i) => (v === null ? null : { x: series.length > 1 ? (i / (series.length - 1)) * W : W, v })).filter(Boolean) as { x: number; v: number }[];
+    if (pts.length === 0) return null;
+    const min = Math.min(...pts.map(p => p.v)), max = Math.max(...pts.map(p => p.v)), span = max - min || 1;
+    const y = (v: number) => bottom - ((v - min) / span) * (bottom - top) * (max === min ? 0.5 : 1);
+    const dPath = pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)} ${y(p.v).toFixed(1)}`).join(' ');
+    const last = pts[pts.length - 1];
+    return <g>{pts.length > 1 && <path d={`${dPath} L${last.x} ${bottom} L${pts[0].x} ${bottom} Z`} fill={color} fillOpacity="0.07" />}<path d={dPath} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" /><circle cx={last.x} cy={y(last.v)} r="4.5" fill={color} stroke="#fff" strokeWidth="2" /></g>;
+  };
+  return (<svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Fichas y conexiones a lo largo del tiempo" className="block h-auto w-full">
+    {[top, (top + bottom) / 2].map(yy => <line key={yy} x1="0" x2={W} y1={yy} y2={yy} stroke="#e6edf9" strokeDasharray="3 5" />)}<line x1="0" x2={W} y1={bottom} y2={bottom} stroke="#dbe4f3" />
+    {line(series.map(p => p.links), BLUE)}{line(series.map(p => p.nodes), '#2a9d8f')}
+    <text x="0" y={H - 4} fontSize="11" fill="#64748b">{fmtDay(series[0]?.date || null, { day: 'numeric', month: 'short' })}</text><text x={W} y={H - 4} fontSize="11" fill="#64748b" textAnchor="end">hoy</text>
+  </svg>);
+}
 function Spark({ points }: { points: number[] }) {
   if (points.length < 2) return null;
   const min = Math.min(...points), max = Math.max(...points), span = max - min || 1;
@@ -91,6 +110,7 @@ export default function InicioPage() {
   const [geo, setGeo] = useState<'idle' | 'asking' | 'denied'>('idle');
   const [wx, setWx] = useState<Record<string, { temp: number; code: number; time: string }>>({});
   const [placeForm, setPlaceForm] = useState<{ open: boolean; which: 'home' | 'hq'; q: string; results: Place[] }>({ open: false, which: 'home', q: '', results: [] });
+  const [range, setRange] = useState<'7' | '30' | '90'>('30');
   const [kpiForm, setKpiForm] = useState<{ open: boolean; id: string; name: string; value: string; unit: string; target: string; period: string }>({ open: false, id: '', name: '', value: '', unit: '', target: '', period: '' });
 
   const load = useCallback(async () => {
@@ -256,11 +276,32 @@ export default function InicioPage() {
               </div>); })}</div>)}
         </Card>
 
-        <section className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+        <section className="grid gap-5 lg:grid-cols-3">
           <Card icon="donut" title="De qué está hecho mi cerebro">
             <div className="flex flex-wrap items-center gap-6"><Donut rows={donutRows} total={d.health.nodes} />
               <div className="min-w-[150px] flex-1 space-y-2">{donutRows.map((r, i) => (<div key={r.name} className="flex items-center justify-between gap-3 text-[13px] text-slate-700"><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: PALETTE[i % PALETTE.length] }} />{r.name}</span><span className="font-semibold" style={{ color: NAVY }}>{fmt(r.value)}</span></div>))}</div></div>
           </Card>
+          {(() => { const gr = d.growth.ranges[range]; const delta = (n: number | null) => (n === null ? '—' : `${n > 0 ? '+' : ''}${fmt(n)}`); const maxT = Math.max(1, ...d.growth.sleep.map(x => x.tidied)); const slept = d.growth.sleep.filter(x => x.slept).length; return (
+          <div className="lg:col-span-2"><Card icon="chart" title="Cómo crece mi cerebro" action={<span className="flex flex-wrap items-center gap-1.5">
+            <span className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={d.growth.active ? { background: '#e3f6f1', color: '#0f766e' } : { background: '#f1f5f9', color: '#475569' }}>{d.growth.active ? 'Cerebro activo' : d.growth.quietDays > 365 ? 'Cerebro quieto' : `Quieto hace ${d.growth.quietDays} días`}</span>
+            {(['7', '30', '90'] as const).map(r => (<button key={r} onClick={() => setRange(r)} aria-pressed={range === r} className="rounded-full px-2.5 py-1 text-[11px] font-semibold" style={range === r ? { background: BLUE, color: '#fff' } : { background: SOFT, color: BLUE }}>{r} días</button>))}</span>}>
+            <GrowthChart series={gr.series} />
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600"><span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: BLUE }} />Conexiones</span><span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: '#2a9d8f' }} />Fichas</span>
+              <span className="text-slate-400">{gr.linksSince ? `Conexiones medidas desde el ${fmtDay(gr.linksSince, { day: 'numeric', month: 'short' })}. ` : ''}{gr.nodesEstimated ? 'Fichas anteriores estimadas por su fecha de creación.' : ''}</span></div>
+            <div className="mt-4 grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(118px, 1fr))' }}>
+              {[['Fichas nuevas', delta(gr.newNodes), gr.newNodes > 0], ['Conexiones nuevas', delta(gr.newLinks), (gr.newLinks || 0) > 0], ['Capturas', fmt(gr.captures), false], ['A memoria profunda', fmt(gr.consolidated), false], ['Limpiezas', fmt(gr.cleanups), false], ['Escrituras del agente', fmt(gr.agentWrites), false]].map(([l, val, up]) => (
+                <div key={l as string} className="rounded-[14px] px-3 py-2.5" style={{ background: SOFT }}><p className="text-[11px] font-medium text-slate-500">{l}</p><p className="text-xl font-bold" style={{ color: up ? '#0f766e' : NAVY }}>{val}</p></div>))}
+            </div>
+            <div className="mt-5 grid gap-6 sm:grid-cols-2">
+              <div><h3 className="mb-2.5 text-[13px] font-bold">En qué está creciendo</h3>{gr.byType.filter(t => t.value > 0).length === 0 ? <p className="text-sm text-slate-500">Sin fichas nuevas en este periodo.</p> : <Bars color={BLUE} rows={gr.byType.filter(t => t.value > 0).map(t => ({ name: TYPE_ES[t.name] || t.name, value: t.value }))} />}</div>
+              <div><h3 className="mb-2.5 text-[13px] font-bold">Sueño y limpieza, últimas 14 noches</h3>
+                <div className="flex h-9 items-end gap-1.5">{d.growth.sleep.map(x => (<span key={x.date} title={`${fmtDay(x.date, { day: 'numeric', month: 'short' })}: ${x.slept ? `durmió, ordenó ${x.tidied}` : 'sin ciclo nocturno'}`} className="w-full max-w-[18px] rounded-[5px]" style={{ height: x.slept ? `${Math.max(30, (x.tidied / maxT) * 100)}%` : '18%', background: x.slept ? '#2a9d8f' : '#cbd5e1' }} />))}</div>
+                <p className="mt-2 text-xs text-slate-500">Durmió {slept} de 14 noches. La altura mide cuánto ordenó esa noche: notas consolidadas, capturas conectadas y cambios aplicados.</p></div>
+            </div>
+          </Card></div>); })()}
+        </section>
+
+        <section className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
           <Card icon="chart" title="Mis tareas abiertas">
             <Bars color={BLUE} rows={[{ name: 'Vencidas', value: d.charts.tasks.overdue }, { name: 'Para hoy', value: d.charts.tasks.today }, { name: 'Más adelante', value: d.charts.tasks.later }, { name: 'Sin fecha', value: d.charts.tasks.undated }]} />
             {d.charts.countries.length > 0 && <><h2 className="mb-3.5 mt-6 text-[15px] font-bold">Fichas por país</h2><Bars color={CYAN} rows={d.charts.countries} /></>}

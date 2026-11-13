@@ -1,6 +1,7 @@
 import { getVaultPath, loadBrainGraph } from './smjBrainService';
 import { isPrimaryBrain } from './brainContext';
-import { getSleepDir, needsNightlyReport, runSleepCycle } from './dotsSleep';
+import { getSleepDir, needsNightlyReport, runSleepCycle, panamaDay } from './dotsSleep';
+import { recordGrowth } from './brainGrowth';
 import { autoApply } from './autonomy';
 import { configuredProvider, logCall, reviewProposals, saveReviews } from './decisionEngine';
 
@@ -29,6 +30,8 @@ export function checkNightlyOnce(): boolean {
 function checkCurrentBrain(): boolean {
   try {
     const vaultPath = getVaultPath();
+    // Foto diaria de cifras para la curva de crecimiento, aunque nadie abra el tablero ese día.
+    try { const g0 = loadBrainGraph(); recordGrowth(vaultPath, (g0.allNodes || g0.nodes) as any, g0.links.length, panamaDay(new Date())); } catch {}
     if (!needsNightlyReport(vaultPath)) return false;
     const graph = loadBrainGraph();
     const report = runSleepCycle(vaultPath, { nodes: graph.allNodes || graph.nodes, links: graph.links });
