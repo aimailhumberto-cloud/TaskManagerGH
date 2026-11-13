@@ -1,6 +1,7 @@
 import { getVaultPath, loadBrainGraph } from './smjBrainService';
 import { isPrimaryBrain } from './brainContext';
 import { getSleepDir, needsNightlyReport, runSleepCycle } from './dotsSleep';
+import { autoApply } from './autonomy';
 import { configuredProvider, logCall, reviewProposals, saveReviews } from './decisionEngine';
 
 /**
@@ -39,6 +40,8 @@ function checkCurrentBrain(): boolean {
       reviewProposals(provider, report.proposals, (graph.allNodes || graph.nodes) as any)
         .then((out) => {
           saveReviews(sleepDir, out.reviews, new Set(report.proposals.map((p) => p.id)));
+          const auto = autoApply(vaultPath, report.proposals, out.reviews, (graph.allNodes || graph.nodes) as any);
+          if (auto.applied.length) console.log(`[jev] aplicó solo ${auto.applied.length} cambios en ${report.day}`);
           logCall(sleepDir, { action: 'review-nocturna', ok: out.errors.length === 0, ms: out.ms, input_tokens: out.usage.input_tokens, reviewed: out.reviewed, error: out.errors[0] });
         })
         .catch((e) => logCall(sleepDir, { action: 'review-nocturna', ok: false, error: e?.message || 'error' }));

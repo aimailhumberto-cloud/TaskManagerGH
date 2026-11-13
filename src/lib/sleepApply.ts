@@ -112,3 +112,8 @@ export function recentApplied(vaultPath: string, limit = 10) {
   return Object.values(loadApplied(vaultPath)).filter(r => !r.undoneAt).sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit)
     .map(r => ({ id: r.id, kind: r.kind, title: r.title, at: r.at, by: r.by, file: r.changes[0]?.file }));
 }
+
+export function recentAppliedAll(vaultPath: string, limit = 30) {
+  return Object.values(loadApplied(vaultPath)).sort((a, b) => (b.undoneAt || b.at).localeCompare(a.undoneAt || a.at)).slice(0, limit)
+    .map(r => ({ id: r.id, kind: r.kind, title: r.title, at: r.at, by: r.by, undoneAt: r.undoneAt, file: r.changes[0]?.file }));
+}

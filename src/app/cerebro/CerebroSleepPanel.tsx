@@ -20,7 +20,7 @@ interface SleepView {
   day: string;
   proposals: Proposal[];
   hidden?: { rechazadas: number; pospuestas: number };
-  appliedRecent?: { id: string; title?: string; at: string }[];
+  appliedRecent?: { id: string; title?: string; at: string; by?: string }[];
 }
 
 const DOT: Record<string, string> = { alta: 'bg-red-400', media: 'bg-amber-400', baja: 'bg-sky-400' };
@@ -35,6 +35,12 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
   const [busy, setBusy] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [auto, setAuto] = useState<{ mode: 'auto' | 'proponer'; activity: { at: string; actor: string; action?: string; path: string; status: number }[] } | null>(null);
+  const loadAuto = useCallback(async () => {
+    try { const r = await fetch('/api/agent/decisions', { cache: 'no-store' }); const j = await r.json(); if (j.ok) setAuto({ mode: j.autonomy?.mode || 'auto', activity: j.activity || [] }); } catch {}
+  }, []);
+  useEffect(() => { loadAuto(); }, [loadAuto]);
+  const setMode = async (mode: 'auto' | 'proponer') => { await fetch('/api/agent/decisions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'autonomy', mode }) }); await loadAuto(); };
   const [jev, setJev] = useState<{ busy: boolean; msg: string | null }>({ busy: false, msg: null });
 
   const load = useCallback(async () => {
@@ -75,7 +81,7 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
       const j = await res.json();
       if (!j.ok && !j.reviewed) setJev({ busy: false, msg: j.error || (j.errors && j.errors[0]) || t('Jev no respondió.') });
       else if (action === 'ping') setJev({ busy: false, msg: `${t('Jev responde')} · ${j.model} · ${j.ms} ms` });
-      else { setJev({ busy: false, msg: `${t('Jev revisó')} ${j.reviewed}/${j.pending}${j.errors?.length ? ` · ${j.errors[0]}` : ''}` }); await load(); }
+      else { setJev({ busy: false, msg: `${t('Jev revisó')} ${j.reviewed}/${j.pending}${j.applied ? ` · ${t('aplicó solo')} ${j.applied}` : ''}${j.errors?.length ? ` · ${j.errors[0]}` : ''}` }); await load(); await loadAuto(); }
     } catch { setJev({ busy: false, msg: t('Jev no respondió.') }); }
   };
 
@@ -107,7 +113,7 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
       {open && (
         <div className="space-y-2">
           <p className="text-[10px] text-gray-500 leading-snug">
-            {t('Nada cambia sin tu aprobación. «Consolidar» y «Marcar como verificada» cambian la nota y se pueden deshacer; «Aprobar» solo registra tu decisión.')}
+            {t('Aquí queda el registro de lo que Jev y tu agente hicieron. Todo cambio aplicado se puede deshacer.')}
           </p>
           {state === 'loading' && !data && <p className="text-[11px] text-gray-400">{t('Cargando…')}</p>}
           {state === 'error' && <p className="text-[11px] text-red-300">{t('No se pudo cargar el informe.')}</p>}
@@ -118,6 +124,12 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
                 ? ` · ${data.hidden.rechazadas} ${t('rechazadas')} · ${data.hidden.pospuestas} ${t('pospuestas')}`
                 : ''}
             </p>
+          )}
+          {auto && (
+            <div className="flex items-center justify-between gap-2 rounded border border-gray-800 px-2 py-1">
+              <span className="text-[10px] text-gray-300">{auto.mode === 'auto' ? t('Modo automático: Jev aplica solo lo reversible y lo anota aquí.') : t('Modo propuesta: nada cambia sin tu aprobación.')}</span>
+              <button onClick={() => setMode(auto.mode === 'auto' ? 'proponer' : 'auto')} className="shrink-0 px-2 py-0.5 rounded border border-gray-700 text-[10px] text-gray-300 hover:bg-gray-800 transition">{auto.mode === 'auto' ? t('Pasar a propuesta') : t('Pasar a automático')}</button>
+            </div>
           )}
           <div className="flex flex-wrap items-center gap-1.5">
             <button disabled={jev.busy} onClick={() => askJev('ping')} className="px-2 py-0.5 rounded border border-gray-700 text-[10px] text-gray-300 hover:bg-gray-800 disabled:opacity-50 transition">{t('Probar Jev')}</button>
@@ -173,11 +185,19 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
               <p className="text-[10px] uppercase font-mono text-gray-500">{t('Cambios aplicados')}</p>
               {(data?.appliedRecent || []).map((a) => (
                 <div key={a.id} className="flex items-center justify-between gap-2 text-[10px] text-gray-400">
-                  <span className="truncate">{a.title || a.id}</span>
+                  <span className="truncate">{a.title || a.id}{a.by ? ` · ${a.by}` : ''}</span>
                   <button disabled={busy === a.id} onClick={() => undo(a.id)} className="shrink-0 px-2 py-0.5 rounded border border-gray-700 text-gray-300 hover:bg-gray-800 disabled:opacity-50 transition">{t('Deshacer')}</button>
                 </div>
               ))}
             </div>
+          )}
+          {auto && auto.activity.length > 0 && (
+            <details className="text-[10px] text-gray-400">
+              <summary className="cursor-pointer uppercase font-mono text-gray-500">{t('Actividad de agentes')} ({auto.activity.length})</summary>
+              <ul className="mt-1 space-y-0.5 max-h-40 overflow-y-auto font-mono">
+                {auto.activity.map((e, i) => (<li key={i}>{e.at.slice(5, 16).replace('T', ' ')} · {e.actor} · {e.action || e.path.replace('/api/agent/', '')} · {e.status}</li>))}
+              </ul>
+            </details>
           )}
           {approved.length > 0 && (
             <p className="text-[10px] text-gray-500">{approved.length} {t('aprobadas')}</p>

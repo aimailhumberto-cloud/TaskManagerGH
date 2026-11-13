@@ -125,7 +125,13 @@ export function withBrain<H extends Handler>(handler: H): H {
     const writing = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
     if (r.role === 'Solo lectura' && writing) return NextResponse.json({ ok: false, error: 'Tu perfil es de solo consulta.' }, { status: 403 });
     if (r.ctx.scope === 'leer' && writing) return NextResponse.json({ ok: false, error: 'Esta llave es de solo lectura.' }, { status: 403 });
-    return runInBrain(r.ctx, () => handler(req, ...rest));
+    // Lo que escribe un agente queda en el registro del cerebro (acción y resultado, nunca el contenido).
+    const byAgent = writing && (r.ctx.via === 'llave' || r.ctx.via === 'llave-de-agente');
+    let action: string | undefined;
+    if (byAgent) { try { const b = await req.clone().json(); action = typeof b?.action === 'string' ? b.action.slice(0, 40) : undefined; } catch {} }
+    const res = await runInBrain(r.ctx, () => handler(req, ...rest));
+    if (byAgent) { const { logActivity } = await import('./autonomy'); logActivity(r.ctx.vaultPath, { actor: r.ctx.actor || 'agente', via: r.ctx.via, path: req.nextUrl.pathname, action, status: res.status }); }
+    return res;
   }) as H;
 }
 

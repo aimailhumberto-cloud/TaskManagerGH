@@ -31,7 +31,8 @@
     "test:decisions": "tsx scripts/test-decision-engine.ts",
     "test:apply": "tsx scripts/test-sleep-apply.ts",
     "test:isolation": "tsx scripts/test-brain-isolation.ts",
-    "test:keys": "tsx scripts/test-agent-keys.ts"
+    "test:keys": "tsx scripts/test-agent-keys.ts",
+    "test:autonomy": "tsx scripts/test-autonomy.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",
