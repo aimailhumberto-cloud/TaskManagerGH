@@ -41,7 +41,7 @@ export default function UsuariosPage() {
   return (
     <div className="mx-auto max-w-4xl p-6 space-y-6">
       <div><h1 className="text-xl font-bold">Usuarios y perfiles</h1>
-        <p className="text-sm text-primary-600">Crea cuentas, cambia roles, desactiva accesos y restablece contraseñas. Las contraseñas nunca se guardan en claro. Para dejarle una tarea a alguien, usa <a className="underline" href="/mis-tareas">Asignar tarea</a>. Las llaves de tu agente están en <a className="underline" href="/mi-agente">Mi agente</a>.</p></div>
+        <p className="text-sm text-primary-600">Crea cuentas, cambia roles, desactiva accesos y restablece contraseñas. Las contraseñas nunca se guardan en claro. Para dejarle una tarea a alguien, usa <a className="underline" href="/mis-tareas">Asignar tarea</a>. Las llaves de tu agente están en <a className="underline" href="/mi-agente">Mi agente</a>. El cerebro compartido y lo que otros te comparten están en <a className="underline" href="/compania">Compañía</a>.</p></div>
       {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       {info && <p className="rounded-lg bg-green-50 p-3 text-sm break-all">{info}</p>}
       {!error && brains && (

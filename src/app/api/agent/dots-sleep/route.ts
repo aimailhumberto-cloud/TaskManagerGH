@@ -9,7 +9,7 @@ import {
 import fs from 'fs';
 import path from 'path';
 import { getSleepDir } from '@/lib/dotsSleep';
-import { loadReviews } from '@/lib/decisionEngine';
+import { loadReviews, captureProposals } from '@/lib/decisionEngine';
 import { applyProposal, undoProposal, canApply, recentApplied } from '@/lib/sleepApply';
 
 export const dynamic = 'force-dynamic';
@@ -32,13 +32,24 @@ function generate(vaultPath: string): SleepReport {
   return runSleepCycle(vaultPath, { nodes: g.allNodes || g.nodes, links: g.links });
 }
 
-function view(vaultPath: string, report: SleepReport | null, generated: boolean) {
-  if (!report) return { ok: true, report: null, generated };
+/** Informe + capturas que Jev sugiere conectar (viven aparte del informe del día). */
+function withCaptures(vaultPath: string, report: SleepReport): SleepReport {
+  try {
+    const g = loadBrainGraph();
+    const ids = new Set((g.allNodes || g.nodes).map((n) => n.id));
+    const caps = captureProposals(getSleepDir(vaultPath), ids).filter((c) => !report.proposals.some((p) => p.id === c.id));
+    return caps.length ? { ...report, proposals: [...report.proposals, ...(caps as any)] } : report;
+  } catch { return report; }
+}
+
+function view(vaultPath: string, report0: SleepReport | null, generated: boolean) {
+  if (!report0) return { ok: true, report: null, generated };
+  const report = withCaptures(vaultPath, report0);
   const decisions = loadDecisions(vaultPath);
   const applied = applyDecisions(report, decisions, new Date());
   // Revisión del motor de decisiones (Jev): solo anota confianza y urgencia; no cambia el orden de gravedad ni ninguna nota.
   const reviews = loadReviews(getSleepDir(vaultPath));
-  return { ok: true, generated, report: { ...applied, proposals: applied.proposals.map((p: any) => ({ ...p, canApply: canApply(p.kind), ...(reviews[p.id] ? { ai: reviews[p.id] } : {}) })), appliedRecent: recentApplied(vaultPath) } };
+  return { ok: true, generated, report: { ...applied, proposals: applied.proposals.map((p: any) => ({ ...p, canApply: canApply(p.kind), ...(reviews[p.id] ? { ai: reviews[p.id] } : p.ai ? { ai: p.ai } : {}) })), appliedRecent: recentApplied(vaultPath) } };
 }
 
 /**
@@ -93,7 +104,8 @@ async function _POST(req: NextRequest) {
       if (!DECISIONS.includes(decision)) {
         return NextResponse.json({ ok: false, error: `decision debe ser una de: ${DECISIONS.join(', ')}` }, { status: 400, headers: CORS_HEADERS });
       }
-      const latest = loadLatestReport(vaultPath);
+      const latest0 = loadLatestReport(vaultPath);
+      const latest = latest0 ? withCaptures(vaultPath, latest0) : null;
       if (!id || !latest?.proposals.some((p) => p.id === id)) {
         return NextResponse.json({ ok: false, error: 'La propuesta no existe en el último informe' }, { status: 404, headers: CORS_HEADERS });
       }

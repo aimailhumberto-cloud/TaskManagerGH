@@ -1,0 +1,37 @@
+import * as fs from 'fs'; import * as os from 'os'; import * as path from 'path';
+import * as D from '../src/lib/decisionEngine';
+import { applyProposal, undoProposal } from '../src/lib/sleepApply';
+let fail = 0;
+const eq = (n: string, a: unknown, b: unknown) => { if (JSON.stringify(a) !== JSON.stringify(b)) { fail++; console.error('FALLA', n, JSON.stringify(a), '!=', JSON.stringify(b)); } };
+(async () => {
+  const nodes = [{ id: 'm-bb', title: 'Market: Barbados', type: 'market' }, { id: 'b-busta', title: 'Brand: Busta', type: 'brand' }, { id: 'p-ana', title: 'Ana Pérez', type: 'person' }, { id: 'wm-1', title: 'Working Memory: Barbados otra', type: 'working_memory' }, { id: 'n', title: 'Nota', type: 'working_memory' }];
+  const note = { id: 'n', title: 'Pedido de Busta para Barbados', content: 'El distribuidor de Barbados pidió dos contenedores de Busta.' };
+  const c = D.captureCandidates(note, nodes);
+  eq('candidatos', c.map(x => x.id).sort(), ['b-busta', 'm-bb']);
+  eq('sin coincidencias', D.captureCandidates({ id: 'n', title: 'zzzz', content: 'qqqq' }, nodes), []);
+  let body: any = null;
+  const prov = D.jevProvider('k', { fetcher: async (_u, i) => { body = JSON.parse(String(i.body)); const answers: any = { tipo: { type: 'choice', choice: 'cliente', confidence: 0.8 } };
+    Object.keys(body.questions).filter(k => k.startsWith('p')).forEach(k => { answers[k] = { type: 'noul', noul: body.questions[k].instructions.includes('Barbados') ? 0.93 : 0.4 }; });
+    return new Response(JSON.stringify({ model: 'jev-x', answers, usage: { input_tokens: 10, output_tokens: 1 } }), { status: 200 }); } });
+  const s = await D.classifyCapture(prov, note, nodes, new Date('2026-11-13T00:00:00Z'));
+  eq('mejor ficha', [s.parentId, s.parentScore, s.kind], ['m-bb', 0.93, 'cliente']);
+  eq('una pregunta por candidato', Object.keys(body.questions).sort(), ['p0', 'p1', 'tipo']);
+  const none = await D.classifyCapture(prov, { id: 'n', title: 'zzzz', content: 'qqqq' }, nodes);
+  eq('sin candidatos no inventa', [none.parentId, none.parentScore], [null, null]);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cap-'));
+  D.saveCapture(dir, s); D.saveCapture(dir, { ...none, noteId: 'otra' });
+  eq('propuestas', D.captureProposals(dir, new Set(['n', 'm-bb'])).map(p => [p.id, p.kind, p.nodeIds]), [['cap-n', 'clasificar_captura', ['n', 'm-bb']]]);
+  eq('ficha borrada no propone', D.captureProposals(dir, new Set(['n'])).length, 0);
+  D.saveCapture(dir, { ...s, noteId: 'baja', parentScore: 0.3 }); eq('baja confianza no propone', D.captureProposals(dir, new Set(['baja', 'm-bb', 'n'])).length, 1);
+  // aplicar y deshacer
+  const vault = path.join(dir, 'vault'); fs.mkdirSync(vault);
+  const f = path.join(vault, 'n.md'); fs.writeFileSync(f, '---\nid: n\ntitle: Nota\ntype: working_memory\nrelations:\n  touches:\n    - "[[Otra]]"\n---\nTexto de la captura.\n');
+  const an = [{ id: 'n', filePath: f, title: 'Nota' }, { id: 'm-bb', filePath: f, title: 'Market: Barbados' }];
+  const r = applyProposal(vault, { id: 'cap-n', kind: 'clasificar_captura', title: 'x', nodeIds: ['n', 'm-bb'] }, an, 'Jev (automático)');
+  const txt = fs.readFileSync(f, 'utf8');
+  eq('conecta', [r.ok, txt.includes('[[Market: Barbados]]'), txt.includes('[[Otra]]'), txt.includes('Texto de la captura.'), /type: working_memory/.test(txt)], [true, true, true, true, true]);
+  eq('ya conectada', applyProposal(vault, { id: 'cap-n2', kind: 'clasificar_captura', nodeIds: ['n', 'm-bb'] }, an).ok, false);
+  eq('sin ficha', applyProposal(vault, { id: 'cap-n3', kind: 'clasificar_captura', nodeIds: ['n', 'zzz'] }, an).ok, false);
+  eq('deshace', [undoProposal(vault, 'cap-n').ok, fs.readFileSync(f, 'utf8').includes('Barbados'), fs.readFileSync(f, 'utf8').includes('[[Otra]]')], [true, false, true]);
+  if (fail) { console.error(fail + ' fallas'); process.exit(1); } console.log('capturas: todo ok');
+})();

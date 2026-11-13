@@ -18,6 +18,8 @@ import { looksLikeAgentKey, presentedKey, verifyKey } from './agentKeys';
 
 export const PRIMARY_BRAIN_ID = 'hb';
 export const BRAIN_VIEW_COOKIE = 'brain_view';
+/** Cerebro compartido de la compañía: todos lo leen; solo Owner/Admin escriben. */
+export const COMPANY_BRAIN_ID = 'compania';
 const LOCAL_ID = /^local-\d{1,9}$/;
 
 export const dataRoot = () => path.dirname(path.resolve(getPrimaryVaultPath()));
@@ -33,6 +35,7 @@ export function brainIdForAccount(acc: AccountLike): string {
 
 export function vaultPathFor(brainId: string): string | null {
   if (brainId === PRIMARY_BRAIN_ID) return getPrimaryVaultPath();
+  if (brainId === COMPANY_BRAIN_ID) return path.join(brainsRoot(), COMPANY_BRAIN_ID, 'vault');
   if (!LOCAL_ID.test(brainId)) return null;
   return path.join(brainsRoot(), brainId, 'vault');
 }
@@ -43,10 +46,10 @@ export function ensureBrain(brainId: string, ownerName: string): string | null {
   if (!vault || brainId === PRIMARY_BRAIN_ID) return vault;
   if (fs.existsSync(vault)) return vault;
   for (const d of ['00-System', '00-Working-Memory', '01-Internal-Clients', '02-External-Clients', '03-Portfolio-Supply', '04-Operations-Routines', '05-Consolidation-Sessions']) fs.mkdirSync(path.join(vault, d), { recursive: true });
-  const title = `Cerebro de ${ownerName}`.replace(/["\n\r]/g, ' ').slice(0, 140);
+  const title = (brainId === COMPANY_BRAIN_ID ? 'Cerebro de la compañía' : `Cerebro de ${ownerName}`).replace(/["\n\r]/g, ' ').slice(0, 140);
   const now = new Date().toISOString();
   fs.writeFileSync(path.join(vault, '01-Internal-Clients', 'Core.md'),
-    `---\nid: core-${brainId}\ntitle: "${title}"\ntype: core\nmemory_tier: long_term\nstatus: active\nbrain_id: ${brainId}\nbrain_owner: ${brainId}\nvisibility: private\ncreated_at: "${now}"\nlast_updated_at: "${now}"\n---\n# ${title}\n\nEste es el centro de tu cerebro. Todo lo que captures o tu agente agregue se conecta desde aquí.\n`);
+    `---\nid: core-${brainId}\ntitle: "${title}"\ntype: core\nmemory_tier: long_term\nstatus: active\nbrain_id: ${brainId}\nbrain_owner: ${brainId}\nvisibility: ${brainId === COMPANY_BRAIN_ID ? 'public' : 'private'}\ncreated_at: "${now}"\nlast_updated_at: "${now}"\n---\n# ${title}\n\n${brainId === COMPANY_BRAIN_ID ? 'Conocimiento compartido de la compañía. Todos pueden consultarlo; solo los administradores lo editan.' : 'Este es el centro de tu cerebro. Todo lo que captures o tu agente agregue se conecta desde aquí.'}\n`);
   return vault;
 }
 
@@ -57,6 +60,8 @@ export function logBrainAccess(entry: { actor: string; role: string; brainId: st
     fs.appendFileSync(f, JSON.stringify({ at: new Date().toISOString(), ...entry }) + '\n');
   } catch {}
 }
+
+export const companyBrainExists = () => fs.existsSync(vaultPathFor(COMPANY_BRAIN_ID) as string);
 
 export type Resolved = { ok: true; ctx: BrainCtx; role?: string } | { ok: false; status: number; error: string };
 
@@ -69,13 +74,17 @@ export interface ResolveInput {
 }
 
 export function resolveBrain(i: ResolveInput): Resolved {
-  const primary = (actor?: string, via?: string): Resolved => ({ ok: true, ctx: { brainId: PRIMARY_BRAIN_ID, vaultPath: getPrimaryVaultPath(), primary: true, actor, via } });
+  const primary = (actor?: string, via?: string): Resolved => ({ ok: true, ctx: { brainId: PRIMARY_BRAIN_ID, vaultPath: getPrimaryVaultPath(), primary: true, actor, via, ownBrainId: PRIMARY_BRAIN_ID } });
   const session = i.sessionToken ? decryptSession(i.sessionToken) : null;
 
   if (session && isLocalId(session.userId)) {
     const acc = getAccount(session.userId);
     if (!acc?.isActive) return { ok: false, status: 401, error: 'Sesión revocada.' };
-    let brainId = brainIdForAccount(acc);
+    const own = brainIdForAccount(acc);
+    if (i.brainView === COMPANY_BRAIN_ID && companyBrainExists()) {
+      return { ok: true, role: acc.role, ctx: { brainId: COMPANY_BRAIN_ID, vaultPath: vaultPathFor(COMPANY_BRAIN_ID) as string, primary: false, actor: acc.id, via: 'compania', ownBrainId: own, readOnly: !TOP_ROLES.includes(acc.role) } };
+    }
+    let brainId = own;
     let via = 'sesion';
     // Solo Owner/Admin pueden mirar otro cerebro, y solo uno que exista.
     if (i.brainView && i.brainView !== brainId && TOP_ROLES.includes(acc.role)) {
@@ -88,7 +97,7 @@ export function resolveBrain(i: ResolveInput): Resolved {
     }
     const vaultPath = brainId === PRIMARY_BRAIN_ID ? getPrimaryVaultPath() : ensureBrain(brainId, (brainId === acc.id ? acc.name : getAccount(brainId)?.name) || brainId);
     if (!vaultPath) return { ok: false, status: 403, error: 'Cerebro no disponible.' };
-    return { ok: true, role: acc.role, ctx: { brainId, vaultPath, primary: brainId === PRIMARY_BRAIN_ID, actor: acc.id, via } };
+    return { ok: true, role: acc.role, ctx: { brainId, vaultPath, primary: brainId === PRIMARY_BRAIN_ID, actor: acc.id, via, ownBrainId: own } };
   }
   // Sesiones del sistema anterior: cerebro principal.
   if (session) return primary(session.userId, 'sesion-original');
@@ -99,12 +108,19 @@ export function resolveBrain(i: ResolveInput): Resolved {
     const acc = k ? getAccount(k.accountId) : null;
     if (!k || !acc?.isActive) return { ok: false, status: 401, error: 'Llave de agente inválida o revocada.' };
     const brainId = brainIdForAccount(acc);
+    // Un agente puede CONSULTAR el cerebro de la compañía con el encabezado x-brain: compania (nunca escribir).
+    if (i.headers.get('x-brain') === COMPANY_BRAIN_ID && companyBrainExists()) {
+      return { ok: true, role: acc.role, ctx: { brainId: COMPANY_BRAIN_ID, vaultPath: vaultPathFor(COMPANY_BRAIN_ID) as string, primary: false, actor: `agente:${k.id}`, via: 'compania', scope: k.scope, ownBrainId: brainId, readOnly: true } };
+    }
     const vaultPath = brainId === PRIMARY_BRAIN_ID ? getPrimaryVaultPath() : ensureBrain(brainId, acc.name);
     if (!vaultPath) return { ok: false, status: 403, error: 'Cerebro no disponible.' };
-    return { ok: true, role: acc.role, ctx: { brainId, vaultPath, primary: brainId === PRIMARY_BRAIN_ID, actor: `agente:${k.id}`, via: 'llave-de-agente', scope: k.scope } };
+    return { ok: true, role: acc.role, ctx: { brainId, vaultPath, primary: brainId === PRIMARY_BRAIN_ID, actor: `agente:${k.id}`, via: 'llave-de-agente', scope: k.scope, ownBrainId: brainId } };
   }
   // Llave histórica de servicio (el agente de HB): cerebro principal, sin límite de alcance.
-  if (serviceKeyMatches(i.headers, process.env.AGENT_API_KEY)) return primary('agente', 'llave');
+  if (serviceKeyMatches(i.headers, process.env.AGENT_API_KEY)) {
+    if (i.headers.get('x-brain') === COMPANY_BRAIN_ID && companyBrainExists()) return { ok: true, ctx: { brainId: COMPANY_BRAIN_ID, vaultPath: vaultPathFor(COMPANY_BRAIN_ID) as string, primary: false, actor: 'agente', via: 'compania', ownBrainId: PRIMARY_BRAIN_ID, readOnly: true } };
+    return primary('agente', 'llave');
+  }
   if (presented) return { ok: false, status: 401, error: 'Llave de agente inválida.' };
   // Sin identidad: solo vale con el login apagado (modo anterior). Con el login encendido se niega también aquí.
   if (loginRequiredFrom(process.env.LOGIN_REQUIRED)) return { ok: false, status: 401, error: 'Inicia sesión para continuar.' };
@@ -124,6 +140,7 @@ export function withBrain<H extends Handler>(handler: H): H {
     // Un perfil de solo lectura no escribe en ningún cerebro.
     const writing = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
     if (r.role === 'Solo lectura' && writing) return NextResponse.json({ ok: false, error: 'Tu perfil es de solo consulta.' }, { status: 403 });
+    if (r.ctx.readOnly && writing) return NextResponse.json({ ok: false, error: 'El cerebro de la compañía es de solo consulta para tu perfil.' }, { status: 403 });
     if (r.ctx.scope === 'leer' && writing) return NextResponse.json({ ok: false, error: 'Esta llave es de solo lectura.' }, { status: 403 });
     // Lo que escribe un agente queda en el registro del cerebro (acción y resultado, nunca el contenido).
     const byAgent = writing && (r.ctx.via === 'llave' || r.ctx.via === 'llave-de-agente');
@@ -146,6 +163,7 @@ export function primaryOnly<H extends Handler>(handler: H): H {
 
 export function listBrains() {
   const out = [{ brainId: PRIMARY_BRAIN_ID, owner: 'HB (principal)', exists: true }];
+  if (companyBrainExists()) out.push({ brainId: COMPANY_BRAIN_ID, owner: 'Compañía (compartido)', exists: true });
   for (const a of listAccounts()) {
     const id = brainIdForAccount(a);
     if (id === PRIMARY_BRAIN_ID) continue;

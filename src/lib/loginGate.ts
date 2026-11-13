@@ -27,7 +27,7 @@ export function gateDecision(i: GateInput): GateDecision {
   const isApi = i.path.startsWith('/api/');
   if (isApi && i.serviceKeyValid && /^\/api\/(agent|public)(\/|$)/.test(i.path)) return 'allow';
   // Llaves por agente: el borde no puede leer el archivo de llaves; deja pasar SOLO a rutas que el servidor valida con withBrain.
-  if (isApi && i.agentKeyPresented && /^\/api\/agent\/(brain|tasks|dots-sleep|vault-sync)(\/|$)/.test(i.path)) return 'allow';
+  if (isApi && i.agentKeyPresented && /^\/api\/agent\/(brain|tasks|dots-sleep|vault-sync|shared)(\/|$)/.test(i.path)) return 'allow';
   return isApi ? 'deny' : 'login';
 }
 
@@ -45,9 +45,9 @@ export function serviceKeyMatches(headers: { get(name: string): string | null },
  * El resto de la app todavía pertenece al espacio de trabajo del cerebro principal. Denegar por defecto.
  */
 const OWN_BRAIN_ALLOWED = [
-  /^\/(cerebro|mis-tareas|mi-agente|usuarios|cambiar-clave|login|setup)(\/|$)/,
-  /^\/api\/auth(\/|$)/, /^\/api\/admin(\/|$)/, /^\/api\/people(\/|$)/, /^\/api\/keys(\/|$)/,
-  /^\/api\/agent\/(brain|tasks|dots-sleep|vault-sync)(\/|$)/,
+  /^\/(cerebro|mis-tareas|mi-agente|compania|usuarios|cambiar-clave|login|setup)(\/|$)/,
+  /^\/api\/auth(\/|$)/, /^\/api\/admin(\/|$)/, /^\/api\/people(\/|$)/, /^\/api\/keys(\/|$)/, /^\/api\/brain-view(\/|$)/,
+  /^\/api\/agent\/(brain|tasks|dots-sleep|vault-sync|shared)(\/|$)/,
 ];
 export function ownBrainDecision(path: string, brain: unknown): 'allow' | 'redirect' | 'deny' {
   if (typeof brain !== 'string' || brain === 'hb') return 'allow';

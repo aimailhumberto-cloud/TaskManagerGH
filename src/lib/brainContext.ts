@@ -8,7 +8,11 @@ import { AsyncLocalStorage } from 'async_hooks';
 
 export interface BrainCtx { brainId: string; vaultPath: string; primary: boolean; actor?: string; via?: string;
   /** Alcance cuando entra un agente con llave: 'leer' | 'proponer' | 'escribir'. Personas y la llave histórica: sin límite. */
-  scope?: 'leer' | 'proponer' | 'escribir' }
+  scope?: 'leer' | 'proponer' | 'escribir';
+  /** Cerebro propio de quien pide (distinto de brainId cuando mira el de la compañía o, como administrador, el de otro). */
+  ownBrainId?: string;
+  /** Solo consulta: cerebro de la compañía para quien no es Owner/Admin. */
+  readOnly?: boolean }
 const g = globalThis as unknown as { __brainALS?: AsyncLocalStorage<BrainCtx> };
 const store = (g.__brainALS ??= new AsyncLocalStorage<BrainCtx>());
 

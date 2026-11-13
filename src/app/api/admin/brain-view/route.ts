@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireManager } from '@/lib/accountGuard';
-import { BRAIN_VIEW_COOKIE, PRIMARY_BRAIN_ID, brainIdForAccount, listBrains, logBrainAccess } from '@/lib/brains';
+import { BRAIN_VIEW_COOKIE, PRIMARY_BRAIN_ID, COMPANY_BRAIN_ID, brainIdForAccount, ensureBrain, listBrains, logBrainAccess } from '@/lib/brains';
 import { getAccount, TOP_ROLES } from '@/lib/localAccounts';
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +15,7 @@ export async function POST(request: NextRequest) {
   const g = await requireManager(request); if (!g.ok) return g.res;
   if (!TOP_ROLES.includes(g.actor.role)) return NextResponse.json({ error: 'Solo un Owner o Admin puede ver otros cerebros.' }, { status: 403 });
   const b = await request.json().catch(() => ({}));
+  if (b?.action === 'create_company') { ensureBrain(COMPANY_BRAIN_ID, 'la compañía'); logBrainAccess({ actor: g.actor.id, role: g.actor.role, brainId: COMPANY_BRAIN_ID, path: '/api/admin/brain-view', method: 'CREATE' }); return NextResponse.json({ ok: true, created: COMPANY_BRAIN_ID }); }
   const res = NextResponse.json({ ok: true, viewing: b?.brainId || null });
   if (!b?.brainId) { res.cookies.delete(BRAIN_VIEW_COOKIE); return res; }
   if (!listBrains().some(x => x.brainId === b.brainId)) return NextResponse.json({ error: 'Ese cerebro no existe.' }, { status: 404 });

@@ -187,3 +187,48 @@ export function sanitizeQuestions(raw: unknown): Record<string, Question> | stri
   }
   return out;
 }
+
+// ---------- Captura nueva: ¿a qué ficha pertenece? ----------
+export interface CaptureSuggestion { noteId: string; title: string; kind: string | null; kindConfidence: number | null; parentId: string | null; parentTitle: string | null; parentScore: number | null; model: string; at: string }
+export const CAPTURE_KINDS: Record<string, string> = {
+  tarea: 'An action someone has to do', contacto: 'Information about a person or a contact', cliente: 'Information about a client, distributor or company',
+  mercado: 'Information about a country or market', producto: 'Information about a product, brand or packaging', operacion: 'A routine, logistics or operations matter', idea: 'An idea, reflection or general note',
+};
+const STOP = new Set('para como esto esta este pero porque sobre entre desde hasta cuando donde quien tiene tienen hacer nota working memory with that this from have will about the and los las una uno del que con por sin más muy'.split(' '));
+const tokens = (t: string) => Array.from(new Set(t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').split(/[^a-z0-9]+/).filter(w => w.length >= 4 && !STOP.has(w))));
+
+/** Candidatos por coincidencia de palabras con el título de la ficha. Jev no busca: solo juzga lo que se le entrega. */
+export function captureCandidates(note: { id: string; title: string; content: string }, nodes: NodeLike[], max = 8): NodeLike[] {
+  const words = tokens(`${note.title} ${note.content}`.slice(0, 4000));
+  const scored = nodes.filter(n => n.id !== note.id && n.type !== 'working_memory' && n.type !== 'consolidation_session' && n.title)
+    .map(n => { const tt = tokens(String(n.title)); const hit = tt.filter(w => words.includes(w)).length; return { n, s: tt.length ? hit / Math.sqrt(tt.length) : 0, hit }; })
+    .filter(x => x.hit > 0).sort((a, b) => b.s - a.s);
+  return scored.slice(0, max).map(x => x.n);
+}
+
+export async function classifyCapture(provider: DecisionProvider, note: { id: string; title: string; content: string }, nodes: NodeLike[], now = new Date()): Promise<CaptureSuggestion> {
+  const cands = captureCandidates(note, nodes);
+  const questions: Record<string, Question> = { tipo: { type: 'choice', instructions: 'What is this note mainly about?', criteria: CAPTURE_KINDS } };
+  cands.forEach((c, i) => { questions[`p${i}`] = { type: 'noul', instructions: `This note is specifically about the entity named "${String(c.title).slice(0, 120)}" (${c.type || 'record'}), not merely mentioning it in passing.` }; });
+  const r = await provider.decide(JSON.stringify({ title: note.title, text: note.content.slice(0, 4000) }), questions);
+  let best = -1, bestScore = -1;
+  cands.forEach((_, i) => { const a = r.answers[`p${i}`]; if (a?.type === 'noul' && a.noul > bestScore) { bestScore = a.noul; best = i; } });
+  const t = r.answers.tipo;
+  return { noteId: note.id, title: note.title, kind: t?.type === 'choice' ? t.choice : null, kindConfidence: t?.type === 'choice' ? t.confidence : null,
+    parentId: best >= 0 ? cands[best].id : null, parentTitle: best >= 0 ? String(cands[best].title) : null, parentScore: best >= 0 ? bestScore : null, model: r.model, at: now.toISOString() };
+}
+const capturesFile = (sleepDir: string) => path.join(sleepDir, 'captures.json');
+export function loadCaptures(sleepDir: string): Record<string, CaptureSuggestion> { try { return JSON.parse(fs.readFileSync(capturesFile(sleepDir), 'utf8')) || {}; } catch { return {}; } }
+export function saveCapture(sleepDir: string, c: CaptureSuggestion) {
+  const all = loadCaptures(sleepDir); all[c.noteId] = c;
+  const ids = Object.keys(all); if (ids.length > 300) for (const id of ids.slice(0, ids.length - 300)) delete all[id];
+  fs.mkdirSync(sleepDir, { recursive: true }); fs.writeFileSync(capturesFile(sleepDir), JSON.stringify(all, null, 2));
+}
+export const captureProposalId = (noteId: string) => `cap-${noteId}`;
+/** Capturas con sugerencia de ubicación, en forma de propuesta del informe. */
+export function captureProposals(sleepDir: string, existingIds: Set<string>) {
+  return Object.values(loadCaptures(sleepDir)).filter(c => c.parentId && c.parentScore !== null && c.parentScore >= 0.5 && existingIds.has(c.noteId) && existingIds.has(c.parentId))
+    .map(c => ({ id: captureProposalId(c.noteId), kind: 'clasificar_captura', severity: 'baja' as const, title: `Ubicar captura: ${c.title}`,
+      reason: `Jev cree que trata de «${c.parentTitle}» (${Math.round((c.parentScore || 0) * 100)} %)${c.kind ? ` y que es de tipo ${c.kind}` : ''}.`,
+      suggestion: `Conectarla a «${c.parentTitle}».`, nodeIds: [c.noteId, c.parentId as string], ai: { apply: c.parentScore, urgency: null } }));
+}

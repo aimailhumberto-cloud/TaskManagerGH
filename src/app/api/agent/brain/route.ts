@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withBrain } from '@/lib/brains';
-import { canWriteFully } from '@/lib/brainContext';
+import { canWriteFully, currentBrain, runInBrain } from '@/lib/brainContext';
 import {
   loadBrainGraph,
   getVaultVersion,
@@ -27,6 +27,35 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-agent-key',
   'Cache-Control': 'no-store',
 };
+
+/** Jev sugiere a qué ficha pertenece la captura; en modo automático la conecta y lo deja en el registro. No retrasa la respuesta. */
+function classifyInBackground(noteId: string, title: string, content: string) {
+  const ctx = currentBrain();
+  if (!ctx?.primary || process.env.JEV_CAPTURE_DISABLED === '1') return;
+  (async () => {
+    const { configuredProvider, classifyCapture, saveCapture, captureProposalId, logCall } = await import('@/lib/decisionEngine');
+    const provider = configuredProvider(); if (!provider) return;
+    const { getSleepDir, recordDecision } = await import('@/lib/dotsSleep');
+    const { loadAutonomy, AUTO_ACTOR } = await import('@/lib/autonomy');
+    const { applyProposal } = await import('@/lib/sleepApply');
+    await runInBrain(ctx, async () => {
+      const sleepDir = getSleepDir(ctx.vaultPath);
+      try {
+        const g = loadBrainGraph(); const nodes = (g.allNodes || g.nodes) as any[];
+        const sug = await classifyCapture(provider, { id: noteId, title, content }, nodes);
+        saveCapture(sleepDir, sug);
+        const a = loadAutonomy(ctx.vaultPath);
+        let applied = false;
+        if (a.mode === 'auto' && sug.parentId && (sug.parentScore || 0) >= a.threshold) {
+          const fresh = loadBrainGraph(); const all = (fresh.allNodes || fresh.nodes) as any[];
+          const r = applyProposal(ctx.vaultPath, { id: captureProposalId(noteId), kind: 'clasificar_captura', title: `Ubicar captura: ${title}`, nodeIds: [noteId, sug.parentId] }, all, AUTO_ACTOR);
+          if (r.ok) { applied = true; recordDecision(ctx.vaultPath, captureProposalId(noteId), 'aprobada', AUTO_ACTOR, `Conectada sola a «${sug.parentTitle}» con confianza ${Math.round((sug.parentScore || 0) * 100)} %`); }
+        }
+        logCall(sleepDir, { action: applied ? 'captura-conectada' : 'captura-sugerida', ok: true, model: sug.model });
+      } catch (e: any) { logCall(sleepDir, { action: 'captura', ok: false, error: e?.message || 'error' }); }
+    });
+  })().catch(() => {});
+}
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
@@ -146,6 +175,7 @@ async function _POST(req: NextRequest) {
       if (!result.ok) {
         return NextResponse.json({ ok: false, error: 'No se pudo guardar la memoria de trabajo' }, { status: 500, headers: CORS_HEADERS });
       }
+      classifyInBackground(result.id, String(title), String(content));
       return NextResponse.json({ ok: true, result }, { status: 201, headers: CORS_HEADERS });
     }
 

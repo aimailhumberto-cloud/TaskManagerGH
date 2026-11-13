@@ -12,7 +12,7 @@ import { updateNoteFile, readNoteStrict } from './vaultFiles';
 import { ensureDailySnapshot } from './vaultBackup';
 import { getSleepDir } from './dotsSleep';
 
-export const APPLICABLE_KINDS = ['memoria_de_trabajo_vieja', 'sin_verificar'] as const;
+export const APPLICABLE_KINDS = ['memoria_de_trabajo_vieja', 'sin_verificar', 'clasificar_captura'] as const;
 export const canApply = (kind: string) => (APPLICABLE_KINDS as readonly string[]).includes(kind);
 const PROTECTED_STATUS = new Set(['in_review_dots', 'solicitado', 'recibido', 'en_analisis', 'borrador_listo', 'archived']);
 const ABSENT = '__ausente__';
@@ -20,7 +20,7 @@ const ABSENT = '__ausente__';
 export interface AppliedChange { file: string; before: Record<string, unknown>; after: Record<string, unknown> }
 export interface AppliedRecord { id: string; kind: string; title?: string; at: string; by?: string; changes: AppliedChange[]; undoneAt?: string }
 export type AppliedMap = Record<string, AppliedRecord>;
-export interface ApplyNode { id: string; filePath: string }
+export interface ApplyNode { id: string; filePath: string; title?: string }
 export type ApplyResult = { ok: true; record: AppliedRecord } | { ok: false; error: string };
 
 const file = (vaultPath: string) => path.join(getSleepDir(vaultPath), 'applied.json');
@@ -37,8 +37,17 @@ function inside(vaultPath: string, filePath: string): string | null {
   return abs.startsWith(root + path.sep) && abs.endsWith('.md') && fs.existsSync(abs) ? abs : null;
 }
 
-function plan(kind: string, fm: Record<string, any>, now: Date, by?: string): Record<string, unknown> | string {
+function plan(kind: string, fm: Record<string, any>, now: Date, by?: string, parentTitle?: string): Record<string, unknown> | string {
   const iso = now.toISOString();
+  if (kind === 'clasificar_captura') {
+    // Conecta la captura a su ficha: agrega el enlace en relations.touches. No cambia el texto ni el tipo.
+    if (!parentTitle) return 'No se encontró la ficha a la que conectar.';
+    const link = `[[${parentTitle}]]`;
+    const rel = fm.relations && typeof fm.relations === 'object' && !Array.isArray(fm.relations) ? fm.relations : {};
+    const touches: string[] = Array.isArray(rel.touches) ? rel.touches : [];
+    if (touches.includes(link)) return 'La captura ya estaba conectada a esa ficha.';
+    return { relations: { ...rel, touches: [...touches, link] }, last_updated_at: iso };
+  }
   if (kind === 'memoria_de_trabajo_vieja') {
     if (fm.memory_tier !== 'working') return 'La nota ya no está en memoria de trabajo.';
     if (PROTECTED_STATUS.has(String(fm.status || ''))) return `La nota tiene una instrucción abierta (${fm.status}); no se consolida.`;
@@ -62,14 +71,15 @@ export function applyProposal(vaultPath: string, proposal: { id: string; kind: s
   // Primero se decide leyendo; si no procede, el archivo no se toca.
   const peek = readNoteStrict(abs);
   if (!peek.ok) return { ok: false, error: `No se pudo leer la nota: ${peek.error}` };
-  const pre = plan(proposal.kind, peek.frontmatter, now, by);
+  const parentTitle = proposal.kind === 'clasificar_captura' ? nodes.find(n => n.id === proposal.nodeIds[1])?.title : undefined;
+  const pre = plan(proposal.kind, peek.frontmatter, now, by, parentTitle);
   if (typeof pre === 'string') return { ok: false, error: pre };
   const backup = ensureDailySnapshot(vaultPath, now);
   if (backup.error) return { ok: false, error: `No se pudo respaldar antes de cambiar: ${backup.error}. No se modificó nada.` };
 
   let before: Record<string, unknown> = {}, after: Record<string, unknown> = {}, refused = '';
   const upd = updateNoteFile(abs, (fm) => {
-    const p = plan(proposal.kind, fm, now, by);
+    const p = plan(proposal.kind, fm, now, by, parentTitle);
     if (typeof p === 'string') { refused = p; return; }
     after = p;
     before = Object.fromEntries(Object.keys(p).map(k => [k, k in fm ? fm[k] : ABSENT]));
