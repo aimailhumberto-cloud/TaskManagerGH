@@ -12,6 +12,7 @@ import { PortfolioConnections } from '@/components/PortfolioConnections';
 import { CommercialConnections } from '@/components/CommercialConnections';
 import { resolveCollisions } from './collision';
 import { stepPhysics, LabelBoard } from './physics';
+import { drawLinks } from './linkArt';
 import type { RenderLoopProps } from './props';
 import type { NodeData, LinkData, BrainGraphResponse } from './types';
 import { BRAND_AVATARS, getPhotoUrlWithBust, getNodeCustomPhoto, drawPanamaFlag, drawCanadaFlag, drawUSAFlag, drawBelizeFlag, drawTrinidadFlag, drawSMJCorporateCrest, drawPersonAvatar, drawDistributorBadge, drawOrganizationBadge, drawBrandBadge, drawGlassDomeOverlay, drawAmericasMapBackdrop } from './nodeArt';
@@ -379,64 +380,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
           if (l.target === activeEntityId) focusNeighborIds.add(l.source);
         }
       }
-      for (const link of links) {
-        const s = nodeMap.get(link.source);
-        const t = nodeMap.get(link.target);
-        if (s && t) {
-          // Enlace totalmente fuera de la zona visible: no se dibuja.
-          if ((s.x < viewLeft && t.x < viewLeft) || (s.x > viewRight && t.x > viewRight) ||
-              (s.y < viewTop && t.y < viewTop) || (s.y > viewBottom && t.y > viewBottom)) continue;
-          const isConnectedToActive = isFocusActive
-            ? (link.source === activeEntityId || link.target === activeEntityId || (deckIds.has(s.id) && deckIds.has(t.id)))
-            : false;
-
-          // Si el usuario hizo clic o tiene una ficha abierta, APAGAR todas las líneas ajenas!
-          if (isFocusActive && !isConnectedToActive) {
-            continue; // Se omiten completamente: cero ruido visual
-          }
-
-          // Si no hay nada seleccionado (vista panorámica idle), trazar enlaces tenues
-          if (!isFocusActive) {
-            if (viewMode === 'organigram') continue; // En organigrama idle se mantiene limpio
-            ctx.strokeStyle = 'rgba(159, 220, 255, 0.09)';
-            ctx.lineWidth = 0.7;
-            ctx.beginPath();
-            ctx.moveTo(s.x, s.y);
-            ctx.lineTo(t.x, t.y);
-            ctx.stroke();
-            continue;
-          }
-
-          // LÍNEAS VIVAS ENERGIZADAS (Conexiones Directas de la Entidad Activa)
-          ctx.save();
-          ctx.strokeStyle = 'rgba(0, 168, 240, 0.85)';
-          ctx.lineWidth = 1.5;
-          ctx.shadowColor = 'rgba(0, 168, 240, 0.6)';
-          ctx.shadowBlur = 8;
-          ctx.beginPath();
-          ctx.moveTo(s.x, s.y);
-          ctx.lineTo(t.x, t.y);
-          ctx.stroke();
-          ctx.restore();
-
-          // Fotones cinéticos gemelos viajando en la corriente viva
-          const pOffset = (time * 0.16) % 1;
-          const px = s.x + (t.x - s.x) * pOffset;
-          const py = s.y + (t.y - s.y) * pOffset;
-          ctx.fillStyle = '#e6f6ff';
-          ctx.beginPath();
-          ctx.arc(px, py, 2.2, 0, Math.PI * 2);
-          ctx.fill();
-
-          const pOffset2 = (time * 0.16 + 0.5) % 1;
-          const px2 = s.x + (t.x - s.x) * pOffset2;
-          const py2 = s.y + (t.y - s.y) * pOffset2;
-          ctx.fillStyle = '#00a8f0';
-          ctx.beginPath();
-          ctx.arc(px2, py2, 1.6, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
+      drawLinks(ctx, { links, nodes, nodeMap, view: { left: viewLeft, right: viewRight, top: viewTop, bottom: viewBottom }, scale, time, focusId: activeEntityId, deckIds, focusCount: focusConnectedCount, hideIdle: viewMode === 'organigram' });
 
       mark('enlaces');
       // 6. Draw Celestial Nodes
