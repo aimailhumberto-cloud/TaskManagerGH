@@ -13,12 +13,14 @@ interface Proposal {
   nodeIds: string[];
   decision?: { decision: 'aprobada' | 'rechazada' | 'pospuesta' };
   ai?: { apply: number | null; urgency: number | null };
+  canApply?: boolean;
 }
 interface SleepView {
   generatedAt: string;
   day: string;
   proposals: Proposal[];
   hidden?: { rechazadas: number; pospuestas: number };
+  appliedRecent?: { id: string; title?: string; at: string }[];
 }
 
 const DOT: Record<string, string> = { alta: 'bg-red-400', media: 'bg-amber-400', baja: 'bg-sky-400' };
@@ -32,6 +34,7 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [busy, setBusy] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const [jev, setJev] = useState<{ busy: boolean; msg: string | null }>({ busy: false, msg: null });
 
   const load = useCallback(async () => {
@@ -52,11 +55,13 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
   const decide = async (id: string, decision: 'aprobada' | 'rechazada' | 'pospuesta') => {
     setBusy(id);
     try {
-      await fetch('/api/agent/dots-sleep', {
+      const res = await fetch('/api/agent/dots-sleep', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ action: 'decide', id, decision, by: 'HB' }),
       });
+      const j = await res.json().catch(() => ({}));
+      setNotice(j.ok ? (j.applied ? t('Aprobada y aplicada. Se puede deshacer.') : null) : (j.error || t('No se pudo completar.')));
       await load();
     } finally {
       setBusy(null);
@@ -72,6 +77,16 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
       else if (action === 'ping') setJev({ busy: false, msg: `${t('Jev responde')} · ${j.model} · ${j.ms} ms` });
       else { setJev({ busy: false, msg: `${t('Jev revisó')} ${j.reviewed}/${j.pending}${j.errors?.length ? ` · ${j.errors[0]}` : ''}` }); await load(); }
     } catch { setJev({ busy: false, msg: t('Jev no respondió.') }); }
+  };
+
+  const undo = async (id: string) => {
+    setBusy(id);
+    try {
+      const res = await fetch('/api/agent/dots-sleep', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'undo', id }) });
+      const j = await res.json().catch(() => ({}));
+      setNotice(j.ok ? t('Cambio deshecho.') : (j.error || t('No se pudo completar.')));
+      await load();
+    } finally { setBusy(null); }
   };
 
   const pending = (data?.proposals || []).filter((p) => !p.decision);
@@ -92,7 +107,7 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
       {open && (
         <div className="space-y-2">
           <p className="text-[10px] text-gray-500 leading-snug">
-            {t('Solo propuestas: DOTS no cambia ninguna nota por sí solo. Tu decisión queda registrada.')}
+            {t('Nada cambia sin tu aprobación. «Consolidar» y «Marcar como verificada» cambian la nota y se pueden deshacer; «Aprobar» solo registra tu decisión.')}
           </p>
           {state === 'loading' && !data && <p className="text-[11px] text-gray-400">{t('Cargando…')}</p>}
           {state === 'error' && <p className="text-[11px] text-red-300">{t('No se pudo cargar el informe.')}</p>}
@@ -134,7 +149,7 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
                     </button>
                   )}
                   <button disabled={busy === p.id} onClick={() => decide(p.id, 'aprobada')} className="px-2 py-0.5 rounded border border-emerald-700 text-[10px] text-emerald-300 hover:bg-emerald-950 disabled:opacity-50 transition">
-                    {t('Aprobar')}
+                    {!p.canApply ? t('Aprobar') : p.kind === 'sin_verificar' ? t('Marcar como verificada') : p.kind === 'memoria_de_trabajo_vieja' ? t('Consolidar') : t('Aprobar y aplicar')}
                   </button>
                   <button disabled={busy === p.id} onClick={() => decide(p.id, 'pospuesta')} className="px-2 py-0.5 rounded border border-gray-700 text-[10px] text-gray-300 hover:bg-gray-800 disabled:opacity-50 transition">
                     {t('Posponer')}
@@ -152,8 +167,20 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
               {showAll ? t('Ver menos') : `${t('Ver las')} ${pending.length - SHOW} ${t('restantes')}`}
             </button>
           )}
+          {notice && <p className="text-[10px] text-amber-300">{notice}</p>}
+          {(data?.appliedRecent || []).length > 0 && (
+            <div className="space-y-1">
+              <p className="text-[10px] uppercase font-mono text-gray-500">{t('Cambios aplicados')}</p>
+              {(data?.appliedRecent || []).map((a) => (
+                <div key={a.id} className="flex items-center justify-between gap-2 text-[10px] text-gray-400">
+                  <span className="truncate">{a.title || a.id}</span>
+                  <button disabled={busy === a.id} onClick={() => undo(a.id)} className="shrink-0 px-2 py-0.5 rounded border border-gray-700 text-gray-300 hover:bg-gray-800 disabled:opacity-50 transition">{t('Deshacer')}</button>
+                </div>
+              ))}
+            </div>
+          )}
           {approved.length > 0 && (
-            <p className="text-[10px] text-gray-500">{approved.length} {t('aprobadas (anotadas, sin cambios en el vault)')}</p>
+            <p className="text-[10px] text-gray-500">{approved.length} {t('aprobadas')}</p>
           )}
         </div>
       )}

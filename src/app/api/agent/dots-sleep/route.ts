@@ -8,6 +8,7 @@ import fs from 'fs';
 import path from 'path';
 import { getSleepDir } from '@/lib/dotsSleep';
 import { loadReviews } from '@/lib/decisionEngine';
+import { applyProposal, undoProposal, canApply, recentApplied } from '@/lib/sleepApply';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,7 +36,7 @@ function view(vaultPath: string, report: SleepReport | null, generated: boolean)
   const applied = applyDecisions(report, decisions, new Date());
   // Revisión del motor de decisiones (Jev): solo anota confianza y urgencia; no cambia el orden de gravedad ni ninguna nota.
   const reviews = loadReviews(getSleepDir(vaultPath));
-  return { ok: true, generated, report: { ...applied, proposals: applied.proposals.map((p: any) => (reviews[p.id] ? { ...p, ai: reviews[p.id] } : p)) } };
+  return { ok: true, generated, report: { ...applied, proposals: applied.proposals.map((p: any) => ({ ...p, canApply: canApply(p.kind), ...(reviews[p.id] ? { ai: reviews[p.id] } : {}) })), appliedRecent: recentApplied(vaultPath) } };
 }
 
 /**
@@ -94,19 +95,27 @@ export async function POST(req: NextRequest) {
       if (!id || !latest?.proposals.some((p) => p.id === id)) {
         return NextResponse.json({ ok: false, error: 'La propuesta no existe en el último informe' }, { status: 404, headers: CORS_HEADERS });
       }
-      const rec = recordDecision(vaultPath, id, decision, typeof body.by === 'string' ? body.by.slice(0, 60) : undefined, typeof body.note === 'string' ? body.note : undefined);
-      return NextResponse.json(
-        {
-          ok: true, id, record: rec,
-          // v1: solo se registra; ninguna nota cambia
-          applied: false,
-          note: 'La decisión quedó registrada. En esta versión DOTS no modifica notas por sí solo.',
-        },
-        { headers: CORS_HEADERS },
-      );
+      const by = typeof body.by === 'string' ? body.by.slice(0, 60) : undefined;
+      // Aprobar aplica el cambio solo en los tipos con acción mecánica; primero se aplica y, si falla, no se registra como aprobada.
+      const proposal = latest.proposals.find((p) => p.id === id)!;
+      let applied = false, applyNote = 'La decisión quedó registrada. Este tipo de propuesta no cambia notas por sí solo.';
+      if (decision === 'aprobada' && canApply(proposal.kind)) {
+        const g = loadBrainGraph();
+        const res = applyProposal(vaultPath, proposal, (g.allNodes || g.nodes) as any, by);
+        if (!res.ok) return NextResponse.json({ ok: false, error: res.error, applied: false }, { status: 409, headers: CORS_HEADERS });
+        applied = true; applyNote = 'Aprobada y aplicada. Se puede deshacer.';
+      }
+      const rec = recordDecision(vaultPath, id, decision, by, typeof body.note === 'string' ? body.note : undefined);
+      return NextResponse.json({ ok: true, id, record: rec, applied, note: applyNote }, { headers: CORS_HEADERS });
     }
 
-    return NextResponse.json({ ok: false, error: "action debe ser 'run' o 'decide'" }, { status: 400, headers: CORS_HEADERS });
+    if (body.action === 'undo') {
+      const res = undoProposal(vaultPath, String(body.id || ''));
+      if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: 409, headers: CORS_HEADERS });
+      return NextResponse.json({ ok: true, id: res.record.id, undone: true }, { headers: CORS_HEADERS });
+    }
+
+    return NextResponse.json({ ok: false, error: "action debe ser 'run', 'decide' o 'undo'" }, { status: 400, headers: CORS_HEADERS });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'error' }, { status: 500, headers: CORS_HEADERS });
   }
