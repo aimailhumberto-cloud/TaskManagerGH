@@ -22,7 +22,7 @@ const file = (vaultPath: string) => path.join(dir(vaultPath), 'settings.json');
 export const cerebroDir = dir;
 export function defaults(): CerebroSettings {
   const m = process.env.OLLAMA_MODEL?.trim() || 'gemma4';
-  return { models: { rapido: m, grande: process.env.OLLAMA_MODEL_LARGE?.trim() || m }, auto: { agenda: true, novedades: true, contactos: false, cifras: false }, mode: 'mixto', bigTouch: 10, bigCreate: 5, agentCanApprove: false, threshold: 0.85 };
+  return { models: { rapido: m, grande: process.env.OLLAMA_MODEL_LARGE?.trim() || m }, auto: { agenda: true, novedades: true, contactos: false, cifras: false }, mode: 'mixto', bigTouch: 10, bigCreate: 5, agentCanApprove: false, threshold: 0.6 };
 }
 export function loadSettings(vaultPath: string): CerebroSettings {
   const d = defaults();
@@ -35,7 +35,7 @@ export function loadSettings(vaultPath: string): CerebroSettings {
     const auto = Object.fromEntries(AUTO_KINDS.map(k => [k, all !== null ? all : typeof s?.auto?.[k] === 'boolean' ? s.auto[k] : d.auto[k]])) as Record<AutoKind, boolean>;
     const on = AUTO_KINDS.filter(k => auto[k]).length;
     return { models: { rapido: str(s?.models?.rapido, d.models.rapido), grande: str(s?.models?.grande, d.models.grande) }, auto, mode: on === AUTO_KINDS.length ? 'auto' : on === 0 ? 'proponer' : 'mixto',
-      bigTouch: num(s?.bigTouch, d.bigTouch, 1, 500), bigCreate: num(s?.bigCreate, d.bigCreate, 1, 500), agentCanApprove: s?.agentCanApprove === true, threshold: num(s?.threshold, d.threshold, 0.5, 1) };
+      bigTouch: num(s?.bigTouch, d.bigTouch, 1, 500), bigCreate: num(s?.bigCreate, d.bigCreate, 1, 500), agentCanApprove: s?.agentCanApprove === true, threshold: s?.thresholdSet ? num(s?.threshold, d.threshold, 0.3, 1) : d.threshold };
   } catch { return d; }
 }
 export function saveSettings(vaultPath: string, patch: Record<string, unknown>): CerebroSettings {
@@ -44,6 +44,7 @@ export function saveSettings(vaultPath: string, patch: Record<string, unknown>):
   const fromMode = patch.mode === 'auto' ? Object.fromEntries(AUTO_KINDS.map(k => [k, true])) : patch.mode === 'proponer' ? Object.fromEntries(AUTO_KINDS.map(k => [k, false])) : {};
   const merged = { ...cur, ...patch, models: { ...cur.models, ...((patch.models as object) || {}) }, auto: { ...cur.auto, ...fromMode, ...((patch.auto as object) || {}) } };
   delete (merged as any).mode;
+  if (patch.threshold !== undefined) (merged as any).thresholdSet = true; else if ((cur as any).thresholdSet === undefined) { try { (merged as any).thresholdSet = JSON.parse(fs.readFileSync(file(vaultPath), 'utf8')).thresholdSet === true; } catch {} }
   fs.mkdirSync(dir(vaultPath), { recursive: true });
   fs.writeFileSync(file(vaultPath), JSON.stringify(merged, null, 2));
   return loadSettings(vaultPath); // relee y valida

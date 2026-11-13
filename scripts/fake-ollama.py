@@ -10,10 +10,10 @@ def plan(text, msgs, full=''):
     t = text.lower()
     talk = 'CONVERSACIÓN:' in full
     if 'ticasur' in t: return [tc('crear_ficha', tipo='distributor', nombre='Tica Sur E2E', conectar_con=[{'hacia': 'market-panama', 'relacion': 'operates_in_market'}]),
-        tc('crear_ficha', tipo='person', nombre='Ana Ruiz E2E', campos={'email_primary': 'ana@ticasur.test', 'job_title': 'Gerente de compras', 'organization': 'Tica Sur E2E'}, conectar_con=[{'hacia': 'dist-tica-sur-e2e', 'relacion': 'works_at'}]),
+        tc('crear_ficha', tipo='person', nombre='Ana Ruiz E2E', campos={'email_primary': 'ana@ticasur.test', 'job_title': 'Gerente de compras', 'organization': 'Tica Sur E2E'}, conectar_con=[{'hacia': 'nueva:Tica Sur E2E', 'relacion': 'works_at'}]),
         tc('crear_ficha', tipo='person', nombre='Luis Paz E2E', campos={'email_primary': 'luis@ticasur.test'}, conectar_con=[{'hacia': 'dist-tica-sur-e2e', 'relacion': 'works_at'}]),
         tc('actualizar_campos', ficha='person-richard-bailey', campos={'phone_mobile': '+507 6000-0000'}),
-        tc('registrar_novedad', ficha='dist-tica-sur-e2e', resumen='Piden lista de precios de Chubby para enero', fuente='Correo de Ana Ruiz, 13 nov', proximo_paso_fecha='2026-11-20', proximo_paso='Enviar lista de precios'),
+        tc('registrar_novedad', ficha='nueva:Tica Sur E2E', resumen='Piden lista de precios de Chubby para enero', fuente='Correo de Ana Ruiz, 13 nov', proximo_paso_fecha='2026-11-20', proximo_paso='Enviar lista de precios'),
         tc('registrar_indicador', nombre='Pedido Tica Sur E2E', valor=300, unidad='cajas', nota='Correo de Ana Ruiz'),
         tc('observar', texto='«J. Hector» podría ser Jenna Hector; lo dejé fuera.')]
     if 'tarea-parecida' in t: return [tc('crear_tarea', ficha='person-richard-bailey', titulo='Enviar la propuesta a MEDIMEX hoy')]

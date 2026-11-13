@@ -228,7 +228,7 @@ export default function PedirPage() {
                   <label key={k} className="flex items-center gap-2"><input type="checkbox" checked={!!s.auto?.[k]} onChange={e => saveSettings({ auto: { ...s.auto, [k]: e.target.checked } })} /><span>{name}</span></label>))}
               </div>
               <label className="space-y-1"><span className="text-xs font-semibold text-slate-600">{L('Confianza mínima de Jev', 'Minimum Jev confidence')} ({Math.round(s.threshold * 100)} %)</span>
-                <input type="range" min={50} max={100} step={5} className="w-full" value={Math.round(s.threshold * 100)} onChange={e => saveSettings({ threshold: Number(e.target.value) / 100 })} /></label>
+                <input type="range" min={30} max={100} step={5} className="w-full" value={Math.round(s.threshold * 100)} onChange={e => saveSettings({ threshold: Number(e.target.value) / 100 })} /></label>
               <label className="space-y-1"><span className="text-xs font-semibold text-slate-600">{L('Pedido grande si toca más de… fichas', 'Big request if it touches more than… notes')}</span>
                 <input type="number" min={1} max={500} className={input} defaultValue={s.bigTouch} onBlur={e => saveSettings({ bigTouch: Number(e.target.value) })} /></label>
               <label className="space-y-1"><span className="text-xs font-semibold text-slate-600">{L('…o crea más de… fichas', '…or creates more than… notes')}</span>

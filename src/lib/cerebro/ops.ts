@@ -96,6 +96,25 @@ export const createdIdOf = (op: Op) => (op.name === 'crear_ficha' && FOLDER[op.a
 const KIND: Record<string, 'agenda' | 'novedades' | 'contactos' | 'cifras'> = { crear_tarea: 'agenda', completar_tarea: 'agenda', reprogramar_tarea: 'agenda', agendar: 'agenda', cancelar_evento: 'agenda', registrar_novedad: 'novedades', actualizar_campos: 'novedades', conectar: 'novedades', desconectar: 'novedades', crear_ficha: 'contactos', registrar_indicador: 'cifras' };
 export const kindOf = (op: Op) => KIND[op.name] || null;
 export const KIND_NAME: Record<string, string> = { agenda: 'tareas y agenda', novedades: 'novedades y datos de fichas', contactos: 'fichas nuevas (contactos, empresas)', cifras: 'cifras e indicadores' };
+/**
+ * Referencias a fichas que el mismo plan crea. El modelo no conoce el id que tendrá una ficha nueva, así que puede
+ * escribir «nueva:Nombre» (o el nombre tal cual); aquí se cambia por el id real. Además se ordena el plan: primero
+ * las fichas nuevas (empresas antes que personas), después todo lo demás.
+ */
+export function resolveRefs(ops: Op[]): Op[] {
+  const key = (v: unknown) => slug(String(v || '').replace(/^nueva:\s*/i, ''));
+  const made = new Map<string, string>();
+  for (const op of ops) { const id = createdIdOf(op); if (id) made.set(key(op.args.nombre), id); }
+  if (!made.size) return ops;
+  const fix = (v: unknown): unknown => { if (typeof v !== 'string' || !v.trim()) return v; if (nodeOk(v)) return v; return made.get(key(v)) || ([...made.values()].includes(v) ? v : v); };
+  const out = ops.map(op => { const a = { ...(op.args || {}) };
+    for (const k of ['ficha', 'desde', 'hacia']) if (a[k] !== undefined) a[k] = fix(a[k]);
+    if (Array.isArray(a.con)) a.con = a.con.map(fix); else if (typeof a.con === 'string') a.con = a.con.split(/[,;]\s*/).map(fix);
+    if (Array.isArray(a.conectar_con)) a.conectar_con = a.conectar_con.map((c: any) => ({ ...c, hacia: fix(c?.hacia) }));
+    return { name: op.name, args: a }; });
+  const rank = (op: Op) => (op.name !== 'crear_ficha' ? 2 : op.args?.tipo === 'person' ? 1 : 0);
+  return out.map((op, i) => ({ op, i })).sort((x, y) => rank(x.op) - rank(y.op) || x.i - y.i).map(x => x.op);
+}
 export const levelOf = (op: Op): Level => MENU[op.name]?.level || 'aprobar';
 export const touchesOf = (op: Op): string[] => (MENU[op.name]?.touches?.(op.args || {}) || []).filter(Boolean);
 
