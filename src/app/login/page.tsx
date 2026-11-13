@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
+import { usePagesT } from '@/lib/pagesI18n';
 
 export default function LoginPage() {
+  const { T, lang, setLang } = usePagesT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -55,95 +57,50 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#faf9f6] px-4 py-12 sm:px-6 lg:px-8 relative overflow-hidden font-sans">
-      {/* Background dynamic blur gradients for a premium feel */}
-      <div className="absolute top-0 left-0 w-80 h-80 bg-gradient-to-br from-gold-300/10 to-gold-500/10 rounded-full blur-3xl -ml-20 -mt-20"></div>
-      <div className="absolute bottom-0 right-0 w-96 h-96 bg-gradient-to-br from-primary-400/5 to-gold-600/10 rounded-full blur-3xl -mr-20 -mb-20"></div>
-
-      <div className="max-w-md w-full space-y-8 bg-white border border-gold-200/50 rounded-3xl p-8 md:p-10 shadow-xl relative backdrop-blur-md">
-        {/* Header Branding */}
-        <div className="text-center">
-          <div className="relative inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-gold-400 via-gold-500 to-gold-600 shadow-lg mb-4">
-            <span className="font-serif text-white font-bold text-2xl select-none">S</span>
-            <div className="absolute inset-0.5 rounded-[14px] border border-white/25"></div>
-          </div>
-          <h2 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary-900 via-gold-800 to-gold-600 bg-clip-text text-transparent">
-            SEGUNDO CEREBRO
-          </h2>
-          <p className="text-xs uppercase tracking-widest text-gold-600 font-bold leading-none mt-1">
-            Inicia sesión en tu cuenta
-          </p>
+    <div className="fixed inset-0 z-[70] grid overflow-y-auto bg-[#f2f6fd] text-[#0b1f4d] lg:grid-cols-2" style={{ fontFamily: 'Poppins, system-ui, sans-serif' }}>
+      <div className="relative hidden overflow-hidden bg-[#0a3fbf] lg:block">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brands/smj-bebidas-hero.jpg" alt={T('Bebidas de S.M. Jaleel')} className="absolute inset-0 h-full w-full object-cover" />
+        <div aria-hidden className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(10,63,191,0.92) 0%, rgba(10,63,191,0.55) 45%, rgba(11,31,77,0.15) 100%)' }} />
+        <div className="relative p-12">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/brands/smjaleel_white.png" alt="S.M. Jaleel" className="h-20 w-20 rounded-full bg-white" />
+          <h1 className="mt-6 text-4xl font-bold text-white">{T('Segundo Cerebro')}</h1>
+          <p className="mt-2 max-w-sm text-lg text-[#dbeafe]">{T('La memoria de la compañía, al alcance de cada persona.')}</p>
         </div>
-
-        {/* Login Form */}
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div
-              id="login-error-message"
-              className="text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3 shadow-sm animate-pulse flex items-center gap-2"
-            >
-              <span>⚠️</span>
-              <span>{error}</span>
+      </div>
+      <div className="flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md">
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-3 lg:hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/brands/smjaleel_white.png" alt="S.M. Jaleel" className="h-12 w-12 rounded-full bg-white shadow" />
+              <span className="text-lg font-bold">{T('Segundo Cerebro')}</span>
             </div>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="email-address" className="block text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2">
-                Correo Electrónico
-              </label>
-              <input
-                id="email-address"
-                name="email"
-                type="text"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu correo"
-                className="w-full px-4 py-3 bg-[#faf9f6] border border-primary-200 rounded-xl text-sm text-primary-900 placeholder-primary-400 focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-all duration-200"
-                disabled={loading}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-xs font-semibold text-primary-600 uppercase tracking-wider mb-2">
-                Contraseña
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-3 bg-[#faf9f6] border border-primary-200 rounded-xl text-sm text-primary-900 placeholder-primary-400 focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-all duration-200"
-                disabled={loading}
-              />
+            <div className="ml-auto flex overflow-hidden rounded-full border border-[#dbe4f3] bg-white text-xs font-semibold" role="group" aria-label="Idioma / Language">
+              {(['es', 'en'] as const).map(l => (
+                <button key={l} type="button" onClick={() => setLang(l)} aria-pressed={lang === l} className={`px-3 py-1.5 ${lang === l ? 'bg-[#0a3fbf] text-white' : 'text-slate-600 hover:bg-[#f2f6fd]'}`}>{l.toUpperCase()}</button>
+              ))}
             </div>
           </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-gradient-to-r from-gold-500 via-gold-500 to-gold-600 hover:from-gold-600 hover:to-gold-700 text-white rounded-xl font-bold text-sm shadow-md shadow-gold-500/10 hover:shadow-lg transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <span className="animate-spin">🔄</span>
-                  Iniciando sesión...
-                </>
-              ) : (
-                <>
-                  <span>🔐</span>
-                  Ingresar al Sistema
-                </>
-              )}
-            </button>
+          <div className="rounded-3xl border border-[#dbe4f3] bg-white p-7 shadow-[0_24px_48px_-28px_rgba(11,31,77,0.35)] sm:p-9">
+            <h2 className="text-2xl font-bold">{T('Inicia sesión')}</h2>
+            <p className="mt-1 text-sm text-slate-600">{T('Entra con tu cuenta para abrir tu cerebro.')}</p>
+            <form className="mt-6 space-y-4" onSubmit={handleSubmit} noValidate>
+              {error && <p className="rounded-xl bg-red-50 p-3 text-sm text-red-700" role="alert">{T(error)}</p>}
+              <div>
+                <label htmlFor="email-address" className="mb-1.5 block text-xs font-semibold text-slate-600">{T('Correo electrónico')}</label>
+                <input id="email-address" name="email" type="text" autoComplete="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder={T('tu.nombre@empresa.com')} className="w-full rounded-xl border border-[#dbe4f3] bg-[#f2f6fd] px-3.5 py-3 text-sm outline-none focus:border-[#0a3fbf]" />
+              </div>
+              <div>
+                <label htmlFor="password" className="mb-1.5 block text-xs font-semibold text-slate-600">{T('Contraseña')}</label>
+                <input id="password" name="password" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full rounded-xl border border-[#dbe4f3] bg-[#f2f6fd] px-3.5 py-3 text-sm outline-none focus:border-[#0a3fbf]" />
+              </div>
+              <button type="submit" disabled={loading} className="w-full rounded-xl bg-[#0a3fbf] px-4 py-3 text-sm font-semibold text-white hover:bg-[#08318f] disabled:opacity-60">{loading ? T('Entrando...') : T('Entrar')}</button>
+            </form>
           </div>
-        </form>
-
+          <p className="mt-5 text-center text-xs text-slate-500">S.M. Jaleel &amp; Co. Ltd.</p>
+        </div>
       </div>
     </div>
   );

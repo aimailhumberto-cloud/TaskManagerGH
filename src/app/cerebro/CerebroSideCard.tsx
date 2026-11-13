@@ -129,7 +129,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                             <img
                               src={getPhotoUrlWithBust(photoSrc, fm.updated_at || fm.updatedAt) || photoSrc}
                               alt={node.title}
-                              className="w-full h-full object-cover rounded-full z-10"
+                              className="absolute inset-0 w-full h-full object-contain bg-white rounded-full z-10"
                               onError={(e) => {
                                 (e.currentTarget as HTMLElement).style.display = 'none';
                               }}
@@ -1217,7 +1217,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
 
                     {/* Action Bar for Dots */}
                     <div className="mb-3 p-2 bg-sky-950/40 border border-sky-900 rounded-lg flex items-center justify-between text-xs">
-                      <span className="text-sky-300 font-mono text-[11px]">Dots Agent Ready</span>
+                      <span className="text-sky-300 font-mono text-[11px]">{t("Dots Agent Ready")}</span>
                       <button
                         onClick={() => {
                           setStatusMessage(`Petición enviada a Dots para enriquecer "${node.title}"`);

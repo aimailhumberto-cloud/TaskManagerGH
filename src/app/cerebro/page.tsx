@@ -601,6 +601,13 @@ export default function CerebroPage() {
       targetX = fitted.visibleW / 2 - fx * targetScale;
       targetY = fitted.visibleH / 2 - fy * targetScale;
     }
+    // En celular la vista general no se encoge hasta quedar ilegible: abre más cerca, centrada, y se recorre con el dedo.
+    if (!targetNode && mobile && targetScale < 0.42) {
+      const cx = (fitted.visibleW / 2 - fitted.x) / fitted.scale, cy = (fitted.visibleH / 2 - fitted.y) / fitted.scale;
+      targetScale = 0.42;
+      targetX = fitted.visibleW / 2 - cx * targetScale;
+      targetY = fitted.visibleH / 2 - cy * targetScale;
+    }
     const cameraVersion = ++cameraAnimationRef.current;
 
     const startX = transformRef.current.x;
