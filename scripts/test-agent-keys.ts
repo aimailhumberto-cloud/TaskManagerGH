@@ -1,0 +1,56 @@
+import * as fs from 'fs'; import * as os from 'os'; import * as path from 'path';
+const root = fs.mkdtempSync(path.join(os.tmpdir(), 'keys-'));
+const pv = path.join(root, 'vault'); fs.mkdirSync(pv, { recursive: true }); fs.writeFileSync(path.join(pv, 'Core.md'), '---\nid: core-sm-jaleel\ntype: core\ntitle: X\n---\nx\n');
+process.env.SMJ_VAULT_PATH = pv; process.env.LOCAL_ACCOUNTS_FILE = path.join(root, 'accounts', 'accounts.json'); process.env.AGENT_KEYS_FILE = path.join(root, 'accounts', 'agent-keys.json');
+process.env.SESSION_SECRET = '0123456789abcdef0123456789abcdef'; process.env.AGENT_API_KEY = 'llave-historica-de-prueba';
+import * as K from '../src/lib/agentKeys';
+import * as B from '../src/lib/brains';
+import { createAccount, updateAccount } from '../src/lib/localAccounts';
+import { gateDecision, agentKeyPresented } from '../src/lib/loginGate';
+let fail = 0;
+const eq = (n: string, a: unknown, b: unknown) => { if (JSON.stringify(a) !== JSON.stringify(b)) { fail++; console.error('FALLA', n, JSON.stringify(a), '!=', JSON.stringify(b)); } };
+const throws = (n: string, f: () => unknown, st?: number) => { try { f(); fail++; console.error('FALLA no lanzó', n); } catch (e: any) { if (st && e.status !== st) { fail++; console.error('FALLA estado', n, e.status); } } };
+const hb = createAccount({ email: 'hb@t.co', name: 'HB', role: 'Owner', password: 'Clave-larga-123', createdBy: 'setup' });
+const ana = createAccount({ email: 'ana@t.co', name: 'Ana', role: 'Miembro', password: 'Clave-larga-123', createdBy: hb.id });
+const luis = createAccount({ email: 'luis@t.co', name: 'Luis', role: 'Miembro', password: 'Clave-larga-123', createdBy: hb.id });
+const H = (o: Record<string, string> = {}) => ({ get: (n: string) => o[n.toLowerCase()] ?? null });
+const res = (headers: Record<string, string>) => B.resolveBrain({ headers: H(headers), path: '/api/agent/brain', method: 'GET' });
+
+throws('nombre corto', () => K.createKey(ana.id, 'x', 'leer')); throws('alcance malo', () => K.createKey(ana.id, 'Agente', 'admin'));
+const a = K.createKey(ana.id, 'Agente de Ana', 'proponer'), l = K.createKey(luis.id, 'Agente de Luis', 'escribir'), h = K.createKey(hb.id, 'DOTS', 'leer');
+eq('formato', /^tmk_[0-9a-f]{8}_[0-9a-f]{64}$/.test(a.key), true);
+const raw = fs.readFileSync(process.env.AGENT_KEYS_FILE!, 'utf8');
+eq('no guarda la llave', raw.includes(a.key) || raw.includes(a.key.split('_')[2]), false);
+eq('permisos', fs.statSync(process.env.AGENT_KEYS_FILE!).mode & 0o077, 0);
+eq('lista sin hash', JSON.stringify(K.listKeys(ana.id)).includes('hash'), false); eq('lista propia', K.listKeys(ana.id).length, 1);
+eq('verifica', K.verifyKey(a.key)?.accountId, ana.id); eq('último uso', !!K.listKeys(ana.id)[0].lastUsedAt, true);
+eq('alterada', K.verifyKey(a.key.slice(0, -1) + (a.key.endsWith('0') ? '1' : '0')), null);
+eq('id de otro con secreto propio', K.verifyKey(`tmk_${l.record.id}_${a.key.split('_')[2]}`), null);
+eq('basura', [K.verifyKey('tmk_'), K.verifyKey('tmk_zzzz_zz'), K.verifyKey('otra-cosa'), K.verifyKey('tmk_' + 'a'.repeat(500))], [null, null, null, null]);
+
+const ra = res({ 'x-agent-key': a.key }), rl = res({ authorization: `Bearer ${l.key}` }), rh = res({ 'x-agent-key': h.key });
+eq('Ana → su cerebro', ra.ok && [ra.ctx.brainId, ra.ctx.scope, ra.ctx.primary], [ana.id, 'proponer', false]);
+eq('Luis → su cerebro', rl.ok && [rl.ctx.brainId, rl.ctx.scope], [luis.id, 'escribir']);
+eq('HB → principal con alcance', rh.ok && [rh.ctx.brainId, rh.ctx.scope, rh.ctx.primary], ['hb', 'leer', true]);
+eq('rutas distintas', ra.ok && rl.ok && ra.ctx.vaultPath !== rl.ctx.vaultPath, true);
+const hist = res({ 'x-agent-key': 'llave-historica-de-prueba' });
+eq('histórica → principal sin límite', hist.ok && [hist.ctx.brainId, hist.ctx.scope], ['hb', undefined]);
+eq('llave tmk falsa', res({ 'x-agent-key': 'tmk_deadbeef_' + '0'.repeat(64) }).ok, false);
+eq('llave cualquiera', res({ 'x-agent-key': 'no-es-nada' }).ok, false);
+// la cookie de vista no aplica a agentes
+eq('agente ignora brain_view', (() => { const r = B.resolveBrain({ headers: H({ 'x-agent-key': a.key }), brainView: 'hb', path: '/x', method: 'GET' }); return r.ok && r.ctx.brainId; })(), ana.id);
+process.env.LOGIN_REQUIRED = '1';
+eq('sin identidad con login encendido', res({}).ok, false);
+delete process.env.LOGIN_REQUIRED; eq('sin identidad con login apagado', res({}).ok, true);
+K.revokeKey(ana.id, a.record.id);
+eq('revocada', [K.verifyKey(a.key), res({ 'x-agent-key': a.key }).ok], [null, false]);
+throws('revocar ajena', () => K.revokeKey(ana.id, l.record.id), 404); eq('la de Luis sigue', !!K.verifyKey(l.key), true);
+updateAccount(luis.id, { isActive: false }, { id: hb.id, role: 'Owner' });
+eq('cuenta desactivada', res({ 'x-agent-key': l.key }).ok, false);
+for (let i = 0; i < K.MAX_KEYS_PER_ACCOUNT; i++) K.createKey(ana.id, 'Agente ' + i, 'leer');
+throws('tope', () => K.createKey(ana.id, 'Otra', 'leer'), 409);
+// borde
+const base = { loginRequired: true, sessionValid: false, serviceKeyValid: false, agentKeyPresented: true };
+eq('borde tmk', ['/api/agent/brain', '/api/agent/tasks', '/api/agent/hub', '/api/agent/decisions', '/api/tasks', '/api/admin/users', '/api/keys', '/cerebro'].map(p => gateDecision({ ...base, path: p })), ['allow', 'allow', 'deny', 'deny', 'deny', 'deny', 'deny', 'login']);
+eq('detecta tmk', [agentKeyPresented(H({ 'x-agent-key': 'tmk_x' })), agentKeyPresented(H({ authorization: 'Bearer tmk_x' })), agentKeyPresented(H({ 'x-agent-key': 'otra' })), agentKeyPresented(H())], [true, true, false, false]);
+if (fail) { console.error(fail + ' fallas'); process.exit(1); } console.log('llaves de agente: todo ok');

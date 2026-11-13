@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withBrain } from '@/lib/brains';
+import { canWriteFully } from '@/lib/brainContext';
 import { getVaultPath, loadBrainGraph } from '@/lib/smjBrainService';
 import {
   applyDecisions, loadDecisions, loadLatestReport, listReportDays, needsNightlyReport,
@@ -96,6 +97,7 @@ async function _POST(req: NextRequest) {
       if (!id || !latest?.proposals.some((p) => p.id === id)) {
         return NextResponse.json({ ok: false, error: 'La propuesta no existe en el último informe' }, { status: 404, headers: CORS_HEADERS });
       }
+      if (decision === 'aprobada' && !canWriteFully()) return NextResponse.json({ ok: false, error: 'Esta llave puede proponer, posponer o rechazar, pero no aprobar.' }, { status: 403, headers: CORS_HEADERS });
       const by = typeof body.by === 'string' ? body.by.slice(0, 60) : undefined;
       // Aprobar aplica el cambio solo en los tipos con acción mecánica; primero se aplica y, si falla, no se registra como aprobada.
       const proposal = latest.proposals.find((p) => p.id === id)!;
@@ -111,6 +113,7 @@ async function _POST(req: NextRequest) {
     }
 
     if (body.action === 'undo') {
+      if (!canWriteFully()) return NextResponse.json({ ok: false, error: 'Esta llave no puede deshacer cambios.' }, { status: 403, headers: CORS_HEADERS });
       const res = undoProposal(vaultPath, String(body.id || ''));
       if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: 409, headers: CORS_HEADERS });
       return NextResponse.json({ ok: true, id: res.record.id, undone: true }, { headers: CORS_HEADERS });

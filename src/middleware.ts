@@ -2,7 +2,7 @@ import { publicHbPath } from '@/lib/publicHbRoutes';
 import { externalRouteBlocked } from '@/lib/runtimePolicy';
 import { NextResponse, NextRequest } from 'next/server';
 import { validEdgeSession, edgeSessionPayload } from '@/lib/sessionPayload';
-import { gateDecision, loginRequiredFrom, serviceKeyMatches, ownBrainDecision } from '@/lib/loginGate';
+import { gateDecision, loginRequiredFrom, serviceKeyMatches, ownBrainDecision, agentKeyPresented } from '@/lib/loginGate';
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   if (externalRouteBlocked(path, { TASKMANAGER_LOCAL_ONLY: process.env.TASKMANAGER_LOCAL_ONLY, TASKMANAGER_EXTERNAL_ACTIONS_ENABLED: process.env.TASKMANAGER_EXTERNAL_ACTIONS_ENABLED })) return NextResponse.json({ error: 'Acción externa deshabilitada en esta instalación.' }, { status: 503 });
@@ -14,7 +14,7 @@ export async function middleware(request: NextRequest) {
   const loginRequired = loginRequiredFrom(process.env.LOGIN_REQUIRED);
   if (loginRequired) {
     const sessionValid = await validEdgeSession(request.cookies.get('hermes_session')?.value || '', process.env.SESSION_SECRET);
-    const decision = gateDecision({ path, loginRequired, sessionValid, serviceKeyValid: serviceKeyMatches(request.headers, process.env.AGENT_API_KEY) });
+    const decision = gateDecision({ path, loginRequired, sessionValid, serviceKeyValid: serviceKeyMatches(request.headers, process.env.AGENT_API_KEY), agentKeyPresented: agentKeyPresented(request.headers) });
     if (decision === 'deny') return NextResponse.json({ error: 'Inicia sesión para continuar.' }, { status: 401 });
     if (decision === 'login') { const url = new URL('/login', request.url); return NextResponse.redirect(url); }
   }

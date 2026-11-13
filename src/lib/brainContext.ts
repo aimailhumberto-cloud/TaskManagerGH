@@ -6,7 +6,9 @@
  */
 import { AsyncLocalStorage } from 'async_hooks';
 
-export interface BrainCtx { brainId: string; vaultPath: string; primary: boolean; actor?: string; via?: string }
+export interface BrainCtx { brainId: string; vaultPath: string; primary: boolean; actor?: string; via?: string;
+  /** Alcance cuando entra un agente con llave: 'leer' | 'proponer' | 'escribir'. Personas y la llave histórica: sin límite. */
+  scope?: 'leer' | 'proponer' | 'escribir' }
 const g = globalThis as unknown as { __brainALS?: AsyncLocalStorage<BrainCtx> };
 const store = (g.__brainALS ??= new AsyncLocalStorage<BrainCtx>());
 
@@ -14,3 +16,5 @@ export const currentBrain = (): BrainCtx | null => store.getStore() || null;
 export const runInBrain = <T>(ctx: BrainCtx, fn: () => T): T => store.run(ctx, fn);
 /** ¿Se está trabajando sobre el cerebro principal? (sin contexto = sí) */
 export const isPrimaryBrain = (): boolean => { const c = store.getStore(); return !c || c.primary; };
+/** ¿Quien pide puede aprobar/deshacer o sincronizar la bóveda? Las personas sí; un agente solo con alcance «escribir». */
+export const canWriteFully = (): boolean => { const c = store.getStore(); return !c?.scope || c.scope === 'escribir'; };

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withBrain } from '@/lib/brains';
+import { canWriteFully } from '@/lib/brainContext';
 import { parseNoteStrict } from '@/lib/vaultFiles';
 import { ensureDailySnapshot, createVaultSnapshot, listVaultSnapshots, MAX_SNAPSHOTS } from '@/lib/vaultBackup';
 import {
@@ -132,6 +133,8 @@ async function _POST(req: NextRequest) {
   try {
     const body = await req.json();
     const action = body.action || (body.path && body.content ? 'write_file' : 'unknown');
+
+    if (action !== 'snapshot' && !canWriteFully()) return NextResponse.json({ ok: false, error: 'Esta llave no puede escribir ni borrar archivos de la bóveda.' }, { status: 403 });
 
     if (action === 'snapshot') {
       const res = createVaultSnapshot(getVaultPath(), 'manual');

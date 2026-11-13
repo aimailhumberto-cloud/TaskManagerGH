@@ -13,7 +13,8 @@ import { runInBrain, type BrainCtx } from './brainContext';
 import { getPrimaryVaultPath } from './smjBrainService';
 import { decryptSession } from './session';
 import { getAccount, isLocalId, listAccounts, TOP_ROLES, type PublicAccount } from './localAccounts';
-import { serviceKeyMatches } from './loginGate';
+import { serviceKeyMatches, loginRequiredFrom } from './loginGate';
+import { looksLikeAgentKey, presentedKey, verifyKey } from './agentKeys';
 
 export const PRIMARY_BRAIN_ID = 'hb';
 export const BRAIN_VIEW_COOKIE = 'brain_view';
@@ -89,10 +90,24 @@ export function resolveBrain(i: ResolveInput): Resolved {
     if (!vaultPath) return { ok: false, status: 403, error: 'Cerebro no disponible.' };
     return { ok: true, role: acc.role, ctx: { brainId, vaultPath, primary: brainId === PRIMARY_BRAIN_ID, actor: acc.id, via } };
   }
-  // Sesiones del sistema anterior y la llave de servicio: cerebro principal.
+  // Sesiones del sistema anterior: cerebro principal.
   if (session) return primary(session.userId, 'sesion-original');
+  // Llave por agente: abre solo el cerebro de su cuenta, con su alcance.
+  const presented = presentedKey(i.headers);
+  if (presented && looksLikeAgentKey(presented)) {
+    const k = verifyKey(presented);
+    const acc = k ? getAccount(k.accountId) : null;
+    if (!k || !acc?.isActive) return { ok: false, status: 401, error: 'Llave de agente inválida o revocada.' };
+    const brainId = brainIdForAccount(acc);
+    const vaultPath = brainId === PRIMARY_BRAIN_ID ? getPrimaryVaultPath() : ensureBrain(brainId, acc.name);
+    if (!vaultPath) return { ok: false, status: 403, error: 'Cerebro no disponible.' };
+    return { ok: true, role: acc.role, ctx: { brainId, vaultPath, primary: brainId === PRIMARY_BRAIN_ID, actor: `agente:${k.id}`, via: 'llave-de-agente', scope: k.scope } };
+  }
+  // Llave histórica de servicio (el agente de HB): cerebro principal, sin límite de alcance.
   if (serviceKeyMatches(i.headers, process.env.AGENT_API_KEY)) return primary('agente', 'llave');
-  // Sin identidad: solo ocurre con el login apagado (modo anterior). Con LOGIN_REQUIRED el middleware ya cortó.
+  if (presented) return { ok: false, status: 401, error: 'Llave de agente inválida.' };
+  // Sin identidad: solo vale con el login apagado (modo anterior). Con el login encendido se niega también aquí.
+  if (loginRequiredFrom(process.env.LOGIN_REQUIRED)) return { ok: false, status: 401, error: 'Inicia sesión para continuar.' };
   return primary(undefined, 'anonimo');
 }
 
@@ -107,7 +122,9 @@ export function withBrain<H extends Handler>(handler: H): H {
     });
     if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: r.status });
     // Un perfil de solo lectura no escribe en ningún cerebro.
-    if (r.role === 'Solo lectura' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return NextResponse.json({ ok: false, error: 'Tu perfil es de solo consulta.' }, { status: 403 });
+    const writing = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
+    if (r.role === 'Solo lectura' && writing) return NextResponse.json({ ok: false, error: 'Tu perfil es de solo consulta.' }, { status: 403 });
+    if (r.ctx.scope === 'leer' && writing) return NextResponse.json({ ok: false, error: 'Esta llave es de solo lectura.' }, { status: 403 });
     return runInBrain(r.ctx, () => handler(req, ...rest));
   }) as H;
 }

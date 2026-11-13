@@ -11,6 +11,8 @@ export interface GateInput {
   sessionValid: boolean;
   /** Llave de servicio válida (AGENT_API_KEY) para procesos automáticos. */
   serviceKeyValid: boolean;
+  /** La petición trae una llave con forma de llave por agente (tmk_…). Su validez la decide el servidor. */
+  agentKeyPresented?: boolean;
 }
 
 export const loginRequiredFrom = (value?: string) => value === '1' || value === 'true';
@@ -24,6 +26,8 @@ export function gateDecision(i: GateInput): GateDecision {
   if (i.sessionValid) return 'allow';
   const isApi = i.path.startsWith('/api/');
   if (isApi && i.serviceKeyValid && /^\/api\/(agent|public)(\/|$)/.test(i.path)) return 'allow';
+  // Llaves por agente: el borde no puede leer el archivo de llaves; deja pasar SOLO a rutas que el servidor valida con withBrain.
+  if (isApi && i.agentKeyPresented && /^\/api\/agent\/(brain|tasks|dots-sleep|vault-sync)(\/|$)/.test(i.path)) return 'allow';
   return isApi ? 'deny' : 'login';
 }
 
@@ -41,12 +45,18 @@ export function serviceKeyMatches(headers: { get(name: string): string | null },
  * El resto de la app todavía pertenece al espacio de trabajo del cerebro principal. Denegar por defecto.
  */
 const OWN_BRAIN_ALLOWED = [
-  /^\/(cerebro|mis-tareas|usuarios|cambiar-clave|login|setup)(\/|$)/,
-  /^\/api\/auth(\/|$)/, /^\/api\/admin(\/|$)/, /^\/api\/people(\/|$)/,
+  /^\/(cerebro|mis-tareas|mi-agente|usuarios|cambiar-clave|login|setup)(\/|$)/,
+  /^\/api\/auth(\/|$)/, /^\/api\/admin(\/|$)/, /^\/api\/people(\/|$)/, /^\/api\/keys(\/|$)/,
   /^\/api\/agent\/(brain|tasks|dots-sleep|vault-sync)(\/|$)/,
 ];
 export function ownBrainDecision(path: string, brain: unknown): 'allow' | 'redirect' | 'deny' {
   if (typeof brain !== 'string' || brain === 'hb') return 'allow';
   if (OWN_BRAIN_ALLOWED.some(r => r.test(path))) return 'allow';
   return path.startsWith('/api/') ? 'deny' : 'redirect';
+}
+
+export function agentKeyPresented(headers: { get(name: string): string | null }): boolean {
+  const auth = headers.get('authorization') || '';
+  const bearer = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
+  return (bearer || headers.get('x-agent-key')?.trim() || '').startsWith('tmk_');
 }

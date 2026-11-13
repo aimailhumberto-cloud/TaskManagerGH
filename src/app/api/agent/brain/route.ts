@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withBrain } from '@/lib/brains';
+import { canWriteFully } from '@/lib/brainContext';
 import {
   loadBrainGraph,
   getVaultVersion,
@@ -124,6 +125,8 @@ async function _POST(req: NextRequest) {
     // Foto diaria del vault antes de la primera escritura del día
     const backup = ensureDailySnapshot(getVaultPathForBackup());
     if (backup.error) console.error('[vault-backup] no se pudo crear la foto diaria:', backup.error);
+
+    if (action !== 'remember_working' && !canWriteFully()) return NextResponse.json({ ok: false, error: 'Esta llave solo puede capturar notas en memoria de trabajo; no puede cambiar fichas ni consolidar.' }, { status: 403 });
 
     if (action === 'remember_working') {
       const { title, content, links, relationType, source } = body;
