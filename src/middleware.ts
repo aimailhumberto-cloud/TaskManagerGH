@@ -2,7 +2,7 @@ import { publicHbPath } from '@/lib/publicHbRoutes';
 import { externalRouteBlocked } from '@/lib/runtimePolicy';
 import { NextResponse, NextRequest } from 'next/server';
 import { validEdgeSession, edgeSessionPayload } from '@/lib/sessionPayload';
-import { gateDecision, loginRequiredFrom, serviceKeyMatches, ownBrainDecision, agentKeyPresented } from '@/lib/loginGate';
+import { gateDecision, loginRequiredFrom, serviceKeyMatches, ownBrainDecision, agentKeyPresented, retiredPage } from '@/lib/loginGate';
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
   if (externalRouteBlocked(path, { TASKMANAGER_LOCAL_ONLY: process.env.TASKMANAGER_LOCAL_ONLY, TASKMANAGER_EXTERNAL_ACTIONS_ENABLED: process.env.TASKMANAGER_EXTERNAL_ACTIONS_ENABLED })) return NextResponse.json({ error: 'Acción externa deshabilitada en esta instalación.' }, { status: 503 });
@@ -10,7 +10,8 @@ export async function middleware(request: NextRequest) {
   const payload = await edgeSessionPayload(request.cookies.get('hermes_session')?.value || '', process.env.SESSION_SECRET);
   const own = ownBrainDecision(path, payload?.brain);
   if (own === 'deny') return NextResponse.json({ error: 'Esta sección todavía no está disponible para tu cerebro.' }, { status: 403 });
-  if (own === 'redirect') return NextResponse.redirect(new URL('/cerebro', request.url));
+  if (own === 'redirect') return NextResponse.redirect(new URL('/inicio', request.url));
+  if (typeof payload?.userId === 'string' && payload.userId.startsWith('local-') && retiredPage(path)) return NextResponse.redirect(new URL('/inicio', request.url));
   const loginRequired = loginRequiredFrom(process.env.LOGIN_REQUIRED);
   if (loginRequired) {
     const sessionValid = await validEdgeSession(request.cookies.get('hermes_session')?.value || '', process.env.SESSION_SECRET);

@@ -64,14 +64,14 @@ export default function LoginPage() {
         {/* Header Branding */}
         <div className="text-center">
           <div className="relative inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-gold-400 via-gold-500 to-gold-600 shadow-lg mb-4">
-            <span className="font-serif text-white font-bold text-2xl select-none">H</span>
+            <span className="font-serif text-white font-bold text-2xl select-none">S</span>
             <div className="absolute inset-0.5 rounded-[14px] border border-white/25"></div>
           </div>
           <h2 className="text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary-900 via-gold-800 to-gold-600 bg-clip-text text-transparent">
-            HERMES TASK HUB
+            SEGUNDO CEREBRO
           </h2>
           <p className="text-xs uppercase tracking-widest text-gold-600 font-bold leading-none mt-1">
-            Sign in to your account
+            Inicia sesión en tu cuenta
           </p>
         </div>
 
@@ -99,7 +99,7 @@ export default function LoginPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="ej: usuario@holding.com"
+                placeholder="tu correo"
                 className="w-full px-4 py-3 bg-[#faf9f6] border border-primary-200 rounded-xl text-sm text-primary-900 placeholder-primary-400 focus:outline-none focus:ring-2 focus:ring-gold-500 focus:border-gold-500 transition-all duration-200"
                 disabled={loading}
               />
@@ -144,11 +144,6 @@ export default function LoginPage() {
           </div>
         </form>
 
-        {/* Demo instructions */}
-        <div className="border-t border-primary-150 pt-4 mt-6 text-center text-[10px] text-primary-450">
-          <p className="font-semibold text-gold-650 mb-1">🔑 Credenciales de Demostración:</p>
-          <p>Email: <span className="font-mono bg-primary-100 px-1 py-0.5 rounded">admin@hermes.com</span> | Contraseña: <span className="font-mono bg-primary-100 px-1 py-0.5 rounded">admin123</span></p>
-        </div>
       </div>
     </div>
   );

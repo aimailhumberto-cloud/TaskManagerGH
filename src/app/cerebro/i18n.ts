@@ -179,7 +179,7 @@ export const EN: Record<string, string> = {
   'Plegado': 'Collapsed',
   'Todos': 'All',
   // Informe nocturno de DOTS
-  'Informe nocturno de DOTS': 'DOTS nightly report',
+  'Registro de Jev y tu agente': 'Jev and agent log',
   'Solo propuestas: DOTS no cambia ninguna nota por sí solo. Tu decisión queda registrada.': 'Proposals only: DOTS does not change any note by itself. Your decision is recorded.',
   'Cargando…': 'Loading…',
   'No se pudo cargar el informe.': 'Could not load the report.',

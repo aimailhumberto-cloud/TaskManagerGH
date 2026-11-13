@@ -33,14 +33,21 @@ export default function FooterProfile({ session }: FooterProfileProps) {
     }
   };
 
-  if (!session) return <div className="px-6 py-5 text-sm text-primary-200"><strong>Espacio HB</strong><p>Acceso público · Tareas editables</p></div>;
+  if (!session) return <div className="px-6 py-5 text-sm text-primary-200"><strong>Segundo Cerebro</strong><p>Inicia sesión para entrar</p></div>;
 
   // Fallback if session is somehow missing but middleware let it pass
   const name = session?.name || 'User Profile';
   const role = session?.role || 'Member';
 
+  const isLocal = session.userId.startsWith('local-');
   return (
     <div className="shrink-0 border-t border-primary-800/80 bg-primary-950/20 p-4">
+      {isLocal && (
+        <div className="mb-2 flex gap-3 px-2 text-[11px] text-primary-300">
+          <a href="/mi-agente" className="hover:text-white underline-offset-2 hover:underline">Mi agente</a>
+          <a href="/cambiar-clave" className="hover:text-white underline-offset-2 hover:underline">Cambiar clave</a>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-2 rounded-lg p-2 hover:bg-primary-800/20 transition-colors">
         <div className="flex items-center gap-3 min-w-0">
           {/* HslAvatar dynamic rendering */}
@@ -59,7 +66,7 @@ export default function FooterProfile({ session }: FooterProfileProps) {
           onClick={handleLogout}
           disabled={loading}
           className="p-1.5 rounded-lg hover:bg-red-950/40 text-primary-400 hover:text-red-400 transition"
-          title="Sign Out"
+          title="Cerrar sesión" aria-label="Cerrar sesión"
         >
           {loading ? (
             <span className="animate-spin text-xs">🔄</span>

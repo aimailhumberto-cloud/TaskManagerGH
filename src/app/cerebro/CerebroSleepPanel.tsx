@@ -106,7 +106,7 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
         aria-expanded={open}
         className="w-full flex items-center justify-between text-[10px] uppercase font-mono text-gray-400 hover:text-gray-200 transition"
       >
-        <span>{t('Informe nocturno de DOTS')}{data ? ` (${pending.length})` : ''}</span>
+        <span>{t('Registro de Jev y tu agente')}{data ? ` (${pending.length})` : ''}</span>
         <span>{open ? '▲' : '▼'}</span>
       </button>
 

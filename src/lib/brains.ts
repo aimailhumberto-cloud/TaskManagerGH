@@ -146,6 +146,7 @@ export function withBrain<H extends Handler>(handler: H): H {
     const byAgent = writing && (r.ctx.via === 'llave' || r.ctx.via === 'llave-de-agente');
     let action: string | undefined;
     if (byAgent) { try { const b = await req.clone().json(); action = typeof b?.action === 'string' ? b.action.slice(0, 40) : undefined; } catch {} }
+    r.ctx.role = r.role;
     const res = await runInBrain(r.ctx, () => handler(req, ...rest));
     if (byAgent) { const { logActivity } = await import('./autonomy'); logActivity(r.ctx.vaultPath, { actor: r.ctx.actor || 'agente', via: r.ctx.via, path: req.nextUrl.pathname, action, status: res.status }); }
     return res;

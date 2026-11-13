@@ -8,7 +8,7 @@ import dbService from '@/services/dbService';
 import {verifiedProfile} from '@/lib/publicWorkspace';
 
 export const metadata = {
-  title: 'TaskManager · Mi trabajo',
+  title: 'Segundo Cerebro · S.M. Jaleel',
   description: 'Tareas, negocios y compromisos en un solo lugar',
 };
 
@@ -20,7 +20,8 @@ export default async function RootLayout({
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get('hermes_session');
   let sessionData = null;
-  let ownBrain = false;
+  let ownBrain = false; // sesión de una cuenta propia
+  let canManage = false;
   
   if (sessionCookie && sessionCookie.value) {
     const parsed = decryptSession(sessionCookie.value);
@@ -28,7 +29,7 @@ export default async function RootLayout({
       if (parsed.userId.startsWith('local-')) {
         const { getAccount } = await import('@/lib/localAccounts');
         const acc = getAccount(parsed.userId);
-        if (acc?.isActive) { sessionData = { userId: acc.id, personId: acc.id, email: acc.email, name: acc.name, role: acc.role }; ownBrain = parsed.brain !== 'hb'; }
+        if (acc?.isActive) { sessionData = { userId: acc.id, personId: acc.id, email: acc.email, name: acc.name, role: acc.role }; ownBrain = true; canManage = ['Owner', 'Admin', 'Gerente'].includes(acc.role); }
       } else try {
         const data=await dbService.readData();
         const person=verifiedProfile(data,parsed);
@@ -72,10 +73,10 @@ export default async function RootLayout({
                 </div>
                 <div className="flex flex-col">
                   <span className="text-lg font-extrabold tracking-wide bg-gradient-to-r from-gold-300 via-gold-400 to-gold-200 bg-clip-text text-transparent">
-                    TASKMANAGER
+                    SEGUNDO CEREBRO
                   </span>
                   <span className="text-[10px] font-semibold text-gold-500/80 tracking-widest uppercase -mt-1">
-                    Mi centro de trabajo
+                    S.M. Jaleel
                   </span>
                 </div>
               </div>
@@ -89,7 +90,7 @@ export default async function RootLayout({
             </div>
 
             {/* Navigation Menu Links */}
-            <WorkspaceNavigation publicOnly={!sessionData} ownBrain={ownBrain} />
+            <WorkspaceNavigation publicOnly={!sessionData} local={ownBrain} canManage={canManage} />
 
             {/* Footer Profile Container */}
             <FooterProfile session={sessionData} />
@@ -115,7 +116,7 @@ export default async function RootLayout({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
                 </label>
-                <span className="text-md font-bold tracking-wider text-gold-400">TASKMANAGER</span>
+                <span className="text-md font-bold tracking-wider text-gold-400">SEGUNDO CEREBRO</span>
               </div>
 
               {/* Mini avatar */}
@@ -132,7 +133,7 @@ export default async function RootLayout({
             </main>
 
             {/* Mobile Bottom Navigation Bar */}
-            <WorkspaceNavigation mobile publicOnly={!sessionData} ownBrain={ownBrain} />
+            <WorkspaceNavigation mobile publicOnly={!sessionData} local={ownBrain} canManage={canManage} />
           </div>
         </div>
       </body>

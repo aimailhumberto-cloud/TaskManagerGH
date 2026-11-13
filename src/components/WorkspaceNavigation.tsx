@@ -7,42 +7,31 @@ import { usePathname } from 'next/navigation';
 export default function WorkspaceNavigation({
   mobile = false,
   publicOnly = false,
-  ownBrain = false,
+  local = false,
+  canManage = false,
 }: {
   mobile?: boolean;
   publicOnly?: boolean;
-  /** Cuenta con cerebro propio: por ahora solo ve su Cerebro y Usuarios. */
-  ownBrain?: boolean;
+  /** Sesión de una cuenta propia: usa el menú nuevo. */
+  local?: boolean;
+  /** Owner, Admin o Gerente: ve «Usuarios». */
+  canManage?: boolean;
 }) {
   const pathname = usePathname();
 
-  const navItems = [
-    ['/', 'Inicio', 'M3 10l9-7 9 7v10H3z'],
-    [
-      '/tasks',
-      'Tareas',
-      'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
-    ],
-    [
-      '/cerebro',
-      'Cerebro SMJ',
-      'M12 2a9 9 0 019 9c0 3.87-2.69 7.1-6.4 8.48l-.6.22V22h-4v-2.3l-.6-.22A9.002 9.002 0 013 11a9 9 0 019-9z',
-    ],
-    ['/empresas', 'Empresas', 'M4 21V3h16v18M8 7h1m6 0h1M8 11h1m6 0h1M10 21v-6h4v6'],
-    ['/agenda', 'Agenda', 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14'],
-    [
-      '/supervision',
-      'Supervisión',
-      'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
-    ],
-    ['/buscar', 'Buscar', 'M21 21l-6-6M17 10a7 7 0 11-14 0 7 7 0 0114 0'],
-    ['/whatsapp', 'WhatsApp', 'M4 4h16v13H9l-5 4z'],
-    ['/mis-tareas', 'Mis tareas', 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'],
-    ['/mi-agente', 'Mi agente', 'M12 3v2m-6 4a6 6 0 0112 0v6a3 3 0 01-3 3H9a3 3 0 01-3-3V9zm3 3h.01M15 12h.01'],
-    ['/compania', 'Compañía', 'M4 21V3h16v18M8 7h1m6 0h1M8 11h1m6 0h1M10 21v-6h4v6'],
-    ['/usuarios', 'Usuarios', 'M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21a8 8 0 0116 0'],
-  ].filter(([href]) => (!publicOnly || href !== '/whatsapp') && (ownBrain ? ['/cerebro', '/mis-tareas', '/mi-agente', '/compania', '/usuarios'].includes(href) : !['/mis-tareas', '/mi-agente', '/compania'].includes(href)))
-    .map(([href, label, icon]) => [href, ownBrain && href === '/cerebro' ? 'Mi cerebro' : label, icon]);
+  const H = 'M3 10l9-7 9 7v10H3z', B = 'M12 2a9 9 0 019 9c0 3.87-2.69 7.1-6.4 8.48l-.6.22V22h-4v-2.3l-.6-.22A9.002 9.002 0 013 11a9 9 0 019-9z';
+  const A = 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14', T = 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4';
+  const U = 'M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21a8 8 0 0116 0';
+  // Cuentas propias (todas, incluida la del dueño): Inicio, Cerebro, Agenda, Tareas y, para gerencia, Usuarios.
+  const modern: string[][] = [['/inicio', 'Inicio', H], ['/cerebro', 'Cerebro', B], ['/mi-agenda', 'Agenda', A], ['/mis-tareas', 'Tareas', T], ...(canManage ? [['/usuarios', 'Usuarios', U]] : [])];
+  // Sin sesión propia (modo anterior): el menú histórico.
+  const legacy: string[][] = [
+    ['/', 'Inicio', H], ['/tasks', 'Tareas', T], ['/cerebro', 'Cerebro SMJ', B],
+    ['/empresas', 'Empresas', 'M4 21V3h16v18M8 7h1m6 0h1M8 11h1m6 0h1M10 21v-6h4v6'], ['/agenda', 'Agenda', A],
+    ['/supervision', 'Supervisión', 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
+    ['/buscar', 'Buscar', 'M21 21l-6-6M17 10a7 7 0 11-14 0 7 7 0 0114 0'], ['/whatsapp', 'WhatsApp', 'M4 4h16v13H9l-5 4z'],
+  ].filter(([href]) => !publicOnly || href !== '/whatsapp');
+  const navItems = local ? modern : legacy;
 
   return (
     <nav

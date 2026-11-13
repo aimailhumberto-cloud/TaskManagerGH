@@ -10,12 +10,13 @@ import WorkspaceHub, { Entry } from './WorkspaceHub';
 import PublicHbWorkspace from './PublicHbWorkspace';
 import {readPublicHbWorkspace} from '@/services/publicHbWorkspace';
 import { workspaceDTO } from '@/lib/publicWorkspace';
-export default async function WorkspacePage({ entry }: { entry: Entry }) {
+export default async function WorkspacePage({ entry, classic = false }: { entry: Entry; classic?: boolean }) {
   const session = decryptSession((await cookies()).get('hermes_session')?.value || '');
   // Cuentas propias (creadas en «Usuarios»): ven el espacio de trabajo de HB, ya protegido por el login.
   const localOk = !!session && isLocalId(session.userId) && !!getAccount(session.userId)?.isActive;
   if (session && isLocalId(session.userId) && !localOk) redirect('/login?expired=1');
-  if (localOk && session!.brain !== 'hb') redirect('/cerebro'); // su espacio es su propio cerebro
+  if (localOk && session!.brain !== 'hb') redirect('/inicio'); // su espacio es su propio cerebro
+  if (localOk && entry === 'home' && !classic) redirect('/inicio'); // el Inicio de todos es el tablero nuevo
   if (!session || localOk) {
     if (!localOk && !['home','companies','agenda','search','supervision'].includes(entry)) redirect('/login');
     try { return <PublicHbWorkspace entry={entry} initial={await readPublicHbWorkspace()} />; }

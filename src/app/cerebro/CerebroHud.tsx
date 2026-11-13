@@ -140,10 +140,6 @@ export function CerebroHud({ contactStats, graphData, handleConsolidate, isHudOp
                 </span>
                 <span className="text-[10px] text-teal-300 font-mono">{(graphData?.allNodes || graphData?.nodes || []).filter((n: any) => n.type === 'flavor').length} {t("Sabores")}</span>
               </div>
-              <div className="mt-1 flex items-center justify-between text-[9px] text-gray-400 font-mono">
-                <span>Estiba: <strong>2,800 cajas</strong> / cont 40ft</span>
-                <span className="text-teal-400">Trinidad Standard</span>
-              </div>
             </div>
 
           </div>

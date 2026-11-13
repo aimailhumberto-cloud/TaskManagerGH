@@ -11,6 +11,8 @@ export interface BrainCtx { brainId: string; vaultPath: string; primary: boolean
   scope?: 'leer' | 'proponer' | 'escribir';
   /** Cerebro propio de quien pide (distinto de brainId cuando mira el de la compañía o, como administrador, el de otro). */
   ownBrainId?: string;
+  /** Rol de la cuenta que pide (cuando es una cuenta propia). */
+  role?: string;
   /** Solo consulta: cerebro de la compañía para quien no es Owner/Admin. */
   readOnly?: boolean }
 const g = globalThis as unknown as { __brainALS?: AsyncLocalStorage<BrainCtx> };
