@@ -220,6 +220,18 @@ export function nameAmbiguities(q: string): NameAmbig[] {
   }
   return out;
 }
+const SAID = '(?:confirm[oó]|envi[oó]|pidi[oó]|dijo|solicit[oó]|respondi[oó]|escribi[oó]|llam[oó]|acept[oó]|rechaz[oó]|mand[oó]|inform[oó]|indic[oó]|avis[oó]|coment[oó]|report[oó]|confirmed|sent|asked|said|requested|replied|wrote|called|reported)';
+/** Nombres que el pedido usa como persona («Krishma confirmó…») y que no están en ninguna ficha. */
+export function unknownPeople(q: string): string[] {
+  const ix = index(); const out: string[] = [];
+  for (const m of q.matchAll(new RegExp(`(?:^|[\\s.;:,(«"“])([A-ZÁÉÍÓÚÑ][a-záéíóúñü]{2,})\\s+${SAID}(?![a-záéíóúñ])`, 'g'))) {
+    const w = words(m[1])[0]; if (!w || out.some(x => words(x)[0] === w)) continue;
+    if (TYPE_WORDS[w] || COUNTRY_WORDS.has(w)) continue;
+    if (ix.nodes.some(n => ix.title.get(n.id)!.has(w))) continue;
+    out.push(m[1]);
+  }
+  return out.slice(0, 5);
+}
 /** Personas que el pedido nombra sin duda: nombre completo, o nombre de pila único entre las personas. */
 export function peopleMentioned(q: string): { id: string; title: string }[] {
   const ix = index(); const ws = new Set(words(q)); const nq = ' ' + [...words(q)].join(' ') + ' ';

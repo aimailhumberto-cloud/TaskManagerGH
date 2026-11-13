@@ -333,3 +333,10 @@ Existen el vault de Obsidian (local), la carpeta `vault/` del repositorio y el d
 - **Viajes y vuelos:** un evento por tramo, con salida, llegada (también si es al día siguiente) y `detalle` (aerolínea, vuelo, escala, dudas como «boleto sin verificar»).
 - **No inventa:** en un evento solo quedan las personas que el pedido nombra; lo que quita lo dice en «Supuse».
 - **Lee `report` y `message`:** `report.hecho`, `report.esperando`, `report.noHice`. Si `status` es `pendiente`, NO se aplicó nada.
+
+## El Cerebro pregunta en vez de adivinar, y parte los pedidos de varios temas (vuelta 37)
+
+- **Pregunta antes de planear** cuando: un nombre puede ser varias personas («Richard»), alguien no tiene ficha («Krishma»), o pides «conservar los horarios» de vuelos que no están guardados. Responde con `responder` y el `id`; solo lo que falta.
+- **Varios temas en un pedido:** la respuesta trae `multi: true`, `status: "varios"` y `parts` (un pedido por tema, cada uno con su `id`, `status` y `report`). Lo claro se aplica; lo dudoso espera o pregunta. Sigue cada tema con su propio `id`.
+- **Tareas existentes:** el Cerebro ve las tareas abiertas del mismo tema; si ya existe, la usa y dice «Ya existe la tarea …» en vez de crear otra.
+- Mejor resultado: nombres completos, y los datos dentro del pedido (horas, aerolínea). Pedidos largos de agente usan el modelo grande: pueden tardar hasta un minuto.

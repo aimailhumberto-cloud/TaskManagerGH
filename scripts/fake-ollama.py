@@ -66,6 +66,7 @@ class H(BaseHTTPRequestHandler):
         first = next((m['content'] for m in msgs if m['role'] == 'user'), '')
         if not body.get('tools'):
             sysm = next((m['content'] for m in msgs if m['role'] == 'system'), '')
+            if sysm.startswith('SPLIT:'): return self.send(200, {'model': body['model'], 'message': {'role': 'assistant', 'content': json.dumps([x.strip() for x in first.split(' || ')] if ' || ' in first else [first])}})
             if sysm.startswith('INTENT:'): return self.send(200, {'model': body['model'], 'message': {'role': 'assistant', 'content': 'pedido' if 'pedido-llm' in first else 'consulta'}})
             return self.send(200, {'model': body['model'], 'message': {'role': 'assistant', 'content': 'listo' if 'listo' in first else ('Answer written by the model from the brain data.' if 'ENGLISH' in sysm else 'Respuesta redactada por el modelo con los datos del cerebro.')}, 'prompt_eval_count': 900, 'eval_count': 40})
         m = re.search(r'"""\n(.*)\n"""', first, re.S)
