@@ -35,11 +35,12 @@ const SIZES = ['breve', 'normal', 'completo'] as const;
 const sizeOf = (v: unknown) => (SIZES.includes(v as any) ? v : 'normal') as (typeof SIZES)[number];
 
 /** Idiomas de este pedido: respuesta (el del texto, o el forzado) y trabajo (el del cerebro; si aún no se eligió, el de quien lo usa por primera vez). */
-function langsFor(vaultPath: string, input: { forced?: unknown; ui?: unknown; text?: string; fallback?: Lang }): { reply: Lang; work: Lang } {
+function langsFor(vaultPath: string, input: { forced?: unknown; ui?: unknown; text?: string; fallback?: Lang; persist?: boolean }): { reply: Lang; work: Lang } {
   const s = loadSettings(vaultPath); const ui = asLang(input.ui);
   const hint = input.fallback ?? ui ?? s.workLang; // un texto dudoso sigue el idioma del pedido que ya existe; si no, el de la pantalla
   const reply = asLang(input.forced) ?? (input.text ? detectLang(input.text, hint) : hint);
-  if (!s.workLangSet && ui && !isAgent()) { try { saveSettings(vaultPath, { workLang: ui }); } catch {} return { reply, work: ui }; }
+  // Primer pedido con texto de una persona (no de un agente) y sin idioma elegido: el cerebro toma el idioma en que escribió. Ver la pantalla no lo fija.
+  if (!s.workLangSet && input.persist && !isAgent() && (input.text || '').trim().length >= 12) { try { saveSettings(vaultPath, { workLang: reply }); } catch {} return { reply, work: reply }; }
   return { reply, work: s.workLang };
 }
 
@@ -73,7 +74,7 @@ async function _POST(req: NextRequest) {
   const b = await req.json().catch(() => ({})); const action = String(b?.action || '');
   const known = ['responder', 'aprobar', 'rechazar'].includes(action) ? listRequests(ctx.vaultPath).find(x => x.id === String(b?.id || ''))?.lang : undefined;
   const text = action === 'consultar' ? String(b?.q || b?.text || '') : ['pedir', 'leer', 'responder'].includes(action) ? String(b?.text || '') : '';
-  const { reply, work } = langsFor(ctx.vaultPath, { forced: b?.lang, ui: b?.uiLang, text: text.trim() || undefined, fallback: known });
+  const { reply, work } = langsFor(ctx.vaultPath, { forced: b?.lang, ui: b?.uiLang, text: text.trim() || undefined, fallback: known, persist: ['pedir', 'leer', 'consultar', 'responder'].includes(action) });
   return withLang(reply, work, () => postInner(ctx, b, action));
 }
 async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: any, action: string) {

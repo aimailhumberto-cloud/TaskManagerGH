@@ -27,6 +27,7 @@ s, tok = http('/api/auth/csrf', session=True); X = {'x-csrf-token': tok.get('tok
 P = lambda body: http(C, body, session=True, headers=X)
 P({'action': 'ajustes', 'mode': 'auto'})
 s, st = http(C); check('estado: workLang sin elegir = español', st['settings']['workLang'] == 'es' and st['settings']['workLangSet'] is False, st['settings'].get('workLang'))
+s, st = http(C + '?uiLang=en', session=True); s, st = http(C, session=True); check('ver la pantalla en inglés no fija el idioma de trabajo', st['settings']['workLangSet'] is False)
 s, st = http(C + '?lang=en'); check('GET ?lang=en: respuesta del estado en inglés', 'ask for a change in words' in st['how'] and st['lang'] == 'en', st.get('how'))
 s, st = http(C); check('GET sin idioma: español', 'pedir un cambio en palabras' in st['how'] and st['lang'] == 'es')
 
@@ -43,8 +44,8 @@ check('español → respuesta en español', s == 200 and r['lang'] == 'es' and r
 
 # 3. Persona con la pantalla en inglés, cerebro sin idioma elegido: se toma el de la pantalla y queda guardado
 s, r = P({'action': 'pedir', 'text': 'move the Richard meeting to next week', 'uiLang': 'en'})
-check('persona en inglés: aplica y responde en inglés', s == 200 and r['status'] == 'aplicado' and r['lang'] == 'en' and 'moved from' in r['results'][0], (s, r.get('message'), r.get('results')))
-s, st = http(C); check('…el idioma de trabajo del cerebro quedó en inglés (tomado de la pantalla)', st['settings']['workLang'] == 'en' and st['settings']['workLangSet'] is True, st['settings'].get('workLang'))
+check('persona escribe en inglés: aplica y responde en inglés', s == 200 and r['status'] == 'aplicado' and r['lang'] == 'en' and 'moved from' in r['results'][0], (s, r.get('message'), r.get('results')))
+s, st = http(C); check('…el idioma de trabajo del cerebro quedó en inglés (tomado de lo que escribió)', st['settings']['workLang'] == 'en' and st['settings']['workLangSet'] is True, st['settings'].get('workLang'))
 b = node('person-richard-bailey').get('body', ''); check('…la bitácora nueva ya sale en inglés (logged by, source)', 'logged by:' in b and 'moved from' in b, b[:400])
 evs = http('/api/agent/agenda?from=2026-11-17&to=2026-11-17')[1]; evs = evs.get('occurrences', evs.get('events', []))
 check('…y el título de la reunión movida, en inglés', any(e.get('title', '').startswith('Meeting with Richard') for e in evs), [e.get('title') for e in evs])
