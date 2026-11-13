@@ -6,6 +6,7 @@ import type { HeaderProps } from './props';
 import Link from 'next/link';
 import { humanNodeName } from '@/lib/smjIdentity';
 import { TYPE_CONFIG } from './layoutTargets';
+import { TypeIcon } from './TypeIcon';
 
 // Extraído de page.tsx sin cambios de comportamiento.
 export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode, isSettingsMenuOpen, lastSyncTime, nodesRef, pushToStackedDeck, searchQuery, searchResults, setIsSettingsMenuOpen, setSearchQuery, setStackedDeck, stackedDeck, summary, viewMode }: HeaderProps) {
@@ -16,12 +17,12 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
         {/* Left: Brand & Node Count */}
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
           <Link
-            href="/tasks"
+            href="/inicio"
             className="text-xs uppercase font-bold tracking-wider text-amber-400 hover:text-amber-300 transition flex items-center gap-1.5 shrink-0 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded border border-amber-500/30"
             title={t("Ir a TaskManager Ejecutivo (Tareas)")}
           >
             <span>←</span>
-            <span>{t("Tareas")}</span>
+            <span>{t("Inicio")}</span>
           </Link>
           <div className="h-4 w-px bg-gray-700 shrink-0" />
           <div className="flex items-center gap-1.5 min-w-0">
@@ -82,7 +83,7 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
                   className="flex items-center justify-between p-2 rounded-lg hover:bg-sky-950/80 cursor-pointer text-xs transition border border-transparent hover:border-sky-800/60"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-base shrink-0">{(TYPE_CONFIG[node.type] || TYPE_CONFIG.department).icon}</span>
+                    <TypeIcon type={node.type} size={18} />
                     <div className="min-w-0">
                       <p className="font-bold text-white truncate">{humanNodeName(node)}</p>
                       <p className="text-[10px] text-gray-400 font-mono">{(TYPE_CONFIG[node.type] || TYPE_CONFIG.department).label}</p>
@@ -105,7 +106,7 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
                 viewMode === 'brujula' ? 'bg-sky-600 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
               }`}
             >
-              {t("[BR] Brújula")}
+              {t("Brújula")}
             </button>
             <button
               onClick={() => handleSetViewMode('version-1-ajustada')}
@@ -113,7 +114,7 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
                 viewMode === 'version-1-ajustada' ? 'bg-sky-600 text-white shadow font-semibold' : 'text-gray-400 hover:text-white'
               }`}
             >
-              {t("[V1] V1 Ajustada")}
+              {t("Columnas")}
             </button>
             <button
               onClick={() => handleSetViewMode('constellations')}

@@ -11,6 +11,7 @@ import { brandCatalogNodes, packagingDescription } from '@/lib/portfolioConnecti
 import { PortfolioConnections } from '@/components/PortfolioConnections';
 import { CommercialConnections } from '@/components/CommercialConnections';
 import { autoAssetFor } from '@/lib/assetCatalog';
+import { TypeIcon } from './TypeIcon';
 import type { NodeData, LinkData, BrainGraphResponse } from './types';
 import { BRAND_AVATARS, getPhotoUrlWithBust, getNodeCustomPhoto, drawPanamaFlag, drawCanadaFlag, drawUSAFlag, drawBelizeFlag, drawTrinidadFlag, drawSMJCorporateCrest, drawPersonAvatar, drawDistributorBadge, drawOrganizationBadge, drawBrandBadge, drawGlassDomeOverlay, drawAmericasMapBackdrop } from './nodeArt';
 import { formatDisplayValue, renderFormattedBody } from './bodyFormat';
@@ -33,7 +34,7 @@ export default function CerebroPage() {
     setLangState(l);
     try { localStorage.setItem(LANG_STORAGE_KEY, l); } catch {}
   };
-  useEffect(() => { setLangState(readStoredLang()); }, []);
+  useEffect(() => { setLangState(readStoredLang()); const on = () => setLangState(readStoredLang()); window.addEventListener('ui-lang', on); window.addEventListener('storage', on); return () => { window.removeEventListener('ui-lang', on); window.removeEventListener('storage', on); }; }, []);
   const [graphData, setGraphData] = useState<BrainGraphResponse | null>(null);
   const [selectedMarket, setSelectedMarket] = useState<string>('all');
   const [activeLens, setActiveLens] = useState<string>('global-core');
@@ -1133,7 +1134,7 @@ export default function CerebroPage() {
 
   return (
     <LangContext.Provider value={{ lang, setLang, t }}>
-    <div className="cerebro-lux fixed inset-0 z-[60] flex flex-col w-screen h-screen bg-[#060A12] text-gray-100 overflow-hidden font-sans">
+    <div className="cerebro-lux fixed inset-0 z-[60] flex flex-col w-screen h-screen bg-[#071230] text-gray-100 overflow-hidden font-sans">
       {/* Top Header Navigation & Executive HUD */}
       {/* Top Header Navigation & Executive HUD */}
       <CerebroHeader graphData={graphData} handleCenterAndFit={handleCenterAndFit} handleSetViewMode={handleSetViewMode} isSettingsMenuOpen={isSettingsMenuOpen} lastSyncTime={lastSyncTime} nodesRef={nodesRef} pushToStackedDeck={pushToStackedDeck} searchQuery={searchQuery} searchResults={searchResults} setIsSettingsMenuOpen={setIsSettingsMenuOpen} setSearchQuery={setSearchQuery} setStackedDeck={setStackedDeck} stackedDeck={stackedDeck} summary={summary} viewMode={viewMode} />
@@ -1286,7 +1287,7 @@ export default function CerebroPage() {
                           />
                         )}
                         <span className="absolute inset-0 flex items-center justify-center text-sm">
-                          {(TYPE_CONFIG[hoveredNode.type] || TYPE_CONFIG.department).icon}
+                          <TypeIcon type={hoveredNode.type} size={18} />
                         </span>
                       </div>
                       <div className="min-w-0 flex-1">
@@ -1425,9 +1426,9 @@ export default function CerebroPage() {
             <div className="font-semibold text-gray-400 text-[10px] uppercase tracking-wider flex items-center gap-2">
               <span>
                 {viewMode === 'brujula'
-                  ? '[BR] Brújula Nativa (Mercado Oeste · Portafolio Norte · Org Este · Supply Sur)'
+                  ? 'Brújula (Mercado Oeste · Portafolio Norte · Org Este · Supply Sur)'
                   : viewMode === 'version-1-ajustada'
-                  ? '[V1] V1 Ajustada (Columnas Verticales · Carriles por País)'
+                  ? 'Columnas (Carriles por País)'
                   : viewMode === 'quadrants'
                   ? 'Cuadrantes (América Izq · Marcas Arriba · HQ Centro)'
                   : viewMode === 'organigram'

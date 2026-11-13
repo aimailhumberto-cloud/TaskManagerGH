@@ -42,6 +42,10 @@ export default async function RootLayout({
   }
   return (
     <html lang="es" className="h-full bg-primary-50" suppressHydrationWarning>
+      <head>
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" />
+      </head>
       <body className="h-full bg-primary-50 text-primary-900 antialiased font-sans" suppressHydrationWarning>
         {/* The E2E-compliant data-testid="app-shell" wrapper container */}
         <div 

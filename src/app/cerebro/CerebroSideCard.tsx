@@ -14,6 +14,7 @@ import { CommercialConnections } from '@/components/CommercialConnections';
 import type { SideCardProps } from './props';
 import { autoAssetFor } from '@/lib/assetCatalog';
 import { AssetPicker } from './AssetPicker';
+import { TypeIcon } from './TypeIcon';
 import type { NodeData, LinkData, BrainGraphResponse } from './types';
 import { BRAND_AVATARS, getPhotoUrlWithBust, getNodeCustomPhoto, drawPanamaFlag, drawCanadaFlag, drawUSAFlag, drawBelizeFlag, drawTrinidadFlag, drawSMJCorporateCrest, drawPersonAvatar, drawDistributorBadge, drawOrganizationBadge, drawBrandBadge, drawGlassDomeOverlay, drawAmericasMapBackdrop } from './nodeArt';
 import { formatDisplayValue, renderFormattedBody } from './bodyFormat';
@@ -135,7 +136,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                             />
                           )}
                           <span className="absolute inset-0 flex items-center justify-center text-base">
-                            {flagEmoji || cfg.icon}
+                            {flagEmoji || <TypeIcon type={node.type} size={20} />}
                           </span>
                         </div>
                         <div className="min-w-0">

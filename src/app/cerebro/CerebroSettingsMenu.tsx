@@ -79,7 +79,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                       </optgroup>
                       <optgroup label="Mercados, Canales, Operadores & Clientes">
                         {fullCatalog.filter((n: any) => n.type === 'market' || n.type === 'distributor' || n.type === 'operator' || n.type === 'channel' || n.type === 'customer' || n.type === 'client_group' || n.type === 'client').map((n: any) => (
-                          <option key={n.id} value={n.id}>{(TYPE_CONFIG[n.type] || TYPE_CONFIG.department).icon} {n.title}</option>
+                          <option key={n.id} value={n.id}>{n.title}</option>
                         ))}
                       </optgroup>
                       <optgroup label="Departamentos & Jefaturas">
@@ -108,7 +108,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                     viewMode === 'brujula' ? 'bg-sky-600 text-white font-semibold shadow' : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  {t("[BR] Brújula")}
+                  {t("Brújula")}
                 </button>
                 <button
                   onClick={() => handleSetViewMode('version-1-ajustada')}
@@ -116,7 +116,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                     viewMode === 'version-1-ajustada' ? 'bg-sky-600 text-white font-semibold shadow' : 'text-gray-400 hover:text-white'
                   }`}
                 >
-                  {t("[V1] V1 Ajustada")}
+                  {t("Columnas")}
                 </button>
                 <button
                   onClick={() => handleSetViewMode('constellations')}

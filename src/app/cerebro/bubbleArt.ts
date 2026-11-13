@@ -28,7 +28,7 @@ const TYPE_FAMILY: Record<string, FamilyKey> = {
 export const familyOf = (type: string) => FAMILY[TYPE_FAMILY[type] || 'neutral'];
 
 /** Iconos de línea (lienzo de 24×24, trazo redondeado). Uno por tipo; «file» para lo desconocido. */
-const ICON_PATHS: Record<string, string> = {
+export const ICON_PATHS: Record<string, string> = {
   person: 'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
   building: 'M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18ZM6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M10 10h4M10 14h4M10 18h4',
   briefcase: 'M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16M4 6h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z',
@@ -100,7 +100,7 @@ export function drawBubble(ctx: CanvasRenderingContext2D, n: NodeData, s: Bubble
   const fam = familyOf(n.type), { r } = s, px = r * s.scale, emphasized = s.selected || s.hovered;
 
   // Muy lejos: un punto del color de su familia. Miles de fichas caben así sin costo.
-  if (px < 4.5 && !emphasized) {
+  if (px < 3 && !emphasized) {
     ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI * 2); ctx.fillStyle = fam.ring; ctx.fill();
     return false;
   }
@@ -117,7 +117,7 @@ export function drawBubble(ctx: CanvasRenderingContext2D, n: NodeData, s: Bubble
   ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI * 2); ctx.fillStyle = fam.fill; ctx.fill();
 
   // Interior: foto o logo si hay; si no, iniciales (personas) o icono del tipo. De lejos se omite.
-  const detail = px >= 9 || emphasized;
+  const detail = px >= 5.5 || emphasized;
   const photo = detail ? getNodeCustomPhoto(n) : null;
   if (photo) {
     ctx.save(); ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI * 2); ctx.clip();
@@ -154,7 +154,7 @@ export function drawBubble(ctx: CanvasRenderingContext2D, n: NodeData, s: Bubble
   }
 
   // Punto de estado abajo a la derecha: verde = verificado, ámbar = pendiente.
-  const st = px >= 11 ? nodeStatus(n) : null;
+  const st = px >= 9 ? nodeStatus(n) : null;
   if (st) {
     const sx = n.x + r * 0.72, sy = n.y + r * 0.72, sr = Math.max(3.2, r * 0.2);
     ctx.beginPath(); ctx.arc(sx, sy, sr + 1.6, 0, Math.PI * 2); ctx.fillStyle = '#071230'; ctx.fill();

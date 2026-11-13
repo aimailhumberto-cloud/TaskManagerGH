@@ -162,7 +162,7 @@ export function drawLinks(ctx: CanvasRenderingContext2D, f: LinkFrame): void {
     for (const i of act) {
       const l = links[i]; if (l.source !== f.focusId && l.target !== f.focusId) continue;
       const s = nodeMap.get(l.source)!, t = nodeMap.get(l.target)!, [cx, cy] = ctrl(s, t, meta[i].bend);
-      const mx = 0.25 * s.x + 0.5 * cx + 0.25 * t.x, my = 0.25 * s.y + 0.5 * cy + 0.25 * t.y, name = relName(l.relationType), w = ctx.measureText(name).width + 10;
+      const mx = 0.25 * s.x + 0.5 * cx + 0.25 * t.x, my = 0.25 * s.y + 0.5 * cy + 0.25 * t.y, full = relName(l.relationType), name = full.length > 24 ? full.slice(0, 23) + '…' : full, w = ctx.measureText(name).width + 10;
       ctx.fillStyle = 'rgba(7, 18, 48, 0.88)'; ctx.beginPath(); ctx.roundRect(mx - w / 2, my - 8, w, 16, 8); ctx.fill();
       ctx.fillStyle = '#dbeafe'; ctx.fillText(name, mx, my + 0.5);
     }

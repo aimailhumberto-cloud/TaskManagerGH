@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useUiLang } from '@/lib/uiLang';
 import type { BrandAsset } from '@/lib/assetCatalog';
 
@@ -36,7 +37,7 @@ export function AssetPicker({ nodeId, currentAssetId }: { nodeId: string; curren
   return (
     <>
       <button type="button" onClick={() => setOpen(true)} className="shrink-0 rounded-full border border-[#bcd0f5] bg-[#e8f1ff] px-2.5 py-1 text-[11px] font-semibold text-[#0a3fbf] hover:bg-white">{L('Imagen', 'Image')}</button>
-      {open && (
+      {open && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-[80] flex items-end justify-center bg-[#0b1f4d]/55 p-0 sm:items-center sm:p-4" onClick={() => setOpen(false)}>
           <div role="dialog" aria-label={L('Biblioteca de imágenes', 'Image library')} onClick={e => e.stopPropagation()} className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-white text-[#0b1f4d] shadow-2xl sm:rounded-3xl" style={{ fontFamily: 'Poppins, system-ui, sans-serif' }}>
             <div className="flex items-center justify-between gap-3 bg-[#0a3fbf] px-5 py-4 text-white">
@@ -56,11 +57,11 @@ export function AssetPicker({ nodeId, currentAssetId }: { nodeId: string; curren
               </div>
               {msg && <p className="text-xs font-medium text-[#0a3fbf]" role="status">{msg}</p>}
             </div>
-            <div className="grid flex-1 grid-cols-3 gap-2.5 overflow-y-auto p-5 sm:grid-cols-5">
+            <div className="grid min-h-0 flex-1 auto-rows-max grid-cols-3 content-start gap-2.5 overflow-y-auto p-5 sm:grid-cols-5">
               {shown.map(a => (
                 <button key={a.id} type="button" disabled={busy} onClick={() => assign(a)} title={`${a.brand} · ${a.kind}`} className={`group overflow-hidden rounded-2xl border-2 bg-[#f2f6fd] text-left transition ${picked === a.id ? 'border-[#00a8f0] ring-2 ring-[#00a8f0]/40' : 'border-transparent hover:border-[#bcd0f5]'}`}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={a.thumb} alt={`${a.brand} ${a.kind}`} loading="lazy" className="aspect-square w-full object-cover" />
+                  <img src={a.thumb} alt={`${a.brand} ${a.kind}`} loading="lazy" className="block aspect-square h-auto w-full object-cover" />
                   <span className="block truncate px-2 py-1 text-[10px] capitalize text-slate-600">{a.brand.replace(/-/g, ' ')} · {a.kind}</span>
                 </button>
               ))}
@@ -71,7 +72,8 @@ export function AssetPicker({ nodeId, currentAssetId }: { nodeId: string; curren
               <button type="button" onClick={() => setOpen(false)} className="rounded-xl bg-[#0b1f4d] px-4 py-2 text-sm font-semibold text-white">{L('Listo', 'Done')}</button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

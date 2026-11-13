@@ -341,24 +341,24 @@ button.tm-telemetry-card:hover {transform:translateY(-2px);border-color:rgba(233
 
 
 /* ==========================================================================
-   Cerebro SMJ · tema "Obsidiana y oro"
+   Cerebro SMJ · tema "Azul S.M. Jaleel"
    Capa de estilo acotada a la pagina del Cerebro (.cerebro-lux). Unifica la
-   paleta en obsidiana + oro, deja verde/ambar/rojo solo para estados, cambia
+   paleta en azul marino + celeste de la empresa, deja verde/ambar/rojo solo para estados, cambia
    la tipografia y sube los textos minimos. No afecta al resto del TaskManager.
    ========================================================================== */
 .cerebro-lux {
-  --lux-ink: #05070c;
-  --lux-panel: rgba(13, 17, 27, 0.82);
-  --lux-panel-solid: #0c111b;
-  --lux-raise: rgba(255, 255, 255, 0.035);
-  --lux-line: rgba(233, 188, 110, 0.16);
-  --lux-line-strong: rgba(233, 188, 110, 0.42);
-  --lux-gold: #e9bc6e;
-  --lux-gold-soft: #f3dfa6;
-  --lux-text: #ece7da;
-  --lux-muted: #9aa3b2;
-  --lux-serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-  --lux-sans: "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --lux-ink: #071230;
+  --lux-panel: rgba(11, 31, 77, 0.86);
+  --lux-panel-solid: #0b1f4d;
+  --lux-raise: rgba(255, 255, 255, 0.05);
+  --lux-line: rgba(159, 220, 255, 0.18);
+  --lux-line-strong: rgba(0, 168, 240, 0.7);
+  --lux-gold: #4cc9ff; /* acento: celeste de la marca (el nombre de la variable se conserva) */
+  --lux-gold-soft: #9fdcff;
+  --lux-text: #eef4ff;
+  --lux-muted: #9db0d8;
+  --lux-serif: "Poppins", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif; /* títulos: la misma letra que el resto de la app */
+  --lux-sans: "Poppins", "Inter", "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, "Helvetica Neue", sans-serif;
   background: var(--lux-ink) !important;
   color: var(--lux-text);
   font-family: var(--lux-sans);
@@ -369,7 +369,7 @@ button.tm-telemetry-card:hover {transform:translateY(-2px);border-color:rgba(233
 
 /* Tipografia: fuera el monoespaciado de consola; titulos en serif */
 .cerebro-lux .font-mono { font-family: var(--lux-sans) !important; font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
-.cerebro-lux h1, .cerebro-lux h2, .cerebro-lux h3 { font-family: var(--lux-serif) !important; font-weight: 600 !important; letter-spacing: 0.01em; color: #f7efd9; }
+.cerebro-lux h1, .cerebro-lux h2, .cerebro-lux h3 { font-family: var(--lux-serif) !important; font-weight: 600 !important; letter-spacing: 0.01em; color: #ffffff; }
 .cerebro-lux .uppercase { letter-spacing: 0.14em !important; font-weight: 600 !important; }
 
 /* Tamanos minimos legibles (antes habia texto de 7 a 10 px) */
@@ -378,55 +378,55 @@ button.tm-telemetry-card:hover {transform:translateY(-2px);border-color:rgba(233
 .cerebro-lux [class*="text-[11px]"] { font-size: 12px !important; }
 
 /* Superficies: obsidiana translucida con borde fino */
-.cerebro-lux header { background: linear-gradient(180deg, #0d121d 0%, #090d16 100%) !important; border-bottom: 1px solid var(--lux-line) !important; box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 12px 32px -18px rgba(0,0,0,0.9) !important; }
-.cerebro-lux section { background: rgba(8, 11, 18, 0.9) !important; border-color: var(--lux-line) !important; }
+.cerebro-lux header { background: linear-gradient(180deg, #0b1f4d 0%, #0a1a42 100%) !important; border-bottom: 1px solid var(--lux-line) !important; box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 12px 32px -18px rgba(0,0,0,0.9) !important; }
+.cerebro-lux section { background: rgba(9, 24, 60, 0.92) !important; border-color: var(--lux-line) !important; }
 .cerebro-lux [class*="bg-gray-9"], .cerebro-lux [class*="bg-slate-9"], .cerebro-lux [class*="bg-[#0"] { background-color: var(--lux-panel) !important; }
 .cerebro-lux [class*="bg-gray-8"], .cerebro-lux [class*="bg-slate-8"] { background-color: rgba(255, 255, 255, 0.06) !important; }
-.cerebro-lux [class*="bg-black"] { background-color: rgba(3, 5, 9, 0.72) !important; }
+.cerebro-lux [class*="bg-black"] { background-color: rgba(4, 12, 34, 0.72) !important; }
 
-/* Bordes: todo el arcoiris (cielo, indigo, cian, morado, azul) pasa a oro tenue */
+/* Bordes: todo el arcoiris (cielo, indigo, cian, morado, azul) pasa a celeste tenue */
 .cerebro-lux [class*="border-gray-"], .cerebro-lux [class*="border-slate-"] { border-color: rgba(255, 255, 255, 0.07) !important; }
 .cerebro-lux [class*="border-sky-"], .cerebro-lux [class*="border-indigo-"], .cerebro-lux [class*="border-cyan-"],
 .cerebro-lux [class*="border-purple-"], .cerebro-lux [class*="border-violet-"], .cerebro-lux [class*="border-fuchsia-"],
 .cerebro-lux [class*="border-blue-"], .cerebro-lux [class*="border-teal-"], .cerebro-lux [class*="border-pink-"] { border-color: var(--lux-line) !important; }
 .cerebro-lux [class*="border-sky-"]:hover, .cerebro-lux [class*="border-indigo-"]:hover, .cerebro-lux [class*="border-cyan-"]:hover,
 .cerebro-lux [class*="border-purple-"]:hover, .cerebro-lux [class*="border-blue-"]:hover { border-color: var(--lux-line-strong) !important; }
-.cerebro-lux [class*="border-amber-"], .cerebro-lux [class*="border-yellow-"] { border-color: rgba(233, 188, 110, 0.34) !important; }
+.cerebro-lux [class*="border-amber-"], .cerebro-lux [class*="border-yellow-"] { border-color: rgba(0, 168, 240, 0.34) !important; }
 
-/* Rellenos de color: tintes dorados muy suaves en lugar de azules saturados */
+/* Rellenos de color: tintes celestes muy suaves en lugar de azules saturados */
 .cerebro-lux [class*="bg-sky-"], .cerebro-lux [class*="bg-indigo-"], .cerebro-lux [class*="bg-cyan-"], .cerebro-lux [class*="bg-purple-"],
 .cerebro-lux [class*="bg-violet-"], .cerebro-lux [class*="bg-fuchsia-"], .cerebro-lux [class*="bg-blue-"], .cerebro-lux [class*="bg-teal-"],
-.cerebro-lux [class*="bg-pink-"] { background-color: rgba(233, 188, 110, 0.07) !important; background-image: none !important; }
-.cerebro-lux [class*="bg-amber-9"], .cerebro-lux [class*="bg-amber-500/"], .cerebro-lux [class*="bg-yellow-9"] { background-color: rgba(233, 188, 110, 0.09) !important; }
-.cerebro-lux [class*="bg-gradient-to-"] { background-image: linear-gradient(160deg, rgba(20, 26, 40, 0.92), rgba(9, 12, 20, 0.92)) !important; }
+.cerebro-lux [class*="bg-pink-"] { background-color: rgba(0, 168, 240, 0.07) !important; background-image: none !important; }
+.cerebro-lux [class*="bg-amber-9"], .cerebro-lux [class*="bg-amber-500/"], .cerebro-lux [class*="bg-yellow-9"] { background-color: rgba(0, 168, 240, 0.09) !important; }
+.cerebro-lux [class*="bg-gradient-to-"] { background-image: linear-gradient(160deg, rgba(14, 40, 98, 0.92), rgba(9, 24, 60, 0.92)) !important; }
 
 /* Texto */
-.cerebro-lux [class*="text-white"] { color: #f6f1e4 !important; }
+.cerebro-lux [class*="text-white"] { color: #ffffff !important; }
 .cerebro-lux [class*="text-gray-1"], .cerebro-lux [class*="text-gray-2"], .cerebro-lux [class*="text-gray-3"], .cerebro-lux [class*="text-slate-2"], .cerebro-lux [class*="text-slate-3"] { color: var(--lux-text) !important; }
 .cerebro-lux [class*="text-gray-4"], .cerebro-lux [class*="text-gray-5"], .cerebro-lux [class*="text-gray-6"], .cerebro-lux [class*="text-slate-4"], .cerebro-lux [class*="text-slate-5"] { color: var(--lux-muted) !important; }
 .cerebro-lux [class*="text-sky-"], .cerebro-lux [class*="text-indigo-"], .cerebro-lux [class*="text-cyan-"], .cerebro-lux [class*="text-purple-"],
 .cerebro-lux [class*="text-violet-"], .cerebro-lux [class*="text-fuchsia-"], .cerebro-lux [class*="text-blue-"], .cerebro-lux [class*="text-teal-"],
 .cerebro-lux [class*="text-pink-"], .cerebro-lux [class*="text-amber-"], .cerebro-lux [class*="text-yellow-"] { color: var(--lux-gold) !important; }
 
-/* Botones principales: oro solido con texto oscuro */
+/* Botones principales: celeste de la marca con texto azul marino */
 .cerebro-lux button[class*="bg-amber-6"], .cerebro-lux button[class*="bg-sky-6"], .cerebro-lux button[class*="bg-sky-5"],
 .cerebro-lux button[class*="bg-indigo-6"], .cerebro-lux button[class*="bg-emerald-6"], .cerebro-lux button[class*="bg-blue-6"] {
-  background: linear-gradient(135deg, #f0c97d, #c99a45) !important; color: #14100a !important; border: 1px solid rgba(255, 236, 190, 0.5) !important;
-  font-weight: 650 !important; box-shadow: 0 6px 18px -8px rgba(233, 188, 110, 0.55), 0 1px 0 rgba(255,255,255,0.35) inset !important;
+  background: #00a8f0 !important; color: #071230 !important; border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  font-weight: 650 !important; box-shadow: 0 6px 18px -8px rgba(0, 168, 240, 0.55), 0 1px 0 rgba(255,255,255,0.3) inset !important;
 }
 .cerebro-lux button[class*="bg-amber-6"] *, .cerebro-lux button[class*="bg-sky-6"] *, .cerebro-lux button[class*="bg-sky-5"] *,
-.cerebro-lux button[class*="bg-indigo-6"] *, .cerebro-lux button[class*="bg-emerald-6"] *, .cerebro-lux button[class*="bg-blue-6"] * { color: #14100a !important; }
+.cerebro-lux button[class*="bg-indigo-6"] *, .cerebro-lux button[class*="bg-emerald-6"] *, .cerebro-lux button[class*="bg-blue-6"] * { color: #071230 !important; }
 .cerebro-lux button, .cerebro-lux a { transition: background-color .22s ease, border-color .22s ease, color .22s ease, transform .18s ease, box-shadow .22s ease !important; }
 .cerebro-lux button:hover { border-color: var(--lux-line-strong) !important; }
 .cerebro-lux button:focus-visible, .cerebro-lux a:focus-visible, .cerebro-lux input:focus-visible { outline: 1.5px solid var(--lux-gold) !important; outline-offset: 2px; }
 
 /* Tarjetas: esquinas amplias, brillo superior fino, sombra profunda */
 .cerebro-lux [class*="rounded-xl"], .cerebro-lux [class*="rounded-2xl"], .cerebro-lux [class*="rounded-3xl"] {
-  border-radius: 14px !important;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.045) inset, 0 18px 40px -24px rgba(0, 0, 0, 0.85);
+  border-radius: 16px !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.045) inset, 0 18px 40px -24px rgba(2, 8, 28, 0.85);
   backdrop-filter: blur(18px) saturate(120%);
 }
-.cerebro-lux [class*="shadow-2xl"] { box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 30px 70px -30px rgba(0,0,0,0.95), 0 0 0 1px rgba(233,188,110,0.05) !important; }
+.cerebro-lux [class*="shadow-2xl"] { box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 30px 70px -30px rgba(0,0,0,0.95), 0 0 0 1px rgba(0,168,240,0.05) !important; }
 .cerebro-lux [class*="shadow-["] { box-shadow: 0 1px 0 rgba(255,255,255,0.05) inset, 0 24px 60px -28px rgba(0,0,0,0.9) !important; }
 
 /* Etiquetas pequenas (pildoras) */
@@ -436,21 +436,21 @@ button.tm-telemetry-card:hover {transform:translateY(-2px);border-color:rgba(233
 .cerebro-lux input, .cerebro-lux textarea, .cerebro-lux select {
   background: rgba(255, 255, 255, 0.04) !important; border: 1px solid rgba(255, 255, 255, 0.09) !important; color: var(--lux-text) !important; border-radius: 10px !important;
 }
-.cerebro-lux input::placeholder, .cerebro-lux textarea::placeholder { color: #6f7887 !important; }
-.cerebro-lux input:focus, .cerebro-lux textarea:focus { border-color: var(--lux-line-strong) !important; box-shadow: 0 0 0 3px rgba(233, 188, 110, 0.1) !important; }
+.cerebro-lux input::placeholder, .cerebro-lux textarea::placeholder { color: #7f93bd !important; }
+.cerebro-lux input:focus, .cerebro-lux textarea:focus { border-color: var(--lux-line-strong) !important; box-shadow: 0 0 0 3px rgba(0, 168, 240, 0.1) !important; }
 
 /* Menos parpadeo: las animaciones de alerta permanentes se calman */
 .cerebro-lux .animate-pulse, .cerebro-lux .animate-ping, .cerebro-lux .animate-bounce { animation: none !important; }
 
 /* Barras de desplazamiento finas */
-.cerebro-lux * { scrollbar-width: thin; scrollbar-color: rgba(233, 188, 110, 0.28) transparent; }
+.cerebro-lux * { scrollbar-width: thin; scrollbar-color: rgba(0, 168, 240, 0.28) transparent; }
 .cerebro-lux *::-webkit-scrollbar { width: 6px; height: 6px; }
-.cerebro-lux *::-webkit-scrollbar-thumb { background: rgba(233, 188, 110, 0.26); border-radius: 999px; }
+.cerebro-lux *::-webkit-scrollbar-thumb { background: rgba(0, 168, 240, 0.26); border-radius: 999px; }
 .cerebro-lux *::-webkit-scrollbar-track { background: transparent; }
 
 /* Ficha lateral: entra deslizando */
 @keyframes cerebro-lux-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: translateX(0); } }
-.cerebro-lux aside { animation: cerebro-lux-in .32s cubic-bezier(.2, .8, .2, 1) both; border-left: 1px solid var(--lux-line) !important; background: linear-gradient(180deg, rgba(12, 16, 26, 0.96), rgba(7, 9, 15, 0.97)) !important; }
+.cerebro-lux aside { animation: cerebro-lux-in .32s cubic-bezier(.2, .8, .2, 1) both; border-left: 1px solid var(--lux-line) !important; background: linear-gradient(180deg, rgba(11, 31, 77, 0.97), rgba(7, 18, 48, 0.98)) !important; }
 .cerebro-lux canvas { cursor: grab; }
 .cerebro-lux canvas:active { cursor: grabbing; }
 
@@ -470,13 +470,16 @@ button.tm-telemetry-card:hover {transform:translateY(-2px);border-color:rgba(233
 .cerebro-lux section { padding-top: 8px !important; padding-bottom: 8px !important; }
 @media (max-width: 1099px) { .cerebro-lux .cerebro-hud-strip > div { flex-basis: 220px; } }
 
-/* Ficha lateral: titulo editorial, insignias de tipo en oro, tarjeta sin borde de color */
-.cerebro-lux .cerebro-card-title { font-family: var(--lux-serif) !important; font-weight: 600 !important; letter-spacing: 0.005em; word-break: break-word; }
-.cerebro-lux aside span.uppercase[style*="background"] { background: rgba(233, 188, 110, 0.12) !important; color: var(--lux-gold-soft) !important; border: 1px solid rgba(233, 188, 110, 0.38); border-radius: 999px; padding: 2px 9px; letter-spacing: 0.12em; font-size: 10.5px; }
-.cerebro-lux aside div[style*="border-color"] { border-color: rgba(233, 188, 110, 0.22) !important; background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012)) !important; }
-.cerebro-lux aside div[style*="border-color"] > div:first-child { border-bottom-color: rgba(233, 188, 110, 0.16) !important; }
+/* Ficha lateral: titulo editorial, insignias de tipo en celeste, tarjeta sin borde de color */
+.cerebro-lux .cerebro-card-title { font-family: var(--lux-serif) !important; font-weight: 700 !important; letter-spacing: 0; word-break: break-word; }
+.cerebro-lux aside span.uppercase[style*="background"] { background: rgba(0, 168, 240, 0.12) !important; color: var(--lux-gold-soft) !important; border: 1px solid rgba(0, 168, 240, 0.38); border-radius: 999px; padding: 2px 9px; letter-spacing: 0.12em; font-size: 10.5px; }
+.cerebro-lux aside div[style*="border-color"] { border-color: rgba(0, 168, 240, 0.22) !important; background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.012)) !important; }
+.cerebro-lux aside div[style*="border-color"] > div:first-child { border-bottom-color: rgba(0, 168, 240, 0.16) !important; }
 .cerebro-lux aside [class*="text-emerald-"] { color: #86d6b0 !important; }
 .cerebro-lux aside [class*="bg-emerald-"], .cerebro-lux aside [class*="border-emerald-"] { background-color: rgba(134, 214, 176, 0.08) !important; border-color: rgba(134, 214, 176, 0.3) !important; }
 
 /* El titulo de la ficha recibe foco por codigo (accesibilidad) pero sin recuadro */
 .cerebro-lux .cerebro-card-title:focus, .cerebro-lux aside h2:focus { outline: none !important; box-shadow: none !important; }
+
+/* Iconos de tipo dentro de la capa del Cerebro (reemplazan a los emojis) */
+.cerebro-lux .cerebro-type-icon { color: #ffffff; }
