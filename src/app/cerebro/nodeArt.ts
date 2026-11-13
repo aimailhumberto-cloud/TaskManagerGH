@@ -1,4 +1,5 @@
 // Dibujo de nodos en el lienzo: fotos, banderas, insignias y fondo.
+import { autoAssetFor } from '@/lib/assetCatalog';
 // Extraído de page.tsx sin cambios de comportamiento.
 import type { NodeData } from './types';
 
@@ -11,7 +12,7 @@ if (typeof window !== 'undefined') {
     fruta: '/brands/fruta.png',
     oasis: '/brands/oasis.png',
     altitude: '/brands/altitude.png',
-    smjaleel: '/brands/smjaleel-logo.png',
+    smjaleel: '/brands/smjaleel_white.png',
     medimex: '/brands/medimex-logo.png',
   };
   Object.entries(brandFiles).forEach(([key, src]) => {
@@ -33,7 +34,7 @@ export function getPhotoUrlWithBust(url?: string | null, updatedAt?: string | nu
 export const DYNAMIC_NODE_PHOTOS: Record<string, HTMLImageElement> = {};
 export function getNodeCustomPhoto(node: NodeData): HTMLImageElement | null {
   const fm = node.frontmatter || {};
-  const photoSrc = fm.avatar_image || fm.photo_url || fm.visual_photo_url || fm.visual_logo_url;
+  const photoSrc = fm.avatar_image || fm.photo_url || fm.visual_photo_url || fm.visual_logo_url || autoAssetFor(node)?.thumb;
   if (!photoSrc || typeof photoSrc !== 'string') return null;
   if (typeof window === 'undefined') return null;
 

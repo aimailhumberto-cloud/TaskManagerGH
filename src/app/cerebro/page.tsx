@@ -10,6 +10,7 @@ import { ContactLayer } from '@/components/ContactLayer';
 import { brandCatalogNodes, packagingDescription } from '@/lib/portfolioConnections';
 import { PortfolioConnections } from '@/components/PortfolioConnections';
 import { CommercialConnections } from '@/components/CommercialConnections';
+import { autoAssetFor } from '@/lib/assetCatalog';
 import type { NodeData, LinkData, BrainGraphResponse } from './types';
 import { BRAND_AVATARS, getPhotoUrlWithBust, getNodeCustomPhoto, drawPanamaFlag, drawCanadaFlag, drawUSAFlag, drawBelizeFlag, drawTrinidadFlag, drawSMJCorporateCrest, drawPersonAvatar, drawDistributorBadge, drawOrganizationBadge, drawBrandBadge, drawGlassDomeOverlay, drawAmericasMapBackdrop } from './nodeArt';
 import { formatDisplayValue, renderFormattedBody } from './bodyFormat';
@@ -1260,14 +1261,7 @@ export default function CerebroPage() {
                 {(() => {
                   const fm = hoveredNode.frontmatter || {};
                   const nid = hoveredNode.id.toLowerCase();
-                  const photoSrc = fm.avatar_image || fm.photo_url || fm.visual_photo_url || fm.visual_logo_url ||
-                    (nid.includes('medimex') ? '/brands/medimex-logo.png' :
-                     nid.includes('sm-jaleel') || hoveredNode.type === 'core' ? '/brands/smjaleel-logo.png' :
-                     nid.includes('chubby') ? '/brands/chubby.png' :
-                     nid.includes('busta') ? '/brands/busta.png' :
-                     nid.includes('fruta') ? '/brands/fruta.png' :
-                     nid.includes('oasis') ? '/brands/oasis.png' :
-                     nid.includes('altitude') ? '/brands/altitude.png' : null);
+                  const photoSrc = fm.avatar_image || fm.photo_url || fm.visual_photo_url || fm.visual_logo_url || autoAssetFor(hoveredNode)?.url || null;
 
                   return (
                     <div className="flex items-center gap-2.5 mb-2 border-b border-gray-800/80 pb-2">

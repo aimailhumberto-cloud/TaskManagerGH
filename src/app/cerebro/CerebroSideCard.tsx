@@ -12,6 +12,8 @@ import { brandCatalogNodes, packagingDescription } from '@/lib/portfolioConnecti
 import { PortfolioConnections } from '@/components/PortfolioConnections';
 import { CommercialConnections } from '@/components/CommercialConnections';
 import type { SideCardProps } from './props';
+import { autoAssetFor } from '@/lib/assetCatalog';
+import { AssetPicker } from './AssetPicker';
 import type { NodeData, LinkData, BrainGraphResponse } from './types';
 import { BRAND_AVATARS, getPhotoUrlWithBust, getNodeCustomPhoto, drawPanamaFlag, drawCanadaFlag, drawUSAFlag, drawBelizeFlag, drawTrinidadFlag, drawSMJCorporateCrest, drawPersonAvatar, drawDistributorBadge, drawOrganizationBadge, drawBrandBadge, drawGlassDomeOverlay, drawAmericasMapBackdrop } from './nodeArt';
 import { formatDisplayValue, renderFormattedBody } from './bodyFormat';
@@ -69,14 +71,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                 const fm = node.frontmatter || {};
 
                 const nid = node.id.toLowerCase();
-                const photoSrc = fm.avatar_image || fm.photo_url || fm.visual_photo_url || fm.visual_logo_url || 
-                  (nid.includes('medimex') ? '/brands/medimex-logo.png' :
-                   nid.includes('sm-jaleel') || node.type === 'core' ? '/brands/smjaleel-logo.png' :
-                   nid.includes('chubby') ? '/brands/chubby.png' :
-                   nid.includes('busta') ? '/brands/busta.png' :
-                   nid.includes('fruta') ? '/brands/fruta.png' :
-                   nid.includes('oasis') ? '/brands/oasis.png' :
-                   nid.includes('altitude') ? '/brands/altitude.png' : null);
+                const photoSrc = fm.avatar_image || fm.photo_url || fm.visual_photo_url || fm.visual_logo_url || autoAssetFor(node)?.url || null;
                 const logoSrc = photoSrc;
 
                 const flagEmoji = (node.type === 'market' && (fm.iso_code === 'TT' || nid.includes('trinidad'))) ? '🇹🇹' :
@@ -171,6 +166,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                           )}
                         </div>
                       </div>
+                      <AssetPicker nodeId={node.id} currentAssetId={typeof fm.asset_id === 'string' ? fm.asset_id : undefined} />
                       <button
                         onClick={() => removeFromDeck(node.id)}
                         className="text-gray-400 hover:text-white p-1 text-sm leading-none shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-gray-800 transition active:scale-95"
