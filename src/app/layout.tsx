@@ -2,15 +2,18 @@ import './globals.css';
 import React from 'react';
 import { cookies } from 'next/headers';
 import { decryptSession } from '@/lib/session';
+import { UiLangProvider } from '@/lib/uiLang';
 import FooterProfile from '@/components/FooterProfile';
 import WorkspaceNavigation from '@/components/WorkspaceNavigation';
 import dbService from '@/services/dbService';
 import {verifiedProfile} from '@/lib/publicWorkspace';
 
-export const metadata = {
-  title: 'Segundo Cerebro · S.M. Jaleel',
-  description: 'Tareas, negocios y compromisos en un solo lugar',
-};
+/** Idioma de la pantalla según la cookie: la página sale ya en ese idioma, sin salto. */
+const uiLangOf = async (): Promise<'es' | 'en'> => ((await cookies()).get('cerebro_lang')?.value === 'en' ? 'en' : 'es');
+export async function generateMetadata() {
+  const en = (await uiLangOf()) === 'en';
+  return { title: en ? 'Second Brain · S.M. Jaleel' : 'Segundo Cerebro · S.M. Jaleel', description: en ? 'Tasks, business and commitments in one place' : 'Tareas, negocios y compromisos en un solo lugar' };
+}
 
 export default async function RootLayout({
   children,
@@ -18,6 +21,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const cookieStore = await cookies();
+  const uiLang: 'es' | 'en' = cookieStore.get('cerebro_lang')?.value === 'en' ? 'en' : 'es';
   const sessionCookie = cookieStore.get('hermes_session');
   let sessionData = null;
   let ownBrain = false; // sesión de una cuenta propia
@@ -41,12 +45,13 @@ export default async function RootLayout({
     }
   }
   return (
-    <html lang="es" className="h-full bg-primary-50" suppressHydrationWarning>
+    <html lang={uiLang} className="h-full bg-primary-50" suppressHydrationWarning>
       <head>
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" />
       </head>
       <body className="h-full bg-primary-50 text-primary-900 antialiased font-sans" suppressHydrationWarning>
+        <UiLangProvider initial={uiLang}>
         {/* The E2E-compliant data-testid="app-shell" wrapper container */}
         <div 
           data-testid="app-shell" 
@@ -73,7 +78,7 @@ export default async function RootLayout({
                 <img src="/brands/smjaleel_white.png" alt="S.M. Jaleel" className="h-12 w-12 rounded-full bg-white" />
                 <div className="flex flex-col">
                   <span className="text-[15px] font-bold text-white leading-tight">S.M. Jaleel</span>
-                  <span className="text-[11px] font-medium text-[#9fdcff] tracking-wide">Segundo Cerebro</span>
+                  <span className="text-[11px] font-medium text-[#9fdcff] tracking-wide">{uiLang === 'en' ? 'Second Brain' : 'Segundo Cerebro'}</span>
                 </div>
               </a>
 
@@ -134,6 +139,7 @@ export default async function RootLayout({
             <WorkspaceNavigation mobile publicOnly={!sessionData} local={ownBrain} canManage={canManage} />
           </div>
         </div>
+        </UiLangProvider>
       </body>
     </html>
   );

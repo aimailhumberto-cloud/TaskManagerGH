@@ -5,7 +5,7 @@ import { useUiLang } from '@/lib/uiLang';
 
 type Req = { id: string; at: string; by: string; text: string; status: string; plan: string[]; why?: string; results?: string[]; message?: string; changeId?: string; model?: string; ms?: number; confidence?: number | null; decidedBy?: string; decidedVia?: string; decidedAt?: string; dialog?: { q: string; a?: string }[]; recognized?: { id: string; name: string; type: string; verification?: string; isNew?: boolean }[]; links?: { label: string; href: string }[]; summary?: string; kind?: string; obs?: { supuso: string[]; fuertes: string[]; avisos: string[]; falta: string[]; jev?: { fiel: number | null; coherente?: number | null } } };
 type Auto = { agenda: boolean; novedades: boolean; contactos: boolean; cifras: boolean };
-type Settings = { models: { rapido: string; grande: string }; mode: 'proponer' | 'auto' | 'mixto'; auto: Auto; bigTouch: number; bigCreate: number; agentCanApprove: boolean; threshold: number };
+type Settings = { workLang?: 'es' | 'en'; workLangSet?: boolean; models: { rapido: string; grande: string }; mode: 'proponer' | 'auto' | 'mixto'; auto: Auto; bigTouch: number; bigCreate: number; agentCanApprove: boolean; threshold: number };
 type State = { ready: boolean; jev: boolean; settings: Settings; usage: { today: { calls: number; usd: number }; month: { calls: number; usd: number }; avgMs: number; unknownPrice: boolean }; canApprove: boolean; pending: Req[]; questions?: Req[]; review?: { id: string; kind: string; text: string; at: string }[]; recent: Req[] };
 const card = 'rounded-2xl border border-[#dbe4f3] bg-white p-5 shadow-[0_12px_28px_-18px_rgba(11,31,77,0.22)]';
 const input = 'w-full rounded-xl border border-[#dbe4f3] bg-white px-3 py-2 text-sm outline-none focus:border-[#0a3fbf]';
@@ -13,7 +13,7 @@ const btn = 'rounded-xl bg-[#0a3fbf] px-4 py-2 text-sm font-semibold text-white 
 const ghost = 'rounded-xl border border-[#dbe4f3] bg-white px-4 py-2 text-sm font-semibold text-[#0a3fbf] hover:bg-[#eef3fb] disabled:opacity-50';
 
 export default function PedirPage() {
-  const { L, locale } = useUiLang();
+  const { L, lang, locale } = useUiLang();
   const [st, setSt] = useState<State | null>(null);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -27,39 +27,39 @@ export default function PedirPage() {
   const [omit, setOmit] = useState<Record<string, number[]>>({});
 
   const load = useCallback(async () => {
-    const r = await fetch('/api/agent/cerebro', { cache: 'no-store' }); const d = await r.json().catch(() => ({}));
-    if (r.ok) setSt(d); else setError(d.error || 'Sin acceso.');
-  }, []);
+    const r = await fetch(`/api/agent/cerebro?uiLang=${lang}`, { cache: 'no-store' }); const d = await r.json().catch(() => ({}));
+    if (r.ok) setSt(d); else setError(d.error || L('Sin acceso.', 'No access.'));
+  }, [lang]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [load]);
   const post = async (body: unknown) => {
-    const r = await fetch('/api/agent/cerebro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const r = await fetch('/api/agent/cerebro', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uiLang: lang, ...(body as object) }) });
     return { r, d: await r.json().catch(() => ({})) };
   };
   async function pedir(kind: 'pedir' | 'leer' = 'pedir') {
     if (text.trim().length < 3) return;
     setBusy(kind); setError(null); setAnswer(null); setLast(null);
     const { d } = await post({ action: kind, text });
-    if (d?.id) { setLast(d); if (d.status === 'aplicado' || d.status === 'pendiente') setText(''); } else setError(d.error || 'No se pudo.');
+    if (d?.id) { setLast(d); if (d.status === 'aplicado' || d.status === 'pendiente') setText(''); } else setError(d.error || L('No se pudo.', 'That did not work.'));
     setBusy(null); load();
   }
   async function responder(id: string) {
     if (!reply.trim()) return;
     setBusy('responder'); setError(null);
     const { d } = await post({ action: 'responder', id, text: reply });
-    if (d?.id) { setLast(d); setReply(''); if (d.status === 'aplicado' || d.status === 'pendiente') setText(''); } else setError(d.error || 'No se pudo.');
+    if (d?.id) { setLast(d); setReply(''); if (d.status === 'aplicado' || d.status === 'pendiente') setText(''); } else setError(d.error || L('No se pudo.', 'That did not work.'));
     setBusy(null); load();
   }
   async function preguntar() {
     if (text.trim().length < 3) return;
     setBusy('preguntar'); setError(null); setAnswer(null); setLast(null);
     const { r, d } = await post({ action: 'consultar', q: text });
-    if (r.ok) setAnswer({ answer: d.answer, writtenBy: d.writtenBy, sources: (d.dossier?.sources || []).slice(0, 6), missing: d.dossier?.missing || [] }); else setError(d.error || 'No encontré eso en el cerebro.');
+    if (r.ok) setAnswer({ answer: d.answer, writtenBy: d.writtenBy, sources: (d.dossier?.sources || []).slice(0, 6), missing: d.dossier?.missing || [] }); else setError(d.error || L('No encontré eso en el cerebro.', 'I could not find that in the brain.'));
     setBusy(null);
   }
   async function decide(id: string, action: 'aprobar' | 'rechazar') {
     setBusy(id); setError(null);
     const { r, d } = await post({ action, id, ...(action === 'aprobar' && omit[id]?.length ? { omitir: omit[id] } : {}) });
-    if (!r.ok) setError(d.error || 'No se pudo.'); else if (last?.id === id) setLast(d.request);
+    if (!r.ok) setError(d.error || L('No se pudo.', 'That did not work.')); else if (last?.id === id) setLast(d.request);
     setBusy(null); load();
   }
   async function revisado(id: string) { await post({ action: 'revisado', id }); load(); }
@@ -67,10 +67,10 @@ export default function PedirPage() {
     setBusy(changeId); setError(null);
     const r = await fetch('/api/agent/changes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'undo', changeId }) });
     const d = await r.json().catch(() => ({}));
-    if (!r.ok) setError(d.error || 'No se pudo deshacer.'); else { setLast(null); setError(null); setTest(d.message || L('Deshecho.', 'Undone.')); }
+    if (!r.ok) setError(d.error || L('No se pudo deshacer.', 'Could not undo it.')); else { setLast(null); setError(null); setTest(d.message || L('Deshecho.', 'Undone.')); }
     setBusy(null); load();
   }
-  async function saveSettings(patch: Partial<Settings>) { const { r, d } = await post({ action: 'ajustes', ...patch }); if (r.ok) setSt(s => (s ? { ...s, settings: d.settings } : s)); else setError(d.error || 'No se pudo guardar.'); }
+  async function saveSettings(patch: Partial<Settings>) { const { r, d } = await post({ action: 'ajustes', ...patch }); if (r.ok) setSt(s => (s ? { ...s, settings: d.settings } : s)); else setError(d.error || L('No se pudo guardar.', 'Could not save it.')); }
   async function openSettings() {
     setOpen(o => !o);
     if (models) return;
@@ -80,7 +80,7 @@ export default function PedirPage() {
   async function probar() {
     setBusy('probar'); setTest(null);
     const { d } = await post({ action: 'probar' });
-    const t = d.test || {}; setTest(Object.entries(t).map(([k, v]: [string, any]) => `${k === 'rapido' ? L('Rápido', 'Fast') : L('Grande', 'Large')} (${v.model}): ${v.ok ? `${L('responde en', 'answers in')} ${(v.ms / 1000).toFixed(1)} s` : v.error}`).join(' · ') || d.error || 'Sin respuesta.');
+    const t = d.test || {}; setTest(Object.entries(t).map(([k, v]: [string, any]) => `${k === 'rapido' ? L('Rápido', 'Fast') : L('Grande', 'Large')} (${v.model}): ${v.ok ? `${L('responde en', 'answers in')} ${(v.ms / 1000).toFixed(1)} s` : v.error}`).join(' · ') || d.error || L('Sin respuesta.', 'No answer.'));
     setBusy(null);
   }
   const when = (iso: string) => new Date(iso).toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -234,6 +234,9 @@ export default function PedirPage() {
                 <input type="number" min={1} max={500} className={input} defaultValue={s.bigTouch} onBlur={e => saveSettings({ bigTouch: Number(e.target.value) })} /></label>
               <label className="space-y-1"><span className="text-xs font-semibold text-slate-600">{L('…o crea más de… fichas', '…or creates more than… notes')}</span>
                 <input type="number" min={1} max={500} className={input} defaultValue={s.bigCreate} onBlur={e => saveSettings({ bigCreate: Number(e.target.value) })} /></label>
+              <label className="space-y-1 sm:col-span-2"><span className="text-xs font-semibold text-slate-600">{L('Idioma de lo que la app escribe dentro de las fichas (títulos, bitácora)', 'Language of what the app writes inside notes (titles, log)')}</span>
+                <select className={input} value={s.workLang || 'es'} onChange={e => saveSettings({ workLang: e.target.value as 'es' | 'en' })}><option value="es">Español</option><option value="en">English</option></select>
+                <span className="block text-xs text-slate-500">{L('Lo que tú o tu gente escribe se guarda tal cual, sin traducir. El Cerebro responde en el idioma en que le escriben.', 'What you or your people write is saved as is, never translated. The Brain answers in the language it is written to in.')}</span></label>
               <label className="flex items-center gap-2 sm:col-span-2"><input type="checkbox" checked={s.agentCanApprove} onChange={e => saveSettings({ agentCanApprove: e.target.checked })} /><span>{L('Mi agente puede aprobar propuestas (con llave de alcance «Escribir»)', 'My agent may approve proposals (key with “Write” scope)')}</span></label>
               <div className="sm:col-span-2"><button className={ghost} disabled={!!busy || !st?.ready} onClick={probar}>{busy === 'probar' ? L('Probando…', 'Testing…') : L('Probar conexión', 'Test connection')}</button></div>
               <p className="text-xs text-slate-500 sm:col-span-2">{L('Borrar, marcar verificado y compartir siempre esperan a una persona, en cualquier modo. La llave de Ollama vive en Render, nunca aquí.', 'Deleting, verifying and sharing always wait for a person, in any mode. The Ollama key lives in Render, never here.')}</p>

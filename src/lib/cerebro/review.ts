@@ -12,6 +12,7 @@ import { listEvents } from '../agenda';
 import { displayTitle, norm, words } from '../brainLens';
 import { cerebroDir } from './settings';
 import { createdIdOf, linked, eventTitle, type Op } from './ops';
+import { tr } from '../reqLang';
 
 export interface Observations {
   /** Lo que el modelo dijo que supuso. */
@@ -39,28 +40,28 @@ export function inspectPlan(ops: Op[], supuso: string[] = []): Observations {
     const a = op.args || {};
     if (op.name === 'crear_tarea') {
       const twin = open.find(t => overlap(t.title, String(a.titulo)) >= 0.75 && words(a.titulo).length >= 3);
-      if (twin) o.fuertes.push(`La tarea «${String(a.titulo).slice(0, 80)}» se parece a una que ya existe: «${twin.title.slice(0, 80)}»${twin.sourceNodeId && twin.sourceNodeId !== a.ficha ? ` (en ${twin.sourceNodeId})` : ''}. ¿Es la misma?`);
+      if (twin) { const where = twin.sourceNodeId && twin.sourceNodeId !== a.ficha ? twin.sourceNodeId : ''; o.fuertes.push(tr(`La tarea «${String(a.titulo).slice(0, 80)}» se parece a una que ya existe: «${twin.title.slice(0, 80)}»${where ? ` (en ${where})` : ''}. ¿Es la misma?`, `The task “${String(a.titulo).slice(0, 80)}” looks like one that already exists: “${twin.title.slice(0, 80)}”${where ? ` (in ${where})` : ''}. Is it the same one?`)); }
     }
     if (op.name === 'crear_ficha') {
       const name = norm(a.nombre);
       const twin = [...nodes.values()].find(n => n.type === a.tipo && (overlap(displayTitle(n.title), String(a.nombre)) >= 0.99 || (words(a.nombre).length >= 2 && norm(displayTitle(n.title)).includes(name))));
-      if (twin) o.fuertes.push(`«${a.nombre}» se parece a una ficha que ya existe: ${displayTitle(twin.title)} (${twin.id}). ¿Es la misma?`);
+      if (twin) o.fuertes.push(tr(`«${a.nombre}» se parece a una ficha que ya existe: ${displayTitle(twin.title)} (${twin.id}). ¿Es la misma?`, `“${a.nombre}” looks like a note that already exists: ${displayTitle(twin.title)} (${twin.id}). Is it the same one?`));
       const c = a.campos || {};
       if (a.tipo === 'person') {
-        if (!c.email_primary && !c.phone_mobile) o.falta.push(`${a.nombre}: sin correo ni teléfono.`);
-        if (!(Array.isArray(a.conectar_con) && a.conectar_con.length)) o.falta.push(`${a.nombre}: sin conectar a una empresa.`);
-      } else if (!(Array.isArray(a.conectar_con) && a.conectar_con.length)) o.falta.push(`${a.nombre}: sin conectar a un mercado o marca.`);
+        if (!c.email_primary && !c.phone_mobile) o.falta.push(tr(`${a.nombre}: sin correo ni teléfono.`, `${a.nombre}: no email or phone.`));
+        if (!(Array.isArray(a.conectar_con) && a.conectar_con.length)) o.falta.push(tr(`${a.nombre}: sin conectar a una empresa.`, `${a.nombre}: not connected to a company.`));
+      } else if (!(Array.isArray(a.conectar_con) && a.conectar_con.length)) o.falta.push(tr(`${a.nombre}: sin conectar a un mercado o marca.`, `${a.nombre}: not connected to a market or brand.`));
     }
     if (op.name === 'actualizar_campos') {
       const n = nodes.get(String(a.ficha)); const fm = n?.frontmatter || {};
       const changed = Object.entries(a.campos || {}).filter(([k, v]) => fm[k] !== undefined && fm[k] !== null && fm[k] !== '' && String(fm[k]) !== String(v));
-      if (changed.length && fm.verification_status === 'verified') o.fuertes.push(`Cambia datos de una ficha VERIFICADA (${displayTitle(n!.title)}): ${changed.map(([k, v]) => `${k}: «${String(fm[k]).slice(0, 40)}» → «${String(v).slice(0, 40)}»`).join('; ')}.`);
-      else if (changed.length) o.avisos.push(`${displayTitle(n!.title)}: se reemplaza ${changed.map(([k]) => `${k} (antes «${String(fm[k]).slice(0, 40)}»)`).join(', ')}.`);
+      if (changed.length && fm.verification_status === 'verified') o.fuertes.push(tr(`Cambia datos de una ficha VERIFICADA (${displayTitle(n!.title)}): `, `Changes data of a VERIFIED note (${displayTitle(n!.title)}): `) + `${changed.map(([k, v]) => `${k}: «${String(fm[k]).slice(0, 40)}» → «${String(v).slice(0, 40)}»`).join('; ')}.`);
+      else if (changed.length) o.avisos.push(tr(`${displayTitle(n!.title)}: se reemplaza ${changed.map(([k]) => `${k} (antes «${String(fm[k]).slice(0, 40)}»)`).join(', ')}.`, `${displayTitle(n!.title)}: replaces ${changed.map(([k]) => `${k} (was “${String(fm[k]).slice(0, 40)}”)`).join(', ')}.`));
     }
     if (op.name === 'agendar' && a.hora) {
       const title = eventTitle(a);
       const clash = events.find(e => e.date === a.fecha && e.time === a.hora && norm(e.title) !== norm(title) && e.repeat === 'none');
-      if (clash) o.avisos.push(`El ${a.fecha} a las ${a.hora} ya tienes «${clash.title}».`);
+      if (clash) o.avisos.push(tr(`El ${a.fecha} a las ${a.hora} ya tienes «${clash.title}».`, `On ${a.fecha} at ${a.hora} you already have “${clash.title}”.`));
     }
   }
   // Lo que falta en las fichas de personas que el plan usa.
@@ -68,7 +69,7 @@ export function inspectPlan(ops: Op[], supuso: string[] = []): Observations {
   const made = new Set(ops.map(createdIdOf).filter(Boolean) as string[]);
   for (const id of used) {
     if (made.has(id)) continue; const n = nodes.get(id); if (!n || n.type !== 'person') continue; const fm = n.frontmatter || {};
-    if (!fm.email_primary && !fm.phone_mobile && !fm.whatsapp) o.falta.push(`${displayTitle(n.title)}: sin correo ni teléfono.`);
+    if (!fm.email_primary && !fm.phone_mobile && !fm.whatsapp) o.falta.push(tr(`${displayTitle(n.title)}: sin correo ni teléfono.`, `${displayTitle(n.title)}: no email or phone.`));
   }
   o.fuertes = [...new Set(o.fuertes)].slice(0, 10); o.avisos = [...new Set(o.avisos)].slice(0, 10); o.falta = [...new Set(o.falta)].slice(0, 12);
   return o;
@@ -77,7 +78,7 @@ export function inspectPlan(ops: Op[], supuso: string[] = []): Observations {
 /** Texto corto de cómo estaban las fichas que el plan va a tocar (para que Jev compare después). */
 export function snapshotBefore(ops: Op[]): string {
   const nodes = nodesById(); const ids = [...new Set(ops.filter(o => o.name === 'registrar_novedad' || o.name === 'actualizar_campos').map(o => String(o.args?.ficha)))].slice(0, 4);
-  return ids.map(id => { const n = nodes.get(id); if (!n) return ''; const fm = n.frontmatter || {}; const state = (String(n.body || '').match(/## Estado actual\s+([\s\S]*?)(?=\n## |$)/)?.[1] || '').trim().slice(0, 500);
+  return ids.map(id => { const n = nodes.get(id); if (!n) return ''; const fm = n.frontmatter || {}; const state = (String(n.body || '').match(/## (?:Estado actual|Current state)\s+([\s\S]*?)(?=\n## |$)/)?.[1] || '').trim().slice(0, 500);
     return `FICHA ${displayTitle(n.title)}: ${state || '(sin estado actual)'}${fm.next_followup_date ? ` · próximo paso ${String(fm.next_followup_date).slice(0, 10)}: ${fm.next_followup_action || ''}` : ''}`; }).filter(Boolean).join('\n');
 }
 

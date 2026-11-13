@@ -15,6 +15,7 @@ import { setKpi } from '../kpis';
 import { setVisibility } from '../sharing';
 import { actorLabel } from '../actor';
 import type { ToolDef } from './ollama';
+import { tr, tw } from '../reqLang';
 
 export interface Op { name: string; args: Record<string, any> }
 export type Level = 'sola' | 'aprobar';
@@ -59,35 +60,35 @@ const newId = (tipo: string, nombre: string) => `${({ person: 'person', distribu
 /** Revisa una operación SIN escribir. Devuelve el error en palabras, o null si está bien. `created` = ids que el mismo plan crea antes. */
 export function validateOp(op: Op, created: Set<string> = new Set()): string | null {
   const def = MENU[op.name]; const a = op.args || {};
-  if (!def) return `«${op.name}» no existe en el menú.`;
-  for (const k of def.required) if (a[k] === undefined || a[k] === null || a[k] === '') return `${op.name}: falta «${k}».`;
+  if (!def) return tr(`«${op.name}» no existe en el menú.`, `“${op.name}” is not in the menu.`);
+  for (const k of def.required) if (a[k] === undefined || a[k] === null || a[k] === '') return tr(`${op.name}: falta «${k}».`, `${op.name}: “${k}” is missing.`);
   const exists = (id: unknown) => created.has(String(id)) || !!nodeOk(id);
-  for (const k of ['ficha', 'desde', 'hacia']) if (a[k] !== undefined && a[k] !== '' && !exists(a[k])) return `${op.name}: la ficha «${a[k]}» no existe. Usa un id de la lista de fichas.`;
-  if (op.name === 'agendar') for (const id of linked(a)) if (!exists(id)) return `agendar: la ficha «${id}» no existe. Usa un id de la lista, búscala, o pregunta quién es.`;
-  for (const k of ['fecha', 'vence', 'proximo_paso_fecha', 'fecha_fin']) if (a[k] && !DAY.test(String(a[k]))) return `${op.name}: «${k}» debe ser AAAA-MM-DD.`;
-  for (const k of ['hora', 'hora_fin']) if (a[k] && !TIME.test(String(a[k]))) return `${op.name}: «${k}» debe ser HH:MM en 24 horas.`;
-  if (op.name === 'registrar_indicador' && !Number.isFinite(Number(a.valor))) return 'registrar_indicador: «valor» debe ser un número.';
-  if (op.name === 'conectar' && !RELATIONS.includes(String(a.relacion))) return `conectar: la relación «${a.relacion}» no está permitida. Usa: ${RELATIONS.join(', ')}.`;
+  for (const k of ['ficha', 'desde', 'hacia']) if (a[k] !== undefined && a[k] !== '' && !exists(a[k])) return tr(`${op.name}: la ficha «${a[k]}» no existe. Usa un id de la lista de fichas.`, `${op.name}: the note “${a[k]}” does not exist. Use an id from the list of notes.`);
+  if (op.name === 'agendar') for (const id of linked(a)) if (!exists(id)) return tr(`agendar: la ficha «${id}» no existe. Usa un id de la lista, búscala, o pregunta quién es.`, `agendar: the note “${id}” does not exist. Use an id from the list, search for it, or ask who it is.`);
+  for (const k of ['fecha', 'vence', 'proximo_paso_fecha', 'fecha_fin']) if (a[k] && !DAY.test(String(a[k]))) return tr(`${op.name}: «${k}» debe ser AAAA-MM-DD.`, `${op.name}: “${k}” must be YYYY-MM-DD.`);
+  for (const k of ['hora', 'hora_fin']) if (a[k] && !TIME.test(String(a[k]))) return tr(`${op.name}: «${k}» debe ser HH:MM en 24 horas.`, `${op.name}: “${k}” must be HH:MM in 24-hour time.`);
+  if (op.name === 'registrar_indicador' && !Number.isFinite(Number(a.valor))) return tr('registrar_indicador: «valor» debe ser un número.', 'registrar_indicador: “valor” must be a number.');
+  if (op.name === 'conectar' && !RELATIONS.includes(String(a.relacion))) return tr(`conectar: la relación «${a.relacion}» no está permitida. Usa: ${RELATIONS.join(', ')}.`, `conectar: the relation “${a.relacion}” is not allowed. Use: ${RELATIONS.join(', ')}.`);
   if (op.name === 'actualizar_campos') {
-    if (!a.campos || typeof a.campos !== 'object' || Array.isArray(a.campos) || !Object.keys(a.campos).length) return 'actualizar_campos: «campos» debe ser un objeto con al menos un dato.';
-    const bad = Object.keys(a.campos).filter(k => PROTECTED.has(k) || !/^[a-z][a-z0-9_]{1,60}$/.test(k)); if (bad.length) return `actualizar_campos: no se pueden cambiar ${bad.join(', ')}.`;
+    if (!a.campos || typeof a.campos !== 'object' || Array.isArray(a.campos) || !Object.keys(a.campos).length) return tr('actualizar_campos: «campos» debe ser un objeto con al menos un dato.', 'actualizar_campos: “campos” must be an object with at least one value.');
+    const bad = Object.keys(a.campos).filter(k => PROTECTED.has(k) || !/^[a-z][a-z0-9_]{1,60}$/.test(k)); if (bad.length) return tr(`actualizar_campos: no se pueden cambiar ${bad.join(', ')}.`, `actualizar_campos: these cannot be changed: ${bad.join(', ')}.`);
   }
   if (op.name === 'crear_ficha') {
-    if (!FOLDER[a.tipo]) return `crear_ficha: tipo «${a.tipo}» no permitido.`;
-    const id = newId(a.tipo, String(a.nombre)); if (nodeOk(id) || created.has(id)) return `crear_ficha: ya existe la ficha «${id}». Úsala en vez de crear otra.`;
+    if (!FOLDER[a.tipo]) return tr(`crear_ficha: tipo «${a.tipo}» no permitido.`, `crear_ficha: type “${a.tipo}” is not allowed.`);
+    const id = newId(a.tipo, String(a.nombre)); if (nodeOk(id) || created.has(id)) return tr(`crear_ficha: ya existe la ficha «${id}». Úsala en vez de crear otra.`, `crear_ficha: the note “${id}” already exists. Use it instead of creating another.`);
     const same = loadBrainGraph().allNodes?.find(n => n.type === a.tipo && slug(String(n.title).replace(/^[A-Za-z ]+:\s*/, '')) === slug(String(a.nombre)));
-    if (same) return `crear_ficha: ya existe «${same.title}» (${same.id}). Úsala en vez de crear otra.`;
+    if (same) return tr(`crear_ficha: ya existe «${same.title}» (${same.id}). Úsala en vez de crear otra.`, `crear_ficha: “${same.title}” (${same.id}) already exists. Use it instead of creating another.`);
     const mail = String(a.campos?.email_primary || '').trim().toLowerCase();
-    if (mail) { const owner = loadBrainGraph().allNodes?.find(n => String(n.frontmatter?.email_primary || '').trim().toLowerCase() === mail); if (owner) return `crear_ficha: el correo ${mail} ya es de «${owner.title}» (${owner.id}). Usa esa ficha (actualizar_campos si hay datos nuevos).`; }
-    for (const c of Array.isArray(a.conectar_con) ? a.conectar_con : []) { if (!exists(c?.hacia)) return `crear_ficha: no existe la ficha «${c?.hacia}» para conectar.`; if (!RELATIONS.includes(String(c?.relacion))) return `crear_ficha: relación «${c?.relacion}» no permitida.`; }
+    if (mail) { const owner = loadBrainGraph().allNodes?.find(n => String(n.frontmatter?.email_primary || '').trim().toLowerCase() === mail); if (owner) return tr(`crear_ficha: el correo ${mail} ya es de «${owner.title}» (${owner.id}). Usa esa ficha (actualizar_campos si hay datos nuevos).`, `crear_ficha: the email ${mail} already belongs to “${owner.title}” (${owner.id}). Use that note (actualizar_campos if there is new data).`); }
+    for (const c of Array.isArray(a.conectar_con) ? a.conectar_con : []) { if (!exists(c?.hacia)) return tr(`crear_ficha: no existe la ficha «${c?.hacia}» para conectar.`, `crear_ficha: the note “${c?.hacia}” to connect to does not exist.`); if (!RELATIONS.includes(String(c?.relacion))) return tr(`crear_ficha: relación «${c?.relacion}» no permitida.`, `crear_ficha: relation “${c?.relacion}” is not allowed.`); }
   }
   if (op.name === 'crear_tarea') {
     const key = (v: unknown) => nrm(v).replace(/[^a-z0-9 ]/g, '').slice(0, 60);
     const dup = getUnifiedBrainTasks().tasks.find(t => !t.isCompleted && t.sourceNodeId === a.ficha && key(t.title) === key(a.titulo));
-    if (dup) return `crear_tarea: esa tarea ya existe en ${a.ficha} (${dup.id}). No la dupliques; si cambia la fecha usa reprogramar_tarea.`;
+    if (dup) return tr(`crear_tarea: esa tarea ya existe en ${a.ficha} (${dup.id}). No la dupliques; si cambia la fecha usa reprogramar_tarea.`, `crear_tarea: that task already exists in ${a.ficha} (${dup.id}). Do not duplicate it; if the date changes use reprogramar_tarea.`);
   }
-  if (op.name === 'cancelar_evento' && !listEvents(getVaultPath()).some(e => e.title.toLowerCase() === String(a.titulo).toLowerCase() && e.date === a.fecha)) return `cancelar_evento: no hay un evento «${a.titulo}» el ${a.fecha}.`;
-  if (op.name === 'compartir' && !['private', 'shared', 'public'].includes(String(a.visibilidad))) return 'compartir: visibilidad debe ser private, shared o public.';
+  if (op.name === 'cancelar_evento' && !listEvents(getVaultPath()).some(e => e.title.toLowerCase() === String(a.titulo).toLowerCase() && e.date === a.fecha)) return tr(`cancelar_evento: no hay un evento «${a.titulo}» el ${a.fecha}.`, `cancelar_evento: there is no event “${a.titulo}” on ${a.fecha}.`);
+  if (op.name === 'compartir' && !['private', 'shared', 'public'].includes(String(a.visibilidad))) return tr('compartir: visibilidad debe ser private, shared o public.', 'compartir: visibility must be private, shared or public.');
   return null;
 }
 /** Id que crearía una operación crear_ficha (para que el resto del plan pueda referirse a ella). */
@@ -95,7 +96,7 @@ export const createdIdOf = (op: Op) => (op.name === 'crear_ficha' && FOLDER[op.a
 /** A qué interruptor de autonomía pertenece cada operación. */
 const KIND: Record<string, 'agenda' | 'novedades' | 'contactos' | 'cifras'> = { crear_tarea: 'agenda', completar_tarea: 'agenda', reprogramar_tarea: 'agenda', agendar: 'agenda', cancelar_evento: 'agenda', registrar_novedad: 'novedades', actualizar_campos: 'novedades', conectar: 'novedades', desconectar: 'novedades', crear_ficha: 'contactos', registrar_indicador: 'cifras' };
 export const kindOf = (op: Op) => KIND[op.name] || null;
-export const KIND_NAME: Record<string, string> = { agenda: 'tareas y agenda', novedades: 'novedades y datos de fichas', contactos: 'fichas nuevas (contactos, empresas)', cifras: 'cifras e indicadores' };
+export const kindName = (k: string): string => ({ agenda: tr('tareas y agenda', 'tasks and agenda'), novedades: tr('novedades y datos de fichas', 'updates and note data'), contactos: tr('fichas nuevas (contactos, empresas)', 'new notes (contacts, companies)'), cifras: tr('cifras e indicadores', 'figures and indicators') } as Record<string, string>)[k] || k;
 /**
  * Referencias a fichas que el mismo plan crea. El modelo no conoce el id que tendrá una ficha nueva, así que puede
  * escribir «nueva:Nombre» (o el nombre tal cual); aquí se cambia por el id real. Además se ordena el plan: primero
@@ -122,42 +123,43 @@ export const touchesOf = (op: Op): string[] => (MENU[op.name]?.touches?.(op.args
 export function describeOp(op: Op): string {
   const a = op.args || {};
   switch (op.name) {
-    case 'registrar_novedad': return `Anotar en ${a.ficha}: «${String(a.resumen).slice(0, 160)}»${a.proximo_paso_fecha ? ` · próximo paso ${a.proximo_paso_fecha}` : ''}`;
-    case 'crear_tarea': return `Crear tarea en ${a.ficha}: «${a.titulo}»${a.vence ? ` para el ${a.vence}` : ''}`;
-    case 'completar_tarea': return `Completar la tarea ${a.tarea}`;
-    case 'reprogramar_tarea': return `Mover la tarea ${a.tarea} al ${a.vence}`;
-    case 'agendar': return `Agenda: «${eventTitle(a)}» el ${a.fecha}${a.hora ? ` a las ${a.hora}` : ''}${linked(a).length ? ` · se anota en ${linked(a).join(', ')}` : ''}`;
-    case 'cancelar_evento': return `Quitar de la agenda «${a.titulo}» del ${a.fecha}`;
-    case 'registrar_indicador': return `Indicador «${a.nombre}»: ${a.valor}${a.unidad ? ' ' + a.unidad : ''}`;
-    case 'actualizar_campos': return `Actualizar ${a.ficha}: ${Object.entries(a.campos || {}).map(([k, v]) => `${k} = ${String(v).slice(0, 60)}`).join(', ')}`;
-    case 'conectar': return `Conectar ${a.desde} → ${a.hacia} (${a.relacion})`;
-    case 'desconectar': return `Desconectar ${a.desde} → ${a.hacia} (${a.relacion})`;
-    case 'crear_ficha': return `Crear ficha de ${a.tipo}: «${a.nombre}»${a.campos && Object.keys(a.campos).length ? ` (${Object.entries(a.campos).map(([k, v]) => `${k}: ${String(v).slice(0, 50)}`).join(', ').slice(0, 200)})` : ''}${Array.isArray(a.conectar_con) && a.conectar_con.length ? ` · conectada a ${a.conectar_con.map((c: any) => c?.hacia).join(', ')}` : ' · SIN CONECTAR'}`;
-    case 'borrar_ficha': return `BORRAR la ficha ${a.ficha} (motivo: ${a.motivo})`;
-    case 'marcar_verificado': return `Marcar ${a.ficha} como verificada (fuente: ${a.fuente})`;
-    case 'compartir': return `Cambiar quién ve ${a.ficha}: ${a.visibilidad}`;
+    case 'registrar_novedad': return tr(`Anotar en ${a.ficha}: «${String(a.resumen).slice(0, 160)}»${a.proximo_paso_fecha ? ` · próximo paso ${a.proximo_paso_fecha}` : ''}`, `Note in ${a.ficha}: “${String(a.resumen).slice(0, 160)}”${a.proximo_paso_fecha ? ` · next step ${a.proximo_paso_fecha}` : ''}`);
+    case 'crear_tarea': return tr(`Crear tarea en ${a.ficha}: «${a.titulo}»${a.vence ? ` para el ${a.vence}` : ''}`, `Create task in ${a.ficha}: “${a.titulo}”${a.vence ? ` due ${a.vence}` : ''}`);
+    case 'completar_tarea': return tr(`Completar la tarea ${a.tarea}`, `Complete task ${a.tarea}`);
+    case 'reprogramar_tarea': return tr(`Mover la tarea ${a.tarea} al ${a.vence}`, `Move task ${a.tarea} to ${a.vence}`);
+    case 'agendar': return tr(`Agenda: «${eventTitle(a)}» el ${a.fecha}${a.hora ? ` a las ${a.hora}` : ''}${linked(a).length ? ` · se anota en ${linked(a).join(', ')}` : ''}`, `Agenda: “${eventTitle(a)}” on ${a.fecha}${a.hora ? ` at ${a.hora}` : ''}${linked(a).length ? ` · noted in ${linked(a).join(', ')}` : ''}`);
+    case 'cancelar_evento': return tr(`Quitar de la agenda «${a.titulo}» del ${a.fecha}`, `Remove from the agenda “${a.titulo}” of ${a.fecha}`);
+    case 'registrar_indicador': return tr(`Indicador «${a.nombre}»: ${a.valor}${a.unidad ? ' ' + a.unidad : ''}`, `Indicator “${a.nombre}”: ${a.valor}${a.unidad ? ' ' + a.unidad : ''}`);
+    case 'actualizar_campos': return tr(`Actualizar ${a.ficha}: `, `Update ${a.ficha}: `) + Object.entries(a.campos || {}).map(([k, v]) => `${k} = ${String(v).slice(0, 60)}`).join(', ');
+    case 'conectar': return tr(`Conectar ${a.desde} → ${a.hacia} (${a.relacion})`, `Connect ${a.desde} → ${a.hacia} (${a.relacion})`);
+    case 'desconectar': return tr(`Desconectar ${a.desde} → ${a.hacia} (${a.relacion})`, `Disconnect ${a.desde} → ${a.hacia} (${a.relacion})`);
+    case 'crear_ficha': { const extra = a.campos && Object.keys(a.campos).length ? ` (${Object.entries(a.campos).map(([k, v]) => `${k}: ${String(v).slice(0, 50)}`).join(', ').slice(0, 200)})` : ''; const conn = Array.isArray(a.conectar_con) && a.conectar_con.length ? a.conectar_con.map((c: any) => c?.hacia).join(', ') : '';
+      return tr(`Crear ficha de ${a.tipo}: «${a.nombre}»${extra}${conn ? ` · conectada a ${conn}` : ' · SIN CONECTAR'}`, `Create ${a.tipo} note: “${a.nombre}”${extra}${conn ? ` · connected to ${conn}` : ' · NOT CONNECTED'}`); }
+    case 'borrar_ficha': return tr(`BORRAR la ficha ${a.ficha} (motivo: ${a.motivo})`, `DELETE note ${a.ficha} (reason: ${a.motivo})`);
+    case 'marcar_verificado': return tr(`Marcar ${a.ficha} como verificada (fuente: ${a.fuente})`, `Mark ${a.ficha} as verified (source: ${a.fuente})`);
+    case 'compartir': return tr(`Cambiar quién ve ${a.ficha}: ${a.visibilidad}`, `Change who can see ${a.ficha}: ${a.visibilidad}`);
     default: return op.name;
   }
 }
 
 const short = (t: unknown) => String(t || '').replace(/^[A-Za-zÁ-ú ]{2,24}:\s*/, '').trim();
 const titleOf = (id: string) => { const f = nodeOk(id); if (!f) return id; const n = readNoteStrict(f); return n.ok ? short(n.frontmatter.title) || id : id; };
-const KIND_WORD: Record<string, string> = { reunion: 'Reunión', viaje: 'Viaje', evento: 'Evento' };
+const kindWord = (k: unknown) => (tw({ reunion: 'Reunión', viaje: 'Viaje', evento: 'Evento' }[String(k)] || 'Reunión', { reunion: 'Meeting', viaje: 'Trip', evento: 'Event' }[String(k)] || 'Meeting'));
 const nrm = (v: unknown) => String(v || '').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ');
 /** Título completo del evento: con quién y para qué. Lo arma la app, no el modelo. */
 export function eventTitle(a: any): string {
   const raw = String(a?.titulo || '').trim(); const names = linked(a).map(titleOf);
   const missing = names.filter(n => !nrm(raw).includes(nrm(n).split(' ')[0]));
   if (!names.length || !missing.length) return raw.slice(0, 160);
-  const kind = KIND_WORD[a?.tipo] || 'Reunión'; const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}` : names[0];
-  const topic = raw.replace(/^(reuni[oó]n|llamada|meeting|viaje|evento)\b[:\s-]*/i, '').trim();
-  return `${kind} con ${who}${topic ? `: ${topic}` : ''}`.slice(0, 160);
+  const kind = kindWord(a?.tipo); const who = names.length > 1 ? `${names.slice(0, -1).join(', ')} ${tw('y', 'and')} ${names[names.length - 1]}` : names[0];
+  const topic = raw.replace(/^(reuni[oó]n|llamada|meeting|call|viaje|trip|evento|event)\b[:\s-]*/i, '').trim();
+  return `${kind} ${tw('con', 'with')} ${who}${topic ? `: ${topic}` : ''}`.slice(0, 160);
 }
 const link = (file: string) => `[[${path.basename(file, '.md')}]]`;
 /** Ejecuta UNA operación ya revisada. Lanza Error con el motivo si no se pudo. */
 export function executeOp(op: Op): string {
   const a = op.args || {}; const vault = getVaultPath(); const by = actorLabel('Cerebro');
-  const must = (r: { ok: boolean; message?: string; error?: string }) => { if (!r.ok) throw new Error(r.message || r.error || 'No se pudo.'); };
+  const must = (r: { ok: boolean; message?: string; error?: string }) => { if (!r.ok) throw new Error(r.message || r.error || tr('No se pudo.', 'It could not be done.')); };
   switch (op.name) {
     case 'registrar_novedad': {
       const r = recordUpdate({ nodeId: a.ficha, summary: a.resumen, date: a.fecha, type: a.tipo, source: a.fuente, state: a.estado_actual,
@@ -165,9 +167,9 @@ export function executeOp(op: Op): string {
         lastEmail: a.correo_asunto || a.correo_fecha || a.correo_de ? { subject: a.correo_asunto, date: a.correo_fecha, sender: a.correo_de } : undefined });
       if (!r.ok) throw new Error(r.error); return r.done.join('; ');
     }
-    case 'crear_tarea': { const r = createBrainTask({ title: String(a.titulo), dueDate: a.vence, priority: ['High', 'Medium', 'Low'].includes(a.prioridad) ? a.prioridad : undefined, targetNodeId: a.ficha }); must(r); return `Tarea «${a.titulo}» creada (${r.taskId})`; }
-    case 'completar_tarea': { must(completeBrainTask(String(a.tarea), by)); return `Tarea ${a.tarea} completada`; }
-    case 'reprogramar_tarea': { must(rescheduleBrainTask(String(a.tarea), String(a.vence))); return `Tarea ${a.tarea} movida al ${a.vence}`; }
+    case 'crear_tarea': { const r = createBrainTask({ title: String(a.titulo), dueDate: a.vence, priority: ['High', 'Medium', 'Low'].includes(a.prioridad) ? a.prioridad : undefined, targetNodeId: a.ficha }); must(r); return tr(`Tarea «${a.titulo}» creada (${r.taskId})`, `Task “${a.titulo}” created (${r.taskId})`); }
+    case 'completar_tarea': { must(completeBrainTask(String(a.tarea), by)); return tr(`Tarea ${a.tarea} completada`, `Task ${a.tarea} completed`); }
+    case 'reprogramar_tarea': { must(rescheduleBrainTask(String(a.tarea), String(a.vence))); return tr(`Tarea ${a.tarea} movida al ${a.vence}`, `Task ${a.tarea} moved to ${a.vence}`); }
     case 'agendar': {
       const kind = ['reunion', 'viaje', 'evento'].includes(a.tipo) ? a.tipo : 'reunion';
       const ids = linked(a); const title = eventTitle({ ...a, tipo: kind });
@@ -179,19 +181,20 @@ export function executeOp(op: Op): string {
       const oldDate = near?.date, oldTime = near?.time;
       const ev = upsertEvent(vault, { ...(near ? { id: near.id } : {}), kind, title, date: a.fecha, ...(a.hora ? { time: a.hora } : {}), ...(a.hora_fin ? { endTime: a.hora_fin } : {}), ...(a.fecha_fin ? { endDate: a.fecha_fin } : {}), ...(a.lugar ? { location: a.lugar } : {}), ...(ids.length ? { nodeIds: [...new Set([...(near?.nodeIds || []), ...ids])] } : {}), source: 'cerebro' }, by);
       const moved = !!near && (oldDate !== ev.date || (oldTime || '') !== (ev.time || ''));
-      const whenTxt = `${ev.date}${ev.time ? ' a las ' + ev.time : ''}`;
+      const whenTxt = `${ev.date}${ev.time ? tw(' a las ', ' at ') + ev.time : ''}`; // lo que queda escrito en la ficha
+      const whenShow = `${ev.date}${ev.time ? tr(' a las ', ' at ') + ev.time : ''}`; // lo que se le muestra a quien pidió
       // Motor de guardado: la reunión también vive en la ficha de cada persona o empresa nombrada.
       if (!near || moved) for (const id of ev.nodeIds || []) {
         const f = nodeOk(id); if (!f) continue; const cur = readNoteStrict(f);
         const follows = cur.ok && moved && String(cur.frontmatter.next_followup_date || '').slice(0, 10) === oldDate;
-        const r = recordUpdate({ nodeId: id, type: 'reunion', source: 'Agenda', summary: moved ? `«${ev.title}» pasó del ${oldDate}${oldTime ? ' ' + oldTime : ''} al ${whenTxt}.` : `«${ev.title}» agendada para el ${whenTxt}.`, ...(follows ? { followup: { date: ev.date } } : {}) });
+        const r = recordUpdate({ nodeId: id, type: 'reunion', source: tw('Agenda', 'Agenda'), summary: moved ? tw(`«${ev.title}» pasó del ${oldDate}${oldTime ? ' ' + oldTime : ''} al ${whenTxt}.`, `“${ev.title}” moved from ${oldDate}${oldTime ? ' ' + oldTime : ''} to ${whenTxt}.`) : tw(`«${ev.title}» agendada para el ${whenTxt}.`, `“${ev.title}” scheduled for ${whenTxt}.`), ...(follows ? { followup: { date: ev.date } } : {}) });
         if (!r.ok) throw new Error(r.error);
       }
-      return moved ? `«${ev.title}» movida del ${oldDate} al ${whenTxt}` : `«${ev.title}» en la agenda el ${whenTxt}`;
+      return moved ? tr(`«${ev.title}» movida del ${oldDate} al ${whenShow}`, `“${ev.title}” moved from ${oldDate} to ${whenShow}`) : tr(`«${ev.title}» en la agenda el ${whenShow}`, `“${ev.title}” on the agenda for ${whenShow}`);
     }
-    case 'cancelar_evento': { const ev = listEvents(vault).find(e => e.title.toLowerCase() === String(a.titulo).toLowerCase() && e.date === a.fecha); if (!ev || !deleteEvent(vault, ev.id)) throw new Error('No se encontró el evento.'); return `«${ev.title}» quitado de la agenda`; }
-    case 'registrar_indicador': { const k = setKpi(vault, { name: a.nombre, value: Number(a.valor), unit: a.unidad, target: a.meta, period: a.periodo, note: a.nota }, by); return `Indicador «${k.name}» = ${k.value}${k.unit ? ' ' + k.unit : ''}`; }
-    case 'actualizar_campos': { const f = nodeOk(a.ficha)!; const u = updateNoteFile(f, fm => { Object.assign(fm, a.campos); fm.last_updated_by = by; }); if (!u.ok) throw new Error(u.error); return `${a.ficha}: ${Object.keys(a.campos).join(', ')} actualizado`; }
+    case 'cancelar_evento': { const ev = listEvents(vault).find(e => e.title.toLowerCase() === String(a.titulo).toLowerCase() && e.date === a.fecha); if (!ev || !deleteEvent(vault, ev.id)) throw new Error(tr('No se encontró el evento.', 'The event was not found.')); return tr(`«${ev.title}» quitado de la agenda`, `“${ev.title}” removed from the agenda`); }
+    case 'registrar_indicador': { const k = setKpi(vault, { name: a.nombre, value: Number(a.valor), unit: a.unidad, target: a.meta, period: a.periodo, note: a.nota }, by); return tr(`Indicador «${k.name}» = ${k.value}${k.unit ? ' ' + k.unit : ''}`, `Indicator “${k.name}” = ${k.value}${k.unit ? ' ' + k.unit : ''}`); }
+    case 'actualizar_campos': { const f = nodeOk(a.ficha)!; const u = updateNoteFile(f, fm => { Object.assign(fm, a.campos); fm.last_updated_by = by; }); if (!u.ok) throw new Error(u.error); return tr(`${a.ficha}: ${Object.keys(a.campos).join(', ')} actualizado`, `${a.ficha}: ${Object.keys(a.campos).join(', ')} updated`); }
     case 'conectar': case 'desconectar': {
       const f = nodeOk(a.desde)!, t = nodeOk(a.hacia)!; const target = link(t);
       const u = updateNoteFile(f, fm => { const rel = (fm.relations && typeof fm.relations === 'object' ? fm.relations : (fm.relations = {})) as Record<string, any>; const cur: string[] = Array.isArray(rel[a.relacion]) ? rel[a.relacion] : rel[a.relacion] ? [rel[a.relacion]] : [];
@@ -206,11 +209,11 @@ export function executeOp(op: Op): string {
       for (const c of Array.isArray(a.conectar_con) ? a.conectar_con : []) { const t = nodeOk(c.hacia); if (t) (relations[c.relacion] ||= []).push(link(t)); }
       const now = new Date().toISOString();
       const r = upsertNode({ relativePath: safeRelative(`${folder}/${prefix} - ${safeName}.md`), frontmatter: { id, title: `${prefix}: ${safeName}`, type: a.tipo, memory_tier: 'long_term', status: 'active', verification_status: 'unverified', created_at: now, created_by: by, ...extra, ...(Object.keys(relations).length ? { relations } : {}) }, body: `# ${safeName}\n\n${String(a.texto || '').trim()}\n` });
-      must(r); loadBrainGraph(); return `Ficha «${safeName}» creada (${id})`;
+      must(r); loadBrainGraph(); return tr(`Ficha «${safeName}» creada (${id})`, `Note “${safeName}” created (${id})`);
     }
-    case 'borrar_ficha': { const f = nodeOk(a.ficha)!; deleteVaultFile(path.relative(vault, f)); if (fs.existsSync(f)) throw new Error('No se pudo borrar.'); loadBrainGraph(); return `Ficha ${a.ficha} borrada (se puede deshacer desde el diario)`; }
-    case 'marcar_verificado': { const f = nodeOk(a.ficha)!; const peek = readNoteStrict(f); if (!peek.ok) throw new Error(peek.error); const now = new Date().toISOString(); const u = updateNoteFile(f, fm => { fm.verification_status = 'verified'; fm.verified_at = now; fm.verified_by = by; fm.verification_source = String(a.fuente).slice(0, 200); }); if (!u.ok) throw new Error(u.error); return `${a.ficha} marcada como verificada`; }
-    case 'compartir': { const r = setVisibility(vault, String(a.ficha), String(a.visibilidad), []); if (!(r as any).ok) throw new Error((r as any).error || 'No se pudo cambiar.'); return `${a.ficha}: visibilidad ${a.visibilidad}`; }
+    case 'borrar_ficha': { const f = nodeOk(a.ficha)!; deleteVaultFile(path.relative(vault, f)); if (fs.existsSync(f)) throw new Error(tr('No se pudo borrar.', 'Could not delete it.')); loadBrainGraph(); return tr(`Ficha ${a.ficha} borrada (se puede deshacer desde el diario)`, `Note ${a.ficha} deleted (can be undone from the journal)`); }
+    case 'marcar_verificado': { const f = nodeOk(a.ficha)!; const peek = readNoteStrict(f); if (!peek.ok) throw new Error(peek.error); const now = new Date().toISOString(); const u = updateNoteFile(f, fm => { fm.verification_status = 'verified'; fm.verified_at = now; fm.verified_by = by; fm.verification_source = String(a.fuente).slice(0, 200); }); if (!u.ok) throw new Error(u.error); return tr(`${a.ficha} marcada como verificada`, `${a.ficha} marked as verified`); }
+    case 'compartir': { const r = setVisibility(vault, String(a.ficha), String(a.visibilidad), []); if (!(r as any).ok) throw new Error((r as any).error || tr('No se pudo cambiar.', 'Could not change it.')); return tr(`${a.ficha}: visibilidad ${a.visibilidad}`, `${a.ficha}: visibility ${a.visibilidad}`); }
   }
-  throw new Error(`«${op.name}» no existe en el menú.`);
+  throw new Error(tr(`«${op.name}» no existe en el menú.`, `“${op.name}” is not in the menu.`));
 }

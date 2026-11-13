@@ -12,6 +12,7 @@ import { loadBrainGraph, getBrainNodeDetail, getUnifiedBrainTasks, getVaultPath,
 import { readJournal, type JournalEntry } from './journal';
 import { addDays, listEvents, mergedAgenda } from './agenda';
 import { listKpis } from './kpis';
+import { tr, replyLang } from './reqLang';
 
 // ---------- Texto ----------
 export const norm = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -23,6 +24,7 @@ const SYN: Record<string, string[]> = {
 export const words = (s: unknown) => norm(s).split(/[^a-z0-9]+/).filter(w => w.length >= 2 && !STOP.has(w));
 const PREFIX = /^(distributor|distribuidor|brand|marca|market|mercado|person|persona|dept|department|departamento|customer|cliente|working memory|routine|project|proyecto|core|role|channel|canal|organization|group|line|product line)\s*[:\-–·]\s*/i;
 export const displayTitle = (t: unknown) => String(t || '').replace(PREFIX, '').trim();
+const TYPE_EN: Record<string, [string, string]> = { distributor: ['distributor', 'distributors'], brand: ['brand', 'brands'], market: ['market', 'markets'], customer: ['customer', 'customers'], person: ['person', 'people'], organization: ['organization', 'organizations'], department: ['department', 'departments'] };
 const TYPE_ES: Record<string, [string, string]> = { distributor: ['distribuidor', 'distribuidores'], brand: ['marca', 'marcas'], market: ['mercado', 'mercados'], customer: ['cliente', 'clientes'], person: ['persona', 'personas'], organization: ['organización', 'organizaciones'], project: ['proyecto', 'proyectos'], department: ['departamento', 'departamentos'], product_line: ['línea', 'líneas'], channel: ['canal', 'canales'], routine: ['rutina', 'rutinas'], core: ['casa matriz', 'casa matriz'], group: ['grupo', 'grupos'] };
 const TYPE_WORDS: Record<string, string> = { distribuidor: 'distributor', distribuidores: 'distributor', distributor: 'distributor', distributors: 'distributor', cliente: 'customer', clientes: 'customer', customer: 'customer', marca: 'brand', marcas: 'brand', proyecto: 'project', proyectos: 'project', canal: 'channel', canales: 'channel', mercado: 'market', mercados: 'market', contacto: 'person', contactos: 'person', persona: 'person', personas: 'person', gente: 'person', equipo: 'person' };
 const GENERIC_DOMAINS = new Set(['gmail.com', 'hotmail.com', 'outlook.com', 'yahoo.com', 'icloud.com', 'live.com', 'smjaleel.com', 'smjaleel.net']);
@@ -243,7 +245,7 @@ export function dossier(input: { q?: string; nodeIds?: string[]; size?: DossierS
     for (const p of ix.nodes) {
       if (p.type !== 'person' || !doms.has(domainOf(p.frontmatter?.email_primary))) continue;
       const linked = neighbours(ix, n.id).some(e => e.id === p.id);
-      if (!linked) unlinked.push(`${displayTitle(p.title)} tiene correo de ${displayTitle(n.title)} pero su ficha no está conectada a ella.`);
+      if (!linked) unlinked.push(tr(`${displayTitle(p.title)} tiene correo de ${displayTitle(n.title)} pero su ficha no está conectada a ella.`, `${displayTitle(p.title)} has an email from ${displayTitle(n.title)} but their note is not connected to it.`));
       const card = personCard(p, { relation: `correo de ${displayTitle(n.title)}`, of: p.frontmatter?.organization || displayTitle(n.title) });
       const general = contacts.findIndex(c => c.from === n.id && String(c.name).startsWith('Contacto general') && c.email && String(c.email).toLowerCase() === String(p.frontmatter?.email_primary || '').toLowerCase());
       if (general >= 0) {
@@ -255,7 +257,7 @@ export function dossier(input: { q?: string; nodeIds?: string[]; size?: DossierS
   }
   for (const n of primary) {
     const keys = keywordsOf(n).map(k => k.replace(/\s*\(.*\)$/, '')).filter(k => k.length >= 4);
-    for (const p of ix.nodes) if (p.type === 'person' && !seen.has(p.id) && keys.some(k => norm(p.frontmatter?.organization).includes(k))) { seen.add(p.id); contacts.splice(1, 0, personCard(p, { relation: `trabaja en ${displayTitle(n.title)}` })); }
+    for (const p of ix.nodes) if (p.type === 'person' && !seen.has(p.id) && keys.some(k => norm(p.frontmatter?.organization).includes(k))) { seen.add(p.id); contacts.splice(1, 0, personCard(p, { relation: tr(`trabaja en ${displayTitle(n.title)}`, `works at ${displayTitle(n.title)}`) })); }
   }
   const lastContact: any[] = [];
   for (const n of focus) {
@@ -294,23 +296,23 @@ export function dossier(input: { q?: string; nodeIds?: string[]; size?: DossierS
   const mayInterest = [...cand.values()].sort((a, b) => b.score - a.score || deg(ix, b.n.id) - deg(ix, a.n.id)).slice(0, L.interest).map(c => ({ ...ref(c.n), why: c.why.slice(0, 2).join('; ') }));
 
   const missing: string[] = [];
-  if (!contacts.some(c => c.email || c.phone || c.whatsapp)) missing.push('No hay un contacto con correo o teléfono en estas fichas.');
-  if (!lastContact.length) missing.push('No hay registro de último contacto (correo o reunión).');
-  if (!steps.length) missing.push('No hay próximo paso ni tareas abiertas.');
-  for (const n of primary.filter(p => p.type === 'distributor')) if (!figures.some(f => f.from === n.id && (f.target || f.actual))) missing.push(`La cuota de ${displayTitle(n.title)} no está cargada.`);
-  for (const n of focus) if (!verif(n) || /pending|unverif/.test(String(verif(n)))) missing.push(`${displayTitle(n.title)} no está verificada.`);
+  if (!contacts.some(c => c.email || c.phone || c.whatsapp)) missing.push(tr('No hay un contacto con correo o teléfono en estas fichas.', 'There is no contact with an email or phone in these notes.'));
+  if (!lastContact.length) missing.push(tr('No hay registro de último contacto (correo o reunión).', 'There is no record of a last contact (email or meeting).'));
+  if (!steps.length) missing.push(tr('No hay próximo paso ni tareas abiertas.', 'There is no next step or open task.'));
+  for (const n of primary.filter(p => p.type === 'distributor')) if (!figures.some(f => f.from === n.id && (f.target || f.actual))) missing.push(tr(`La cuota de ${displayTitle(n.title)} no está cargada.`, `The quota for ${displayTitle(n.title)} is not loaded.`));
+  for (const n of focus) if (!verif(n) || /pending|unverif/.test(String(verif(n)))) missing.push(tr(`${displayTitle(n.title)} no está verificada.`, `${displayTitle(n.title)} is not verified.`));
   missing.push(...unlinked);
 
   const ask = matched.map(n => displayTitle(n.title)).join(' + ');
   const cut = (t: unknown, n = 140) => { const s = String(t || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
   const groupTxt = Object.entries(core.reduce((m: Record<string, string[]>, n) => { (m[n.type] ||= []).push(displayTitle(n.title)); return m; }, {}))
-    .map(([t, names]) => `${names.join(' y ')} (${TYPE_ES[t] ? (names.length > 1 ? TYPE_ES[t][1] : TYPE_ES[t][0]) : t})`).join('; ');
+    .map(([t, names]) => { const T = replyLang() === 'en' ? TYPE_EN : TYPE_ES; return `${names.join(tr(' y ', ' and '))} (${T[t] ? (names.length > 1 ? T[t][1] : T[t][0]) : t})`; }).join('; ');
   const main = contacts.find(c => c.email || c.phone);
   const answer = [
-    core.length ? `${ask}: ${groupTxt}.` : `${ask} (${TYPE_ES[matched[0].type]?.[0] || matched[0].type}).`,
-    main ? `Contacto principal: ${main.name}${main.role ? `, ${main.role}` : ''}${main.email ? ` (${main.email})` : ''}.` : '',
-    lastContact[0] ? `Último registro: ${lastContact[0].date || 's/f'} · ${cut(lastContact[0].subject || lastContact[0].summary || lastContact[0].kind)}` : '',
-    steps[0] ? `Próximo paso: ${steps[0].date || 'sin fecha'} · ${cut(steps[0].title, 100)}${(steps[0] as any).overdue || (steps[0].date && steps[0].date < dateStr) ? ' (vencido)' : ''}` : '',
+    core.length ? `${ask}: ${groupTxt}.` : `${ask} (${(replyLang() === 'en' ? TYPE_EN : TYPE_ES)[matched[0].type]?.[0] || matched[0].type}).`,
+    main ? `${tr('Contacto principal', 'Main contact')}: ${main.name}${main.role ? `, ${main.role}` : ''}${main.email ? ` (${main.email})` : ''}.` : '',
+    lastContact[0] ? `${tr('Último registro', 'Last record')}: ${lastContact[0].date || tr('s/f', 'n/d')} · ${cut(lastContact[0].subject || lastContact[0].summary || lastContact[0].kind)}` : '',
+    steps[0] ? `${tr('Próximo paso', 'Next step')}: ${steps[0].date || tr('sin fecha', 'no date')} · ${cut(steps[0].title, 100)}${(steps[0] as any).overdue || (steps[0].date && steps[0].date < dateStr) ? tr(' (vencido)', ' (overdue)') : ''}` : '',
   ].filter(Boolean).join(' ');
 
   return {

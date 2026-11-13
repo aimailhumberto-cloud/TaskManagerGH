@@ -396,7 +396,7 @@ export default function TaskDetail({
           : null;
       if (SpeechRecognition) {
         const rec = new SpeechRecognition();
-        rec.lang = 'es-PA';
+        rec.lang = document.documentElement.lang === 'en' ? 'en-US' : 'es-PA';
         rec.continuous = true;
         rec.interimResults = true;
         rec.onresult = (event: any) => {

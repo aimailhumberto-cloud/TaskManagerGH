@@ -20,7 +20,8 @@ import { TYPE_CONFIG, nodeLevel, MAX_NODES_PER_OPEN, isNodeLeader, getPersonDept
 import { CerebroHeader } from './CerebroHeader';
 import { CerebroSettingsMenu } from './CerebroSettingsMenu';
 import { CerebroSideCard } from './CerebroSideCard';
-import { LangContext, translate, readStoredLang, LANG_STORAGE_KEY, type Lang } from './i18n';
+import { LangContext, translate } from './i18n';
+import { useUiLang } from '@/lib/uiLang';
 import { buildCommunities, readCommunityThreshold } from './communities';
 import { importanceFactor } from './bubbleArt';
 import { useCanvasRenderLoop } from './useCanvasRenderLoop';
@@ -29,13 +30,8 @@ import { CerebroHud } from './CerebroHud';
 
 export default function CerebroPage() {
   const [mounted, setMounted] = useState(false);
-  const [lang, setLangState] = useState<Lang>('es');
+  const { lang, setLang } = useUiLang(); // idioma compartido con todas las pantallas (cookie + navegador)
   const t = (es: string) => translate(lang, es);
-  const setLang = (l: Lang) => {
-    setLangState(l);
-    try { localStorage.setItem(LANG_STORAGE_KEY, l); } catch {}
-  };
-  useEffect(() => { setLangState(readStoredLang()); const on = () => setLangState(readStoredLang()); window.addEventListener('ui-lang', on); window.addEventListener('storage', on); return () => { window.removeEventListener('ui-lang', on); window.removeEventListener('storage', on); }; }, []);
   const [graphData, setGraphData] = useState<BrainGraphResponse | null>(null);
   const [selectedMarket, setSelectedMarket] = useState<string>('all');
   const [activeLens, setActiveLens] = useState<string>('global-core');

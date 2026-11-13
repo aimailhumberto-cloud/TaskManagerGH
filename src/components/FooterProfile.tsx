@@ -35,7 +35,7 @@ export default function FooterProfile({ session }: FooterProfileProps) {
     }
   };
 
-  if (!session) return <div className="px-6 py-5 text-sm text-[#dbeafe]"><strong>Segundo Cerebro</strong><p>Inicia sesión para entrar</p></div>;
+  if (!session) return <div className="px-6 py-5 text-sm text-[#dbeafe]"><strong>{L('Segundo Cerebro', 'Second Brain')}</strong><p>{L('Inicia sesión para entrar', 'Sign in to enter')}</p></div>;
 
   // Fallback if session is somehow missing but middleware let it pass
   const name = session?.name || session.email;

@@ -214,7 +214,7 @@ export default function TaskDrawer({
         const rec = new SpeechRecognition();
         rec.continuous = true;
         rec.interimResults = false;
-        rec.lang = 'es-ES';
+        rec.lang = document.documentElement.lang === 'en' ? 'en-US' : 'es-PA';
         rec.onstart = () => setIsDictating(true);
         rec.onend = () => setIsDictating(false);
         rec.onerror = () => setIsDictating(false);

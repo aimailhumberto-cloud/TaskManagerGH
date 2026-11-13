@@ -72,6 +72,12 @@ El cerebro ya tiene su propia inteligencia, «el Cerebro». En vez de armar cada
 - Usa `Idempotency-Key` en los pedidos para que un reintento no se aplique dos veces.
 - Las rutas directas de las secciones 0 y 0b siguen funcionando igual.
 
+### Idioma (español / inglés)
+- El Cerebro **responde en el idioma del texto que le mandas** (`text`, `q`). Si escribes en inglés, el plan, el recibo, los avisos y las preguntas salen en inglés; si escribes en español, en español. Cada pedido guarda su idioma (`lang`) y la respuesta lo devuelve.
+- Para **forzarlo** manda `"lang":"es"` o `"lang":"en"`. La pantalla manda `uiLang` solo como pista cuando el texto no basta (por ejemplo, un nombre suelto).
+- **Lo que tú o tu gente escribe se guarda tal cual, sin traducir.** Lo que escribe la app dentro de las fichas (título «Reunión con X: tema» / «Meeting with X: topic», líneas de la bitácora, notas del diario, encabezados «Bitácora» / «Log») sigue el **idioma de trabajo del cerebro**: ajuste `workLang` (`es` o `en`), que una persona cambia en Pedir → Ajustes. Si aún no se eligió, el cerebro toma el idioma de la pantalla de quien lo usa primero (un agente nunca lo fija).
+- Las respuestas de otras rutas del servidor siguen en español por ahora; se irán pasando a los dos idiomas.
+
 ## 1. Principio Fundamental: El Cerebro en Markdown es la Única Fuente de Verdad (SSOT)
 
 A partir de esta actualización, **el Task Manager y el Segundo Cerebro operan como un solo sistema unificado**. 

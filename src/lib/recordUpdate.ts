@@ -13,6 +13,7 @@ import { appendLog, logLine, setState } from './noteLog';
 import { listEvents, upsertEvent, AgendaError, addDays } from './agenda';
 import { rollbackCurrent } from './journal';
 import { actorLabel } from './actor';
+import { tr, tw } from './reqLang';
 
 export interface RecordInput {
   nodeId: string;
@@ -36,19 +37,19 @@ const fail = (status: number, error: string): RecordResult => ({ ok: false, stat
 
 export function recordUpdate(input: RecordInput): RecordResult {
   const summary = String(input.summary || '').trim();
-  if (!input.nodeId) return fail(400, 'nodeId es requerido (id o nombre exacto de la ficha).');
-  if (summary.length < 3) return fail(400, 'summary es requerido: qué pasó, en una o dos frases.');
+  if (!input.nodeId) return fail(400, tr('nodeId es requerido (id o nombre exacto de la ficha).', 'nodeId is required (id or exact name of the note).'));
+  if (summary.length < 3) return fail(400, tr('summary es requerido: qué pasó, en una o dos frases.', 'summary is required: what happened, in one or two sentences.'));
   const today = getPanamaDate().dateStr;
   const date = input.date && DAY.test(input.date) ? input.date : today;
-  if (input.followup?.date && !DAY.test(input.followup.date)) return fail(400, 'followup.date debe ser AAAA-MM-DD.');
-  if (input.task && !String(input.task.title || '').trim()) return fail(400, 'task.title es requerido si envías task.');
+  if (input.followup?.date && !DAY.test(input.followup.date)) return fail(400, tr('followup.date debe ser AAAA-MM-DD.', 'followup.date must be YYYY-MM-DD.'));
+  if (input.task && !String(input.task.title || '').trim()) return fail(400, tr('task.title es requerido si envías task.', 'task.title is required when you send task.'));
   const bad = Object.keys(input.fields || {}).filter(k => PROTECTED.has(k) || !/^[a-z][a-z0-9_]{1,60}$/.test(k));
-  if (bad.length) return fail(400, `Estos campos no se cambian con una novedad: ${bad.join(', ')}.`);
+  if (bad.length) return fail(400, tr(`Estos campos no se cambian con una novedad: ${bad.join(', ')}.`, `These fields cannot be changed with an update: ${bad.join(', ')}.`));
 
   const r = resolveNodeFile(input.nodeId);
   if (!r.ok) return fail(404, r.message);
   const peek = readNoteStrict(r.filePath);
-  if (!peek.ok) return fail(409, `La ficha no se puede leer: ${peek.error}`);
+  if (!peek.ok) return fail(409, tr(`La ficha no se puede leer: ${peek.error}`, `The note cannot be read: ${peek.error}`));
   const nodeId = String(peek.frontmatter.id || path.basename(r.filePath, '.md'));
   const title = String(peek.frontmatter.title || path.basename(r.filePath, '.md'));
   const by = actorLabel('Agente');
@@ -73,14 +74,14 @@ export function recordUpdate(input: RecordInput): RecordResult {
       return { body: b };
     });
     if (!upd.ok) throw new Error(upd.error);
-    done.push(`Ficha «${title}»: novedad en la bitácora${input.followup ? ', próximo paso' : ''}${input.lastEmail ? ', último correo' : ''}${input.state ? ', estado actual' : ''}${input.fields && Object.keys(input.fields).length ? `, ${Object.keys(input.fields).join(', ')}` : ''}`);
+    done.push(tr(`Ficha «${title}»: novedad en la bitácora${input.followup ? ', próximo paso' : ''}${input.lastEmail ? ', último correo' : ''}${input.state ? ', estado actual' : ''}${input.fields && Object.keys(input.fields).length ? `, ${Object.keys(input.fields).join(', ')}` : ''}`, `Note “${title}”: update in the log${input.followup ? ', next step' : ''}${input.lastEmail ? ', last email' : ''}${input.state ? ', current state' : ''}${input.fields && Object.keys(input.fields).length ? `, ${Object.keys(input.fields).join(', ')}` : ''}`));
 
     // 2. La agenda (crear o mover)
     let eventId: string | undefined;
     if (input.event) {
       const ev = { kind: 'reunion', ...input.event } as Record<string, any>;
       if (!ev.title || !ev.date) throw new AgendaError('event necesita title y date.');
-      if (!ev.notes) ev.notes = `${summary.slice(0, 600)} · Ficha: ${title}`;
+      if (!ev.notes) ev.notes = `${summary.slice(0, 600)} · ${tw('Ficha', 'Note')}: ${title}`;
       let moved = '';
       if (!ev.id && !ev.externalId) {
         const norm = (v: unknown) => String(v || '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -90,7 +91,7 @@ export function recordUpdate(input: RecordInput): RecordResult {
       }
       const saved = upsertEvent(getVaultPath(), ev, by);
       eventId = saved.id;
-      done.push(moved ? `Agenda: «${saved.title}» movida de ${moved} a ${saved.date}${saved.time ? ' ' + saved.time : ''}` : `Agenda: «${saved.title}» el ${saved.date}${saved.time ? ' a las ' + saved.time : ''}`);
+      done.push(moved ? tr(`Agenda: «${saved.title}» movida de ${moved} a ${saved.date}${saved.time ? ' ' + saved.time : ''}`, `Agenda: “${saved.title}” moved from ${moved} to ${saved.date}${saved.time ? ' ' + saved.time : ''}`) : tr(`Agenda: «${saved.title}» el ${saved.date}${saved.time ? ' a las ' + saved.time : ''}`, `Agenda: “${saved.title}” on ${saved.date}${saved.time ? ' at ' + saved.time : ''}`));
     }
 
     // 3. La tarea
@@ -99,12 +100,12 @@ export function recordUpdate(input: RecordInput): RecordResult {
       const t = createBrainTask({ title: String(input.task.title).trim(), dueDate: input.task.dueDate, priority: input.task.priority, description: input.task.description || summary, targetNodeId: nodeId });
       if (!t.ok) throw new Error(t.message);
       taskId = t.taskId;
-      done.push(`Tarea: «${String(input.task.title).trim()}»${input.task.dueDate ? ' para el ' + input.task.dueDate : ''}`);
+      done.push(tr(`Tarea: «${String(input.task.title).trim()}»${input.task.dueDate ? ' para el ' + input.task.dueDate : ''}`, `Task: “${String(input.task.title).trim()}”${input.task.dueDate ? ' due ' + input.task.dueDate : ''}`));
     }
     loadBrainGraph(); // refresca el índice para la siguiente lectura
-    return { ok: true, message: `Novedad registrada en «${title}».`, nodeId, file: path.relative(getVaultPath(), r.filePath).split(path.sep).join('/'), done, taskId, eventId };
+    return { ok: true, message: tr(`Novedad registrada en «${title}».`, `Update recorded in “${title}”.`), nodeId, file: path.relative(getVaultPath(), r.filePath).split(path.sep).join('/'), done, taskId, eventId };
   } catch (e: any) {
     const undone = rollbackCurrent();
-    return fail(e instanceof AgendaError ? e.status : 409, `${e?.message || 'No se pudo registrar.'}${undone ? ' No se guardó nada: se devolvieron los cambios.' : ''}`);
+    return fail(e instanceof AgendaError ? e.status : 409, `${e?.message || tr('No se pudo registrar.', 'Could not record it.')}${undone ? tr(' No se guardó nada: se devolvieron los cambios.', ' Nothing was saved: the changes were rolled back.') : ''}`);
   }
 }

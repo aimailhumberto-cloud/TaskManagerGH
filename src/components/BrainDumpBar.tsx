@@ -38,7 +38,7 @@ export default function BrainDumpBar({ onProcessed }: BrainDumpBarProps) {
 
     try {
       const rec = new SpeechRecognition();
-      rec.lang = 'es-PA';
+      rec.lang = document.documentElement.lang === 'en' ? 'en-US' : 'es-PA';
       rec.continuous = true;
       rec.interimResults = false;
       rec.onresult = (event: any) => {
