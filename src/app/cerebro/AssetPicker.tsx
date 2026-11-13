@@ -27,6 +27,19 @@ export function AssetPicker({ nodeId, currentAssetId }: { nodeId: string; curren
   };
   const assign = async (a: BrandAsset) => { const d = await post({ action: 'assign', nodeId, assetId: a.id }); if (d) { setPicked(a.id); setMsg(L('Imagen puesta. El mapa se actualiza en unos segundos.', 'Image set. The map updates in a few seconds.')); } };
   const unassign = async () => { const d = await post({ action: 'unassign', nodeId }); if (d) { setPicked(''); setMsg(L('Imagen quitada.', 'Image removed.')); } };
+  // Fotos que hoy dependen de enlaces a la tienda en línea: se copian a la biblioteca por tandas.
+  const [linked, setLinked] = useState<number | null>(null);
+  useEffect(() => { if (!open) return; fetch('/api/agent/assets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'localize', dryRun: true }) }).then(r => (r.ok ? r.json() : null)).then(d => setLinked(d?.ok ? d.pending : null)).catch(() => {}); }, [open]);
+  const localize = async () => {
+    let left = linked || 0, copied = 0;
+    while (left > 0) {
+      const d = await post({ action: 'localize', limit: 20 }); if (!d) return;
+      copied += d.copied; left = d.remaining; setLinked(left);
+      setMsg(`${L('Copiadas', 'Copied')}: ${copied} · ${L('faltan', 'left')}: ${left}`);
+      if (!d.copied) { setMsg(`${L('Copiadas', 'Copied')}: ${copied}. ${L('No se pudieron copiar', 'Could not copy')}: ${left}${d.failed?.[0]?.error ? ` (${d.failed[0].error})` : ''}`); return; }
+    }
+    setMsg(`${L('Listo. Fotos copiadas a la biblioteca', 'Done. Photos copied to the library')}: ${copied}`); load();
+  };
   const upload = (file: File) => {
     if (file.size > 2 * 1024 * 1024) { setMsg(L('La imagen pasa de 2 MB.', 'The image is over 2 MB.')); return; }
     const fr = new FileReader();
@@ -68,6 +81,7 @@ export function AssetPicker({ nodeId, currentAssetId }: { nodeId: string; curren
               {!shown.length && assets.length > 0 && <p className="col-span-full py-8 text-center text-sm text-slate-500">{L('Nada con ese filtro.', 'Nothing matches.')}</p>}
             </div>
             <div className="flex items-center justify-between gap-3 border-t border-[#dbe4f3] px-5 py-3">
+              {!!linked && <button type="button" disabled={busy} onClick={localize} title={L('Hoy dependen de enlaces a la tienda en línea; al copiarlas quedan guardadas aquí.', 'They depend on links to the online store today; copying keeps them here.')} className="text-xs font-medium text-[#0a3fbf] underline-offset-2 hover:underline disabled:opacity-40">{L('Copiar fotos de la tienda', 'Copy store photos')} ({linked})</button>}
               <button type="button" disabled={busy || !picked} onClick={unassign} className="text-xs font-medium text-rose-700 underline-offset-2 hover:underline disabled:opacity-40">{L('Quitar imagen', 'Remove image')}</button>
               <button type="button" onClick={() => setOpen(false)} className="rounded-xl bg-[#0b1f4d] px-4 py-2 text-sm font-semibold text-white">{L('Listo', 'Done')}</button>
             </div>
