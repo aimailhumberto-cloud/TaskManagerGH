@@ -32,10 +32,33 @@ const fmtDay = (iso: string | null, opt: Intl.DateTimeFormatOptions = { weekday:
 const ACTION: Record<string, string> = { remember_working: 'capturó una nota', create: 'creó una tarea', complete: 'completó una tarea', reschedule: 'reprogramó una tarea', decide: 'decidió una propuesta', update_dossier: 'actualizó una ficha', upsert_node: 'creó o cambió una ficha', consolidate_session: 'consolidó la memoria', set: 'actualizó un indicador', ask_dots: 'pidió trabajo al agente' };
 const km = (a: Place, b: { lat: number; lon: number }) => { const r = Math.PI / 180, dLat = (b.lat - a.lat) * r, dLon = (b.lon - a.lon) * r; const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dLon / 2) ** 2; return 12742 * Math.asin(Math.sqrt(h)); };
 
-function Card({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
-  return (<section className="rounded-[20px] bg-white p-5 sm:p-6" style={{ border: `1px solid ${LINE}` }}>
-    <div className="mb-3.5 flex flex-wrap items-center justify-between gap-2"><h2 className="text-[15px] font-bold" style={{ color: NAVY }}>{title}</h2>{action}</div>{children}</section>);
+const SHADOW = '0 1px 2px rgba(11,31,77,0.04), 0 12px 28px -18px rgba(11,31,77,0.22)';
+const ICONS: Record<string, string> = {
+  tasks: 'M9 11l3 3 8-8M4 6h4M4 12h4M4 18h4m4 0h8', calendar: 'M4 7h16v13H4zM8 3v4m8-4v4M4 11h16', spark: 'M12 3l2.2 5.6L20 11l-5.8 2.4L12 19l-2.2-5.6L4 11l5.8-2.4z', chart: 'M4 20V10m6 10V4m6 16v-7m4 7H2',
+  donut: 'M12 3a9 9 0 109 9h-9z M14 3.2A9 9 0 0120.8 10H14z', shield: 'M12 3l8 3v6c0 4.5-3.2 7.6-8 9-4.8-1.4-8-4.5-8-9V6z M9 12l2 2 4-4', target: 'M12 21a9 9 0 100-18 9 9 0 000 18zm0-5a4 4 0 100-8 4 4 0 000 8zm0-4h.01',
+  truck: 'M3 7h11v9H3zM14 10h4l3 3v3h-7zM7 19a2 2 0 100-4 2 2 0 000 4zm10 0a2 2 0 100-4 2 2 0 000 4z', tag: 'M3 12V4h8l10 10-8 8zM7.5 8h.01', share: 'M8 12a3 3 0 11-6 0 3 3 0 016 0zm14-6a3 3 0 11-6 0 3 3 0 016 0zm0 12a3 3 0 11-6 0 3 3 0 016 0zM7.6 10.7l8.8-3.4M7.6 13.3l8.8 3.4', users: 'M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21a8 8 0 0116 0', pin: 'M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11zm0-8.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z',
+};
+function Icon({ name, size = 16, color = BLUE }: { name: string; size?: number; color?: string }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICONS[name] || ICONS.spark} /></svg>;
 }
+function Card({ title, children, action, icon = 'spark' }: { title: string; children: React.ReactNode; action?: React.ReactNode; icon?: string }) {
+  return (<section className="rounded-[22px] bg-white p-5 sm:p-6" style={{ border: `1px solid ${LINE}`, boxShadow: SHADOW }}>
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b pb-3" style={{ borderColor: '#eef2f9' }}>
+      <h2 className="flex items-center gap-2.5 text-[15px] font-bold" style={{ color: NAVY }}><span className="flex h-8 w-8 items-center justify-center rounded-[10px]" style={{ background: '#e8f1ff' }}><Icon name={icon} /></span>{title}</h2>{action}</div>{children}</section>);
+}
+const linkCls = 'rounded-full px-3 py-1 text-xs font-semibold transition-colors hover:bg-[#e8f1ff]';
+/** Agrupa actividad repetida del agente: «capturó una nota ×5». */
+function groupActivity(list: { at: string; actor: string; action?: string; path: string }[]) {
+  const WHERE: Record<string, string> = { 'vault-sync': 'sincronizó archivos de la bóveda', hub: 'actualizó el espacio de trabajo', tasks: 'trabajó en tareas', brain: 'escribió en el cerebro', kpis: 'actualizó indicadores', 'dots-sleep': 'respondió propuestas', shared: 'cambió qué se comparte', decisions: 'consultó a Jev' };
+  const out: { text: string; at: string; n: number }[] = [];
+  for (const e of list) {
+    const text = ACTION[e.action || ''] || WHERE[e.path.replace('/api/agent/', '').split('/')[0]] || 'escribió en el cerebro';
+    const last = out[out.length - 1];
+    if (last && last.text === text) last.n++; else out.push({ text, at: e.at, n: 1 });
+  }
+  return out;
+}
+const ago = (iso: string) => { const m = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000)); return m < 1 ? 'ahora' : m < 60 ? `hace ${m} min` : m < 1440 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`; };
 function Bars({ rows, color }: { rows: NV[]; color: string }) {
   const max = Math.max(1, ...rows.map(r => r.value));
   return (<div className="space-y-2.5">{rows.map(r => (
@@ -135,8 +158,9 @@ export default function InicioPage() {
   const donutRows = types.length > 6 ? [...types.slice(0, 5), { name: 'Otros', value: types.slice(5).reduce((s, t) => s + t.value, 0) }] : types;
   const v = d.charts.verification, vTotal = Math.max(1, v.verified + v.pending); // la barra compara solo lo que ya tiene estado de verificación
   const kpi = (label: string, value: string, sub: string, tone = NAVY) => (
-    <div className="rounded-[20px] bg-white px-5 py-4" style={{ border: `1px solid ${LINE}` }}>
-      <p className="text-xs font-semibold text-slate-500">{label}</p><p className="text-[34px] font-bold leading-tight" style={{ color: tone }}>{value}</p><p className="text-xs text-slate-500">{sub}</p>
+    <div className="overflow-hidden rounded-[20px] bg-white" style={{ border: `1px solid ${LINE}`, boxShadow: SHADOW }}>
+      <div className="h-1" style={{ background: tone }} />
+      <div className="px-5 py-4"><p className="text-xs font-semibold text-slate-500">{label}</p><p className="text-[34px] font-bold leading-tight" style={{ color: tone }}>{value}</p><p className="text-xs text-slate-500">{sub}</p></div>
     </div>);
   const brandTiles = d.charts.brands.filter(b => TILES.includes(b.slug));
 
@@ -151,7 +175,7 @@ export default function InicioPage() {
             <div>
               <p className="text-[13px] font-semibold tracking-[0.08em]" style={{ color: '#9fdcff' }}>SEGUNDO CEREBRO · S.M. JALEEL</p>
               <h1 className="mt-2 text-3xl font-bold leading-tight text-white sm:text-[40px]">{hello}, {d.me.name}</h1>
-              <p className="mt-1 text-[15px]" style={{ color: '#dbeafe' }}><span className="capitalize">{fmtDay(d.today, { weekday: 'long', day: 'numeric', month: 'long' })}</span> · {d.brain.viewingOther ? `estás viendo el cerebro de ${d.brain.viewingName}` : 'tu día en una mirada'}</p>
+              <p className="mt-1 text-[15px]" style={{ color: '#dbeafe' }}>{(x => x.charAt(0).toUpperCase() + x.slice(1))(fmtDay(d.today, { weekday: 'long', day: 'numeric', month: 'long' }))} · {d.brain.viewingOther ? `estás viendo el cerebro de ${d.brain.viewingName}` : 'tu día en una mirada'}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {spots.map(s => (<span key={s.key} className={chip} style={{ background: 'rgba(255,255,255,0.14)' }}>{s.label} · {wx[s.key] ? `${Math.round(wx[s.key].temp)} °C · ${sky(wx[s.key].code)} · ${wx[s.key].time}` : '…'}</span>))}
@@ -165,11 +189,16 @@ export default function InicioPage() {
             </div>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/brands/Quality-Beverages_3-copy-scaled.jpg" alt="Bebidas de S.M. Jaleel" className="h-48 w-full object-cover lg:h-full lg:min-h-[300px]" style={{ objectPosition: '88% 62%' }} />
+          <div className="relative h-52 lg:h-auto lg:min-h-[300px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brands/smj-bebidas-hero.jpg" alt="Bebidas de S.M. Jaleel" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: '50% 70%' }} />
+            <div aria-hidden className="absolute inset-y-0 left-0 hidden w-28 lg:block" style={{ background: `linear-gradient(90deg, ${BLUE}, rgba(10,63,191,0))` }} />
+            <div aria-hidden className="absolute inset-x-0 top-0 h-10 lg:hidden" style={{ background: `linear-gradient(180deg, ${BLUE}, rgba(10,63,191,0))` }} />
+          </div>
         </header>
 
         {placeForm.open && (
-          <Card title="Ciudades del tablero">
+          <Card icon="pin" title="Ciudades del tablero">
             <p className="mb-3 text-sm text-slate-600">Elige tu casa y la sede. Si estás en una de las dos, solo verás dos ciudades; si estás en otro lugar, verás tres. Tu ubicación solo se usa para el clima y no se guarda.</p>
             <form onSubmit={searchPlace} className="flex flex-wrap gap-2">
               <select className={input} value={placeForm.which} onChange={e => setPlaceForm(f => ({ ...f, which: e.target.value as 'home' | 'hq' }))} aria-label="Cuál ciudad"><option value="home">Casa</option><option value="hq">Sede</option></select>
@@ -205,7 +234,7 @@ export default function InicioPage() {
         )}
         {note && <p className="rounded-xl bg-white px-4 py-2 text-sm text-slate-700" style={{ border: `1px solid ${LINE}` }}>{note}</p>}
 
-        <Card title="Mis indicadores" action={!d.brain.readOnly ? <button onClick={() => setKpiForm({ open: !kpiForm.open, id: '', name: '', value: '', unit: '', target: '', period: '' })} className="text-xs font-semibold underline" style={{ color: BLUE }}>{kpiForm.open ? 'Cerrar' : 'Agregar indicador'}</button> : undefined}>
+        <Card icon="target" title="Mis indicadores" action={!d.brain.readOnly ? <button onClick={() => setKpiForm({ open: !kpiForm.open, id: '', name: '', value: '', unit: '', target: '', period: '' })} className={linkCls} style={{ color: BLUE, background: SOFT }}>{kpiForm.open ? 'Cerrar' : 'Agregar indicador'}</button> : undefined}>
           {kpiForm.open && (
             <form onSubmit={saveKpi} className="mb-4 grid gap-2 sm:grid-cols-6">
               <input className={`${input} sm:col-span-2`} placeholder="Nombre (ej.: Volumen Belice)" value={kpiForm.name} onChange={e => setKpiForm({ ...kpiForm, name: e.target.value })} aria-label="Nombre" />
@@ -228,15 +257,15 @@ export default function InicioPage() {
         </Card>
 
         <section className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-          <Card title="De qué está hecho mi cerebro">
+          <Card icon="donut" title="De qué está hecho mi cerebro">
             <div className="flex flex-wrap items-center gap-6"><Donut rows={donutRows} total={d.health.nodes} />
               <div className="min-w-[150px] flex-1 space-y-2">{donutRows.map((r, i) => (<div key={r.name} className="flex items-center justify-between gap-3 text-[13px] text-slate-700"><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: PALETTE[i % PALETTE.length] }} />{r.name}</span><span className="font-semibold" style={{ color: NAVY }}>{fmt(r.value)}</span></div>))}</div></div>
           </Card>
-          <Card title="Mis tareas abiertas">
+          <Card icon="chart" title="Mis tareas abiertas">
             <Bars color={BLUE} rows={[{ name: 'Vencidas', value: d.charts.tasks.overdue }, { name: 'Para hoy', value: d.charts.tasks.today }, { name: 'Más adelante', value: d.charts.tasks.later }, { name: 'Sin fecha', value: d.charts.tasks.undated }]} />
             {d.charts.countries.length > 0 && <><h2 className="mb-3.5 mt-6 text-[15px] font-bold">Fichas por país</h2><Bars color={CYAN} rows={d.charts.countries} /></>}
           </Card>
-          <Card title="Qué tan confiable es lo que sé">
+          <Card icon="shield" title="Qué tan confiable es lo que sé">
             <div className="flex h-[18px] overflow-hidden rounded-full" style={{ background: '#e8eef9' }}><div style={{ width: `${(v.verified / vTotal) * 100}%`, background: '#2a9d8f' }} /><div style={{ width: `${(v.pending / vTotal) * 100}%`, background: '#ffb703' }} /></div>
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-slate-700"><span><b style={{ color: '#2a9d8f' }}>{fmt(v.verified)}</b> verificadas</span><span><b style={{ color: '#b45309' }}>{fmt(v.pending)}</b> pendientes</span><span><b>{fmt(v.other)}</b> sin revisar todavía</span></div>
             <h2 className="mb-3 mt-6 text-[15px] font-bold">Salud</h2>
@@ -245,27 +274,36 @@ export default function InicioPage() {
         </section>
 
         <section className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-          <Card title="Mis tareas de hoy" action={<span className="flex gap-3">{d.me.canManage && <Link href="/mis-tareas" className="text-xs font-semibold underline" style={{ color: BLUE }}>Asignar a alguien</Link>}<Link href="/tasks" className="text-xs font-semibold underline" style={{ color: BLUE }}>Ver todas</Link></span>}>
-            {d.tasksToday.length === 0 ? <p className="text-sm text-slate-500">Nada vence hoy.</p> : (<ul className="divide-y divide-slate-100">{d.tasksToday.map(t => (
-              <li key={t.id} className="flex items-center justify-between gap-3 py-2.5"><div className="min-w-0"><p className="truncate text-sm font-medium text-slate-800">{t.title}</p>{t.source && <p className="truncate text-xs text-slate-500">{t.source}</p>}</div>
-                <div className="flex shrink-0 items-center gap-2.5"><span className={`text-xs font-semibold ${t.isOverdue ? 'text-red-600' : 'text-slate-500'}`}>{t.isOverdue ? 'Vencida' : 'Hoy'}</span>{!d.brain.readOnly && <button disabled={busy} onClick={() => post('/api/agent/tasks', { action: 'complete', taskId: t.id, completedBy: d.me.name }, 'Tarea completada.')} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Completar</button>}</div></li>))}</ul>)}
+          <Card icon="tasks" title="Mis tareas de hoy" action={<span className="flex gap-3">{d.me.canManage && <Link href="/mis-tareas" className={linkCls} style={{ color: BLUE, background: SOFT }}>Asignar a alguien</Link>}<Link href="/tasks" className={linkCls} style={{ color: BLUE, background: SOFT }}>Ver todas</Link></span>}>
+            {d.tasksToday.length === 0 ? <p className="text-sm text-slate-500">Nada vence hoy.</p> : (<ul className="space-y-2">{d.tasksToday.map(t => (
+              <li key={t.id} className="flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors hover:bg-[#f7faff]" style={{ border: '1px solid #eef2f9' }}>
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: t.isOverdue ? '#d62839' : t.priority === 'High' ? '#ffb703' : CYAN }} aria-hidden />
+                <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-slate-800" title={t.title}>{t.title}</p>{t.source && <p className="truncate text-xs text-slate-500">{t.source}</p>}</div>
+                <span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold" style={t.isOverdue ? { background: '#fde8ea', color: '#b01e2b' } : { background: '#e8f1ff', color: BLUE }}>{t.isOverdue ? 'Vencida' : 'Hoy'}</span>
+                {!d.brain.readOnly && <button disabled={busy} onClick={() => post('/api/agent/tasks', { action: 'complete', taskId: t.id, completedBy: d.me.name }, 'Tarea completada.')} aria-label={`Completar: ${t.title}`} title="Completar" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-400 transition-colors hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-600"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg></button>}
+              </li>))}</ul>)}
           </Card>
-          <Card title="Agenda de la semana" action={<Link href="/mi-agenda" className="text-xs font-semibold underline" style={{ color: BLUE }}>Ver agenda</Link>}>
-            <div className="grid grid-cols-7 gap-1.5 text-center">{d.charts.week.map((w, i) => (<Link href="/mi-agenda" key={w.date} className="rounded-xl py-2.5" style={i === 0 ? { background: BLUE, color: '#fff' } : { background: SOFT }}><p className="text-[11px] capitalize opacity-80">{fmtDay(w.date, { weekday: 'short' })}</p><p className="text-lg font-bold">{Number(w.date.slice(8))}</p><p className="text-[11px] opacity-80">{w.count || '·'}</p></Link>))}</div>
-            <ul className="mt-3 divide-y divide-slate-100">{d.agenda.slice(0, 4).map(t => (<li key={t.id} className="flex items-baseline gap-3 py-2"><span className="w-20 shrink-0 text-xs font-semibold capitalize" style={{ color: CYAN }}>{t.isToday ? 'Hoy' : fmtDay(t.dueDate)}</span><span className="min-w-0 truncate text-sm text-slate-800">{t.title}</span></li>))}</ul>
+          <Card icon="calendar" title="Agenda de la semana" action={<Link href="/mi-agenda" className={linkCls} style={{ color: BLUE, background: SOFT }}>Ver agenda</Link>}>
+            <div className="grid grid-cols-7 gap-1.5 text-center">{d.charts.week.map((w, i) => (<Link href="/mi-agenda" key={w.date} className="rounded-2xl py-2.5 transition-transform hover:-translate-y-0.5" style={i === 0 ? { background: BLUE, color: '#fff', boxShadow: '0 8px 18px -8px rgba(10,63,191,0.7)' } : { background: SOFT, border: '1px solid #e6edf9' }}><p className="text-[11px] capitalize opacity-80">{fmtDay(w.date, { weekday: 'short' })}</p><p className="text-lg font-bold">{Number(w.date.slice(8))}</p><p className="mx-auto mt-0.5 flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold" style={w.count ? (i === 0 ? { background: '#fff', color: BLUE } : { background: CYAN, color: '#04214f' }) : { opacity: 0.35 }}>{w.count || '·'}</p></Link>))}</div>
+            <ul className="mt-4 space-y-1.5">{d.agenda.slice(0, 4).map(t => (<li key={t.id} className="flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-[#f7faff]"><span className="w-[76px] shrink-0 rounded-full px-2 py-0.5 text-center text-[11px] font-semibold capitalize" style={t.isToday ? { background: BLUE, color: '#fff' } : { background: '#e6f6fe', color: '#0369a1' }}>{t.isToday ? 'Hoy' : fmtDay(t.dueDate, { weekday: 'short', day: 'numeric' })}</span><span className="min-w-0 truncate text-sm text-slate-800" title={t.title}>{t.title}</span></li>))}</ul>
           </Card>
-          <Card title="Lo que hicieron Jev y mi agente" action={<Link href="/cerebro" className="text-xs font-semibold underline" style={{ color: BLUE }}>Ver el registro</Link>}>
+          <Card icon="spark" title="Lo que hicieron Jev y mi agente" action={<Link href="/cerebro" className={linkCls} style={{ color: BLUE, background: SOFT }}>Ver el registro</Link>}>
             {d.log.applied.length + d.log.activity.length === 0 && d.log.pending === 0 && <p className="text-sm text-slate-500">Todavía no hay actividad.</p>}
-            <ul className="divide-y divide-slate-100">
-              {d.log.applied.map(a => (<li key={a.id} className="flex items-center justify-between gap-3 py-2.5 text-sm"><span className="min-w-0 truncate text-slate-800">{a.title || 'Cambio aplicado'} <span className="text-slate-500">· {a.by || 'aprobado'}</span></span><button disabled={busy} onClick={() => post('/api/agent/dots-sleep', { action: 'undo', id: a.id }, 'Cambio deshecho.')} className="shrink-0 text-xs font-semibold underline" style={{ color: BLUE }}>Deshacer</button></li>))}
-              {d.log.activity.map((e, i) => (<li key={i} className="py-2.5 text-sm text-slate-700">Mi agente {ACTION[e.action || ''] || 'escribió en mi cerebro'} <span className="text-slate-500">· {new Date(e.at).toLocaleString('es-PA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span></li>))}
-              {d.log.pending > 0 && <li className="py-2.5 text-sm font-medium text-amber-700">{d.log.pending} {d.log.pending === 1 ? 'propuesta espera' : 'propuestas esperan'} tu criterio en Cerebro, Ajustes.</li>}
+            <ul className="space-y-2">
+              {d.log.applied.map(a => (<li key={a.id} className="flex items-center gap-3 rounded-2xl px-3 py-2.5" style={{ border: '1px solid #eef2f9' }}>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: '#e6f6fe' }}><Icon name="spark" size={14} color="#0284c7" /></span>
+                <span className="min-w-0 flex-1 text-sm text-slate-800"><span className="block truncate" title={a.title}>{a.title || 'Cambio aplicado'}</span><span className="text-xs text-slate-500">{a.by || 'aprobado'} · {ago(a.at)}</span></span>
+                <button disabled={busy} onClick={() => post('/api/agent/dots-sleep', { action: 'undo', id: a.id }, 'Cambio deshecho.')} className={linkCls} style={{ color: BLUE, background: SOFT }}>Deshacer</button></li>))}
+              {groupActivity(d.log.activity).map((e, i) => (<li key={i} className="flex items-center gap-3 rounded-2xl px-3 py-2.5" style={{ border: '1px solid #eef2f9' }}>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full" style={{ background: '#e8f1ff' }}><Icon name="users" size={14} /></span>
+                <span className="min-w-0 flex-1 text-sm text-slate-800">Mi agente {e.text}{e.n > 1 && <span className="ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold" style={{ background: '#e8f1ff', color: BLUE }}>×{e.n}</span>}<span className="block text-xs text-slate-500">{ago(e.at)}</span></span></li>))}
+              {d.log.pending > 0 && <li><Link href="/cerebro" className="flex items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium" style={{ background: '#fff7e6', color: '#92400e', border: '1px solid #fde3b0' }}><span>{d.log.pending} {d.log.pending === 1 ? 'propuesta espera' : 'propuestas esperan'} tu criterio</span><span aria-hidden>→</span></Link></li>}
             </ul>
           </Card>
         </section>
 
         {d.distributors.length > 0 && (
-          <Card title="Cuotas de distribuidores" action={<Link href="/tasks" className="text-xs font-semibold underline" style={{ color: BLUE }}>Ver en Tareas</Link>}>
+          <Card icon="truck" title="Cuotas de distribuidores" action={<Link href="/tasks" className={linkCls} style={{ color: BLUE, background: SOFT }}>Ver en Tareas</Link>}>
             <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>{d.distributors.map(x => { const tone = x.status === 'At Risk' ? '#d62839' : x.status === 'Ahead' ? '#2a9d8f' : x.status === 'On Track' ? BLUE : '#94a3b8'; const label = x.status === 'At Risk' ? 'En riesgo' : x.status === 'Ahead' ? 'Adelantado' : x.status === 'On Track' ? 'En ruta' : 'Sin cuota definida'; return (
               <div key={x.name} className="rounded-2xl p-4" style={{ background: SOFT }}>
                 <div className="flex items-start justify-between gap-2"><p className="min-w-0 truncate text-sm font-semibold">{x.name}</p><span className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold text-white" style={{ background: tone }}>{label}</span></div>
@@ -276,7 +314,7 @@ export default function InicioPage() {
         )}
 
         {brandTiles.length > 0 && (
-          <Card title="Mis marcas en el cerebro">
+          <Card icon="tag" title="Mis marcas en el cerebro">
             <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>{brandTiles.map(b => (
               <Link href="/cerebro" key={b.slug} className="relative block h-[120px] overflow-hidden rounded-2xl">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -287,12 +325,12 @@ export default function InicioPage() {
         )}
 
         <section className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-          <Card title="Compañía y compartido" action={<Link href="/compania" className="text-xs font-semibold underline" style={{ color: BLUE }}>Abrir</Link>}>
+          <Card icon="share" title="Compañía y compartido" action={<Link href="/compania" className={linkCls} style={{ color: BLUE, background: SOFT }}>Abrir</Link>}>
             <p className="text-sm text-slate-700">{d.shared.companyExists ? 'El cerebro de la compañía está disponible para consulta.' : 'El cerebro de la compañía aún no existe.'}</p>
             {d.shared.withMe.length > 0 ? <ul className="mt-2 space-y-1">{d.shared.withMe.map((s, i) => (<li key={i} className="truncate text-sm text-slate-700">{s.owner} compartió «{s.title}»</li>))}</ul> : <p className="mt-1 text-sm text-slate-500">Nadie ha compartido fichas contigo todavía.</p>}
           </Card>
           {d.people && (
-            <Card title="Personas" action={<Link href="/usuarios" className="text-xs font-semibold underline" style={{ color: BLUE }}>Administrar</Link>}>
+            <Card icon="users" title="Personas" action={<Link href="/usuarios" className={linkCls} style={{ color: BLUE, background: SOFT }}>Administrar</Link>}>
               <p className="mb-2 text-sm text-slate-600">{d.people.accounts.filter(a => a.isActive).length} cuentas activas · {d.people.brains} cerebros</p>
               <ul className="space-y-1">{d.people.accounts.map((a, i) => (<li key={i} className="flex justify-between gap-2 text-sm"><span className="truncate text-slate-800">{a.name} <span className="text-slate-500">· {a.role}{a.isActive ? '' : ' · desactivada'}</span></span><span className="shrink-0 text-xs text-slate-500">{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleDateString('es-PA', { day: 'numeric', month: 'short' }) : 'Sin entrar'}</span></li>))}</ul>
             </Card>)}

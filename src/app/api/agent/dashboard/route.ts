@@ -11,7 +11,25 @@ import { listKpis, loadPrefs, savePrefs } from '@/lib/kpis';
 export const dynamic = 'force-dynamic';
 
 /** Todo lo que necesita el tablero inicial, del cerebro de quien entra. Solo lectura. */
-async function _GET(_req: NextRequest) {
+/** De dónde sale cada bloque del tablero y cómo lo mantiene un agente. Se sirve con ?guide=1. */
+const GUIDE = {
+  nota: 'Casi todo el tablero se calcula solo del cerebro: basta con mantener el cerebro al día. Solo los indicadores, las cuotas y las ciudades se cargan a propósito. No inventes cifras: si no tienes el dato, pregúntale a la persona.',
+  bloques: [
+    { bloque: 'Tareas vencidas, Para hoy, Mis tareas de hoy, Agenda de la semana, Mis tareas abiertas', origen: 'Tareas y seguimientos con fecha del cerebro', como: "POST /api/agent/tasks {action:'create'|'complete'|'reschedule'}; seguimientos con POST /api/agent/brain {action:'update_dossier', nodeId, nextFollowupDate, nextFollowupAction}" },
+    { bloque: 'Fichas en mi cerebro, De qué está hecho mi cerebro, Fichas por país, Mis marcas', origen: 'Fichas del cerebro (tipo, país, enlaces)', como: "POST /api/agent/brain {action:'remember_working'} para capturar; {action:'upsert_node'} para crear o corregir fichas" },
+    { bloque: 'Calidad de las fichas', origen: 'Campo completeness_score de cada ficha', como: "Completa los datos de la ficha con upsert_node y actualiza su completeness_score" },
+    { bloque: 'Qué tan confiable es lo que sé', origen: 'Campo verification_status de cada ficha', como: 'Solo se marca verificado cuando hay una fuente confirmada; cita la fuente en la ficha' },
+    { bloque: 'Salud', origen: 'Informe nocturno (enlaces rotos, fichas sin conexión) y memoria de trabajo', como: 'Corrige enlaces y conecta fichas; consolida la memoria de trabajo' },
+    { bloque: 'Mis indicadores', origen: 'Lista de indicadores del cerebro', como: "POST /api/agent/kpis {action:'set', name, value, unit?, target?, period?, note?}" },
+    { bloque: 'Cuotas de distribuidores', origen: 'Campos target_cases_year y actual_cases_ytd de la ficha de cada distribuidor', como: "POST /api/agent/kpis {action:'set_quota', nodeId, targetCasesYear?, actualCasesYtd?, note?}" },
+    { bloque: 'Lo que hicieron Jev y mi agente', origen: 'Registro automático de cambios y de escrituras con llave', como: 'No se carga a mano' },
+    { bloque: 'Clima y ciudades', origen: 'Ubicación del navegador y ciudades guardadas', como: "POST /api/agent/dashboard {action:'places', home:{name,lat,lon}, hq:{name,lat,lon}}" },
+    { bloque: 'Compañía y compartido', origen: 'Cerebro de la compañía y fichas que otros comparten', como: "POST /api/agent/shared {action:'set_visibility', nodeId, visibility, sharedWith?}" },
+  ],
+};
+
+async function _GET(req: NextRequest) {
+  if (new URL(req.url).searchParams.get('guide') === '1') return NextResponse.json({ ok: true, guide: GUIDE });
   const ctx = currentBrain();
   if (!ctx) return NextResponse.json({ ok: false, error: 'Sin cerebro.' }, { status: 401 });
   const own = ctx.ownBrainId || ctx.brainId;
