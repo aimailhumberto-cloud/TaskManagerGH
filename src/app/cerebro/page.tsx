@@ -12,6 +12,7 @@ import { PortfolioConnections } from '@/components/PortfolioConnections';
 import { CommercialConnections } from '@/components/CommercialConnections';
 import { autoAssetFor } from '@/lib/assetCatalog';
 import { TypeIcon } from './TypeIcon';
+import { CerebroLayers } from './CerebroLayers';
 import type { NodeData, LinkData, BrainGraphResponse } from './types';
 import { BRAND_AVATARS, getPhotoUrlWithBust, getNodeCustomPhoto, drawPanamaFlag, drawCanadaFlag, drawUSAFlag, drawBelizeFlag, drawTrinidadFlag, drawSMJCorporateCrest, drawPersonAvatar, drawDistributorBadge, drawOrganizationBadge, drawBrandBadge, drawGlassDomeOverlay, drawAmericasMapBackdrop } from './nodeArt';
 import { formatDisplayValue, renderFormattedBody } from './bodyFormat';
@@ -717,6 +718,7 @@ export default function CerebroPage() {
     const worldX = (clientX - rect.left - tx) / scale;
     const worldY = (clientY - rect.top - ty) / scale;
     return nodesRef.current.find(n => {
+      if (n.hiddenByFilter) return false;
       const dx = n.x - worldX;
       const dy = n.y - worldY;
       return Math.sqrt(dx * dx + dy * dy) <= Math.max(n.radius + 24, 44);
@@ -1215,6 +1217,8 @@ export default function CerebroPage() {
               ))}
             </div>
           )}
+
+          <CerebroLayers nodesRef={nodesRef} transformRef={transformRef} canvasRef={canvasRef} />
 
           {/* Bottom-Right Quick Controls: Unpin All + Centrar (P5/P6) */}
           <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">

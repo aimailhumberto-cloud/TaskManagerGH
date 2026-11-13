@@ -16,7 +16,7 @@ import { drawLinks } from './linkArt';
 import type { RenderLoopProps } from './props';
 import type { NodeData, LinkData, BrainGraphResponse } from './types';
 import { BRAND_AVATARS, getPhotoUrlWithBust, getNodeCustomPhoto, drawPanamaFlag, drawCanadaFlag, drawUSAFlag, drawBelizeFlag, drawTrinidadFlag, drawSMJCorporateCrest, drawPersonAvatar, drawDistributorBadge, drawOrganizationBadge, drawBrandBadge, drawGlassDomeOverlay, drawAmericasMapBackdrop } from './nodeArt';
-import { drawBubble } from './bubbleArt';
+import { drawBubble, hiddenFamilies } from './bubbleArt';
 import { formatDisplayValue, renderFormattedBody } from './bodyFormat';
 import { TYPE_CONFIG, nodeLevel, MAX_NODES_PER_OPEN, isNodeLeader, getPersonDeptCategory, CLUSTER_CENTERS, ORGANIGRAM_STRATA, assignQuadrantTarget, assignClusterTarget, assignOrganigramTarget } from './layoutTargets';
 import { CerebroHeader } from './CerebroHeader';
@@ -139,7 +139,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
               ctx.lineWidth = 0.8;
               ctx.strokeRect(d.x, d.y, d.w, d.h);
             }
-            if (d.tag) {
+            if (d.tag && !(hiddenFamilies.has('market') && /market/i.test(String(d.text || '')))) {
               ctx.font = 'bold 10px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
               ctx.fillStyle = 'rgba(0, 168, 240, 0.9)';
               ctx.textAlign = 'right';
@@ -388,6 +388,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
       for (const n of nodes) {
         // Nodo fuera de la zona visible: no se dibuja (ni se piden sus imágenes).
         if (n.x < viewLeft || n.x > viewRight || n.y < viewTop || n.y > viewBottom) continue;
+        if (n.hiddenByFilter) continue;
         const cfg = TYPE_CONFIG[n.type] || TYPE_CONFIG.department;
         const isSelected = n.id === selectedNodeIdRef.current || deckIds.has(n.id);
         const isHovered = activeHover?.id === n.id;

@@ -86,7 +86,7 @@ export function drawLinks(ctx: CanvasRenderingContext2D, f: LinkFrame): void {
     const [cx, cy] = curved ? ctrl(s, t, bend) : [(s.x + t.x) / 2, (s.y + t.y) / 2], v = 1 - u;
     ctx.fillStyle = color; ctx.beginPath(); ctx.arc(v * v * s.x + 2 * v * u * cx + u * u * t.x, v * v * s.y + 2 * v * u * cy + u * u * t.y, r, 0, Math.PI * 2); ctx.fill();
   };
-  const offscreen = (s: NodeData, t: NodeData) => (s.x < view.left && t.x < view.left) || (s.x > view.right && t.x > view.right) || (s.y < view.top && t.y < view.top) || (s.y > view.bottom && t.y > view.bottom);
+  const offscreen = (s: NodeData, t: NodeData) => s.hiddenByFilter || t.hiddenByFilter || (s.x < view.left && t.x < view.left) || (s.x > view.right && t.x > view.right) || (s.y < view.top && t.y < view.top) || (s.y > view.bottom && t.y > view.bottom);
 
   if (!focus) {
     if (f.hideIdle) return;

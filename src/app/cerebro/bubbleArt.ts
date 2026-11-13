@@ -26,6 +26,9 @@ const TYPE_FAMILY: Record<string, FamilyKey> = {
   consolidation_session: 'neutral', community: 'market',
 };
 export const familyOf = (type: string) => FAMILY[TYPE_FAMILY[type] || 'neutral'];
+/** Familias ocultas por el filtro de capas (lo mantiene CerebroLayers; lo lee el dibujo del fondo). */
+export const hiddenFamilies = new Set<string>();
+export const familyKeyOf = (type: string): keyof typeof FAMILY => TYPE_FAMILY[type] || 'neutral';
 
 /** Iconos de línea (lienzo de 24×24, trazo redondeado). Uno por tipo; «file» para lo desconocido. */
 export const ICON_PATHS: Record<string, string> = {

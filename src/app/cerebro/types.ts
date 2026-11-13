@@ -2,6 +2,8 @@
 // Extraído de page.tsx sin cambios de comportamiento.
 
 export interface NodeData {
+  /** Oculta por el filtro de capas: no se dibuja ni responde al clic. */
+  hiddenByFilter?: boolean;
   id: string;
   title: string;
   type: string;
