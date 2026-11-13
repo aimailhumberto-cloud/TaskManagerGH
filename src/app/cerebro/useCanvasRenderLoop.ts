@@ -14,6 +14,7 @@ import { resolveCollisions } from './collision';
 import type { RenderLoopProps } from './props';
 import type { NodeData, LinkData, BrainGraphResponse } from './types';
 import { BRAND_AVATARS, getPhotoUrlWithBust, getNodeCustomPhoto, drawPanamaFlag, drawCanadaFlag, drawUSAFlag, drawBelizeFlag, drawTrinidadFlag, drawSMJCorporateCrest, drawPersonAvatar, drawDistributorBadge, drawOrganizationBadge, drawBrandBadge, drawGlassDomeOverlay, drawAmericasMapBackdrop } from './nodeArt';
+import { drawBubble } from './bubbleArt';
 import { formatDisplayValue, renderFormattedBody } from './bodyFormat';
 import { TYPE_CONFIG, nodeLevel, MAX_NODES_PER_OPEN, isNodeLeader, getPersonDeptCategory, CLUSTER_CENTERS, ORGANIGRAM_STRATA, assignQuadrantTarget, assignClusterTarget, assignOrganigramTarget } from './layoutTargets';
 import { CerebroHeader } from './CerebroHeader';
@@ -99,11 +100,11 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
       ctx.scale(dpr, dpr);
 
       // Deep space canvas background
-      ctx.fillStyle = '#05070C';
+      ctx.fillStyle = '#071230';
       ctx.fillRect(0, 0, cssWidth, cssHeight);
       const vignette = ctx.createRadialGradient(cssWidth / 2, cssHeight / 2, 0, cssWidth / 2, cssHeight / 2, Math.max(cssWidth, cssHeight) * 0.75);
-      vignette.addColorStop(0, 'rgba(30, 41, 66, 0.55)');
-      vignette.addColorStop(0.55, 'rgba(12, 16, 28, 0.35)');
+      vignette.addColorStop(0, 'rgba(10, 63, 191, 0.38)');
+      vignette.addColorStop(0.55, 'rgba(11, 31, 77, 0.30)');
       vignette.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = vignette;
       ctx.fillRect(0, 0, cssWidth, cssHeight);
@@ -123,7 +124,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
       const viewBottom = (cssHeight - ty) / scale + viewMargin;
 
       // Starfield grid (un solo trazo en vez de 1.681)
-      ctx.fillStyle = 'rgba(217, 185, 106, 0.05)';
+      ctx.fillStyle = 'rgba(0, 168, 240, 0.05)';
       ctx.beginPath();
       for (let gx = -1600; gx <= 1600; gx += 80) {
         if (gx < viewLeft || gx > viewRight) continue;
@@ -141,7 +142,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         const decorList = nativeLayoutDecorRef.current || [];
         for (const d of decorList) {
           if (d.kind === 'ring' && typeof d.r === 'number') {
-            ctx.strokeStyle = 'rgba(233, 188, 110, 0.08)';
+            ctx.strokeStyle = 'rgba(0, 168, 240, 0.08)';
             ctx.lineWidth = 1;
             ctx.setLineDash([4, 6]);
             ctx.beginPath();
@@ -150,21 +151,21 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
             ctx.setLineDash([]);
           } else if (d.kind === 'axis-label' && d.text) {
             ctx.font = 'bold 11px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
-            ctx.fillStyle = 'rgba(233, 188, 110, 0.85)';
+            ctx.fillStyle = 'rgba(0, 168, 240, 0.85)';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(d.text, d.x, d.y);
           } else if (d.kind === 'lane') {
             if (d.w && d.h) {
-              ctx.fillStyle = d.dim ? 'rgba(255, 255, 255, 0.015)' : 'rgba(233, 188, 110, 0.025)';
+              ctx.fillStyle = d.dim ? 'rgba(255, 255, 255, 0.015)' : 'rgba(0, 168, 240, 0.025)';
               ctx.fillRect(d.x, d.y, d.w, d.h);
-              ctx.strokeStyle = d.dim ? 'rgba(255, 255, 255, 0.05)' : 'rgba(233, 188, 110, 0.12)';
+              ctx.strokeStyle = d.dim ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 168, 240, 0.12)';
               ctx.lineWidth = 0.8;
               ctx.strokeRect(d.x, d.y, d.w, d.h);
             }
             if (d.tag) {
               ctx.font = 'bold 10px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
-              ctx.fillStyle = 'rgba(233, 188, 110, 0.9)';
+              ctx.fillStyle = 'rgba(0, 168, 240, 0.9)';
               ctx.textAlign = 'right';
               ctx.fillText(`${d.tag} ${d.text || ''}`, d.x - 12, (d.y || 0) + (d.h ? d.h / 2 : 0));
             }
@@ -422,7 +423,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
           // Si no hay nada seleccionado (vista panorámica idle), trazar enlaces tenues
           if (!isFocusActive) {
             if (viewMode === 'organigram') continue; // En organigrama idle se mantiene limpio
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.strokeStyle = 'rgba(159, 220, 255, 0.09)';
             ctx.lineWidth = 0.7;
             ctx.beginPath();
             ctx.moveTo(s.x, s.y);
@@ -433,9 +434,9 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
 
           // LÍNEAS VIVAS ENERGIZADAS (Conexiones Directas de la Entidad Activa)
           ctx.save();
-          ctx.strokeStyle = 'rgba(217, 185, 106, 0.85)';
+          ctx.strokeStyle = 'rgba(0, 168, 240, 0.85)';
           ctx.lineWidth = 1.5;
-          ctx.shadowColor = 'rgba(217, 185, 106, 0.6)';
+          ctx.shadowColor = 'rgba(0, 168, 240, 0.6)';
           ctx.shadowBlur = 8;
           ctx.beginPath();
           ctx.moveTo(s.x, s.y);
@@ -447,7 +448,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
           const pOffset = (time * 0.16) % 1;
           const px = s.x + (t.x - s.x) * pOffset;
           const py = s.y + (t.y - s.y) * pOffset;
-          ctx.fillStyle = '#FFF4D6';
+          ctx.fillStyle = '#e6f6ff';
           ctx.beginPath();
           ctx.arc(px, py, 2.2, 0, Math.PI * 2);
           ctx.fill();
@@ -455,7 +456,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
           const pOffset2 = (time * 0.16 + 0.5) % 1;
           const px2 = s.x + (t.x - s.x) * pOffset2;
           const py2 = s.y + (t.y - s.y) * pOffset2;
-          ctx.fillStyle = '#D9B96A';
+          ctx.fillStyle = '#00a8f0';
           ctx.beginPath();
           ctx.arc(px2, py2, 1.6, 0, Math.PI * 2);
           ctx.fill();
@@ -503,122 +504,22 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         }
 
         mark('n_prep');
-        // Outer Glow Ring
-        const glowRadius = r + (isSelected ? 18 : isHovered ? 14 : 8);
-        const grad = ctx.createRadialGradient(n.x, n.y, r * 0.4, n.x, n.y, glowRadius);
-        grad.addColorStop(0, isSelected || isHovered ? 'rgba(217, 185, 106, 0.55)' : cfg.glow);
-        grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, glowRadius, 0, Math.PI * 2);
-        ctx.fillStyle = grad;
-        ctx.fill();
-
-        // Node Circle Base
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = cfg.bg;
-        ctx.fill();
-
-        mark('n_brillo');
-        // Custom High-Res Node Graphics (Soporta foto cargada en CUALQUIER icono)
-        const customPhoto = getNodeCustomPhoto(n);
+        // Burbuja on-brand: color por familia, foto o icono, anillo, chincheta y punto de estado.
         const nid = n.id.toLowerCase();
-        if (customPhoto) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-          ctx.clip();
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(n.x - r, n.y - r, r * 2, r * 2);
-          const aspect = customPhoto.naturalWidth / (customPhoto.naturalHeight || 1);
-          let drawW = r * 2;
-          let drawH = r * 2;
-          if (aspect >= 1) {
-            drawW = r * 2 * aspect;
-          } else {
-            drawH = (r * 2) / aspect;
-          }
-          ctx.drawImage(customPhoto, n.x - drawW / 2, n.y - drawH / 2, drawW, drawH);
-          ctx.restore();
-        } else if (n.type === 'market') {
-          if (nid.includes('trinidad') || (n.frontmatter && n.frontmatter.iso_code === 'TT')) drawTrinidadFlag(ctx, n.x, n.y, r);
-          else if (nid.includes('panama')) drawPanamaFlag(ctx, n.x, n.y, r);
-          else if (nid.includes('canada')) drawCanadaFlag(ctx, n.x, n.y, r);
-          else if (nid.includes('united-states') || nid.includes('usa')) drawUSAFlag(ctx, n.x, n.y, r);
-          else if (nid.includes('belize')) drawBelizeFlag(ctx, n.x, n.y, r);
-          else {
-            ctx.font = `${Math.round(r * 0.85)}px sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(cfg.icon, n.x, n.y);
-          }
-        } else if (n.type === 'core') {
-          const smjImg = BRAND_AVATARS['smjaleel'];
-          if (smjImg && smjImg.complete && smjImg.naturalWidth > 0) {
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-            ctx.clip();
-            ctx.fillStyle = '#060A12';
-            ctx.fillRect(n.x - r, n.y - r, r * 2, r * 2);
-            ctx.drawImage(smjImg, n.x - r, n.y - r, r * 2, r * 2);
-            ctx.restore();
-          } else {
-            drawSMJCorporateCrest(ctx, n.x, n.y, r);
-          }
-        } else if (n.type === 'person') {
-          drawPersonAvatar(ctx, n.x, n.y, r, n);
-        } else if (n.type === 'distributor' || n.type === 'operator') {
-          drawDistributorBadge(ctx, n.x, n.y, r, n);
-        } else if (n.type === 'brand') {
-          drawBrandBadge(ctx, n.x, n.y, r, n);
-        } else if (n.type === 'organization') {
-          drawOrganizationBadge(ctx, n.x, n.y, r, n);
-        } else {
-          ctx.font = `${Math.round(r * 0.85)}px sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(cfg.icon, n.x, n.y);
-        }
-
+        const drewFull = drawBubble(ctx, n, {
+          r, scale, selected: isSelected, hovered: isHovered, open: isOpen, working: isWorking,
+          inner: n.type !== 'market' ? undefined : () => {
+            if (nid.includes('trinidad') || (n.frontmatter && n.frontmatter.iso_code === 'TT')) drawTrinidadFlag(ctx, n.x, n.y, r);
+            else if (nid.includes('panama')) drawPanamaFlag(ctx, n.x, n.y, r);
+            else if (nid.includes('canada')) drawCanadaFlag(ctx, n.x, n.y, r);
+            else if (nid.includes('united-states') || nid.includes('usa')) drawUSAFlag(ctx, n.x, n.y, r);
+            else if (nid.includes('belize')) drawBelizeFlag(ctx, n.x, n.y, r);
+            else return false;
+            return true;
+          },
+        });
         mark('n_arte');
-        // 3D Glassmorphism Specular Reflection Arc
-        drawGlassDomeOverlay(ctx, n.x, n.y, r);
-
-        // Metallic Rim Border
-        ctx.lineWidth = isSelected ? 2.5 : isHovered ? 2.2 : 1.5;
-        ctx.strokeStyle = isSelected ? '#F3DFA6' : isHovered ? '#D9B96A' : cfg.border;
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
-        ctx.stroke();
-
-        // Anillo fino dorado: este nodo tiene su nivel abierto (doble clic lo cierra)
-        if (isOpen) {
-          ctx.lineWidth = 1;
-          ctx.strokeStyle = 'rgba(217, 185, 106, 0.9)';
-          ctx.beginPath();
-          ctx.arc(n.x, n.y, r + 6, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-
-        // Physical Pin Halo & Indicator if Pinned
-        if (n.isPinned) {
-          ctx.save();
-          ctx.lineWidth = 2.5;
-          ctx.strokeStyle = 'rgba(217, 185, 106, 0.7)';
-          ctx.setLineDash([2, 4]);
-          ctx.beginPath();
-          ctx.arc(n.x, n.y, r + 5, 0, Math.PI * 2);
-          ctx.stroke();
-          ctx.restore();
-
-          ctx.save();
-          ctx.fillStyle = '#D9B96A';
-          ctx.beginPath();
-          ctx.arc(n.x + r * 0.72, n.y - r * 0.72, 3.5, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
-        }
+        if (!drewFull) { ctx.globalAlpha = 1.0; continue; }
 
         mark('n_borde');
         // Node Title Label
@@ -627,8 +528,8 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         const isMinorNode = (n.radius || 24) < 22;
         const showTitle = emphasized || (isFocusActive && isConnectedToFocus && (focusConnectedCount <= 10 || scale >= 1.8)) || scale >= (isMinorNode ? 1.4 : 0.5);
         if (showTitle) {
-          ctx.font = emphasized ? '600 13px Georgia, "Times New Roman", serif' : '12px system-ui, -apple-system, "Segoe UI", sans-serif';
-          ctx.fillStyle = emphasized ? '#F7EFD9' : 'rgba(229, 231, 235, 0.88)';
+          ctx.font = emphasized ? '600 13px Poppins, system-ui, -apple-system, "Segoe UI", sans-serif' : '12px Poppins, system-ui, -apple-system, "Segoe UI", sans-serif';
+          ctx.fillStyle = emphasized ? '#ffffff' : 'rgba(229, 231, 235, 0.88)';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
           // El tipo ya se lee debajo: se quita el prefijo "Brand: ", "Department: ", etc.
@@ -639,7 +540,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
           // Tipo de nodo: solo al acercar o al enfocar
           if (emphasized || scale >= 0.95) {
             ctx.font = '500 9px system-ui, -apple-system, "Segoe UI", sans-serif';
-            ctx.fillStyle = emphasized ? '#D9B96A' : 'rgba(148, 163, 184, 0.8)';
+            ctx.fillStyle = emphasized ? '#00a8f0' : 'rgba(148, 163, 184, 0.8)';
             ctx.fillText(cfg.label.toUpperCase().split('').join('\u200A'), n.x, n.y + r + 24);
           }
         }
@@ -650,13 +551,13 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
           const py = n.y + (n.radius || 24) + 46;
           ctx.beginPath();
           ctx.roundRect(n.x - 38, py - 11, 76, 22, 11);
-          ctx.fillStyle = 'rgba(233, 188, 110, 0.16)';
+          ctx.fillStyle = 'rgba(0, 168, 240, 0.16)';
           ctx.fill();
           ctx.lineWidth = 1;
-          ctx.strokeStyle = 'rgba(233, 188, 110, 0.75)';
+          ctx.strokeStyle = 'rgba(0, 168, 240, 0.75)';
           ctx.stroke();
           ctx.font = '600 11px system-ui, -apple-system, "Segoe UI", sans-serif';
-          ctx.fillStyle = '#F3DFA6';
+          ctx.fillStyle = '#9fdcff';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(`+${hiddenCount} más`, n.x, py);

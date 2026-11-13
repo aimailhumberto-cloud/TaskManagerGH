@@ -20,6 +20,7 @@ import { CerebroSettingsMenu } from './CerebroSettingsMenu';
 import { CerebroSideCard } from './CerebroSideCard';
 import { LangContext, translate, readStoredLang, LANG_STORAGE_KEY, type Lang } from './i18n';
 import { buildCommunities, readCommunityThreshold } from './communities';
+import { importanceFactor } from './bubbleArt';
 import { useCanvasRenderLoop } from './useCanvasRenderLoop';
 import { useCanvasGestures } from './useCanvasGestures';
 import { CerebroHud } from './CerebroHud';
@@ -467,6 +468,10 @@ export default function CerebroPage() {
       return c ? { x: sx / c, y: sy / c } : { x: 0, y: 0 };
     };
 
+    // Importancia: cuántas conexiones tiene cada ficha (para que las más conectadas se vean más grandes).
+    const degree = new Map<string, number>();
+    for (const l of linkPool) { degree.set(l.source, (degree.get(l.source) || 0) + 1); degree.set(l.target, (degree.get(l.target) || 0) + 1); }
+
     const initialized: NodeData[] = comm.nodes.map((n) => {
       const existing = existingMap.get(n.id);
       const target = targetFor(n);
@@ -485,6 +490,7 @@ export default function CerebroPage() {
       else if (n.type === 'flavor') nodeRadius = 16;
       else if (n.type === 'product_variant') nodeRadius = 15;
       else nodeRadius = 20;
+      if (n.type !== 'core' && n.type !== 'community') nodeRadius = Math.round(nodeRadius * importanceFactor(degree.get(n.id) || 0));
 
       const isPinned = saved ? true : (existing ? existing.isPinned : false);
       const pinnedX = saved ? saved.x : (existing ? existing.pinnedX : undefined);
