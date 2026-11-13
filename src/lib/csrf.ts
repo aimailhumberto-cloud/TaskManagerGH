@@ -1,7 +1,8 @@
 import { createHmac, timingSafeEqual } from 'crypto';
+import { tr } from './reqLang';
 export function csrfToken(sessionToken: string): string {
   const secret = process.env.SESSION_SECRET;
-  if (!secret || secret.length < 32) throw new Error('Sesión no configurada.');
+  if (!secret || secret.length < 32) throw new Error(tr('Sesión no configurada.', 'Session not configured.'));
   return createHmac('sha256', secret).update('taskmanager-csrf:' + sessionToken).digest('hex');
 }
 export function validCsrf(sessionToken: string, token: string | null): boolean {

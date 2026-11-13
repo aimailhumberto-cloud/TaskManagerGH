@@ -4,9 +4,10 @@ import dbService from '@/services/dbService';
 import { encryptSession } from '@/lib/session';
 import { authenticateLocal } from '@/lib/localAccounts';
 import { brainIdForAccount } from '@/lib/brains';
+import { tr, withReqLang } from '@/lib/reqLang';
 const attempts = new Map<string, { count: number; until: number }>();
 
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
     // Límite por cuenta: 8 intentos fallidos en 15 minutos bloquean ESE correo, no a los demás.
     // Además un tope global alto, por si alguien prueba muchos correos distintos.
@@ -18,17 +19,17 @@ export async function POST(request: NextRequest) {
       return true;
     };
     if (attempts.size > 5000) for (const [k, v] of attempts) if (v.until <= now) attempts.delete(k);
-    if (!hit('global', 200, 300000)) return NextResponse.json({ error: 'Demasiados intentos. Reintenta más tarde.' }, { status: 429 });
+    if (!hit('global', 200, 300000)) return NextResponse.json({ error: tr('Demasiados intentos. Reintenta más tarde.', 'Too many attempts. Try again later.') }, { status: 429 });
     const { email, password } = await request.json();
 
     if (typeof email !== 'string' || typeof password !== 'string' || !email || !password || email.length > 320 || password.length > 1024) {
       return NextResponse.json(
-        { error: 'Email and password are required' },
+        { error: tr('Escribe el correo y la contraseña.', 'Email and password are required') },
         { status: 400 }
       );
     }
     const key = `cuenta:${email.trim().toLowerCase()}`;
-    if (!hit(key, 8, 900000)) return NextResponse.json({ error: 'Demasiados intentos con esta cuenta. Reintenta en 15 minutos o pide que te restablezcan la clave.' }, { status: 429 });
+    if (!hit(key, 8, 900000)) return NextResponse.json({ error: tr('Demasiados intentos con esta cuenta. Reintenta en 15 minutos o pide que te restablezcan la clave.', 'Too many attempts with this account. Try again in 15 minutes or ask for a password reset.') }, { status: 429 });
 
     // 0. Cuentas propias de la app (creadas desde «Usuarios»)
     const local = authenticateLocal(email, password);
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
     const user = await dbService.authenticateUser(email,password);
     if (!user) {
       return NextResponse.json(
-        { error: 'Invalid email or password' },
+        { error: tr('Correo o contraseña incorrectos.', 'Invalid email or password') },
         { status: 401 }
       );
     }
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
     // 2. Validate user status
     if (!user.isActive) {
       return NextResponse.json(
-        { error: 'This user account is inactive. Please contact administration.' },
+        { error: tr('Esta cuenta está inactiva. Habla con administración.', 'This user account is inactive. Please contact administration.') },
         { status: 403 }
       );
     }
@@ -103,8 +104,10 @@ export async function POST(request: NextRequest) {
 
   } catch (err: any) {
     return NextResponse.json(
-      { error: 'No se pudo iniciar sesión.' },
+      { error: tr('No se pudo iniciar sesión.', 'Could not sign in.') },
       { status: 500 }
     );
   }
 }
+
+export const POST = withReqLang(_POST);

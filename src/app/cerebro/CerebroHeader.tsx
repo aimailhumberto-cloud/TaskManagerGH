@@ -40,7 +40,7 @@ export function CerebroHeader({ graphData, handleCenterAndFit, handleSetViewMode
           {lastSyncTime && (
             <span className="hidden md:inline-flex px-2 py-0.5 text-[9px] font-mono bg-slate-900/90 text-slate-300 border border-slate-700 rounded items-center gap-1 shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>{lastSyncTime} (Panamá)</span>
+              <span>{lastSyncTime} ({t('Panamá')})</span>
             </span>
           )}
         </div>

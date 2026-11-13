@@ -69,7 +69,7 @@ export default function TaskDotsModal({ task, isOpen, onClose, onDispatched }: T
         throw new Error(data.error || T('No se pudo enviar la instrucción a tu agente.'));
       }
 
-      setSuccess(`Instrucción despachada con éxito. Expediente: ${data.workingMemoryId || 'WM-ACTIVA'}`);
+      setSuccess(`${T('Instrucción despachada con éxito. Expediente:')} ${data.workingMemoryId || 'WM-ACTIVA'}`);
       setTimeout(() => {
         onDispatched(task.id, data.workingMemoryId);
         onClose();
@@ -124,7 +124,7 @@ export default function TaskDotsModal({ task, isOpen, onClose, onDispatched }: T
               </span>
               <span className="text-xs font-semibold text-[#0a3fbf]">{task.sourceNodeTitle}</span>
               <span className="text-xs text-slate-500">|</span>
-              <span className="text-xs text-slate-500 font-mono">Vence: {task.dueDate}</span>
+              <span className="text-xs text-slate-500 font-mono">{T('Vence:')} {task.dueDate}</span>
             </div>
             <p className="text-sm font-medium text-[#0b1f4d]">{task.title}</p>
           </div>
@@ -139,7 +139,7 @@ export default function TaskDotsModal({ task, isOpen, onClose, onDispatched }: T
                 <button
                   key={idx}
                   type="button"
-                  onClick={() => handleSelectPreset(preset.prompt)}
+                  onClick={() => handleSelectPreset(T(preset.prompt))}
                   className="p-2.5 text-left rounded-lg border border-[#dbe4f3] bg-white hover:bg-[#eef3fb] hover:border-[#bcd0f5] transition-all text-xs text-slate-700 flex items-start gap-2 group"
                 >
                   <svg className="w-4 h-4 text-[#0a3fbf] mt-0.5 shrink-0 group-hover:text-[#0a3fbf]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

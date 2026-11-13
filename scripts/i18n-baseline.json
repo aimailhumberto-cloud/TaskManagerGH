@@ -1,0 +1,45 @@
+{
+ "comment": "Textos en español aceptados a propósito (nombres de idioma, ejemplos de código, lógica interna). Revisar antes de agregar.",
+ "accepted": [
+  {
+   "file": "src/app/cerebro/CerebroSettingsMenu.tsx",
+   "text": "Español"
+  },
+  {
+   "file": "src/app/layout.tsx",
+   "text": "Segundo Cerebro · S.M. Jaleel"
+  },
+  {
+   "file": "src/app/layout.tsx",
+   "text": "Tareas, negocios y compromisos en un solo lugar"
+  },
+  {
+   "file": "src/app/mi-agente/page.tsx",
+   "text": "x-agent-key: tu-llave"
+  },
+  {
+   "file": "src/app/mi-agente/page.tsx",
+   "text": "Authorization: Bearer tu-llave"
+  },
+  {
+   "file": "src/app/mi-agente/page.tsx",
+   "text": "POST /api/agent/cerebro"
+  },
+  {
+   "file": "src/app/mi-agente/page.tsx",
+   "text": "\"action\":\"pedir\",\"text\":\"lo que pasó, en palabras\""
+  },
+  {
+   "file": "src/app/mi-agente/page.tsx",
+   "text": "· GET /api/agent/cerebro?q=pregunta"
+  },
+  {
+   "file": "src/app/mi-agente/page.tsx",
+   "text": "GET /api/agent/dossier?q=Busta en Canadá · GET /api/agent/search?q=…"
+  },
+  {
+   "file": "src/app/pedir/page.tsx",
+   "text": "Español"
+  }
+ ]
+}

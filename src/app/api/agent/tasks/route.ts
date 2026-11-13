@@ -10,6 +10,7 @@ import {
 } from '@/lib/smjBrainService';
 import { getVaultPath as getVaultPathForBackup } from '@/lib/smjBrainService';
 import { ensureDailySnapshot } from '@/lib/vaultBackup';
+import { tr } from '@/lib/reqLang';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,7 +63,7 @@ async function _POST(req: NextRequest) {
       const { taskId, completedBy } = body;
       if (!taskId) {
         return NextResponse.json(
-          { ok: false, error: 'taskId es requerido para completar' },
+          { ok: false, error: tr('taskId es requerido para completar', 'taskId is required to complete') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -74,7 +75,7 @@ async function _POST(req: NextRequest) {
       const { taskId, newDueDate } = body;
       if (!taskId || !newDueDate) {
         return NextResponse.json(
-          { ok: false, error: 'taskId y newDueDate son requeridos para reagendar' },
+          { ok: false, error: tr('taskId y newDueDate son requeridos para reagendar', 'taskId and newDueDate are required to reschedule') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -86,7 +87,7 @@ async function _POST(req: NextRequest) {
       const { taskId, instruction, requestedBy } = body;
       if (!taskId || !instruction) {
         return NextResponse.json(
-          { ok: false, error: 'taskId e instrucción son requeridos para pedir a DOTS' },
+          { ok: false, error: tr('taskId e instrucción son requeridos para pedir a DOTS', 'taskId and instruction are required to ask DOTS') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -98,7 +99,7 @@ async function _POST(req: NextRequest) {
       const { workingMemoryId, taskId, stage, draft, updatedBy } = body;
       if (!stage || (!workingMemoryId && !taskId)) {
         return NextResponse.json(
-          { ok: false, error: 'stage y (workingMemoryId o taskId) son requeridos para advance_dots' },
+          { ok: false, error: tr('stage y (workingMemoryId o taskId) son requeridos para advance_dots', 'stage and (workingMemoryId or taskId) are required for advance_dots') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -110,7 +111,7 @@ async function _POST(req: NextRequest) {
       const { title, dueDate, priority, country, targetNodeId, description } = body;
       if (!title) {
         return NextResponse.json(
-          { ok: false, error: 'title es requerido para crear una tarea' },
+          { ok: false, error: tr('title es requerido para crear una tarea', 'title is required to create a task') },
           { status: 400, headers: CORS_HEADERS }
         );
       }

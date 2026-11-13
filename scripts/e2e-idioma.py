@@ -86,5 +86,22 @@ s, d = P({'action': 'ajustes', 'workLang': 'es'}); check('la persona vuelve el i
 s, d = P({'action': 'ajustes', 'bigTouch': 11}); s2, st = http(C); check('guardar otro ajuste no cambia el idioma de trabajo', st['settings']['workLang'] == 'es' and st['settings']['bigTouch'] == 11)
 s, d = http(C, {'action': 'ajustes', 'workLang': 'en'}); check('un agente no cambia ajustes (403, también en inglés)', s == 403, d)
 
+# 9. Mensajes del servidor en el idioma de la petición (publicación 2)
+EN_H = {'x-lang': 'en'}
+s, d = http('/api/agent/agenda', {'action': 'set'}, headers=EN_H); check('agenda: error en inglés con x-lang', s == 400 and 'needs a title' in json.dumps(d, ensure_ascii=False), d)
+s, d = http('/api/agent/agenda', {'action': 'set'}); check('agenda: el mismo error en español sin idioma', s == 400 and 'necesita un título' in json.dumps(d, ensure_ascii=False), d)
+s, d = http('/api/agent/agenda?lang=en', {'action': 'set', 'title': 'x', 'date': '2026-13-45'}); check('agenda: ?lang=en también vale', s == 400 and 'date must be YYYY-MM-DD' in json.dumps(d, ensure_ascii=False), d)
+s, d = http('/api/agent/kpis', {'action': 'set'}, headers=EN_H); check('indicadores: error en inglés', s == 400 and 'needs a name' in json.dumps(d, ensure_ascii=False), d)
+s, d = http('/api/agent/changes', {'action': 'undo', 'id': 'no-existe'}, headers=EN_H); check('deshacer: «no está en el diario» en inglés', 'not in the journal' in json.dumps(d, ensure_ascii=False), d)
+s, d = http('/api/agent/changes', {'action': 'undo', 'id': 'no-existe'}); check('deshacer: en español sin idioma', 'no está en el diario' in json.dumps(d, ensure_ascii=False), d)
+s, d = http('/api/agent/shared', {'action': 'set_visibility', 'path': 'x', 'visibility': 'zzz'}, headers=EN_H); check('compartir: error en inglés', s in (400, 403) and ('must be private' in json.dumps(d, ensure_ascii=False) or 'cannot change' in json.dumps(d, ensure_ascii=False) or 'No brain' in json.dumps(d, ensure_ascii=False)), d)
+s, d = http('/api/agent/cerebro', None, key='mala-llave', headers=EN_H); check('llave inválida: 401 en inglés', s == 401 and 'Sign in' in json.dumps(d, ensure_ascii=False), d)
+s, d = http('/api/agent/cerebro', None, key='mala-llave'); check('llave inválida: 401 en español', s == 401 and 'Inicia sesión' in json.dumps(d, ensure_ascii=False), d)
+s, d = http('/api/auth/login', {'email': 'nadie@prueba.test', 'password': 'x'}, session=True, headers=EN_H); check('login fallido: mensaje en inglés', s in (400, 401, 500) and d.get('error') in ('Invalid email or password', 'Could not sign in.'), (s, d))
+s, d = http('/api/admin/users', {'email': 'malo', 'name': 'A', 'role': 'Owner'}, session=True, headers={**X, **EN_H}); check('crear cuenta con datos malos: error en inglés', s in (400, 403) and not re.search(r'\b(Correo|Escribe|Rol no)\b', json.dumps(d, ensure_ascii=False)), d)
+# la cookie de la pantalla manda cuando no hay encabezado
+jar.set_cookie(__import__('http.cookiejar').cookiejar.Cookie(0, 'cerebro_lang', 'en', None, False, 'localhost', False, False, '/', True, False, None, False, None, None, {}))
+s, d = http('/api/agent/agenda', {'action': 'set'}, session=True, headers=X); check('la cookie de idioma de la pantalla se respeta', s == 400 and 'needs a title' in json.dumps(d, ensure_ascii=False), d)
+
 print(f"\n{sum(res)}/{len(res)} pruebas")
 sys.exit(0 if all(res) else 1)

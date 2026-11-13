@@ -7,6 +7,7 @@ import { loadBrainGraph, getPanamaDate } from '@/lib/smjBrainService';
 import { updateNoteFile } from '@/lib/vaultFiles';
 import { ensureDailySnapshot } from '@/lib/vaultBackup';
 import path from 'path';
+import { tr } from '@/lib/reqLang';
 export const dynamic = 'force-dynamic';
 
 /**
@@ -16,28 +17,28 @@ export const dynamic = 'force-dynamic';
  * POST {action:'delete', id} → lo borra (personas, o agentes con alcance «escribir»).
  */
 async function _GET() {
-  const ctx = currentBrain(); if (!ctx) return NextResponse.json({ ok: false, error: 'Sin cerebro.' }, { status: 401 });
+  const ctx = currentBrain(); if (!ctx) return NextResponse.json({ ok: false, error: tr('Sin cerebro.', 'No brain.') }, { status: 401 });
   return NextResponse.json({ ok: true, kpis: listKpis(ctx.vaultPath) });
 }
 async function _POST(req: NextRequest) {
-  const ctx = currentBrain(); if (!ctx) return NextResponse.json({ ok: false, error: 'Sin cerebro.' }, { status: 401 });
+  const ctx = currentBrain(); if (!ctx) return NextResponse.json({ ok: false, error: tr('Sin cerebro.', 'No brain.') }, { status: 401 });
   const b = await req.json().catch(() => ({}));
   const who = ctx.actor?.startsWith('local-') ? getAccount(ctx.actor)?.name || ctx.actor : ctx.actor ? 'Agente' : undefined;
   try {
     if (b?.action === 'delete') {
-      if (!canWriteFully()) return NextResponse.json({ ok: false, error: 'Esta llave no puede borrar indicadores.' }, { status: 403 });
+      if (!canWriteFully()) return NextResponse.json({ ok: false, error: tr('Esta llave no puede borrar indicadores.', 'This key cannot delete indicators.') }, { status: 403 });
       return NextResponse.json({ ok: deleteKpi(ctx.vaultPath, String(b.id || '')) });
     }
     if (b?.action === 'set_quota') {
-      if (!canWriteFully()) return NextResponse.json({ ok: false, error: 'Esta llave no puede cambiar fichas.' }, { status: 403 });
+      if (!canWriteFully()) return NextResponse.json({ ok: false, error: tr('Esta llave no puede cambiar fichas.', 'This key cannot change notes.') }, { status: 403 });
       const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 && v < 1e12 ? v : undefined);
       const target = num(b.targetCasesYear), actual = num(b.actualCasesYtd);
-      if (target === undefined && actual === undefined) return NextResponse.json({ ok: false, error: 'Envía targetCasesYear o actualCasesYtd como número.' }, { status: 400 });
+      if (target === undefined && actual === undefined) return NextResponse.json({ ok: false, error: tr('Envía targetCasesYear o actualCasesYtd como número.', 'Send targetCasesYear or actualCasesYtd as a number.') }, { status: 400 });
       const g = loadBrainGraph(); const id = String(b.nodeId || '').toLowerCase();
       const node = (g.allNodes || g.nodes).find(n => n.type === 'distributor' && (n.id.toLowerCase() === id || n.title.toLowerCase() === id));
-      if (!node) return NextResponse.json({ ok: false, error: 'No se encontró ese distribuidor en el cerebro.' }, { status: 404 });
+      if (!node) return NextResponse.json({ ok: false, error: tr('No se encontró ese distribuidor en el cerebro.', 'That distributor was not found in the brain.') }, { status: 404 });
       const abs = path.resolve(node.filePath);
-      if (!abs.startsWith(path.resolve(ctx.vaultPath) + path.sep)) return NextResponse.json({ ok: false, error: 'Ficha fuera de la bóveda.' }, { status: 400 });
+      if (!abs.startsWith(path.resolve(ctx.vaultPath) + path.sep)) return NextResponse.json({ ok: false, error: tr('Ficha fuera de la bóveda.', 'Note outside the vault.') }, { status: 400 });
       ensureDailySnapshot(ctx.vaultPath);
       const upd = updateNoteFile(abs, (fm) => {
         if (target !== undefined) fm.target_cases_year = target;
@@ -52,9 +53,9 @@ async function _POST(req: NextRequest) {
       return NextResponse.json({ ok: true, distributor: node.title, targetCasesYear: target, actualCasesYtd: actual });
     }
     if (b?.action === 'set') return NextResponse.json({ ok: true, kpi: setKpi(ctx.vaultPath, b, who) });
-    return NextResponse.json({ ok: false, error: "action debe ser 'set', 'set_quota' o 'delete'." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: tr("action debe ser 'set', 'set_quota' o 'delete'.", 'action must be \'set\', \'set_quota\' or \'delete\'.') }, { status: 400 });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof KpiError ? e.message : 'No se pudo guardar el indicador.' }, { status: e instanceof KpiError ? e.status : 500 });
+    return NextResponse.json({ ok: false, error: e instanceof KpiError ? e.message : tr('No se pudo guardar el indicador.', 'Could not save the indicator.') }, { status: e instanceof KpiError ? e.status : 500 });
   }
 }
 export const GET = withBrain(_GET);

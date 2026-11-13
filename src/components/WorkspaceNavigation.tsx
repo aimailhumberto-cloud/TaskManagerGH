@@ -53,10 +53,10 @@ export default function WorkspaceNavigation({
   const modern: string[][] = [['/inicio', L('Inicio', 'Home'), H], ['/cerebro', L('Cerebro', 'Brain'), B], ['/pedir', L('Pedir', 'Ask'), 'M4 5h16v11H9l-5 4z'], ['/mi-agenda', L('Agenda', 'Agenda'), A], ['/tasks', L('Tareas', 'Tasks'), T], ...(canManage ? [['/usuarios', L('Usuarios', 'Users'), U]] : [])];
   // Sin sesión propia (modo anterior): el menú histórico.
   const legacy: string[][] = [
-    ['/', 'Inicio', H], ['/tasks', 'Tareas', T], ['/cerebro', 'Cerebro SMJ', B],
-    ['/empresas', 'Empresas', 'M4 21V3h16v18M8 7h1m6 0h1M8 11h1m6 0h1M10 21v-6h4v6'], ['/agenda', 'Agenda', A],
-    ['/supervision', 'Supervisión', 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
-    ['/buscar', 'Buscar', 'M21 21l-6-6M17 10a7 7 0 11-14 0 7 7 0 0114 0'], ['/whatsapp', 'WhatsApp', 'M4 4h16v13H9l-5 4z'],
+    ['/', L('Inicio', 'Home'), H], ['/tasks', L('Tareas', 'Tasks'), T], ['/cerebro', L('Cerebro SMJ', 'SMJ Brain'), B],
+    ['/empresas', L('Empresas', 'Companies'), 'M4 21V3h16v18M8 7h1m6 0h1M8 11h1m6 0h1M10 21v-6h4v6'], ['/agenda', L('Agenda', 'Agenda'), A],
+    ['/supervision', L('Supervisión', 'Oversight'), 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
+    ['/buscar', L('Buscar', 'Search'), 'M21 21l-6-6M17 10a7 7 0 11-14 0 7 7 0 0114 0'], ['/whatsapp', 'WhatsApp', 'M4 4h16v13H9l-5 4z'],
   ].filter(([href]) => !publicOnly || href !== '/whatsapp');
   const navItems = local ? modern : legacy;
 

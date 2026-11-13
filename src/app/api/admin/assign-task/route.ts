@@ -5,19 +5,20 @@ import { brainIdForAccount, ensureBrain, logBrainAccess, PRIMARY_BRAIN_ID } from
 import { runInBrain } from '@/lib/brainContext';
 import { createBrainTask, getPrimaryVaultPath } from '@/lib/smjBrainService';
 import { ensureDailySnapshot } from '@/lib/vaultBackup';
+import { tr, withReqLang } from '@/lib/reqLang';
 export const dynamic = 'force-dynamic';
 
 /**
  * Un Owner, Admin o Gerente asigna una tarea a otra persona. La tarea se crea en el cerebro del destinatario.
  * Quien asigna NO lee ese cerebro: solo deja la tarea. Las menciones a otros cerebros son etiquetas con el nombre.
  */
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   const g = await requireManager(request); if (!g.ok) return g.res;
   const b = await request.json().catch(() => ({}));
   const title = typeof b?.title === 'string' ? b.title.trim().slice(0, 200) : '';
-  if (!title) return NextResponse.json({ error: 'La tarea necesita un título.' }, { status: 400 });
+  if (!title) return NextResponse.json({ error: tr('La tarea necesita un título.', 'The task needs a title.') }, { status: 400 });
   const target = typeof b?.toAccountId === 'string' ? getAccount(b.toAccountId) : null;
-  if (!target?.isActive) return NextResponse.json({ error: 'Esa persona no existe o está desactivada.' }, { status: 404 });
+  if (!target?.isActive) return NextResponse.json({ error: tr('Esa persona no existe o está desactivada.', 'That person does not exist or is deactivated.') }, { status: 404 });
   const dueDate = typeof b?.dueDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.dueDate) ? b.dueDate : undefined;
   const priority = ['High', 'Medium', 'Low'].includes(b?.priority) ? b.priority : 'Medium';
   const actor = getAccount(g.actor.id);
@@ -28,12 +29,14 @@ export async function POST(request: NextRequest) {
 
   const brainId = brainIdForAccount(target);
   const vaultPath = brainId === PRIMARY_BRAIN_ID ? getPrimaryVaultPath() : ensureBrain(brainId, target.name);
-  if (!vaultPath) return NextResponse.json({ error: 'Cerebro no disponible.' }, { status: 500 });
+  if (!vaultPath) return NextResponse.json({ error: tr('Cerebro no disponible.', 'Brain not available.') }, { status: 500 });
   logBrainAccess({ actor: g.actor.id, role: g.actor.role, brainId, path: '/api/admin/assign-task', method: 'ASSIGN' });
   const result = runInBrain({ brainId, vaultPath, primary: brainId === PRIMARY_BRAIN_ID, actor: g.actor.id, via: 'asignacion' }, () => {
     ensureDailySnapshot(vaultPath);
     return createBrainTask({ title, dueDate, priority, description, assignedBy: actorName, mentions });
   });
   if (!result.ok) return NextResponse.json({ error: result.message }, { status: 400 });
-  return NextResponse.json({ ok: true, to: target.name, message: `Tarea asignada a ${target.name}.` }, { status: 201 });
+  return NextResponse.json({ ok: true, to: target.name, message: tr(`Tarea asignada a ${target.name}.`, `Task assigned to ${target.name}.`) }, { status: 201 });
 }
+
+export const POST = withReqLang(_POST);

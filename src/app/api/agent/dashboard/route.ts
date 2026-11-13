@@ -10,6 +10,7 @@ import { getAccount, listAccounts, TOP_ROLES, canManageUsers } from '@/lib/local
 import { listKpis, loadPrefs, savePrefs } from '@/lib/kpis';
 import { computeGrowth, recordGrowth } from '@/lib/brainGrowth';
 import { addDays, dayLoads, listEvents, mergedAgenda } from '@/lib/agenda';
+import { tr } from '@/lib/reqLang';
 export const dynamic = 'force-dynamic';
 
 /** Todo lo que necesita el tablero inicial, del cerebro de quien entra. Solo lectura. */
@@ -44,7 +45,7 @@ const GUIDE = {
 async function _GET(req: NextRequest) {
   if (new URL(req.url).searchParams.get('guide') === '1') return NextResponse.json({ ok: true, guide: GUIDE });
   const ctx = currentBrain();
-  if (!ctx) return NextResponse.json({ ok: false, error: 'Sin cerebro.' }, { status: 401 });
+  if (!ctx) return NextResponse.json({ ok: false, error: tr('Sin cerebro.', 'No brain.') }, { status: 401 });
   const own = ctx.ownBrainId || ctx.brainId;
   const me = ctx.actor && ctx.actor.startsWith('local-') ? getAccount(ctx.actor) : null;
   const role = ctx.role || me?.role || '';
@@ -111,9 +112,9 @@ async function _GET(req: NextRequest) {
 /** Guarda las ciudades del tablero (casa y sede) de este cerebro. */
 async function _POST(req: NextRequest) {
   const ctx = currentBrain();
-  if (!ctx) return NextResponse.json({ ok: false, error: 'Sin cerebro.' }, { status: 401 });
+  if (!ctx) return NextResponse.json({ ok: false, error: tr('Sin cerebro.', 'No brain.') }, { status: 401 });
   const b = await req.json().catch(() => ({}));
-  if (b?.action !== 'places') return NextResponse.json({ ok: false, error: "action debe ser 'places'." }, { status: 400 });
+  if (b?.action !== 'places') return NextResponse.json({ ok: false, error: tr("action debe ser 'places'.", 'action must be \'places\'.') }, { status: 400 });
   return NextResponse.json({ ok: true, places: savePrefs(ctx.vaultPath, { home: b.home, hq: b.hq }) });
 }
 export const GET = withBrain(_GET);

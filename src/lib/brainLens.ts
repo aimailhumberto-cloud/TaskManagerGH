@@ -199,7 +199,7 @@ export function dossier(input: { q?: string; nodeIds?: string[]; size?: DossierS
   let matched = (input.nodeIds || []).map(id => ix.byId.get(id) || ix.nodes.find(n => n.id.toLowerCase() === id.toLowerCase())).filter(Boolean) as BrainNode[];
   if (!matched.length && input.q) matched = resolveEntities(input.q);
   if (!matched.length && input.q) matched = searchBrain(input.q, { limit: 3, catalog: false }).map(h => ix.byId.get(h.id)!).filter(Boolean);
-  if (!matched.length) return { ok: false as const, error: 'No encontré fichas que coincidan con la pregunta.', suggestions: input.q ? searchBrain(input.q, { limit: 5 }).map(h => ({ id: h.id, title: h.title, type: h.type })) : [] };
+  if (!matched.length) return { ok: false as const, error: tr('No encontré fichas que coincidan con la pregunta.', 'I found no notes that match the question.'), suggestions: input.q ? searchBrain(input.q, { limit: 5 }).map(h => ({ id: h.id, title: h.title, type: h.type })) : [] };
 
   // Lo que une a las fichas nombradas: con «Busta en Canadá», los distribuidores conectados a las dos.
   const mids = new Set(matched.map(n => n.id));

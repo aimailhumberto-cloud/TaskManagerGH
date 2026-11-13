@@ -9,6 +9,7 @@ import { HB_CANONICAL_COMPANIES, getCompanyMeta } from '@/lib/hbCompanies';
 import { localDay, validDate } from '@/lib/personalTasks';
 import { WorkspaceError } from '@/lib/projects';
 import type { Task } from '@/services/mockData';
+import { tr, tw } from '@/lib/reqLang';
 
 export const dynamic = 'force-dynamic';
 
@@ -313,7 +314,7 @@ async function _GET(req: NextRequest) {
     );
   } catch (error: any) {
     return NextResponse.json(
-      { ok: false, error: error?.message || 'Error al leer el Hub del Agente.' },
+      { ok: false, error: error?.message || tr('Error al leer el Hub del Agente.', 'Error reading the Agent Hub.') },
       { status: 500, headers: CORS_HEADERS }
     );
   }
@@ -334,7 +335,7 @@ async function _POST(req: NextRequest) {
       const rawTitle = String(body.title || body.subject || '').trim();
       if (!rawTitle) {
         return NextResponse.json(
-          { ok: false, error: 'Se requiere title o subject para ingest_email.' },
+          { ok: false, error: tr('Se requiere title o subject para ingest_email.', 'title or subject is required for ingest_email.') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -364,7 +365,7 @@ async function _POST(req: NextRequest) {
       const created = (await applyPublicTaskCommand({
         requestId: body.requestId || `agent-email-${randomUUID()}`,
         action: 'createTask',
-        reason: `Ingesta automática de ${action === 'ingest_email' ? 'Gmail' : 'mensaje'} por Agente IA`,
+        reason: tw(`Ingesta automática de ${action === 'ingest_email' ? 'Gmail' : 'mensaje'} por Agente IA`, `Automatic ingestion from ${action === 'ingest_email' ? 'Gmail' : 'mensaje'} by AI Agent`),
         fields: {
           title: rawTitle.slice(0, 240),
           description: String(body.description || body.snippet || '').slice(0, 1800),
@@ -391,8 +392,8 @@ async function _POST(req: NextRequest) {
           validationStatus: mode,
           message:
             mode === 'NeedsConfirmation'
-              ? 'Tarea enviada a la Bandeja por Validar para confirmación de Humberto.'
-              : 'Tarea agendada directamente en el flujo operativo de Humberto.',
+              ? tr('Tarea enviada a la Bandeja por Validar para confirmación de Humberto.', 'Task sent to the Inbox to Validate for Humberto\'s confirmation.')
+              : tr('Tarea agendada directamente en el flujo operativo de Humberto.', 'Task scheduled directly in Humberto\'s operating flow.'),
           task: created,
         },
         { status: 201, headers: CORS_HEADERS }
@@ -403,7 +404,7 @@ async function _POST(req: NextRequest) {
       const transcript = String(body.transcript || body.notes || body.text || '').trim();
       if (!transcript) {
         return NextResponse.json(
-          { ok: false, error: 'Se requiere transcript o notes con el contenido grabado.' },
+          { ok: false, error: tr('Se requiere transcript o notes con el contenido grabado.', 'transcript or notes with the recorded content is required.') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -464,7 +465,7 @@ async function _POST(req: NextRequest) {
           action: 'updateTask',
           id: matchedTask.id,
           expectedRevision: matchedTask.revision || 1,
-          reason: `Sincronización automática de audio/nota (${noteSource})`,
+          reason: tw(`Sincronización automática de audio/nota (${noteSource})`, `Automatic audio/note sync (${noteSource})`),
           fields: {
             description: updatedDescription,
             contextNotes: updatedContext,
@@ -481,7 +482,7 @@ async function _POST(req: NextRequest) {
             action,
             matchedExistingTask: true,
             matchedTaskTitle: matchedTask.title,
-            message: `Grabación/nota de ${noteSource} vinculada automáticamente a "${matchedTask.title}".`,
+            message: tw(`Grabación/nota de ${noteSource} vinculada automáticamente a "${matchedTask.title}".`, `Recording/note from ${noteSource} automatically linked to "${matchedTask.title}".`),
             task: updated,
           },
           { headers: CORS_HEADERS }
@@ -494,7 +495,7 @@ async function _POST(req: NextRequest) {
       const created = (await applyPublicTaskCommand({
         requestId: body.requestId || `agent-voice-new-${randomUUID()}`,
         action: 'createTask',
-        reason: `Nueva nota de voz / reunión capturada desde ${noteSource}`,
+        reason: tw(`Nueva nota de voz / reunión capturada desde ${noteSource}`, `New voice note / meeting captured from ${noteSource}`),
         fields: {
           title: (body.title || body.meetingQuery || `Nota de reunión · ${inferred.category}`).slice(0, 240),
           description: (summary || transcript).slice(0, 1800),
@@ -526,7 +527,7 @@ async function _POST(req: NextRequest) {
           ok: true,
           action,
           matchedExistingTask: false,
-          message: `Se creó un nuevo registro de reunión con la nota de ${noteSource}.`,
+          message: tw(`Se creó un nuevo registro de reunión con la nota de ${noteSource}.`, `A new meeting record was created with the note from ${noteSource}.`),
           task: created,
         },
         { status: 201, headers: CORS_HEADERS }
@@ -544,7 +545,7 @@ async function _POST(req: NextRequest) {
 
       if (rawItems.length === 0) {
         return NextResponse.json(
-          { ok: false, error: 'Envía text o items[] para procesar el volcado rápido.' },
+          { ok: false, error: tr('Envía text o items[] para procesar el volcado rápido.', 'Send text or items[] to process the quick dump.') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -567,7 +568,7 @@ async function _POST(req: NextRequest) {
         const created = (await applyPublicTaskCommand({
           requestId: `brain-dump-${randomUUID()}`,
           action: 'createTask',
-          reason: 'Volcado rápido (Brain Dump)',
+          reason: tw('Volcado rápido (Brain Dump)', 'Quick dump (Brain Dump)'),
           fields: {
             title: itemTitle.slice(0, 240),
             description: typeof item === 'object' && item.description ? String(item.description) : '',
@@ -719,7 +720,7 @@ async function _POST(req: NextRequest) {
       const view = await readPublicHbWorkspace();
       const target = view.tasks.find(t => t.id === body.taskId || t.id === body.id);
       if (!target) {
-        return NextResponse.json({ ok: false, error: 'Tarea no encontrada.' }, { status: 404, headers: CORS_HEADERS });
+        return NextResponse.json({ ok: false, error: tr('Tarea no encontrada.', 'Task not found.') }, { status: 404, headers: CORS_HEADERS });
       }
       const completedSteps = (target.steps || []).map(s => ({ ...s, completed: true, status: 'Completed' as const }));
       const updated = await applyPublicTaskCommand({
@@ -727,7 +728,7 @@ async function _POST(req: NextRequest) {
         action: 'updateTask',
         id: target.id,
         expectedRevision: target.revision || 1,
-        reason: body.reason || 'Completada por Agente IA',
+        reason: body.reason || tw('Completada por Agente IA', 'Completed by AI Agent'),
         fields: {
           steps: completedSteps,
           status: 'Completed',
@@ -741,7 +742,7 @@ async function _POST(req: NextRequest) {
       const view = await readPublicHbWorkspace();
       const target = view.tasks.find(t => t.id === body.taskId || t.id === body.id);
       if (!target) {
-        return NextResponse.json({ ok: false, error: 'Tarea no encontrada.' }, { status: 404, headers: CORS_HEADERS });
+        return NextResponse.json({ ok: false, error: tr('Tarea no encontrada.', 'Task not found.') }, { status: 404, headers: CORS_HEADERS });
       }
       const nextDate = body.workDate || body.dueDate || addDays(today, 1);
       const updated = await applyPublicTaskCommand({
@@ -749,7 +750,7 @@ async function _POST(req: NextRequest) {
         action: 'updateTask',
         id: target.id,
         expectedRevision: target.revision || 1,
-        reason: body.reason || 'Reprogramada por Agente IA',
+        reason: body.reason || tw('Reprogramada por Agente IA', 'Rescheduled by AI Agent'),
         fields: {
           workDate: nextDate,
           dueDate: nextDate,
@@ -763,7 +764,7 @@ async function _POST(req: NextRequest) {
       const view = await readPublicHbWorkspace();
       const target = view.tasks.find(t => t.id === body.taskId || t.id === body.id);
       if (!target) {
-        return NextResponse.json({ ok: false, error: 'Tarea no encontrada.' }, { status: 404, headers: CORS_HEADERS });
+        return NextResponse.json({ ok: false, error: tr('Tarea no encontrada.', 'Task not found.') }, { status: 404, headers: CORS_HEADERS });
       }
       const dismiss = body.decision === 'dismiss';
       const updated = await applyPublicTaskCommand({
@@ -771,7 +772,7 @@ async function _POST(req: NextRequest) {
         action: 'updateTask',
         id: target.id,
         expectedRevision: target.revision || 1,
-        reason: dismiss ? 'Descartado por Agente IA' : 'Confirmado por Agente IA',
+        reason: dismiss ? tw('Descartado por Agente IA', 'Dismissed by AI Agent') : tw('Confirmado por Agente IA', 'Confirmed by AI Agent'),
         fields: dismiss
           ? { cancelled: true }
           : { validationStatus: 'Confirmed', workDate: body.workDate || target.workDate || today },
@@ -790,14 +791,14 @@ async function _POST(req: NextRequest) {
     return NextResponse.json(
       {
         ok: false,
-        error: `Acción "${action}" no reconocida. Consulta GET /api/agent/hub para ver las acciones soportadas.`,
+        error: tr(`Acción "${action}" no reconocida. Consulta GET /api/agent/hub para ver las acciones soportadas.`, `Action "${action}" not recognized. See GET /api/agent/hub for the supported actions.`),
       },
       { status: 400, headers: CORS_HEADERS }
     );
   } catch (error: any) {
     const status = error instanceof WorkspaceError ? error.status : 500;
     return NextResponse.json(
-      { ok: false, error: error?.message || 'Error al ejecutar operación en el Hub del Agente.' },
+      { ok: false, error: error?.message || tr('Error al ejecutar operación en el Hub del Agente.', 'Error running the operation in the Agent Hub.') },
       { status, headers: CORS_HEADERS }
     );
   }

@@ -4,6 +4,7 @@ import {hasAdministrationCapability} from './capabilities';
 import {WorkspaceError} from './projects';
 import {canAdministerLegacyTask} from './legacyAdministration';
 import {ensureSmjTracking,publicSmjTracking} from './smjTracking';
+import { tr } from './reqLang';
 
 const taskKeys='id title description type repeatPattern steps companyId assigneeId assigneeIds ownerId status priority origin dueDate attachments activityLog isMeeting meetingTime meetingAttendees meetingConfirmations meetingLink comments completedDays category subcategories estimatedMinutes workSlot workTime validationStatus sourceUrl contextNotes projectId deliverableId dependencyIds cancelledAt revision cancellationReason projectName nextAction workDate waitingOn commitment followUpDate approvalStatus'.split(' ');
 const projectKeys='id companyId title objective scope ownerId acceptancePersonId state revision stages deliverables milestones evidence history'.split(' ');
@@ -32,7 +33,7 @@ export const companyDTO=(company:any)=>pick(company,['id','name']);
 export function verifiedProfile(db:DatabaseSchema,actor:SessionData){
  const user=db.users?.find(u=>u.id===actor.userId&&u.isActive&&u.personId===actor.personId);
  const person=db.people.find(p=>p.id===actor.personId);
- if(!user||!person)throw new WorkspaceError('Sesión revocada o perfil no disponible.',401);
+ if(!user||!person)throw new WorkspaceError(tr('Sesión revocada o perfil no disponible.', 'Session revoked or profile not available.'),401);
  return person;
 }
 export function isWorkspaceAdministrator(db:DatabaseSchema,actor:SessionData){return hasAdministrationCapability(verifiedProfile(db,actor).role);}

@@ -21,6 +21,7 @@ import { ensureDailySnapshot } from '@/lib/vaultBackup';
 import { recordUpdate } from '@/lib/recordUpdate';
 import { nodeContext } from '@/lib/brainLens';
 import { withChange } from '@/lib/journal';
+import { tr } from '@/lib/reqLang';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,13 +86,13 @@ async function _GET(req: NextRequest) {
     const nodeId = searchParams.get('node');
     if (nodeId && searchParams.get('context') === '1') {
       const ctx = nodeContext(nodeId);
-      if (!ctx) return NextResponse.json({ ok: false, error: `Nodo '${nodeId}' no encontrado` }, { status: 404, headers: CORS_HEADERS });
+      if (!ctx) return NextResponse.json({ ok: false, error: tr(`Nodo '${nodeId}' no encontrado`, `Node '${nodeId}' not found`) }, { status: 404, headers: CORS_HEADERS });
       return NextResponse.json({ ok: true, ...ctx }, { status: 200, headers: CORS_HEADERS });
     }
     if (nodeId) {
       const detail = getBrainNodeDetail(nodeId);
       if (!detail) {
-        return NextResponse.json({ ok: false, error: `Nodo '${nodeId}' no encontrado` }, { status: 404, headers: CORS_HEADERS });
+        return NextResponse.json({ ok: false, error: tr(`Nodo '${nodeId}' no encontrado`, `Node '${nodeId}' not found`) }, { status: 404, headers: CORS_HEADERS });
       }
       return NextResponse.json({ ok: true, node: detail }, { status: 200, headers: CORS_HEADERS });
     }
@@ -164,7 +165,7 @@ async function _POST(req: NextRequest) {
     const backup = ensureDailySnapshot(getVaultPathForBackup());
     if (backup.error) console.error('[vault-backup] no se pudo crear la foto diaria:', backup.error);
 
-    if (action !== 'remember_working' && !canWriteFully()) return NextResponse.json({ ok: false, error: 'Esta llave solo puede capturar notas en memoria de trabajo; no puede cambiar fichas ni consolidar.' }, { status: 403 });
+    if (action !== 'remember_working' && !canWriteFully()) return NextResponse.json({ ok: false, error: tr('Esta llave solo puede capturar notas en memoria de trabajo; no puede cambiar fichas ni consolidar.', 'This key can only capture notes into working memory; it cannot change notes or consolidate.') }, { status: 403 });
 
     if (action === 'remember_working') {
       const { title, content, links, relationType, source } = body;
@@ -182,10 +183,10 @@ async function _POST(req: NextRequest) {
         source,
       });
       if (!result.ok) {
-        return NextResponse.json({ ok: false, error: 'No se pudo guardar la memoria de trabajo' }, { status: 500, headers: CORS_HEADERS });
+        return NextResponse.json({ ok: false, error: tr('No se pudo guardar la memoria de trabajo', 'Could not save the working memory') }, { status: 500, headers: CORS_HEADERS });
       }
       if (!result.duplicate) classifyInBackground(result.id, String(title), String(content));
-      return NextResponse.json({ ok: true, result, ...(result.duplicate ? { note: 'Esa misma captura ya se había guardado hace menos de 15 minutos; no se repitió.' } : {}) }, { status: result.duplicate ? 200 : 201, headers: CORS_HEADERS });
+      return NextResponse.json({ ok: true, result, ...(result.duplicate ? { note: tr('Esa misma captura ya se había guardado hace menos de 15 minutos; no se repitió.', 'That same capture was already saved less than 15 minutes ago; it was not repeated.') } : {}) }, { status: result.duplicate ? 200 : 201, headers: CORS_HEADERS });
     }
 
     if (action === 'consolidate_session') {
@@ -198,7 +199,7 @@ async function _POST(req: NextRequest) {
       const { nodeId, updatedBy, lastEmailSubject, lastEmailDate, lastEmailSender, nextFollowupDate, nextFollowupAction, executiveObservations, newAction, newPendingTask } = body;
       if (!nodeId) {
         return NextResponse.json(
-          { ok: false, error: 'nodeId es requerido para update_dossier (ej. "medimex", "chubby")' },
+          { ok: false, error: tr('nodeId es requerido para update_dossier (ej. "medimex", "chubby")', 'nodeId is required for update_dossier (e.g. "medimex", "chubby")') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -226,7 +227,7 @@ async function _POST(req: NextRequest) {
       const { relativePath, frontmatter, body: nodeBody, replace, ifMatch } = body;
       if (!relativePath || !frontmatter) {
         return NextResponse.json(
-          { ok: false, error: 'relativePath and frontmatter son requeridos para upsert_node' },
+          { ok: false, error: tr('relativePath and frontmatter son requeridos para upsert_node', 'relativePath and frontmatter are required for upsert_node') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -244,7 +245,7 @@ async function _POST(req: NextRequest) {
       const { nodeId, updates } = body;
       if (!nodeId) {
         return NextResponse.json(
-          { ok: false, error: "Campo requerido 'nodeId' faltante." },
+          { ok: false, error: tr("Campo requerido 'nodeId' faltante.", 'Required field \'nodeId\' is missing.') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -259,7 +260,7 @@ async function _POST(req: NextRequest) {
       const { nodeId, parentId, field } = body;
       if (!nodeId || !parentId) {
         return NextResponse.json(
-          { ok: false, error: "Campos requeridos 'nodeId' y 'parentId' faltantes." },
+          { ok: false, error: tr("Campos requeridos 'nodeId' y 'parentId' faltantes.", 'Required fields \'nodeId\' and \'parentId\' are missing.') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -271,7 +272,7 @@ async function _POST(req: NextRequest) {
       const { view, updates } = body;
       if (!view || !updates) {
         return NextResponse.json(
-          { ok: false, error: "Campos requeridos 'view' y 'updates' faltantes." },
+          { ok: false, error: tr("Campos requeridos 'view' y 'updates' faltantes.", 'Required fields \'view\' and \'updates\' are missing.') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -283,7 +284,7 @@ async function _POST(req: NextRequest) {
       const { view } = body;
       if (!view) {
         return NextResponse.json(
-          { ok: false, error: "Campo requerido 'view' faltante." },
+          { ok: false, error: tr("Campo requerido 'view' faltante.", 'Required field \'view\' is missing.') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -292,7 +293,7 @@ async function _POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { ok: false, error: `Acción '${action}' no reconocida. Usa 'record', 'remember_working', 'consolidate_session', 'update_dossier', 'upsert_node', 'reconfigure_node_topology', 'assign_parent', 'update_layout_config' o 'reset_layout_config'.` },
+      { ok: false, error: tr(`Acción '${action}' no reconocida. Usa 'record', 'remember_working', 'consolidate_session', 'update_dossier', 'upsert_node', 'reconfigure_node_topology', 'assign_parent', 'update_layout_config' o 'reset_layout_config'.`, `Action '${action}' not recognized. Use 'record', 'remember_working', 'consolidate_session', 'update_dossier', 'upsert_node', 'reconfigure_node_topology', 'assign_parent', 'update_layout_config' or 'reset_layout_config'.`) },
       { status: 400, headers: CORS_HEADERS }
     );
   } catch (error: any) {

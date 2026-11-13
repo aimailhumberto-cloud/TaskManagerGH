@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { sameRequestOrigin } from '@/lib/auth';
+import { tr, withReqLang } from '@/lib/reqLang';
 
-export async function POST(request: NextRequest) {
+async function _POST(request: NextRequest) {
   try {
-    if (!sameRequestOrigin(request)) return NextResponse.json({ error: 'Origen no permitido.' }, { status: 403 });
+    if (!sameRequestOrigin(request)) return NextResponse.json({ error: tr('Origen no permitido.', 'Origin not allowed.') }, { status: 403 });
     // Clear session cookie
     (await cookies()).set('hermes_session', '', {
       httpOnly: true,
@@ -23,3 +24,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export const POST = withReqLang(_POST);

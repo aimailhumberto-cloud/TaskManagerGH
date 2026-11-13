@@ -9,11 +9,12 @@ import { AsyncLocalStorage } from 'async_hooks';
 
 export type Lang = 'es' | 'en';
 interface Ctx { reply: Lang; work: Lang }
-const als = new AsyncLocalStorage<Ctx>();
+const als: AsyncLocalStorage<Ctx> | null = typeof AsyncLocalStorage === 'function' ? new AsyncLocalStorage<Ctx>() : null;
+const pageLang = (): Lang => (typeof document !== 'undefined' && document.documentElement.lang === 'en' ? 'en' : 'es');
 
-export const withLang = <T>(reply: Lang, work: Lang, fn: () => T): T => als.run({ reply, work }, fn);
-export const replyLang = (): Lang => als.getStore()?.reply ?? 'es';
-export const workLang = (): Lang => als.getStore()?.work ?? 'es';
+export const withLang = <T>(reply: Lang, work: Lang, fn: () => T): T => als ? als.run({ reply, work }, fn) : fn();
+export const replyLang = (): Lang => als?.getStore()?.reply ?? pageLang();
+export const workLang = (): Lang => als?.getStore()?.work ?? pageLang();
 /** Texto en el idioma de la respuesta. */
 export const tr = (es: string, en: string): string => (replyLang() === 'en' ? en : es);
 /** Texto en el idioma de trabajo del cerebro (lo que queda escrito en las fichas). */
@@ -32,4 +33,15 @@ export function detectLang(text: string, hint: Lang = 'es'): Lang {
   for (const w of s.split(/[^a-záéíóúüñ']+/)) { if (!w) continue; if (ES.has(w)) es++; if (EN.has(w)) en++; }
   es += (s.match(/[¿¡ñ]/g) || []).length * 2 + (s.match(/[áéíóú]/g) || []).length * 0.5;
   return en > es ? 'en' : es > en ? 'es' : hint;
+}
+
+/** Idioma pedido en una petición HTTP: encabezado x-lang, ?lang=, o la cookie de la pantalla. Sin nada, español (como siempre). */
+export function langFromRequest(req: { headers: Headers; url?: string; cookies?: { get(n: string): { value: string } | undefined } }): Lang {
+  const h = asLang(req.headers.get('x-lang')); if (h) return h;
+  try { const q = asLang(new URL(req.url || '', 'http://x').searchParams.get('lang')); if (q) return q; } catch {}
+  const c = asLang(req.cookies?.get('cerebro_lang')?.value ?? /(?:^|;\s*)cerebro_lang=(en|es)/.exec(req.headers.get('cookie') || '')?.[1]); return c ?? 'es';
+}
+/** Para rutas que no pasan por withBrain: sus mensajes salen en el idioma de la petición. */
+export function withReqLang<H extends (req: any, ...rest: any[]) => any>(handler: H): H {
+  return ((req: any, ...rest: any[]) => withLang(langFromRequest(req), 'es', () => handler(req, ...rest))) as H;
 }

@@ -7,6 +7,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getSleepDir } from './dotsSleep';
 import { atomicWriteFile } from './vaultFiles';
+import { tr } from './reqLang';
 
 export interface KpiPoint { at: string; value: number; by?: string; note?: string }
 export interface Kpi { id: string; name: string; unit: string; value: number; target: number | null; period: string; updatedAt: string; updatedBy?: string; history: KpiPoint[] }
@@ -28,24 +29,24 @@ export function setKpi(vaultPath: string, input: { id?: unknown; name?: unknown;
   const kpis = listKpis(vaultPath);
   const name = typeof input.name === 'string' ? input.name.trim().slice(0, 80) : '';
   const id = typeof input.id === 'string' && input.id ? slug(input.id) : slug(name);
-  if (!id) throw new KpiError('El indicador necesita un nombre.');
+  if (!id) throw new KpiError(tr('El indicador necesita un nombre.', 'The indicator needs a name.'));
   const value = num(input.value);
   let k = kpis.find(x => x.id === id);
   if (!k) {
-    if (name.length < 2) throw new KpiError('El indicador necesita un nombre.');
-    if (value === null) throw new KpiError('El indicador necesita un valor numérico.');
-    if (kpis.length >= MAX_KPIS) throw new KpiError(`Máximo ${MAX_KPIS} indicadores. Borra uno primero.`, 409);
+    if (name.length < 2) throw new KpiError(tr('El indicador necesita un nombre.', 'The indicator needs a name.'));
+    if (value === null) throw new KpiError(tr('El indicador necesita un valor numérico.', 'The indicator needs a numeric value.'));
+    if (kpis.length >= MAX_KPIS) throw new KpiError(tr(`Máximo ${MAX_KPIS} indicadores. Borra uno primero.`, `Maximum ${MAX_KPIS} indicators. Delete one first.`), 409);
     k = { id, name, unit: '', value, target: null, period: '', updatedAt: now.toISOString(), history: [] };
     kpis.push(k);
   }
   if (name) k.name = name;
   if (typeof input.unit === 'string') k.unit = input.unit.trim().slice(0, 16);
   if (typeof input.period === 'string') k.period = input.period.trim().slice(0, 40);
-  if (input.target !== undefined) { if (input.target === null || input.target === '') k.target = null; else { const t = num(input.target); if (t === null) throw new KpiError('La meta debe ser un número.'); k.target = t; } }
+  if (input.target !== undefined) { if (input.target === null || input.target === '') k.target = null; else { const t = num(input.target); if (t === null) throw new KpiError(tr('La meta debe ser un número.', 'The target must be a number.')); k.target = t; } }
   if (value !== null) {
     k.value = value;
     k.history = [...k.history, { at: now.toISOString(), value, by, note: typeof input.note === 'string' ? input.note.slice(0, 200) : undefined }].slice(-MAX_HISTORY);
-  } else if (input.value !== undefined && input.value !== '') throw new KpiError('El valor debe ser un número.');
+  } else if (input.value !== undefined && input.value !== '') throw new KpiError(tr('El valor debe ser un número.', 'The value must be a number.'));
   k.updatedAt = now.toISOString(); k.updatedBy = by;
   writeJson(file(vaultPath, 'kpis.json'), { version: 1, kpis });
   return k;

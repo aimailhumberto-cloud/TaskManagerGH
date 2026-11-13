@@ -342,10 +342,10 @@ export default function CerebroPage() {
             .filter(card => json.nodes.some((n: any) => n.id === card.id));
         });
       } else {
-        setSyncError((json as any).error || 'Respuesta anómala del servidor');
+        setSyncError((json as any).error || t('Respuesta anómala del servidor'));
       }
     } catch (e: any) {
-      setSyncError('Fallo de conexión con el Segundo Cerebro. Mostrando vista local.');
+      setSyncError(t('Fallo de conexión con el Segundo Cerebro. Mostrando vista local.'));
     } finally {
       fetchInFlightRef.current = false;
     }
@@ -966,8 +966,8 @@ export default function CerebroPage() {
       pushToStackedDeck(result.node as NodeData, false, sourceNodeId || stackedDeckRef.current[0]?.id);
     } else {
       setStatusMessage(result.kind === 'ambiguous'
-        ? `Hay varias coincidencias para '${linkName}'. Selecciona la ficha por nombre e ID en la búsqueda.`
-        : `Nodo '${linkName}' no encontrado en la bóveda aún.`);
+        ? (lang === 'en' ? `There are several matches for '${linkName}'. Pick the note by name and ID in the search.` : `Hay varias coincidencias para '${linkName}'. Selecciona la ficha por nombre e ID en la búsqueda.`)
+        : (lang === 'en' ? `Node '${linkName}' not found in the vault yet.` : `Nodo '${linkName}' no encontrado en la bóveda aún.`));
       setTimeout(() => setStatusMessage(null), 4000);
     }
   };
@@ -990,12 +990,12 @@ export default function CerebroPage() {
       });
       if (res.ok) {
         setQuickInput('');
-        setStatusMessage('⚡ Memoria temporal capturada con halo pulsante');
+        setStatusMessage(t('⚡ Memoria temporal capturada con halo pulsante'));
         fetchGraph();
         setTimeout(() => setStatusMessage(null), 3000);
       }
     } catch {
-      setStatusMessage('Error guardando memoria');
+      setStatusMessage(t('Error guardando memoria'));
     } finally {
       setIsSubmitting(false);
     }
@@ -1015,12 +1015,12 @@ export default function CerebroPage() {
       });
       const data = await res.json();
       if (data.ok) {
-        setStatusMessage(`🧠 Sesión consolidada. Promovidos ${data.result?.promotedCount || 0} recuerdos.`);
+        setStatusMessage(lang === 'en' ? `🧠 Session consolidated. ${data.result?.promotedCount || 0} memories promoted.` : `🧠 Sesión consolidada. Promovidos ${data.result?.promotedCount || 0} recuerdos.`);
         fetchGraph();
         setTimeout(() => setStatusMessage(null), 4000);
       }
     } catch {
-      setStatusMessage('Error en consolidación');
+      setStatusMessage(t('Error en consolidación'));
     } finally {
       setIsSubmitting(false);
     }
@@ -1156,7 +1156,7 @@ export default function CerebroPage() {
           </div>
           {lastSyncTime && (
             <span className="text-slate-400 font-mono text-[11px] shrink-0">
-              Última carga exitosa: {lastSyncTime} (Panamá)
+              {t('Última carga exitosa:')} {lastSyncTime} ({t('Panamá')})
             </span>
           )}
         </div>
@@ -1354,9 +1354,9 @@ export default function CerebroPage() {
                     <div>
                       <span className="text-emerald-400 font-bold block text-[10px] uppercase">{t("Siguiente Capa (Territorio):")}</span>
                       <span className="text-gray-200">
-                        {hoveredNode.id.includes('medimex') || hoveredNode.id.includes('panama') ? 'Panamá · Chubby, Fruta & Busta' :
+                        {hoveredNode.id.includes('medimex') || hoveredNode.id.includes('panama') ? t('Panamá · Chubby, Fruta & Busta') :
                          hoveredNode.id.includes('sancas') ? 'Belice (CARICOM) · Chubby & Fruta' :
-                         hoveredNode.id.includes('morgan') ? 'Canadá · Retail Moderno' : 'EE. UU. · Costa Este'}
+                         hoveredNode.id.includes('morgan') ? t('Canadá · Retail Moderno') : t('EE. UU. · Costa Este')}
                       </span>
                     </div>
                   )}
@@ -1436,14 +1436,14 @@ export default function CerebroPage() {
             <div className="font-semibold text-gray-400 text-[10px] uppercase tracking-wider flex items-center gap-2">
               <span>
                 {viewMode === 'brujula'
-                  ? 'Brújula (Mercado Oeste · Portafolio Norte · Org Este · Supply Sur)'
+                  ? t('Brújula (Mercado Oeste · Portafolio Norte · Org Este · Supply Sur)')
                   : viewMode === 'version-1-ajustada'
-                  ? 'Columnas (Carriles por País)'
+                  ? t('Columnas (Carriles por País)')
                   : viewMode === 'quadrants'
-                  ? 'Cuadrantes (América Izq · Marcas Arriba · HQ Centro)'
+                  ? t('Cuadrantes (América Izq · Marcas Arriba · HQ Centro)')
                   : viewMode === 'organigram'
-                  ? 'Estructura Jerárquica L0 - L4'
-                  : 'Constelaciones por Afinidad'}
+                  ? t('Estructura Jerárquica L0 - L4')
+                  : t('Constelaciones por Afinidad')}
               </span>
               <span className="text-sky-400 font-mono">{t("| Layout Dinámico Activo")}</span>
             </div>

@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { getSleepDir } from './dotsSleep';
 import { atomicWriteFile } from './vaultFiles';
+import { tr } from './reqLang';
 
 export const EVENT_KINDS = ['reunion', 'viaje', 'evento'] as const;
 export type EventKind = (typeof EVENT_KINDS)[number];
@@ -45,30 +46,30 @@ export function upsertEvent(vaultPath: string, input: Record<string, unknown>, b
     ev = events.find(e => e.kind === kind && norm(e.title) === norm(input.title) && e.date === input.date && (e.time || '') === (typeof input.time === 'string' ? input.time : '')) || null;
   }
   const creating = !ev;
-  if (typeof input.id === 'string' && input.id && !ev && !externalId) throw new AgendaError('Ese evento no existe.', 404);
+  if (typeof input.id === 'string' && input.id && !ev && !externalId) throw new AgendaError(tr('Ese evento no existe.', 'That event does not exist.'), 404);
   if (!ev) {
-    if (events.length >= MAX_EVENTS) throw new AgendaError('La agenda llegó a su límite de eventos.', 409);
+    if (events.length >= MAX_EVENTS) throw new AgendaError(tr('La agenda llegó a su límite de eventos.', 'The agenda has reached its event limit.'), 409);
     ev = { id: `ev-${crypto.randomBytes(5).toString('hex')}`, kind: 'reunion', title: '', date: '', repeat: 'none', source, externalId, createdBy: by, createdAt: now.toISOString(), updatedAt: now.toISOString() };
   }
   const has = (k: string) => input[k] !== undefined;
   const str = (k: string, max: number) => (typeof input[k] === 'string' ? (input[k] as string).trim().slice(0, max) : '');
-  if (has('kind')) { if (!(EVENT_KINDS as readonly string[]).includes(input.kind as string)) throw new AgendaError('kind debe ser reunion, viaje o evento.'); ev.kind = input.kind as EventKind; }
+  if (has('kind')) { if (!(EVENT_KINDS as readonly string[]).includes(input.kind as string)) throw new AgendaError(tr('kind debe ser reunion, viaje o evento.', 'kind must be reunion, viaje or evento.')); ev.kind = input.kind as EventKind; }
   if (has('title')) ev.title = str('title', 160);
-  if (has('date')) { if (!validDay(input.date)) throw new AgendaError('date debe ser AAAA-MM-DD.'); ev.date = input.date; }
-  if (has('endDate')) { if (input.endDate === null || input.endDate === '') delete ev.endDate; else { if (!validDay(input.endDate)) throw new AgendaError('endDate debe ser AAAA-MM-DD.'); ev.endDate = input.endDate; } }
-  for (const k of ['time', 'endTime'] as const) if (has(k)) { if (input[k] === null || input[k] === '') delete ev[k]; else { if (typeof input[k] !== 'string' || !TIME.test(input[k] as string)) throw new AgendaError(`${k} debe ser HH:MM (24 horas).`); ev[k] = input[k] as string; } }
+  if (has('date')) { if (!validDay(input.date)) throw new AgendaError(tr('date debe ser AAAA-MM-DD.', 'date must be YYYY-MM-DD.')); ev.date = input.date; }
+  if (has('endDate')) { if (input.endDate === null || input.endDate === '') delete ev.endDate; else { if (!validDay(input.endDate)) throw new AgendaError(tr('endDate debe ser AAAA-MM-DD.', 'endDate must be YYYY-MM-DD.')); ev.endDate = input.endDate; } }
+  for (const k of ['time', 'endTime'] as const) if (has(k)) { if (input[k] === null || input[k] === '') delete ev[k]; else { if (typeof input[k] !== 'string' || !TIME.test(input[k] as string)) throw new AgendaError(tr(`${k} debe ser HH:MM (24 horas).`, `${k} must be HH:MM (24 hours).`)); ev[k] = input[k] as string; } }
   if (has('location')) { const v = str('location', 120); if (v) ev.location = v; else delete ev.location; }
   if (has('notes')) { const v = str('notes', 1000); if (v) ev.notes = v; else delete ev.notes; }
   if (has('nodeIds')) { const ids = Array.isArray(input.nodeIds) ? Array.from(new Set((input.nodeIds as unknown[]).filter((x): x is string => typeof x === 'string' && /^[\w.\-]{2,120}$/.test(x)))).slice(0, 12) : []; if (ids.length) ev.nodeIds = ids; else delete ev.nodeIds; }
-  if (has('repeat')) { if (!(REPEATS as readonly string[]).includes(input.repeat as string)) throw new AgendaError('repeat debe ser none, daily, weekly, monthly o yearly.'); ev.repeat = input.repeat as Repeat; }
+  if (has('repeat')) { if (!(REPEATS as readonly string[]).includes(input.repeat as string)) throw new AgendaError(tr('repeat debe ser none, daily, weekly, monthly o yearly.', 'repeat must be none, daily, weekly, monthly or yearly.')); ev.repeat = input.repeat as Repeat; }
   if (has('weekdays')) { const w = Array.isArray(input.weekdays) ? Array.from(new Set((input.weekdays as unknown[]).filter((x): x is number => Number.isInteger(x) && (x as number) >= 0 && (x as number) <= 6))).sort() : []; if (w.length) ev.weekdays = w; else delete ev.weekdays; }
-  if (has('until')) { if (input.until === null || input.until === '') delete ev.until; else { if (!validDay(input.until)) throw new AgendaError('until debe ser AAAA-MM-DD.'); ev.until = input.until; } }
-  if (!ev.title || ev.title.length < 2) throw new AgendaError('El evento necesita un título.');
-  if (!ev.date) throw new AgendaError('El evento necesita una fecha (date).');
-  if (ev.endDate && ev.endDate < ev.date) throw new AgendaError('endDate no puede ser anterior a date.');
-  if (ev.endDate && addDays(ev.date, 120) < ev.endDate) throw new AgendaError('Un evento no puede durar más de 120 días.');
-  if (ev.until && ev.until < ev.date) throw new AgendaError('until no puede ser anterior a date.');
-  if (ev.time && ev.endTime && !ev.endDate && ev.endTime <= ev.time) throw new AgendaError('endTime debe ser posterior a time.');
+  if (has('until')) { if (input.until === null || input.until === '') delete ev.until; else { if (!validDay(input.until)) throw new AgendaError(tr('until debe ser AAAA-MM-DD.', 'until must be YYYY-MM-DD.')); ev.until = input.until; } }
+  if (!ev.title || ev.title.length < 2) throw new AgendaError(tr('El evento necesita un título.', 'The event needs a title.'));
+  if (!ev.date) throw new AgendaError(tr('El evento necesita una fecha (date).', 'The event needs a date (date).'));
+  if (ev.endDate && ev.endDate < ev.date) throw new AgendaError(tr('endDate no puede ser anterior a date.', 'endDate cannot be earlier than date.'));
+  if (ev.endDate && addDays(ev.date, 120) < ev.endDate) throw new AgendaError(tr('Un evento no puede durar más de 120 días.', 'An event cannot last more than 120 days.'));
+  if (ev.until && ev.until < ev.date) throw new AgendaError(tr('until no puede ser anterior a date.', 'until cannot be earlier than date.'));
+  if (ev.time && ev.endTime && !ev.endDate && ev.endTime <= ev.time) throw new AgendaError(tr('endTime debe ser posterior a time.', 'endTime must be later than time.'));
   ev.updatedAt = now.toISOString();
   save(vaultPath, creating ? [...events, ev] : events);
   return ev;
@@ -76,7 +77,7 @@ export function upsertEvent(vaultPath: string, input: Record<string, unknown>, b
 export function deleteEvent(vaultPath: string, id: string, onlyDate?: string): boolean {
   const events = listEvents(vaultPath); const ev = events.find(e => e.id === id);
   if (!ev) return false;
-  if (onlyDate && ev.repeat !== 'none') { if (!validDay(onlyDate)) throw new AgendaError('date debe ser AAAA-MM-DD.'); ev.cancelled = Array.from(new Set([...(ev.cancelled || []), onlyDate])).slice(-200); save(vaultPath, events); return true; }
+  if (onlyDate && ev.repeat !== 'none') { if (!validDay(onlyDate)) throw new AgendaError(tr('date debe ser AAAA-MM-DD.', 'date must be YYYY-MM-DD.')); ev.cancelled = Array.from(new Set([...(ev.cancelled || []), onlyDate])).slice(-200); save(vaultPath, events); return true; }
   save(vaultPath, events.filter(e => e.id !== id)); return true;
 }
 

@@ -1,3 +1,4 @@
+import { tr } from './reqLang';
 // Read-only checks for upgrading the existing service. Never seed, migrate or connect.
 export interface ExistingServiceFacts {
   serviceId?: string;
@@ -22,7 +23,7 @@ export function auditExistingService(facts: ExistingServiceFacts = {}) {
   return { serviceId: facts.serviceId || null, storage: facts.storage || 'Unknown', variableNamesPresent: Object.keys(vars).filter(k => vars[k]).sort(), readyToDeploy: false, blockers, externalActions: false };
 }
 export function auditUpgradeDatabase(value: any) {
-  if (!value || typeof value !== 'object' || !['companies', 'people', 'tasks'].every(k => Array.isArray(value[k]))) throw new Error('Exportación JSON inválida; no se modificó ninguna base.');
+  if (!value || typeof value !== 'object' || !['companies', 'people', 'tasks'].every(k => Array.isArray(value[k]))) throw new Error(tr('Exportación JSON inválida; no se modificó ninguna base.', 'Invalid JSON export; no database was modified.'));
   const issues: string[] = [];
   const keys = ['companies','people','tasks','users','projects','reminders','automations','heroPreferences','appliedOperations'];
   for (const key of keys) {

@@ -6,6 +6,7 @@ import { autoApply, loadAutonomy, saveAutonomy, recentActivity } from '@/lib/aut
 import { recentAppliedAll } from '@/lib/sleepApply';
 import { sanitizeQuestions, MAX_STATE_CHARS } from '@/lib/decisionEngine';
 import { configuredProvider, DecisionError, lastLog, loadReviews, logCall, reviewProposals, saveReviews } from '@/lib/decisionEngine';
+import { tr } from '@/lib/reqLang';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,7 @@ async function _POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   if (body.action === 'autonomy') return NextResponse.json({ ok: true, autonomy: saveAutonomy(vaultPath, { mode: body.mode, threshold: body.threshold }) });
   const provider = configuredProvider();
-  if (!provider) return NextResponse.json({ ok: false, error: 'Falta TYPESAFE_API_KEY en Render.' }, { status: 503 });
+  if (!provider) return NextResponse.json({ ok: false, error: tr('Falta TYPESAFE_API_KEY en Render.', 'TYPESAFE_API_KEY is missing on Render.') }, { status: 503 });
   try {
     if (body.action === 'ping') {
       const r = await provider.decide('The sky is blue on a clear day.', { check: { type: 'noul', instructions: 'The text says that the sky is blue.' } });
@@ -39,18 +40,18 @@ async function _POST(req: NextRequest) {
     if (body.action === 'ask') {
       // El agente pregunta lo que necesite: estado (texto o JSON) + preguntas tipadas. Jev solo opina; no cambia nada.
       const state = typeof body.state === 'string' ? body.state : body.state && typeof body.state === 'object' ? JSON.stringify(body.state) : '';
-      if (state.length < 1) return NextResponse.json({ ok: false, error: 'Falta state (texto u objeto JSON).' }, { status: 400 });
-      if (state.length > MAX_STATE_CHARS) return NextResponse.json({ ok: false, error: `state supera ${MAX_STATE_CHARS} caracteres; recórtalo o divídelo.` }, { status: 413 });
+      if (state.length < 1) return NextResponse.json({ ok: false, error: tr('Falta state (texto u objeto JSON).', 'state is missing (text or JSON object).') }, { status: 400 });
+      if (state.length > MAX_STATE_CHARS) return NextResponse.json({ ok: false, error: tr(`state supera ${MAX_STATE_CHARS} caracteres; recórtalo o divídelo.`, `state exceeds ${MAX_STATE_CHARS} characters; trim it or split it.`) }, { status: 413 });
       const questions = sanitizeQuestions(body.questions);
       if (typeof questions === 'string') return NextResponse.json({ ok: false, error: questions }, { status: 400 });
       const r = await provider.decide(state, questions);
       logCall(sleepDir, { action: 'ask', ok: true, model: r.model, ms: r.ms, input_tokens: r.usage.input_tokens, reviewed: Object.keys(r.answers).length });
       return NextResponse.json({ ok: true, model: r.model, ms: r.ms, answers: r.answers, unanswered: Object.keys(questions).filter(k => !(k in r.answers)), usage: r.usage,
-        note: 'Opinión con probabilidad, no un hecho verificado. No autoriza ningún cambio por sí sola.' });
+        note: tr('Opinión con probabilidad, no un hecho verificado. No autoriza ningún cambio por sí sola.', 'An opinion with a probability, not a verified fact. It does not authorize any change by itself.') });
     }
     if (body.action === 'review') {
       const report = loadLatestReport(vaultPath);
-      if (!report) return NextResponse.json({ ok: false, error: 'Aún no hay informe nocturno.' }, { status: 404 });
+      if (!report) return NextResponse.json({ ok: false, error: tr('Aún no hay informe nocturno.', 'There is no nightly report yet.') }, { status: 404 });
       const view = applyDecisions(report, loadDecisions(vaultPath), new Date());
       const pending = view.proposals.filter((p: any) => !p.decision);
       const g = loadBrainGraph();

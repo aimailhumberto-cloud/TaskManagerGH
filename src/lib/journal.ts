@@ -12,6 +12,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import YAML from 'yaml';
 import { AsyncLocalStorage } from 'async_hooks';
+import { tr } from './reqLang';
 
 export interface ChangeMeta { actor?: string; via?: string; route?: string; action?: string; request?: string; note?: string }
 export interface FileChange { path: string; title?: string; op: 'creado' | 'cambiado' | 'borrado'; fields?: string[]; body?: boolean; detail?: string[] }
@@ -178,12 +179,12 @@ export const findEntry = (vaultPath: string, id: string) => readJournal(vaultPat
 export type UndoResult = { ok: true; entry: JournalEntry; undo: JournalEntry | null } | { ok: false; error: string; status: number; changedSince?: string[] };
 export async function undoChange(vaultPath: string, id: string, by: ChangeMeta): Promise<UndoResult> {
   const entry = findEntry(vaultPath, id);
-  if (!entry) return { ok: false, status: 404, error: 'Ese cambio no está en el diario.' };
-  if (entry.undoneAt) return { ok: false, status: 409, error: 'Ese cambio ya se deshizo.' };
+  if (!entry) return { ok: false, status: 404, error: tr('Ese cambio no está en el diario.', 'That change is not in the journal.') };
+  if (entry.undoneAt) return { ok: false, status: 409, error: tr('Ese cambio ya se deshizo.', 'That change has already been undone.') };
   let snap: { files: { path: string; before: string | null; after: string | null }[] };
-  try { snap = JSON.parse(fs.readFileSync(snapFile(vaultPath, id), 'utf8')); } catch { return { ok: false, status: 410, error: `La foto de ese cambio ya no existe (se guardan ${SNAP_DAYS} días).` }; }
+  try { snap = JSON.parse(fs.readFileSync(snapFile(vaultPath, id), 'utf8')); } catch { return { ok: false, status: 410, error: tr(`La foto de ese cambio ya no existe (se guardan ${SNAP_DAYS} días).`, `The snapshot of that change no longer exists (it is kept for ${SNAP_DAYS} days).`) }; }
   const changedSince = snap.files.filter(f => readRaw(absOf(vaultPath, f.path)) !== f.after).map(f => f.path.replace(/^~/, ''));
-  if (changedSince.length) return { ok: false, status: 409, error: 'No se puede deshacer: esos archivos cambiaron después. Deshaz primero los cambios más nuevos o corrige a mano.', changedSince };
+  if (changedSince.length) return { ok: false, status: 409, error: tr('No se puede deshacer: esos archivos cambiaron después. Deshaz primero los cambios más nuevos o corrige a mano.', 'It cannot be undone: those files changed afterwards. Undo the newer changes first or fix it by hand.'), changedSince };
   const { entry: undo } = await withChange(vaultPath, { ...by, action: 'deshacer', note: id }, () => {
     for (const f of snap.files) {
       const abs = absOf(vaultPath, f.path);

@@ -1,5 +1,6 @@
 import * as crypto from 'crypto';
 import { validSessionPayload } from './sessionPayload';
+import { tr } from './reqLang';
 export interface SessionData {
   userId: string; personId: string; email: string; role: string;
   companyId?: string; createdAt: string;
@@ -8,7 +9,7 @@ export interface SessionData {
 }
 export function encryptSession(session: SessionData): string {
   const secret = process.env.SESSION_SECRET;
-  if (!secret || secret.length < 32) throw new Error('SESSION_SECRET debe configurarse antes de iniciar sesión.');
+  if (!secret || secret.length < 32) throw new Error(tr('SESSION_SECRET debe configurarse antes de iniciar sesión.', 'SESSION_SECRET must be configured before signing in.'));
   const payload = Buffer.from(JSON.stringify(session)).toString('base64url');
   return `${payload}.${crypto.createHmac('sha256', secret).update(payload).digest('base64url')}`;
 }

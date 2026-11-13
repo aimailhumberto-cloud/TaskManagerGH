@@ -3,6 +3,7 @@ import { withBrain } from '@/lib/brains';
 import { canWriteFully } from '@/lib/brainContext';
 import { parseNoteStrict } from '@/lib/vaultFiles';
 import { ensureDailySnapshot, createVaultSnapshot, listVaultSnapshots, MAX_SNAPSHOTS } from '@/lib/vaultBackup';
+import { tr, tw } from '@/lib/reqLang';
 import {
   getVaultPath,
   writeVaultFile,
@@ -22,10 +23,10 @@ function staleCheck(relPath: string, ifMatch: unknown): { status: number; error:
   const cur = readVaultFile(relPath);
   if (!cur.ok) return null; // archivo nuevo
   if (typeof ifMatch === 'string' && ifMatch) {
-    return ifMatch === cur.hash ? null : { status: 409, error: `${relPath} cambió desde que lo leíste. Vuelve a leerlo (GET /api/agent/vault-sync?path=...) y aplica tu cambio sobre la versión actual.`, currentHash: cur.hash };
+    return ifMatch === cur.hash ? null : { status: 409, error: tr(`${relPath} cambió desde que lo leíste. Vuelve a leerlo (GET /api/agent/vault-sync?path=...) y aplica tu cambio sobre la versión actual.`, `${relPath} changed since you read it. Read it again (GET /api/agent/vault-sync?path=...) and apply your change on top of the current version.`), currentHash: cur.hash };
   }
   if (process.env.VAULT_REQUIRE_MATCH === '0') return null;
-  return { status: 428, error: `${relPath} ya existe. Para reescribirlo envía ifMatch con la huella (hash) que te dio la lectura. Para registrar una novedad usa POST /api/agent/brain {action:'record'}.`, currentHash: cur.hash };
+  return { status: 428, error: tr(`${relPath} ya existe. Para reescribirlo envía ifMatch con la huella (hash) que te dio la lectura. Para registrar una novedad usa POST /api/agent/brain {action:'record'}.`, `${relPath} already exists. To overwrite it, send ifMatch with the fingerprint (hash) you got when reading it. To log news, use POST /api/agent/brain {action:'record'}.`), currentHash: cur.hash };
 }
 
 export const dynamic = 'force-dynamic';
@@ -85,7 +86,7 @@ async function _GET(req: NextRequest) {
       const res = readVaultFile(filePath);
       if (!res.ok) {
         return NextResponse.json(
-          { ok: false, error: `Archivo '${filePath}' no encontrado` },
+          { ok: false, error: tr(`Archivo '${filePath}' no encontrado`, `File '${filePath}' not found`) },
           { status: 404, headers: CORS_HEADERS }
         );
       }
@@ -119,7 +120,7 @@ async function _GET(req: NextRequest) {
     return NextResponse.json(
       {
         ok: true,
-        message: 'Endpoint de Sincronización en la Nube para Obsidian Vault (SM Jaleel Cerebro)',
+        message: tw('Endpoint de Sincronización en la Nube para Obsidian Vault (SM Jaleel Cerebro)', 'Cloud Sync endpoint for the Obsidian Vault (SM Jaleel Brain)'),
         activeVaultPath: vaultPath,
         isRender: !!process.env.RENDER,
         totalFiles: files.length,
@@ -150,7 +151,7 @@ async function _POST(req: NextRequest) {
     const body = await req.json();
     const action = body.action || (body.path && body.content ? 'write_file' : 'unknown');
 
-    if (action !== 'snapshot' && !canWriteFully()) return NextResponse.json({ ok: false, error: 'Esta llave no puede escribir ni borrar archivos de la bóveda.' }, { status: 403 });
+    if (action !== 'snapshot' && !canWriteFully()) return NextResponse.json({ ok: false, error: tr('Esta llave no puede escribir ni borrar archivos de la bóveda.', 'This key cannot write or delete vault files.') }, { status: 403 });
 
     if (action === 'snapshot') {
       const res = createVaultSnapshot(getVaultPath(), 'manual');
@@ -168,7 +169,7 @@ async function _POST(req: NextRequest) {
       const { path: relPath, content } = body;
       if (!relPath || typeof content !== 'string') {
         return NextResponse.json(
-          { ok: false, error: 'path y content son requeridos' },
+          { ok: false, error: tr('path y content son requeridos', 'path and content are required') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -179,7 +180,7 @@ async function _POST(req: NextRequest) {
       catch (e: any) { if (e instanceof VaultWriteError) return NextResponse.json({ ok: false, error: e.message }, { status: e.status, headers: CORS_HEADERS }); throw e; }
       return NextResponse.json(
         {
-          message: `Archivo '${relPath}' guardado instantáneamente en la nube`,
+          message: tr(`Archivo '${relPath}' guardado instantáneamente en la nube`, `File '${relPath}' saved instantly to the cloud`),
           ...res,
           timestamp: new Date().toISOString(),
         },
@@ -191,7 +192,7 @@ async function _POST(req: NextRequest) {
       const files: { path: string; content: string; ifMatch?: string }[] = body.files;
       if (!Array.isArray(files)) {
         return NextResponse.json(
-          { ok: false, error: 'files array es requerido para batch_sync' },
+          { ok: false, error: tr('files array es requerido para batch_sync', 'files array is required for batch_sync') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
@@ -228,24 +229,24 @@ async function _POST(req: NextRequest) {
       const { path: relPath } = body;
       if (!relPath) {
         return NextResponse.json(
-          { ok: false, error: 'path es requerido para delete_file' },
+          { ok: false, error: tr('path es requerido para delete_file', 'path is required for delete_file') },
           { status: 400, headers: CORS_HEADERS }
         );
       }
       const res = deleteVaultFile(relPath);
       return NextResponse.json(
-        { message: `Archivo '${relPath}' eliminado del vault en la nube`, ...res },
+        { message: tr(`Archivo '${relPath}' eliminado del vault en la nube`, `File '${relPath}' deleted from the cloud vault`), ...res },
         { status: 200, headers: CORS_HEADERS }
       );
     }
 
     return NextResponse.json(
-      { ok: false, error: `Acción '${action}' no reconocida` },
+      { ok: false, error: tr(`Acción '${action}' no reconocida`, `Action '${action}' not recognized`) },
       { status: 400, headers: CORS_HEADERS }
     );
   } catch (error: any) {
     return NextResponse.json(
-      { ok: false, error: error.message || 'Error procesando sincronización en vault-sync' },
+      { ok: false, error: error.message || tr('Error procesando sincronización en vault-sync', 'Error processing the vault-sync') },
       { status: 500, headers: CORS_HEADERS }
     );
   }

@@ -1,5 +1,6 @@
 import type { Task } from '@/services/mockData';
 import { validDate } from './personalTasks';
+import { tr } from './reqLang';
 export const PANAMA = 'America/Panama';
 export interface CalendarEvent {
   id: string; calendarId: string; title: string; start: string; end: string;
@@ -22,7 +23,7 @@ export function activeWork(task: Task): boolean {
   return !task.cancelledAt && task.validationStatus !== 'NeedsConfirmation' && task.status !== 'Completed';
 }
 export function instant(value: unknown): string {
-  if (typeof value !== 'string' || !/(Z|[+-]\d{2}:\d{2})$/.test(value) || !Number.isFinite(Date.parse(value))) throw new Error('Indica fecha y hora con zona horaria explícita.');
+  if (typeof value !== 'string' || !/(Z|[+-]\d{2}:\d{2})$/.test(value) || !Number.isFinite(Date.parse(value))) throw new Error(tr('Indica fecha y hora con zona horaria explícita.', 'Give a date and time with an explicit time zone.'));
   return new Date(value).toISOString();
 }
 export function panamaDate(value: string): string {

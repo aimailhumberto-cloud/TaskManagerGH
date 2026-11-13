@@ -8,6 +8,7 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { tr } from './reqLang';
 
 export const SCOPES = ['leer', 'proponer', 'escribir'] as const;
 export type Scope = (typeof SCOPES)[number];
@@ -38,9 +39,9 @@ export const listKeys = (accountId: string): PublicAgentKey[] => load().filter(k
 export function createKey(accountId: string, name: string, scope: string): { key: string; record: PublicAgentKey } {
   const clean = String(name || '').trim().slice(0, 60);
   if (clean.length < 2) throw new KeyError('Ponle un nombre al agente (2 a 60 caracteres).');
-  if (!(SCOPES as readonly string[]).includes(scope)) throw new KeyError('Alcance no válido.');
+  if (!(SCOPES as readonly string[]).includes(scope)) throw new KeyError(tr('Alcance no válido.', 'Invalid scope.'));
   const keys = load();
-  if (keys.filter(k => k.accountId === accountId && !k.revokedAt).length >= MAX_KEYS_PER_ACCOUNT) throw new KeyError(`Máximo ${MAX_KEYS_PER_ACCOUNT} llaves activas. Revoca una primero.`, 409);
+  if (keys.filter(k => k.accountId === accountId && !k.revokedAt).length >= MAX_KEYS_PER_ACCOUNT) throw new KeyError(tr(`Máximo ${MAX_KEYS_PER_ACCOUNT} llaves activas. Revoca una primero.`, `Maximum ${MAX_KEYS_PER_ACCOUNT} active keys. Revoke one first.`), 409);
   const id = crypto.randomBytes(4).toString('hex');
   const key = `${KEY_PREFIX}${id}_${crypto.randomBytes(32).toString('hex')}`;
   const rec: AgentKey = { id, accountId, name: clean, scope: scope as Scope, hash: sha(key), hint: `${KEY_PREFIX}${id}_…${key.slice(-4)}`, createdAt: new Date().toISOString() };
@@ -51,7 +52,7 @@ export function createKey(accountId: string, name: string, scope: string): { key
 export function revokeKey(accountId: string, id: string): PublicAgentKey {
   const keys = load();
   const k = keys.find(x => x.id === id && x.accountId === accountId);
-  if (!k) throw new KeyError('Llave no encontrada.', 404);
+  if (!k) throw new KeyError(tr('Llave no encontrada.', 'Key not found.'), 404);
   if (!k.revokedAt) { k.revokedAt = new Date().toISOString(); save(keys); }
   return strip(k);
 }

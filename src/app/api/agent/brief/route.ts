@@ -6,6 +6,7 @@ import { readJournal, untrackedSince, parseSince } from '@/lib/journal';
 import { addDays, listEvents, mergedAgenda } from '@/lib/agenda';
 import { listKpis } from '@/lib/kpis';
 import { applyDecisions, loadDecisions, loadLatestReport } from '@/lib/dotsSleep';
+import { tr } from '@/lib/reqLang';
 export const dynamic = 'force-dynamic';
 
 /**
@@ -14,7 +15,7 @@ export const dynamic = 'force-dynamic';
  * Regla para quien lo usa: el brief se arma SOLO con esto; si algo no está aquí, no se afirma.
  */
 async function _GET(req: NextRequest) {
-  const ctx = currentBrain(); if (!ctx) return NextResponse.json({ ok: false, error: 'Sin cerebro.' }, { status: 401 });
+  const ctx = currentBrain(); if (!ctx) return NextResponse.json({ ok: false, error: tr('Sin cerebro.', 'No brain.') }, { status: 401 });
   const sp = new URL(req.url).searchParams;
   const since = parseSince(sp.get('since'));
   const days = Math.min(30, Math.max(1, Number(sp.get('days')) || 7));
@@ -46,7 +47,7 @@ async function _GET(req: NextRequest) {
     followups: open.filter(x => x.id.startsWith('fu-') && x.dueDate && x.dueDate <= addDays(dateStr, days)).sort(byDate).map(lite),
     agenda,
     changes: { since, count: entries.length, items: entries.map(e => ({ at: e.at, by: e.actor, summary: e.summary, undone: !!e.undoneAt })) },
-    untrackedChanges: untracked.length ? { count: untracked.length, files: untracked.slice(0, 20), note: 'Archivos que cambiaron sin pasar por la app (Obsidian o sincronización): revísalos antes de afirmar algo sobre ellos.' } : null,
+    untrackedChanges: untracked.length ? { count: untracked.length, files: untracked.slice(0, 20), note: tr('Archivos que cambiaron sin pasar por la app (Obsidian o sincronización): revísalos antes de afirmar algo sobre ellos.', 'Files that changed without going through the app (Obsidian or sync): check them before stating anything about them.') } : null,
     workingMemory: working,
     kpis: listKpis(ctx.vaultPath).map(k => ({ name: k.name, value: k.value, unit: k.unit, target: k.target, period: k.period, updatedAt: k.updatedAt })),
     distributors: t.distributors.map(d => ({ name: d.name, country: d.country, status: d.status, compliance: d.complianceRate ?? null, nextFollowupDate: d.nextFollowupDate || null, nextFollowupAction: d.nextFollowupAction || null, lastContactDate: d.lastContactDate || null })),

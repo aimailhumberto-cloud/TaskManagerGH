@@ -76,7 +76,7 @@ El cerebro ya tiene su propia inteligencia, «el Cerebro». En vez de armar cada
 - El Cerebro **responde en el idioma del texto que le mandas** (`text`, `q`). Si escribes en inglés, el plan, el recibo, los avisos y las preguntas salen en inglés; si escribes en español, en español. Cada pedido guarda su idioma (`lang`) y la respuesta lo devuelve.
 - Para **forzarlo** manda `"lang":"es"` o `"lang":"en"`. La pantalla manda `uiLang` solo como pista cuando el texto no basta (por ejemplo, un nombre suelto).
 - **Lo que tú o tu gente escribe se guarda tal cual, sin traducir.** Lo que escribe la app dentro de las fichas (título «Reunión con X: tema» / «Meeting with X: topic», líneas de la bitácora, notas del diario, encabezados «Bitácora» / «Log») sigue el **idioma de trabajo del cerebro**: ajuste `workLang` (`es` o `en`), que una persona cambia en Pedir → Ajustes. Si aún no se eligió, el cerebro toma el idioma de la pantalla de quien lo usa primero (un agente nunca lo fija).
-- Las respuestas de otras rutas del servidor siguen en español por ahora; se irán pasando a los dos idiomas.
+- **Los mensajes y errores de todas las rutas** (agenda, indicadores, compartir, deshacer, llaves, cuentas, login) también salen en los dos idiomas. Se elige así: encabezado `x-lang: en`, o `?lang=en` en la URL, o la cookie `cerebro_lang` de la pantalla. Sin nada, **español**, como siempre. Los nombres de los campos y las acciones (`action`, `date`, `nodeId`…) no se traducen.
 
 ## 1. Principio Fundamental: El Cerebro en Markdown es la Única Fuente de Verdad (SSOT)
 

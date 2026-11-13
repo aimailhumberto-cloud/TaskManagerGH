@@ -6,6 +6,7 @@
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { tr } from './reqLang';
 
 export const ROLES = ['Owner', 'Admin', 'Gerente', 'Miembro', 'Solo lectura'] as const;
 export type LocalRole = (typeof ROLES)[number];
@@ -59,13 +60,13 @@ export const hasManager = () => load().some(a => a.isActive && MANAGER_ROLES.inc
 export function createAccount(input: { email: string; name: string; role: string; password: string; createdBy: string; mustChange?: boolean }): PublicAccount {
   const email = String(input.email || '').trim().toLowerCase();
   const name = String(input.name || '').trim();
-  if (!EMAIL.test(email) || email.length > 320) throw new AccountError('Correo no válido.');
-  if (name.length < 2 || name.length > 120) throw new AccountError('Escribe el nombre (2 a 120 caracteres).');
-  if (!(ROLES as readonly string[]).includes(input.role)) throw new AccountError('Rol no válido.');
+  if (!EMAIL.test(email) || email.length > 320) throw new AccountError(tr('Correo no válido.', 'Invalid email.'));
+  if (name.length < 2 || name.length > 120) throw new AccountError(tr('Escribe el nombre (2 a 120 caracteres).', 'Write the name (2 to 120 characters).'));
+  if (!(ROLES as readonly string[]).includes(input.role)) throw new AccountError(tr('Rol no válido.', 'Invalid role.'));
   const bad = validatePassword(input.password);
   if (bad) throw new AccountError(bad);
   const accounts = load();
-  if (accounts.some(a => a.email === email)) throw new AccountError('Ese correo ya tiene una cuenta.', 409);
+  if (accounts.some(a => a.email === email)) throw new AccountError(tr('Ese correo ya tiene una cuenta.', 'That email already has an account.'), 409);
   const max = accounts.reduce((m, a) => Math.max(m, Number(a.id.replace('local-', '')) || 0), 0);
   const salt = crypto.randomBytes(16).toString('hex');
   const acc: LocalAccount = {
@@ -93,19 +94,19 @@ export function authenticateLocal(email: string, password: string): PublicAccoun
 export function updateAccount(id: string, patch: { isActive?: boolean; role?: string; name?: string; newPassword?: string; mustChange?: boolean }, actor: { id: string; role: string }): PublicAccount {
   const accounts = load();
   const acc = accounts.find(a => a.id === id);
-  if (!acc) throw new AccountError('Cuenta no encontrada.', 404);
+  if (!acc) throw new AccountError(tr('Cuenta no encontrada.', 'Account not found.'), 404);
   const actorTop = TOP_ROLES.includes(actor.role);
-  if (!actorTop && (TOP_ROLES.includes(acc.role) || (patch.role && TOP_ROLES.includes(patch.role)))) throw new AccountError('Solo un Admin u Owner puede tocar cuentas Admin u Owner.', 403);
+  if (!actorTop && (TOP_ROLES.includes(acc.role) || (patch.role && TOP_ROLES.includes(patch.role)))) throw new AccountError(tr('Solo un Admin u Owner puede tocar cuentas Admin u Owner.', 'Only an Admin or Owner can change Admin or Owner accounts.'), 403);
   const activeManagers = (list: LocalAccount[]) => list.filter(a => a.isActive && MANAGER_ROLES.includes(a.role)).length;
-  if (patch.role !== undefined) { if (!(ROLES as readonly string[]).includes(patch.role)) throw new AccountError('Rol no válido.'); acc.role = patch.role as LocalRole; }
-  if (patch.name !== undefined) { const n = patch.name.trim(); if (n.length < 2 || n.length > 120) throw new AccountError('Nombre no válido.'); acc.name = n; }
-  if (patch.isActive !== undefined) { if (id === actor.id && !patch.isActive) throw new AccountError('No puedes desactivar tu propia cuenta.'); acc.isActive = patch.isActive; }
+  if (patch.role !== undefined) { if (!(ROLES as readonly string[]).includes(patch.role)) throw new AccountError(tr('Rol no válido.', 'Invalid role.')); acc.role = patch.role as LocalRole; }
+  if (patch.name !== undefined) { const n = patch.name.trim(); if (n.length < 2 || n.length > 120) throw new AccountError(tr('Nombre no válido.', 'Invalid name.')); acc.name = n; }
+  if (patch.isActive !== undefined) { if (id === actor.id && !patch.isActive) throw new AccountError(tr('No puedes desactivar tu propia cuenta.', 'You cannot deactivate your own account.')); acc.isActive = patch.isActive; }
   if (patch.newPassword !== undefined) {
     const bad = validatePassword(patch.newPassword); if (bad) throw new AccountError(bad);
     acc.salt = crypto.randomBytes(16).toString('hex'); acc.hash = hashPw(patch.newPassword, acc.salt);
     acc.mustChange = patch.mustChange ?? true; acc.passwordChangedAt = new Date().toISOString();
   }
-  if (activeManagers(accounts) === 0) throw new AccountError('Debe quedar al menos un usuario activo que pueda administrar usuarios.');
+  if (activeManagers(accounts) === 0) throw new AccountError(tr('Debe quedar al menos un usuario activo que pueda administrar usuarios.', 'At least one active user who can manage users must remain.'));
   save(accounts);
   return strip(acc);
 }
@@ -113,9 +114,9 @@ export function updateAccount(id: string, patch: { isActive?: boolean; role?: st
 export function changeOwnPassword(id: string, current: string, next: string): void {
   const accounts = load();
   const acc = accounts.find(a => a.id === id);
-  if (!acc) throw new AccountError('Cuenta no encontrada.', 404);
+  if (!acc) throw new AccountError(tr('Cuenta no encontrada.', 'Account not found.'), 404);
   const a = Buffer.from(hashPw(current, acc.salt), 'hex'), b = Buffer.from(acc.hash, 'hex');
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) throw new AccountError('La contraseña actual no es correcta.', 403);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) throw new AccountError(tr('La contraseña actual no es correcta.', 'The current password is not correct.'), 403);
   const bad = validatePassword(next); if (bad) throw new AccountError(bad);
   acc.salt = crypto.randomBytes(16).toString('hex'); acc.hash = hashPw(next, acc.salt);
   acc.mustChange = false; acc.passwordChangedAt = new Date().toISOString();

@@ -37,7 +37,7 @@ export function CerebroHud({ contactStats, graphData, handleConsolidate, isHudOp
                 </span>
               </div>
               <div className="mt-1 text-[9px] text-gray-400 truncate font-mono">
-                {linkHealthAudit.brokenCount === 0 ? 'Sinapsis íntegras en bóveda' : `Faltan: ${linkHealthAudit.brokenSample.join(', ')}`}
+                {linkHealthAudit.brokenCount === 0 ? t('Sinapsis íntegras en bóveda') : `${t('Faltan:')} ${linkHealthAudit.brokenSample.join(', ')}`}
               </div>
             </div>
 

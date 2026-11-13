@@ -8,6 +8,7 @@ import { updateNoteFile } from '@/lib/vaultFiles';
 import { ensureDailySnapshot } from '@/lib/vaultBackup';
 import { AssetError, fetchRemoteImage, findAsset, isImportableUrl, listAssets, saveAsset } from '@/lib/assetStore';
 import { brandOf } from '@/lib/assetCatalog';
+import { tr } from '@/lib/reqLang';
 export const dynamic = 'force-dynamic';
 
 /**
@@ -20,7 +21,7 @@ export const dynamic = 'force-dynamic';
  *   (por tandas; la ficha conserva su enlace original y se puede deshacer con 'unassign').
  */
 async function _GET(req: NextRequest) {
-  const ctx = currentBrain(); if (!ctx) return NextResponse.json({ ok: false, error: 'Sin cerebro.' }, { status: 401 });
+  const ctx = currentBrain(); if (!ctx) return NextResponse.json({ ok: false, error: tr('Sin cerebro.', 'No brain.') }, { status: 401 });
   const u = new URL(req.url); const q = (u.searchParams.get('q') || '').toLowerCase().trim(), brand = u.searchParams.get('brand'), kind = u.searchParams.get('kind');
   const all = listAssets();
   const assets = all.filter(a => (!brand || a.brand === brand) && (!kind || a.kind === kind) && (!q || `${a.id} ${a.brand} ${a.kind} ${a.label || ''}`.toLowerCase().includes(q)));
@@ -28,8 +29,8 @@ async function _GET(req: NextRequest) {
   return NextResponse.json({ ok: true, total: all.length, assets, brands: count('brand'), kinds: count('kind') });
 }
 async function _POST(req: NextRequest) {
-  const ctx = currentBrain(); if (!ctx) return NextResponse.json({ ok: false, error: 'Sin cerebro.' }, { status: 401 });
-  if (ctx.readOnly || !canWriteFully()) return NextResponse.json({ ok: false, error: 'No tienes permiso para cambiar imágenes.' }, { status: 403 });
+  const ctx = currentBrain(); if (!ctx) return NextResponse.json({ ok: false, error: tr('Sin cerebro.', 'No brain.') }, { status: 401 });
+  if (ctx.readOnly || !canWriteFully()) return NextResponse.json({ ok: false, error: tr('No tienes permiso para cambiar imágenes.', 'You do not have permission to change images.') }, { status: 403 });
   const b = await req.json().catch(() => ({}));
   const who = ctx.actor?.startsWith('local-') ? getAccount(ctx.actor)?.name || ctx.actor : ctx.actor ? 'Agente' : 'Persona';
   try {
@@ -37,11 +38,11 @@ async function _POST(req: NextRequest) {
     if (b?.action === 'assign' || b?.action === 'unassign') {
       const g = loadBrainGraph(); const id = String(b.nodeId || '').toLowerCase();
       const node = (g.allNodes || g.nodes).find(n => n.id.toLowerCase() === id);
-      if (!node) return NextResponse.json({ ok: false, error: 'No se encontró esa ficha.' }, { status: 404 });
+      if (!node) return NextResponse.json({ ok: false, error: tr('No se encontró esa ficha.', 'That note was not found.') }, { status: 404 });
       const abs = path.resolve(node.filePath);
-      if (!abs.startsWith(path.resolve(ctx.vaultPath) + path.sep)) return NextResponse.json({ ok: false, error: 'Ficha fuera de la bóveda.' }, { status: 400 });
+      if (!abs.startsWith(path.resolve(ctx.vaultPath) + path.sep)) return NextResponse.json({ ok: false, error: tr('Ficha fuera de la bóveda.', 'Note outside the vault.') }, { status: 400 });
       const asset = b.action === 'assign' ? findAsset(String(b.assetId || '')) : null;
-      if (b.action === 'assign' && !asset) return NextResponse.json({ ok: false, error: 'Esa imagen no está en la biblioteca.' }, { status: 404 });
+      if (b.action === 'assign' && !asset) return NextResponse.json({ ok: false, error: tr('Esa imagen no está en la biblioteca.', 'That image is not in the library.') }, { status: 404 });
       ensureDailySnapshot(ctx.vaultPath);
       const upd = updateNoteFile(abs, (fm) => {
         if (asset) { fm.asset_id = asset.id; fm.avatar_image = asset.url; fm.asset_assigned_by = who; }
@@ -64,14 +65,14 @@ async function _POST(req: NextRequest) {
           const buf = await fetchRemoteImage(url);
           const asset = saveAsset({ name: n.title, brand: brandOf(`${n.id} ${n.title}`) || 'otros', kind: n.frontmatter.visual_photo_url ? 'product' : 'logo', dataBase64: buf.toString('base64') }, who);
           const upd = updateNoteFile(path.resolve(n.filePath), (fm) => { fm.asset_id = asset.id; fm.avatar_image = asset.url; fm.asset_source_url = url; fm.asset_assigned_by = who; fm.updated_at = new Date().toISOString(); });
-          if (upd.ok) done.push(n.id); else failed.push({ id: n.id, error: upd.error || 'No se pudo escribir la ficha.' });
+          if (upd.ok) done.push(n.id); else failed.push({ id: n.id, error: upd.error || tr('No se pudo escribir la ficha.', 'Could not write the note.') });
         } catch (e) { failed.push({ id: n.id, error: e instanceof AssetError ? e.message : 'Error inesperado.' }); }
       }
       return NextResponse.json({ ok: true, copied: done.length, failed, remaining: Math.max(0, pending.length - done.length) });
     }
-    return NextResponse.json({ ok: false, error: "action debe ser 'assign', 'unassign', 'upload' o 'localize'." }, { status: 400 });
+    return NextResponse.json({ ok: false, error: tr("action debe ser 'assign', 'unassign', 'upload' o 'localize'.", 'action must be \'assign\', \'unassign\', \'upload\' or \'localize\'.') }, { status: 400 });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: e instanceof AssetError ? e.message : 'No se pudo guardar la imagen.' }, { status: e instanceof AssetError ? e.status : 500 });
+    return NextResponse.json({ ok: false, error: e instanceof AssetError ? e.message : tr('No se pudo guardar la imagen.', 'Could not save the image.') }, { status: e instanceof AssetError ? e.status : 500 });
   }
 }
 export const GET = withBrain(_GET);

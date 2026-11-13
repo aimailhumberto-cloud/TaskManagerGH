@@ -6,8 +6,9 @@ import { dbService } from '@/services/dbService';
 import { validateApiKey } from '@/lib/auth';
 import {canWriteTask} from '@/lib/publicWorkspace';
 import {WorkspaceError} from '@/lib/projects';
+import { tr, withReqLang } from '@/lib/reqLang';
 
-export async function POST(req: NextRequest) {
+async function _POST(req: NextRequest) {
   const auth = await validateApiKey(req);
   if (!auth.valid) {
     return NextResponse.json({ error: auth.error }, { status: auth.status });
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     const task = await dbService.getTaskById(taskId);
     if (!task) return NextResponse.json({ error: `Task with ID "${taskId}" not found` }, { status: 404 });
-    if(!canWriteTask(await dbService.readData(),auth.session!,task))return NextResponse.json({error:'Adjunto no disponible para esta identidad.'},{status:403});
+    if(!canWriteTask(await dbService.readData(),auth.session!,task))return NextResponse.json({error:tr('Adjunto no disponible para esta identidad.', 'Attachment not available for this identity.')},{status:403});
 
     const targetDir = attachmentDirectory();
     if (!fs.existsSync(targetDir)) {
@@ -57,8 +58,8 @@ export async function POST(req: NextRequest) {
 
     await dbService.transaction(data => {
       const current = data.tasks.find(t => t.id === taskId);
-      if (!current || !canWriteTask(data,auth.session!,current)) throw new WorkspaceError('El acceso cambió antes de vincular el adjunto.',403);
-      if ((current.revision || 0) !== (task.revision || 0)) throw new WorkspaceError('La tarea cambió antes de vincular el adjunto; revisa la versión guardada.',409);
+      if (!current || !canWriteTask(data,auth.session!,current)) throw new WorkspaceError(tr('El acceso cambió antes de vincular el adjunto.', 'Access changed before the attachment was linked.'),403);
+      if ((current.revision || 0) !== (task.revision || 0)) throw new WorkspaceError(tr('La tarea cambió antes de vincular el adjunto; revisa la versión guardada.', 'The task changed before the attachment was linked; check the saved version.'),409);
       current.attachments = [...current.attachments,newAttachment];
       current.revision = (current.revision || 0) + 1;
       const {activityLog: _log,...snapshot} = current;
@@ -73,6 +74,8 @@ export async function POST(req: NextRequest) {
       attachment: newAttachment,
     }, { status: 201 });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.code === 'EEXIST' ? 'Ya existe un adjunto con ese nombre; no se sobrescribió.' : error instanceof WorkspaceError ? error.message : 'No se completó el guardado del adjunto.' }, { status: error?.code === 'EEXIST' ? 409 : error instanceof WorkspaceError ? error.status : 500 });
+    return NextResponse.json({ error: error?.code === 'EEXIST' ? tr('Ya existe un adjunto con ese nombre; no se sobrescribió.', 'An attachment with that name already exists; it was not overwritten.') : error instanceof WorkspaceError ? error.message : tr('No se completó el guardado del adjunto.', 'The attachment was not fully saved.') }, { status: error?.code === 'EEXIST' ? 409 : error instanceof WorkspaceError ? error.status : 500 });
   }
 }
+
+export const POST = withReqLang(_POST);

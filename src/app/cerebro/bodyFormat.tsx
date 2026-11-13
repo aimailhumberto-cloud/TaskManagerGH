@@ -93,7 +93,7 @@ export function renderInlineWithWikilinks(text: string, onWikilinkClick?: (targe
           }
         }}
         className="text-sky-300 hover:text-white underline decoration-sky-500/50 hover:decoration-sky-300 font-mono text-[11px] px-1 py-0.5 rounded bg-sky-950/60 border border-sky-800/80 hover:bg-sky-900 transition mx-0.5 inline-flex items-center gap-1 cursor-pointer align-baseline"
-        title={`Abrir sinapsis: ${cleanTarget}`}
+        title={`${typeof document !== 'undefined' && document.documentElement.lang === 'en' ? 'Open synapse' : 'Abrir sinapsis'}: ${cleanTarget}`}
       >
         <span>🔗</span>
         <span>[[{display}]]</span>

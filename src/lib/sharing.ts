@@ -12,6 +12,7 @@ import { loadBrainGraph, getBrainNodeDetail } from './smjBrainService';
 import { updateNoteFile } from './vaultFiles';
 import { ensureDailySnapshot } from './vaultBackup';
 import { dataRoot, listBrains, vaultPathFor, COMPANY_BRAIN_ID, PRIMARY_BRAIN_ID } from './brains';
+import { tr } from './reqLang';
 
 export interface SharedNode { brainId: string; owner: string; id: string; title: string; type: string; visibility: string; excerpt: string }
 export const visibleTo = (n: { visibility?: string; shared_with?: string[] }, requester: string) =>
@@ -41,14 +42,14 @@ export function logSharedQuery(e: { requester: string; actor?: string; q: string
 
 /** Cambia la visibilidad de una ficha del cerebro en curso (debe llamarse dentro de ese cerebro). */
 export function setVisibility(vaultPath: string, nodeId: string, visibility: string, sharedWith: string[]): { ok: boolean; error?: string } {
-  if (!['private', 'shared', 'public'].includes(visibility)) return { ok: false, error: 'visibility debe ser private, shared o public.' };
+  if (!['private', 'shared', 'public'].includes(visibility)) return { ok: false, error: tr('visibility debe ser private, shared o public.', 'visibility must be private, shared or public.') };
   const valid = new Set(listBrains().map(b => b.brainId));
   const targets = visibility === 'shared' ? Array.from(new Set(sharedWith.map(s => String(s).toLowerCase()).filter(s => valid.has(s)))) : [];
-  if (visibility === 'shared' && targets.length === 0) return { ok: false, error: 'Indica al menos un cerebro existente en sharedWith.' };
+  if (visibility === 'shared' && targets.length === 0) return { ok: false, error: tr('Indica al menos un cerebro existente en sharedWith.', 'Give at least one existing brain in sharedWith.') };
   const g = loadBrainGraph(); const node = (g.allNodes || g.nodes).find(n => n.id === nodeId);
-  if (!node || !getBrainNodeDetail(nodeId)) return { ok: false, error: 'Ficha no encontrada en tu cerebro.' };
+  if (!node || !getBrainNodeDetail(nodeId)) return { ok: false, error: tr('Ficha no encontrada en tu cerebro.', 'Note not found in your brain.') };
   const root = path.resolve(vaultPath), abs = path.resolve(node.filePath);
-  if (!abs.startsWith(root + path.sep)) return { ok: false, error: 'Ficha fuera de la bóveda.' };
+  if (!abs.startsWith(root + path.sep)) return { ok: false, error: tr('Ficha fuera de la bóveda.', 'Note outside the vault.') };
   ensureDailySnapshot(vaultPath);
   const upd = updateNoteFile(abs, (fm) => { fm.visibility = visibility; if (targets.length) fm.shared_with = targets; else delete fm.shared_with; fm.last_updated_at = new Date().toISOString(); });
   return upd.ok ? { ok: true } : { ok: false, error: upd.error };

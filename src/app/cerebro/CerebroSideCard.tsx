@@ -25,7 +25,7 @@ import { CerebroHud } from './CerebroHud';
 
 // Extraído de page.tsx sin cambios de comportamiento.
 export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expandedDeptInDossier, expandedLeaderInDossier, getWikilinkLabel, graphData, handleSetCatalogScope, handleSetOrgScope, handleWikilinkClick, inspectorRef, linksRef, nodeBodies, nodesRef, pushToStackedDeck, removeFromDeck, setExpandedBrandInDossier, setExpandedDeptInDossier, setExpandedLeaderInDossier, setStackedDeck, setStatusMessage, stackedDeck }: SideCardProps) {
-  const { t } = useLang();
+  const { t, lang } = useLang();
   return (
     <>
         {/* Stacked Decks: Sliding Bottom Sheet on mobile (<768px) / Lateral Side Panel on desktop (>=768px) */}
@@ -48,7 +48,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
               <div className="flex items-center justify-between px-4 py-2.5 md:py-3 border-b border-gray-800 bg-gray-900/90 sticky top-0 z-10 shadow shrink-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                    <span>{stackedDeck.length > 1 ? `Fichas (${stackedDeck.length})` : 'Ficha'}</span>
+                    <span>{stackedDeck.length > 1 ? (lang === 'en' ? `Notes (${stackedDeck.length})` : `Fichas (${stackedDeck.length})`) : t('Ficha')}</span>
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -154,7 +154,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                             )}
                             {fm.is_active !== undefined && (
                               <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border shrink-0 ${fm.is_active ? 'text-sky-300 bg-sky-950/60 border-sky-800' : 'text-gray-400 bg-gray-800/60 border-gray-700'}`}>
-                                {fm.is_active ? 'OFICIAL / ACTIVO' : 'HISTÓRICO'}
+                                {fm.is_active ? t('OFICIAL / ACTIVO') : t('HISTÓRICO')}
                               </span>
                             )}
                           </div>
@@ -172,7 +172,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                         onClick={() => removeFromDeck(node.id)}
                         className="text-gray-400 hover:text-white p-1 text-sm leading-none shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-gray-800 transition active:scale-95"
                         title={t("Cerrar ficha")}
-                        aria-label={`Cerrar ficha de ${node.title}`}
+                        aria-label={lang === 'en' ? `Close note of ${node.title}` : `Cerrar ficha de ${node.title}`}
                       >
                         ✕
                       </button>
@@ -186,7 +186,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                             <span>{t("Ruta Comercial & Topología (4 Capas)")}</span>
                           </span>
                           <span className="text-gray-400 text-[9px] font-mono">
-                            {node.spatial_tier ? `Capa: ${String(node.spatial_tier).toUpperCase()}` : 'Topología Viva'}
+                            {node.spatial_tier ? `${t('Capa:')} ${String(node.spatial_tier).toUpperCase()}` : t('Topología Viva')}
                           </span>
                         </div>
                         <div className="flex flex-wrap items-center gap-1.5 text-xs font-mono">
@@ -242,14 +242,14 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                         <div className="bg-gray-900/80 p-2 rounded border border-gray-800">
                           <span className="text-[10px] text-gray-400 block">{t("Última Actualización:")}</span>
                           <span className="text-white font-semibold text-[11px]">
-                            {(fm.last_updated_at || fm.updated_at) ? new Date(fm.last_updated_at || fm.updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Sin fecha registrada'}
+                            {(fm.last_updated_at || fm.updated_at) ? new Date(fm.last_updated_at || fm.updated_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'es-PA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : t('Sin fecha registrada')}
                           </span>
-                          <span className="text-[9px] text-sky-400 block truncate">Por: {fm.last_updated_by || 'No documentado'}</span>
+                          <span className="text-[9px] text-sky-400 block truncate">{t('Por:')} {fm.last_updated_by || t('No documentado')}</span>
                         </div>
                         <div className="bg-gray-900/80 p-2 rounded border border-gray-800">
                           <span className="text-[10px] text-gray-400 block">{t("Último correo registrado:")}</span>
-                          <span className="text-white font-semibold text-[11px] truncate block" title={fm.last_email_subject || 'No consta en esta ficha'}>
-                            {fm.last_email_subject || 'No consta en esta ficha'}
+                          <span className="text-white font-semibold text-[11px] truncate block" title={fm.last_email_subject || t('No consta en esta ficha')}>
+                            {fm.last_email_subject || t('No consta en esta ficha')}
                           </span>
                           <span className="text-[9px] text-emerald-400 block truncate">
                             {fm.last_email_date ? `${fm.last_email_date} · ` : ''}{fm.last_email_sender || 'Remitente no documentado'}
@@ -278,7 +278,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                       <div className="mb-3 bg-gray-950/80 border border-gray-800 rounded-xl p-3 shadow-lg">
                         <div className="flex items-center justify-between text-[11px] font-mono font-bold text-sky-400 mb-2">
                           <span className="flex items-center gap-1.5">
-                            <span>Registro Visual & Evidencia Fotográfica ({galleryPhotos.length})</span>
+                            <span>{t('Registro Visual & Evidencia Fotográfica')} ({galleryPhotos.length})</span>
                           </span>
                           <span className="text-[9px] text-gray-500 uppercase tracking-wider">{t("Activos en Vivo")}</span>
                         </div>
@@ -398,7 +398,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                           {fm.recent_actions.map((act: any, idx: number) => {
                             const isObj = typeof act === 'object' && act !== null;
                             const dateStr = isObj ? act.date : 'Reciente';
-                            const rawType = isObj ? (act.type || 'acción').toLowerCase() : 'nota';
+                            const rawType = isObj ? (act.type || t('acción')).toLowerCase() : 'nota';
                             const summaryStr = isObj ? (act.summary || act.detail || JSON.stringify(act)) : String(act);
 
                             const isEmail = rawType.includes('email') || rawType.includes('correo');
@@ -446,7 +446,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                       <div className="mb-3 bg-gray-950/80 border border-emerald-900/50 rounded-xl p-3 shadow-lg">
                         <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold mb-2">
                           <span className="flex items-center gap-1.5">
-                            <span>Tareas & Pendientes Operativos ({fm.pending_tasks.length})</span>
+                            <span>{t('Tareas & Pendientes Operativos')} ({fm.pending_tasks.length})</span>
                           </span>
                           <span className="px-1.5 py-0.2 text-[9px] bg-emerald-950 border border-emerald-800 text-emerald-300 rounded font-mono font-bold">
                             {t("En Seguimiento")}
@@ -475,7 +475,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                       return (
                         <div className="bg-gradient-to-r from-teal-950/80 to-emerald-950/80 border border-teal-500/60 rounded-xl p-3 mb-3 shadow-lg">
                           <span className="text-[10px] font-mono uppercase tracking-wider text-teal-400 font-bold block">
-                            {linkedDistributors.length > 1 ? 'Distribuidores vinculados' : linkedDistributors.length === 1 ? 'Distribuidor vinculado' : 'Distribuidor pendiente'}
+                            {linkedDistributors.length > 1 ? t('Distribuidores vinculados') : linkedDistributors.length === 1 ? t('Distribuidor vinculado') : t('Distribuidor pendiente')}
                           </span>
                           {linkedDistributors.length === 0 ? (
                             <span className="text-xs font-bold text-white">{marketDistributorLabel([])}</span>
@@ -514,8 +514,8 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                       const mktTitle = linkedMktNode
                         ? (linkedMktNode.frontmatter?.country_name || linkedMktNode.title.replace(/^Market:\s*/i, ''))
                         : (node.id.includes('sancas') ? 'Belice (CARICOM / Arancel 0%)' :
-                           node.id.includes('medimex') || node.id.includes('panama') ? 'Panamá (Hub Logístico Centroamérica)' :
-                           node.id.includes('morgan') || node.id.includes('canada') ? 'Canadá (Retail & Mass Market)' :
+                           node.id.includes('medimex') || node.id.includes('panama') ? t('Panamá (Hub Logístico Centroamérica)') :
+                           node.id.includes('morgan') || node.id.includes('canada') ? t('Canadá (Retail & Mass Market)') :
                            'Estados Unidos (Costa Este)');
 
                       return (
@@ -572,7 +572,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                             <span>{t("Ficha del distribuidor")}</span>
                           </span>
                           <span className="px-1.5 py-0.5 text-[9px] bg-emerald-950 border border-emerald-700 text-emerald-300 rounded font-mono font-bold">
-                            {fm.commercial_status_label || (fm.is_active !== false ? 'Vinculado' : 'Por verificar / Histórico')}
+                            {fm.commercial_status_label || (fm.is_active !== false ? t('Vinculado') : t('Por verificar / Histórico'))}
                           </span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
@@ -583,7 +583,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                           {fm.based_in_city && (
                             <div>
                               <span className="text-gray-400">{t("Sede Operativa:")}</span>{' '}
-                              <span className="text-white">{fm.based_in_city}, {fm.based_in_country || 'Panamá'}</span>
+                              <span className="text-white">{fm.based_in_city}, {fm.based_in_country || t('Panamá')}</span>
                             </div>
                           )}
                           {fm.incoterm && (
@@ -623,7 +623,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                             <span>{t("Ficha de Mercado Exterior & Operaciones")}</span>
                           </span>
                           <span className="px-1.5 py-0.5 text-[9px] bg-teal-950 border border-teal-700 text-teal-300 rounded font-mono font-bold">
-                            {fm.region || 'Región Internacional'}
+                            {fm.region || t('Región Internacional')}
                           </span>
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
@@ -638,7 +638,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                           {fm.transit_time_from_trinidad_days && (
                             <div>
                               <span className="text-gray-400">{t("Tránsito Marítimo:")}</span>{' '}
-                              <span className="text-sky-300 font-bold">{fm.transit_time_from_trinidad_days} días desde Trinidad</span>
+                              <span className="text-sky-300 font-bold">{fm.transit_time_from_trinidad_days} {t('días desde Trinidad')}</span>
                             </div>
                           )}
                           {fm.regulatory_authority && (
@@ -665,10 +665,10 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
                           <div><span className="text-gray-400">{t("Razón Social:")}</span> <span className="text-white font-medium">S.M. Jaleel & Co. Ltd.</span></div>
-                          <div><span className="text-gray-400">{t("Fundación:")}</span> <span className="text-amber-300 font-medium">1924 (102 años de historia)</span></div>
+                          <div><span className="text-gray-400">{t("Fundación:")}</span> <span className="text-amber-300 font-medium">{t('1924 (102 años de historia)')}</span></div>
                           <div className="col-span-2"><span className="text-gray-400">{t("Sede Global:")}</span> <span className="text-white">Otaheite Industrial Estate, South Oropouche, Trinidad & Tobago</span></div>
-                          <div className="col-span-2"><span className="text-gray-400">{t("Giro de Negocio:")}</span> <span className="text-white">Manufactura, embotellado y exportación de bebidas no alcohólicas</span></div>
-                          <div><span className="text-gray-400">{t("Alcance de Exportación:")}</span> <span className="text-emerald-400 font-medium">+60 países</span></div>
+                          <div className="col-span-2"><span className="text-gray-400">{t("Giro de Negocio:")}</span> <span className="text-white">{t('Manufactura, embotellado y exportación de bebidas no alcohólicas')}</span></div>
+                          <div><span className="text-gray-400">{t("Alcance de Exportación:")}</span> <span className="text-emerald-400 font-medium">{t('+60 países')}</span></div>
                           <div><span className="text-gray-400">{t("Liderazgo Operativo:")}</span> <span className="text-sky-300 font-medium">Anna Mohammed (COO)</span></div>
                         </div>
                         <div className="pt-2 border-t border-gray-800 text-[11px]">
@@ -730,7 +730,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                         <div className="space-y-3 mb-3">
                           <div className="bg-gradient-to-br from-indigo-950/80 via-gray-900 to-gray-950 border border-indigo-500/50 rounded-xl p-3.5 text-xs space-y-2.5 shadow-lg">
                             <div className="flex items-center gap-2 text-indigo-400 font-bold uppercase tracking-wider text-[10px]">
-                              <span>{isCommercialContact ? 'Contacto comercial' : 'Ficha de Perfil Ejecutivo & Línea de Mando'}</span>
+                              <span>{isCommercialContact ? t('Contacto comercial') : t('Ficha de Perfil Ejecutivo & Línea de Mando')}</span>
                               {isLeader && (
                                 <span className="ml-auto px-1.5 py-0.5 text-[9px] bg-amber-950 border border-amber-700 text-amber-300 rounded font-mono font-bold">
                                   Liderazgo L{node.hierarchy_level ?? 2}
@@ -869,7 +869,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                               className="w-full flex items-center justify-between text-xs font-bold text-sky-300 hover:text-sky-200 transition select-none"
                             >
                               <div className="flex items-center gap-2">
-                                <span>Equipo & Colaboradores ({deptMembers.length} personas)</span>
+                                <span>{t('Equipo & Colaboradores')} ({deptMembers.length} {t('personas')})</span>
                               </div>
                               <span className="text-[11px] px-2 py-0.5 rounded bg-sky-950 border border-sky-800 text-sky-300 font-mono">
                                 {isDeptAccordionOpen ? '▲ Encoger' : '▼ Desplegar'}
@@ -997,7 +997,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                               </div>
                             )}
                             <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-                              <div><span className="text-gray-400">{t("Planta de Origen:")}</span> <span className="text-white font-medium">{fm.manufacturing_plant ? String(fm.manufacturing_plant).replace(/[[\]]/g, '') : 'Por confirmar'}</span></div>
+                              <div><span className="text-gray-400">{t("Planta de Origen:")}</span> <span className="text-white font-medium">{fm.manufacturing_plant ? String(fm.manufacturing_plant).replace(/[[\]]/g, '') : t('Por confirmar')}</span></div>
                               <div><span className="text-gray-400">{t("Categoría:")}</span> <span className="text-white font-medium">{fm.category || 'Bebidas SMJ'}</span></div>
                               {fm.shelf_life_months && (
                                 <div><span className="text-gray-400">{t("Vida Útil:")}</span> <span className="text-emerald-400 font-medium">{fm.shelf_life_months} meses</span></div>
@@ -1021,7 +1021,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                               className="w-full flex items-center justify-between text-xs font-bold text-amber-300 hover:text-amber-200 transition select-none"
                             >
                               <div className="flex items-center gap-2">
-                                <span>Catálogo de SKUs & Multipacks ({brandSubNodes.length} ítems)</span>
+                                <span>{t('Catálogo de SKUs & Multipacks')} ({brandSubNodes.length} {t('ítems')})</span>
                               </div>
                               <span className="text-[11px] px-2 py-0.5 rounded bg-amber-950 border border-amber-800 text-amber-300 font-mono">
                                 {isAccordionOpen ? '▲ Encoger' : '▼ Desplegar'}
@@ -1097,7 +1097,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                                     onClick={() => handleSetCatalogScope(catalogScope === brandKey ? 'collapsed' : brandKey as any)}
                                     className="text-xs px-2.5 py-1 bg-amber-600 hover:bg-amber-500 text-white font-semibold rounded shadow transition flex items-center gap-1"
                                   >
-                                    <span>{catalogScope === brandKey ? 'Plegar del Lienzo' : 'Desplegar en Lienzo'}</span>
+                                    <span>{catalogScope === brandKey ? t('Plegar del Lienzo') : t('Desplegar en Lienzo')}</span>
                                   </button>
                                 </div>
                               </div>
@@ -1117,7 +1117,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                           <div><span className="text-gray-400">{t("Tipo de Envase:")}</span> <span className="text-amber-300">{packagingDescription(fm).container}</span></div>
                           <div><span className="text-gray-400">{t("Configuración:")}</span> <span className="text-emerald-400">{packagingDescription(fm).configuration}</span></div>
                           <div><span className="text-gray-400">{t("Contenido por unidad:")}</span> <span className="text-white">{packagingDescription(fm).size}</span></div>
-                          <div className="col-span-2"><span className="text-gray-400">{t("Fuente:")}</span> <span className="text-gray-300">{fm.source || 'Por documentar'}</span></div>
+                          <div className="col-span-2"><span className="text-gray-400">{t("Fuente:")}</span> <span className="text-gray-300">{fm.source || t('Por documentar')}</span></div>
                           {fm.visual_photo_scope === 'linked_unit_reference_not_case_photo' && <p className="col-span-2 text-gray-300">{t("Imagen de la unidad de referencia; la caja no está fotografiada.")}</p>}
                         </div>
                       </div>
@@ -1130,9 +1130,9 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
                           <div className="col-span-2"><span className="text-gray-400">{t("Código en la fuente:")}</span> <span className="text-white font-bold">{fm.sku_raw || fm.source_item_code || 'No publicado'}</span></div>
-                          <div><span className="text-gray-400">{t("Presentación:")}</span> <span className="text-sky-300">{fm.size_raw || 'Por documentar'}</span></div>
-                          <div><span className="text-gray-400">{t("Unidades/Caja:")}</span> <span className="text-amber-300">{fm.units_per_case_raw || 'Por documentar'}</span></div>
-                          <div className="col-span-2"><span className="text-gray-400">{t("Fuente:")}</span> <span className="text-gray-300">{fm.source || 'Por documentar'}</span></div>
+                          <div><span className="text-gray-400">{t("Presentación:")}</span> <span className="text-sky-300">{fm.size_raw || t('Por documentar')}</span></div>
+                          <div><span className="text-gray-400">{t("Unidades/Caja:")}</span> <span className="text-amber-300">{fm.units_per_case_raw || t('Por documentar')}</span></div>
+                          <div className="col-span-2"><span className="text-gray-400">{t("Fuente:")}</span> <span className="text-gray-300">{fm.source || t('Por documentar')}</span></div>
                         </div>
                       </div>
                     )}
@@ -1145,7 +1145,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                         <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
                           <div className="col-span-2"><span className="text-gray-400">{t("Sabor Registrado:")}</span> <span className="text-emerald-300 font-bold">{node.title}</span></div>
                           <div><span className="text-gray-400">{t("Laboratorio:")}</span> <span className="text-white">I+D Trinidad</span></div>
-                          <div><span className="text-gray-400">{t("Estado:")}</span> <span className="text-emerald-400">Fórmula Activa</span></div>
+                          <div><span className="text-gray-400">{t("Estado:")}</span> <span className="text-emerald-400">{t('Fórmula Activa')}</span></div>
                         </div>
                       </div>
                     )}
@@ -1171,7 +1171,7 @@ export function CerebroSideCard({ catalogScope, expandedBrandInDossier, expanded
                         {fm.gender && <div><span className="text-gray-500">{t("Género:")}</span> {formatDisplayValue(fm.gender)}</div>}
                         {fm.incoterm && <div><span className="text-gray-500">{t("Incoterm:")}</span> {formatDisplayValue(fm.incoterm)}</div>}
                         {fm.transit_time_from_trinidad_days && (
-                          <div><span className="text-gray-500">{t("Tránsito TT:")}</span> {formatDisplayValue(fm.transit_time_from_trinidad_days)} días</div>
+                          <div><span className="text-gray-500">{t("Tránsito TT:")}</span> {formatDisplayValue(fm.transit_time_from_trinidad_days)} {t('días')}</div>
                         )}
                         {fm.payment_terms && (
                           <div><span className="text-gray-500">{t("Pago/Crédito:")}</span> {formatDisplayValue(fm.payment_terms)}</div>

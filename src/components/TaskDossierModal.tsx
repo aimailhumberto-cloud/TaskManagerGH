@@ -80,7 +80,7 @@ export default function TaskDossierModal({ task, isOpen, onClose, onAskDots }: T
           <div className="p-4 bg-[#eef3fb] border border-[#bcd0f5] rounded-lg space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-[#0a3fbf]">{T('Tarea en Curso')}</span>
-              <span className="text-xs font-mono text-slate-500">Límite: {task.dueDate}</span>
+              <span className="text-xs font-mono text-slate-500">{T('Límite:')} {task.dueDate}</span>
             </div>
             <p className="text-sm font-medium text-[#0b1f4d]">{task.title}</p>
             {task.description && (
@@ -131,11 +131,11 @@ export default function TaskDossierModal({ task, isOpen, onClose, onAskDots }: T
               </div>
               <div>
                 <span className="text-slate-500 block font-medium">{T('Condición de Pago:')}</span>
-                <span className="text-[#0b1f4d]">{fm.payment_terms || '30 días'}</span>
+                <span className="text-[#0b1f4d]">{fm.payment_terms || T('30 días')}</span>
               </div>
               <div>
                 <span className="text-slate-500 block font-medium">{T('Frecuencia / Pedido Mínimo:')}</span>
-                <span className="text-[#0b1f4d]">{fm.order_frequency || 'Mensual'} (Mín: {fm.minimum_order_containers || 1} cont.)</span>
+                <span className="text-[#0b1f4d]">{fm.order_frequency || T('Mensual')} ({T('Mín:')} {fm.minimum_order_containers || 1} {T('cont.')})</span>
               </div>
             </div>
           )}
@@ -162,7 +162,7 @@ export default function TaskDossierModal({ task, isOpen, onClose, onAskDots }: T
                 {fm.recent_actions.slice(0, 4).map((act: any, idx: number) => (
                   <div key={idx} className="p-2.5 bg-white border border-[#dbe4f3] rounded text-xs flex items-start justify-between gap-3">
                     <div>
-                      <span className="font-semibold text-[#0b1f4d] capitalize">{act.type?.replace(/_/g, ' ') || 'Acción'}:</span>
+                      <span className="font-semibold text-[#0b1f4d] capitalize">{act.type?.replace(/_/g, ' ') || T('Acción')}:</span>
                       <p className="text-slate-700 mt-0.5">{act.summary}</p>
                     </div>
                     <span className="font-mono text-[11px] text-slate-500 shrink-0">{act.date}</span>

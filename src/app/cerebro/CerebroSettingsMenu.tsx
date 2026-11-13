@@ -87,7 +87,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                           <option key={n.id} value={n.id}>{n.title}</option>
                         ))}
                       </optgroup>
-                      <optgroup label="Personas & Directivos">
+                      <optgroup label={t('Personas & Directivos')}>
                         {fullCatalog.filter((n: any) => n.type === 'person').map((n: any) => (
                           <option key={n.id} value={n.id}>{n.title}</option>
                         ))}
@@ -239,7 +239,7 @@ export function CerebroSettingsMenu({ catalogScope, fetchGraph, graphData, gravi
                   }}
                   className="w-full py-2 px-3 rounded-lg bg-cyan-950/80 border border-cyan-500/70 text-cyan-200 text-xs font-mono font-bold flex items-center justify-center gap-1.5 hover:bg-cyan-900/80 transition"
                 >
-                  <span>Restaurar {pinnedCount} Nodos Anclados (Desanclar Todo)</span>
+                  <span>{t('Restaurar')} {pinnedCount} {t('Nodos Anclados (Desanclar Todo)')}</span>
                 </button>
               )}
             </div>

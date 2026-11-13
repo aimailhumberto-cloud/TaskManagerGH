@@ -3,6 +3,7 @@ import path from 'path';
 import crypto from 'crypto';
 import YAML from 'yaml';
 import { trackBefore } from './journal';
+import { tr } from './reqLang';
 
 /**
  * Helpers de escritura segura para el vault de Markdown.
@@ -22,18 +23,18 @@ export function parseNoteStrict(content: string): StrictNote {
   if (!match) {
     // Sin bloque de frontmatter: solo es válido si el archivo no intenta abrir uno.
     if (/^﻿?---\s*(\r?\n|$)/.test(content)) {
-      return { ok: false, error: 'El encabezado (frontmatter) está abierto pero no se cierra con ---' };
+      return { ok: false, error: tr('El encabezado (frontmatter) está abierto pero no se cierra con ---', 'The header (frontmatter) is open but never closed with ---') };
     }
     return { ok: true, frontmatter: {}, body: content, hasFrontmatter: false };
   }
   try {
     const parsed = YAML.parse(match[1]);
     if (parsed !== null && parsed !== undefined && (typeof parsed !== 'object' || Array.isArray(parsed))) {
-      return { ok: false, error: 'El encabezado YAML no es un objeto' };
+      return { ok: false, error: tr('El encabezado YAML no es un objeto', 'The YAML header is not an object') };
     }
     return { ok: true, frontmatter: (parsed as Record<string, any>) || {}, body: match[2] ?? '', hasFrontmatter: true };
   } catch (err: any) {
-    return { ok: false, error: `YAML inválido: ${String(err?.message || err).split('\n')[0]}` };
+    return { ok: false, error: tr(`YAML inválido: ${String(err?.message || err).split('\n')[0]}`, `Invalid YAML: ${String(err?.message || err).split('\n')[0]}`) };
   }
 }
 
@@ -62,7 +63,7 @@ export function readNoteStrict(filePath: string): (StrictNote & { raw: string })
   try {
     raw = fs.readFileSync(filePath, 'utf-8');
   } catch (err: any) {
-    return { ok: false, error: `No se pudo leer el archivo: ${err?.message || err}`, raw: '' };
+    return { ok: false, error: tr(`No se pudo leer el archivo: ${err?.message || err}`, `Could not read the file: ${err?.message || err}`), raw: '' };
   }
   return { ...parseNoteStrict(raw), raw } as any;
 }
@@ -76,7 +77,7 @@ export function updateNoteFile(
   mutate: (fm: Record<string, any>, body: string) => { body?: string } | void,
 ): { ok: true; content: string } | { ok: false; error: string } {
   const note = readNoteStrict(filePath);
-  if (!note.ok) return { ok: false, error: `${path.basename(filePath)}: ${note.error}. No se modificó el archivo.` };
+  if (!note.ok) return { ok: false, error: tr(`${path.basename(filePath)}: ${note.error}. No se modificó el archivo.`, `${path.basename(filePath)}: ${note.error}. The file was not modified.`) };
 
   const fm = note.frontmatter;
   const prev = { u: fm.updated_at, l: fm.last_updated_at };
@@ -89,7 +90,7 @@ export function updateNoteFile(
   let current: string;
   try { current = fs.readFileSync(filePath, 'utf-8'); } catch { current = ''; }
   if (current !== note.raw) {
-    return { ok: false, error: `${path.basename(filePath)} cambió mientras se procesaba. Reintenta.` };
+    return { ok: false, error: tr(`${path.basename(filePath)} cambió mientras se procesaba. Reintenta.`, `${path.basename(filePath)} changed while it was being processed. Try again.`) };
   }
 
   atomicWriteFile(filePath, content);
@@ -98,7 +99,7 @@ export function updateNoteFile(
   if (!verify.ok) {
     // Restaurar lo anterior: nunca dejar un archivo ilegible.
     atomicWriteFile(filePath, note.raw);
-    return { ok: false, error: `La verificación tras escribir falló (${verify.error}). Se restauró el archivo original.` };
+    return { ok: false, error: tr(`La verificación tras escribir falló (${verify.error}). Se restauró el archivo original.`, `Verification after writing failed (${verify.error}). The original file was restored.`) };
   }
   return { ok: true, content };
 }

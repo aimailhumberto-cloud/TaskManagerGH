@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { tr } from './reqLang';
 
 /**
  * Respaldo del vault en el mismo disco persistente.
@@ -83,7 +84,7 @@ export function createVaultSnapshot(
   now: Date = new Date()
 ): { ok: true; snapshot: SnapshotInfo } | { ok: false; error: string } {
   try {
-    if (!fs.existsSync(vaultPath)) return { ok: false, error: 'El vault no existe' };
+    if (!fs.existsSync(vaultPath)) return { ok: false, error: tr('El vault no existe', 'The vault does not exist') };
     const root = getBackupRoot(vaultPath);
     fs.mkdirSync(root, { recursive: true });
     const { day, time } = panamaStamp(now);

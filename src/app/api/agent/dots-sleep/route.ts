@@ -11,6 +11,7 @@ import path from 'path';
 import { getSleepDir } from '@/lib/dotsSleep';
 import { loadReviews, captureProposals } from '@/lib/decisionEngine';
 import { applyProposal, undoProposal, canApply, recentApplied } from '@/lib/sleepApply';
+import { tr } from '@/lib/reqLang';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,7 +70,7 @@ async function _GET(req: NextRequest) {
     const day = searchParams.get('day');
     if (day) {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
-        return NextResponse.json({ ok: false, error: 'day debe ser YYYY-MM-DD' }, { status: 400, headers: CORS_HEADERS });
+        return NextResponse.json({ ok: false, error: tr('day debe ser YYYY-MM-DD', 'day must be YYYY-MM-DD') }, { status: 400, headers: CORS_HEADERS });
       }
       let report: SleepReport | null = null;
       try { report = JSON.parse(fs.readFileSync(path.join(getSleepDir(vaultPath), 'reports', `${day}.json`), 'utf8')); } catch {}
@@ -102,14 +103,14 @@ async function _POST(req: NextRequest) {
       const id = String(body.id || '');
       const decision = body.decision as Decision;
       if (!DECISIONS.includes(decision)) {
-        return NextResponse.json({ ok: false, error: `decision debe ser una de: ${DECISIONS.join(', ')}` }, { status: 400, headers: CORS_HEADERS });
+        return NextResponse.json({ ok: false, error: tr(`decision debe ser una de: ${DECISIONS.join(', ')}`, `decision must be one of: ${DECISIONS.join(', ')}`) }, { status: 400, headers: CORS_HEADERS });
       }
       const latest0 = loadLatestReport(vaultPath);
       const latest = latest0 ? withCaptures(vaultPath, latest0) : null;
       if (!id || !latest?.proposals.some((p) => p.id === id)) {
-        return NextResponse.json({ ok: false, error: 'La propuesta no existe en el último informe' }, { status: 404, headers: CORS_HEADERS });
+        return NextResponse.json({ ok: false, error: tr('La propuesta no existe en el último informe', 'The proposal does not exist in the latest report') }, { status: 404, headers: CORS_HEADERS });
       }
-      if (decision === 'aprobada' && !canWriteFully()) return NextResponse.json({ ok: false, error: 'Esta llave puede proponer, posponer o rechazar, pero no aprobar.' }, { status: 403, headers: CORS_HEADERS });
+      if (decision === 'aprobada' && !canWriteFully()) return NextResponse.json({ ok: false, error: tr('Esta llave puede proponer, posponer o rechazar, pero no aprobar.', 'This key can propose, postpone or reject, but not approve.') }, { status: 403, headers: CORS_HEADERS });
       const by = typeof body.by === 'string' ? body.by.slice(0, 60) : undefined;
       // Aprobar aplica el cambio solo en los tipos con acción mecánica; primero se aplica y, si falla, no se registra como aprobada.
       const proposal = latest.proposals.find((p) => p.id === id)!;
@@ -125,13 +126,13 @@ async function _POST(req: NextRequest) {
     }
 
     if (body.action === 'undo') {
-      if (!canWriteFully()) return NextResponse.json({ ok: false, error: 'Esta llave no puede deshacer cambios.' }, { status: 403, headers: CORS_HEADERS });
+      if (!canWriteFully()) return NextResponse.json({ ok: false, error: tr('Esta llave no puede deshacer cambios.', 'This key cannot undo changes.') }, { status: 403, headers: CORS_HEADERS });
       const res = undoProposal(vaultPath, String(body.id || ''));
       if (!res.ok) return NextResponse.json({ ok: false, error: res.error }, { status: 409, headers: CORS_HEADERS });
       return NextResponse.json({ ok: true, id: res.record.id, undone: true }, { headers: CORS_HEADERS });
     }
 
-    return NextResponse.json({ ok: false, error: "action debe ser 'run', 'decide' o 'undo'" }, { status: 400, headers: CORS_HEADERS });
+    return NextResponse.json({ ok: false, error: tr("action debe ser 'run', 'decide' o 'undo'", 'action must be \'run\', \'decide\' or \'undo\'') }, { status: 400, headers: CORS_HEADERS });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'error' }, { status: 500, headers: CORS_HEADERS });
   }

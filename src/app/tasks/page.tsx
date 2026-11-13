@@ -235,7 +235,7 @@ export default function TasksPage() {
             <h1 className="mt-1.5 text-3xl sm:text-[36px] font-bold text-white">{T('Tareas')}</h1>
             <p className="mt-1 text-[15px] text-[#dbeafe]">{T('Tu día, tus distribuidores y todo tu universo de tareas en un solo lugar.')}</p>
             {summary.panamaTimestamp && (
-              <span className="mt-3 inline-block rounded-full bg-white/15 px-3 py-1 text-xs text-white">{T('Sincronizado:')} {summary.panamaTimestamp} (Panamá)</span>
+              <span className="mt-3 inline-block rounded-full bg-white/15 px-3 py-1 text-xs text-white">{T('Sincronizado:')} {summary.panamaTimestamp} ({T('Panamá')})</span>
             )}
           </div>
           <div className="relative hidden lg:block min-h-[180px]">
@@ -387,7 +387,7 @@ export default function TasksPage() {
                         <line x1="12" y1="16" x2="12.01" y2="16" />
                       </svg>
                       <h2 className="text-sm font-semibold tracking-wider uppercase">
-                        Vencidas / Atención Inmediata ({overdueTasks.length})
+                        {T('Vencidas / Atención Inmediata')} ({overdueTasks.length})
                       </h2>
                     </div>
                     <div className="grid grid-cols-1 gap-2.5">
@@ -416,7 +416,7 @@ export default function TasksPage() {
                         <polyline points="12 6 12 12 16 14" />
                       </svg>
                       <h2 className="text-sm font-semibold tracking-wider uppercase">
-                        Para Hoy ({todayTasks.length})
+                        {T('Para Hoy')} ({todayTasks.length})
                       </h2>
                     </div>
                     <span className="text-xs font-mono text-slate-500">{panamaToday()}</span>
@@ -453,7 +453,7 @@ export default function TasksPage() {
                       <line x1="3" y1="10" x2="21" y2="10" />
                     </svg>
                     <h2 className="text-sm font-semibold tracking-wider uppercase">
-                      Próximas 48 Horas ({next48hTasks.length})
+                      {T('Próximas 48 Horas')} ({next48hTasks.length})
                     </h2>
                   </div>
                   {next48hTasks.length === 0 ? (
@@ -611,7 +611,7 @@ export default function TasksPage() {
                         {/* Pending tasks under this distributor */}
                         <div className="space-y-2 pt-2 border-t border-[#dbe4f3]">
                           <span className="text-[11px] uppercase font-semibold text-slate-500 block tracking-wider">
-                            Tareas Pendientes ({distTasks.length})
+                            {T('Tareas Pendientes')} ({distTasks.length})
                           </span>
                           {distTasks.length === 0 ? (
                             <p className="text-xs text-slate-500 italic">{T('No hay tareas pendientes para este distribuidor.')}</p>
@@ -652,7 +652,7 @@ export default function TasksPage() {
                         : 'bg-white text-slate-700 hover:bg-[#eef3fb] border border-[#dbe4f3]'
                     }`}
                   >
-                    Todos los Territorios ({tasks.length})
+                    {T('Todos los Territorios')} ({tasks.length})
                   </button>
                   {availableMarkets.map(mkt => {
                     const count = tasks.filter(t => t.countryCode === mkt).length;
@@ -1066,7 +1066,7 @@ function TaskExecutiveCard({
                 {task.dotsStage === 'borrador_listo'
                   ? '[DOTS: Borrador listo]'
                   : task.dotsStage === 'en_analisis'
-                  ? '[DOTS: En análisis]'
+                  ? T('[DOTS: En análisis]')
                   : task.dotsStage === 'recibido'
                   ? '[DOTS: Recibido]'
                   : '[DOTS: Solicitado]'}

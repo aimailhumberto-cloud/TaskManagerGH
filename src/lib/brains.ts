@@ -15,6 +15,7 @@ import { decryptSession } from './session';
 import { getAccount, isLocalId, listAccounts, TOP_ROLES, type PublicAccount } from './localAccounts';
 import { serviceKeyMatches, loginRequiredFrom } from './loginGate';
 import { looksLikeAgentKey, presentedKey, verifyKey } from './agentKeys';
+import { withLang, langFromRequest, tr } from './reqLang';
 
 export const PRIMARY_BRAIN_ID = 'hb';
 export const BRAIN_VIEW_COOKIE = 'brain_view';
@@ -79,7 +80,7 @@ export function resolveBrain(i: ResolveInput): Resolved {
 
   if (session && isLocalId(session.userId)) {
     const acc = getAccount(session.userId);
-    if (!acc?.isActive) return { ok: false, status: 401, error: 'Sesión revocada.' };
+    if (!acc?.isActive) return { ok: false, status: 401, error: tr('Sesión revocada.', 'Session revoked.') };
     const own = brainIdForAccount(acc);
     if (i.brainView === COMPANY_BRAIN_ID && companyBrainExists()) {
       return { ok: true, role: acc.role, ctx: { brainId: COMPANY_BRAIN_ID, vaultPath: vaultPathFor(COMPANY_BRAIN_ID) as string, primary: false, actor: acc.id, via: 'compania', ownBrainId: own, readOnly: !TOP_ROLES.includes(acc.role) } };
@@ -96,7 +97,7 @@ export function resolveBrain(i: ResolveInput): Resolved {
       }
     }
     const vaultPath = brainId === PRIMARY_BRAIN_ID ? getPrimaryVaultPath() : ensureBrain(brainId, (brainId === acc.id ? acc.name : getAccount(brainId)?.name) || brainId);
-    if (!vaultPath) return { ok: false, status: 403, error: 'Cerebro no disponible.' };
+    if (!vaultPath) return { ok: false, status: 403, error: tr('Cerebro no disponible.', 'Brain not available.') };
     return { ok: true, role: acc.role, ctx: { brainId, vaultPath, primary: brainId === PRIMARY_BRAIN_ID, actor: acc.id, via, ownBrainId: own } };
   }
   // Sesiones del sistema anterior: cerebro principal.
@@ -106,7 +107,7 @@ export function resolveBrain(i: ResolveInput): Resolved {
   if (presented && looksLikeAgentKey(presented)) {
     const k = verifyKey(presented);
     const acc = k ? getAccount(k.accountId) : null;
-    if (!k || !acc?.isActive) return { ok: false, status: 401, error: 'Llave de agente inválida o revocada.' };
+    if (!k || !acc?.isActive) return { ok: false, status: 401, error: tr('Llave de agente inválida o revocada.', 'Invalid or revoked agent key.') };
     const brainId = brainIdForAccount(acc);
     // Un agente puede CONSULTAR el cerebro de la compañía con el encabezado x-brain: compania (nunca escribir).
     if (i.headers.get('x-brain') === COMPANY_BRAIN_ID && companyBrainExists()) {
@@ -121,16 +122,19 @@ export function resolveBrain(i: ResolveInput): Resolved {
     if (i.headers.get('x-brain') === COMPANY_BRAIN_ID && companyBrainExists()) return { ok: true, ctx: { brainId: COMPANY_BRAIN_ID, vaultPath: vaultPathFor(COMPANY_BRAIN_ID) as string, primary: false, actor: 'agente', via: 'compania', ownBrainId: PRIMARY_BRAIN_ID, readOnly: true } };
     return primary('agente', 'llave');
   }
-  if (presented) return { ok: false, status: 401, error: 'Llave de agente inválida.' };
+  if (presented) return { ok: false, status: 401, error: tr('Llave de agente inválida.', 'Invalid agent key.') };
   // Sin identidad: solo vale con el login apagado (modo anterior). Con el login encendido se niega también aquí.
-  if (loginRequiredFrom(process.env.LOGIN_REQUIRED)) return { ok: false, status: 401, error: 'Inicia sesión para continuar.' };
+  if (loginRequiredFrom(process.env.LOGIN_REQUIRED)) return { ok: false, status: 401, error: tr('Inicia sesión para continuar.', 'Sign in to continue.') };
   return primary(undefined, 'anonimo');
 }
 
 type Handler = (req: NextRequest, ...rest: any[]) => Promise<Response> | Response;
 /** Envuelve una ruta: todo lo que haga corre dentro del cerebro que le corresponde a quien pide. */
 export function withBrain<H extends Handler>(handler: H): H {
-  return (async (req: NextRequest, ...rest: any[]) => {
+  return ((req: NextRequest, ...rest: any[]) => withLang(langFromRequest(req), 'es', () => withBrainInner(handler, req, rest))) as H;
+}
+async function withBrainInner(handler: Handler, req: NextRequest, rest: any[]): Promise<Response> {
+  {
     const r = resolveBrain({
       sessionToken: req.cookies.get('hermes_session')?.value,
       brainView: req.cookies.get(BRAIN_VIEW_COOKIE)?.value,
@@ -139,9 +143,9 @@ export function withBrain<H extends Handler>(handler: H): H {
     if (!r.ok) return NextResponse.json({ ok: false, error: r.error }, { status: r.status });
     // Un perfil de solo lectura no escribe en ningún cerebro.
     const writing = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
-    if (r.role === 'Solo lectura' && writing) return NextResponse.json({ ok: false, error: 'Tu perfil es de solo consulta.' }, { status: 403 });
-    if (r.ctx.readOnly && writing) return NextResponse.json({ ok: false, error: 'El cerebro de la compañía es de solo consulta para tu perfil.' }, { status: 403 });
-    if (r.ctx.scope === 'leer' && writing) return NextResponse.json({ ok: false, error: 'Esta llave es de solo lectura.' }, { status: 403 });
+    if (r.role === 'Solo lectura' && writing) return NextResponse.json({ ok: false, error: tr('Tu perfil es de solo consulta.', 'Your profile is read-only.') }, { status: 403 });
+    if (r.ctx.readOnly && writing) return NextResponse.json({ ok: false, error: tr('El cerebro de la compañía es de solo consulta para tu perfil.', 'The company brain is read-only for your profile.') }, { status: 403 });
+    if (r.ctx.scope === 'leer' && writing) return NextResponse.json({ ok: false, error: tr('Esta llave es de solo lectura.', 'This key is read-only.') }, { status: 403 });
     // Lo que escribe un agente queda en el registro del cerebro (acción y resultado, nunca el contenido).
     const byAgent = writing && (r.ctx.via === 'llave' || r.ctx.via === 'llave-de-agente');
     let body: any;
@@ -153,9 +157,10 @@ export function withBrain<H extends Handler>(handler: H): H {
     const { idemGet, idemSave } = await import('./idempotency');
     if (idemKey) {
       const hit = idemGet(r.ctx.vaultPath, r.ctx.actor || 'anon', idemKey);
-      if (hit) return NextResponse.json({ ...(hit.body as Record<string, unknown>), repeated: true, note: 'Esta petición ya se había aplicado; no se repitió.' }, { status: hit.status, headers: { 'x-repeated': '1' } });
+      if (hit) return NextResponse.json({ ...(hit.body as Record<string, unknown>), repeated: true, note: tr('Esta petición ya se había aplicado; no se repitió.', 'This request had already been applied; it was not repeated.') }, { status: hit.status, headers: { 'x-repeated': '1' } });
     }
-    const handle = () => runInBrain(r.ctx, () => handler(req, ...rest));
+    const workLang = writing ? (await import('./cerebro/settings')).loadSettings(r.ctx.vaultPath).workLang : 'es';
+    const handle = () => withLang(langFromRequest(req), workLang, () => runInBrain(r.ctx, () => handler(req, ...rest)));
     let res: Response;
     let entry: import('./journal').JournalEntry | null = null;
     if (writing) {
@@ -174,14 +179,14 @@ export function withBrain<H extends Handler>(handler: H): H {
     if (idemKey) idemSave(r.ctx.vaultPath, r.ctx.actor || 'anon', idemKey, res.status, json);
     const headers = new Headers(res.headers); headers.delete('content-length');
     return new NextResponse(JSON.stringify(json), { status: res.status, headers });
-  }) as H;
+  }
 }
 
 /** Para rutas que tocan el espacio de trabajo o servicios del cerebro principal. */
 export function primaryOnly<H extends Handler>(handler: H): H {
   return withBrain((async (req: NextRequest, ...rest: any[]) => {
     const { isPrimaryBrain } = await import('./brainContext');
-    if (!isPrimaryBrain()) return NextResponse.json({ ok: false, error: 'Esta función todavía es solo del cerebro principal.' }, { status: 403 });
+    if (!isPrimaryBrain()) return NextResponse.json({ ok: false, error: tr('Esta función todavía es solo del cerebro principal.', 'This function is still only for the main brain.') }, { status: 403 });
     return handler(req, ...rest);
   }) as H);
 }
