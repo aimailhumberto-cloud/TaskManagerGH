@@ -12,6 +12,7 @@ interface Proposal {
   suggestion: string;
   nodeIds: string[];
   decision?: { decision: 'aprobada' | 'rechazada' | 'pospuesta' };
+  ai?: { apply: number | null; urgency: number | null };
 }
 interface SleepView {
   generatedAt: string;
@@ -31,6 +32,7 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [busy, setBusy] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [jev, setJev] = useState<{ busy: boolean; msg: string | null }>({ busy: false, msg: null });
 
   const load = useCallback(async () => {
     setState('loading');
@@ -59,6 +61,17 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
     } finally {
       setBusy(null);
     }
+  };
+
+  const askJev = async (action: 'ping' | 'review') => {
+    setJev({ busy: true, msg: null });
+    try {
+      const res = await fetch('/api/agent/decisions', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action }) });
+      const j = await res.json();
+      if (!j.ok && !j.reviewed) setJev({ busy: false, msg: j.error || (j.errors && j.errors[0]) || t('Jev no respondió.') });
+      else if (action === 'ping') setJev({ busy: false, msg: `${t('Jev responde')} · ${j.model} · ${j.ms} ms` });
+      else { setJev({ busy: false, msg: `${t('Jev revisó')} ${j.reviewed}/${j.pending}${j.errors?.length ? ` · ${j.errors[0]}` : ''}` }); await load(); }
+    } catch { setJev({ busy: false, msg: t('Jev no respondió.') }); }
   };
 
   const pending = (data?.proposals || []).filter((p) => !p.decision);
@@ -91,6 +104,11 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
                 : ''}
             </p>
           )}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button disabled={jev.busy} onClick={() => askJev('ping')} className="px-2 py-0.5 rounded border border-gray-700 text-[10px] text-gray-300 hover:bg-gray-800 disabled:opacity-50 transition">{t('Probar Jev')}</button>
+            <button disabled={jev.busy || pending.length === 0} onClick={() => askJev('review')} className="px-2 py-0.5 rounded border border-sky-800 text-[10px] text-sky-300 hover:bg-sky-950 disabled:opacity-50 transition">{jev.busy ? t('Consultando…') : t('Revisar con Jev')}</button>
+            {jev.msg && <span className="text-[10px] text-gray-400">{jev.msg}</span>}
+          </div>
           {data && pending.length === 0 && <p className="text-[11px] text-emerald-300">{t('Nada pendiente por revisar.')}</p>}
 
           <ul className="space-y-1.5 max-h-72 overflow-y-auto pr-0.5">
@@ -102,6 +120,11 @@ export function CerebroSleepPanel({ onFocusNode }: { onFocusNode?: (id: string) 
                     <p className="text-[11px] font-semibold text-gray-100 leading-snug">{p.title}</p>
                     <p className="text-[10px] text-gray-400 leading-snug mt-0.5">{p.reason}</p>
                     <p className="text-[10px] text-gray-500 leading-snug mt-0.5">→ {p.suggestion}</p>
+                    {p.ai && p.ai.apply !== null && (
+                      <p className="text-[10px] text-sky-300/90 leading-snug mt-0.5 font-mono">
+                        Jev: {Math.round(p.ai.apply * 100)}% {t('a favor')}{p.ai.urgency !== null ? ` · ${t('urgencia')} ${p.ai.urgency >= 1.34 ? t('hoy') : p.ai.urgency >= 0.67 ? t('esta semana') : t('puede esperar')}` : ''}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">

@@ -7,6 +7,7 @@ import {
 import fs from 'fs';
 import path from 'path';
 import { getSleepDir } from '@/lib/dotsSleep';
+import { loadReviews } from '@/lib/decisionEngine';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +32,10 @@ function generate(vaultPath: string): SleepReport {
 function view(vaultPath: string, report: SleepReport | null, generated: boolean) {
   if (!report) return { ok: true, report: null, generated };
   const decisions = loadDecisions(vaultPath);
-  return { ok: true, generated, report: applyDecisions(report, decisions, new Date()) };
+  const applied = applyDecisions(report, decisions, new Date());
+  // Revisión del motor de decisiones (Jev): solo anota confianza y urgencia; no cambia el orden de gravedad ni ninguna nota.
+  const reviews = loadReviews(getSleepDir(vaultPath));
+  return { ok: true, generated, report: { ...applied, proposals: applied.proposals.map((p: any) => (reviews[p.id] ? { ...p, ai: reviews[p.id] } : p)) } };
 }
 
 /**
