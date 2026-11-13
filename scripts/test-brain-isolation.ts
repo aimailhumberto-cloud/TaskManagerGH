@@ -69,7 +69,7 @@ inAna(() => S.deleteVaultFile('../../vault/01/Privado.md')); inAna(() => S.delet
 eq('no borró en HB', fs.existsSync(path.join(primaryVault, '01', 'Privado.md')) && fs.existsSync(path.join(root, 'fuera.md')), true);
 eq('confine', [inAna(() => S.confineToVault('../x')), inAna(() => S.confineToVault('ok.md')) !== null], [null, true]);
 // --- borde: cuentas con cerebro propio confinadas
-eq('borde', [ownBrainDecision('/cerebro', ana.id), ownBrainDecision('/tasks', ana.id), ownBrainDecision('/', ana.id), ownBrainDecision('/api/agent/brain', ana.id), ownBrainDecision('/api/agent/hub', ana.id), ownBrainDecision('/api/agent/decisions', ana.id), ownBrainDecision('/api/public/workspace', ana.id), ownBrainDecision('/api/tasks', ana.id), ownBrainDecision('/api/workspace', ana.id), ownBrainDecision('/tasks', 'hb'), ownBrainDecision('/tasks', undefined), ownBrainDecision('/usuarios', ana.id)],
+eq('borde', [ownBrainDecision('/cerebro', ana.id), ownBrainDecision('/empresas', ana.id), ownBrainDecision('/', ana.id), ownBrainDecision('/api/agent/brain', ana.id), ownBrainDecision('/api/agent/hub', ana.id), ownBrainDecision('/api/agent/decisions', ana.id), ownBrainDecision('/api/public/workspace', ana.id), ownBrainDecision('/api/tasks', ana.id), ownBrainDecision('/api/workspace', ana.id), ownBrainDecision('/tasks', 'hb'), ownBrainDecision('/tasks', undefined), ownBrainDecision('/usuarios', ana.id)],
   ['allow', 'redirect', 'redirect', 'allow', 'deny', 'deny', 'deny', 'deny', 'deny', 'allow', 'allow', 'allow']);
 eq('lista de cerebros', B.listBrains().map(b => b.brainId).sort(), ['hb', ana.id, luis.id, ro.id].sort());
 if (fail) { console.error(fail + ' fallas'); process.exit(1); } console.log('aislamiento de cerebros: todo ok');

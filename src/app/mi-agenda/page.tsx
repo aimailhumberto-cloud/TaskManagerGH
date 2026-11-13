@@ -29,7 +29,7 @@ export default function MiAgendaPage() {
     </li>);
   return (
     <div className="mx-auto max-w-3xl space-y-5 p-4 sm:p-6">
-      <div><h1 className="text-2xl font-bold" style={{ color: NAVY }}>Agenda</h1><p className="text-sm text-slate-600">Todo lo que tiene fecha en tu cerebro: tareas y seguimientos. Para agregar algo, créalo en <Link className="underline" href="/mis-tareas">Tareas</Link> con fecha.</p></div>
+      <div><h1 className="text-2xl font-bold" style={{ color: NAVY }}>Agenda</h1><p className="text-sm text-slate-600">Todo lo que tiene fecha en tu cerebro: tareas y seguimientos. Para agregar algo, créalo en <Link className="underline" href="/tasks">Tareas</Link> con fecha.</p></div>
       {msg && <p className="rounded-xl bg-sky-50 px-4 py-2 text-sm text-slate-700">{msg}</p>}
       {tasks === null && !msg && <p className="text-sm text-slate-500">Cargando…</p>}
       {tasks !== null && open.length === 0 && <p className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-500">No tienes nada con fecha.</p>}

@@ -23,7 +23,7 @@ export default function WorkspaceNavigation({
   const A = 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14', T = 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4';
   const U = 'M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21a8 8 0 0116 0';
   // Cuentas propias (todas, incluida la del dueño): Inicio, Cerebro, Agenda, Tareas y, para gerencia, Usuarios.
-  const modern: string[][] = [['/inicio', 'Inicio', H], ['/cerebro', 'Cerebro', B], ['/mi-agenda', 'Agenda', A], ['/mis-tareas', 'Tareas', T], ...(canManage ? [['/usuarios', 'Usuarios', U]] : [])];
+  const modern: string[][] = [['/inicio', 'Inicio', H], ['/cerebro', 'Cerebro', B], ['/mi-agenda', 'Agenda', A], ['/tasks', 'Tareas', T], ...(canManage ? [['/usuarios', 'Usuarios', U]] : [])];
   // Sin sesión propia (modo anterior): el menú histórico.
   const legacy: string[][] = [
     ['/', 'Inicio', H], ['/tasks', 'Tareas', T], ['/cerebro', 'Cerebro SMJ', B],

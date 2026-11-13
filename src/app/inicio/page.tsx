@@ -86,7 +86,7 @@ export default function InicioPage() {
           <p className="mt-1 text-sm text-slate-600">Tres pasos para empezar:</p>
           <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-700">
             <li>Captura tu primera idea o dato en el cuadro de abajo.</li>
-            <li>Crea una tarea en <Link className="underline" href="/mis-tareas">Tareas</Link>.</li>
+            <li>Crea una tarea en <Link className="underline" href="/tasks">Tareas</Link>.</li>
             <li>Conecta tu agente de IA desde <Link className="underline" href="/mi-agente">Mi agente</Link>.</li>
           </ol>
         </section>
@@ -109,7 +109,7 @@ export default function InicioPage() {
 
       <div className="grid gap-5 lg:grid-cols-5">
         <div className="space-y-5 lg:col-span-3">
-          <Card title="Mis tareas de hoy" action={<Link href="/mis-tareas" className="text-xs font-semibold underline" style={{ color: NAVY }}>Ver todas ({d.counts.open})</Link>}>
+          <Card title="Mis tareas de hoy" action={<span className="flex gap-3">{d.me.canManage && <Link href="/mis-tareas" className="text-xs font-semibold underline" style={{ color: NAVY }}>Asignar a alguien</Link>}<Link href="/tasks" className="text-xs font-semibold underline" style={{ color: NAVY }}>Ver todas ({d.counts.open})</Link></span>}>
             {d.tasksToday.length === 0 ? <p className="text-sm text-slate-500">Nada vence hoy.</p> : (
               <ul className="divide-y divide-slate-100">{d.tasksToday.map(t => (
                 <li key={t.id} className="flex items-center justify-between gap-3 py-2.5">
