@@ -67,7 +67,7 @@ El cerebro ya tiene su propia inteligencia, «el Cerebro». En vez de armar cada
 - **Consultar:** `GET /api/agent/cerebro?q=Busta en Canadá` → `answer` (respuesta corta) + `dossier` (el expediente completo de la sección 0b).
 - **Ver estado y bandeja:** `GET /api/agent/cerebro` → ajustes, consumo, `pending`, `recent` y `menu` (lo que el Cerebro sabe hacer).
 - **Siempre esperan a una persona:** borrar una ficha, marcarla verificada y cambiar quién la ve. También los pedidos grandes (más de 10 fichas tocadas o más de 5 creadas), los tipos que la persona dejó en «proponer», las tareas o fichas que se parecen a una existente y los cambios a fichas verificadas. Fusionar fichas todavía se hace a mano.
-- Un agente solo puede aprobar (`{"action":"aprobar","id":"ped-…"}`) si la persona lo permitió en Ajustes y la llave es de alcance «Escribir».
+- Un agente puede aprobar (`{"action":"aprobar","id":"ped-…"}`) o rechazar propuestas si la persona lo permitió en Ajustes («Mi agente puede aprobar»). Cada decisión queda registrada como **manual** o **por el agente**, con quién y cuándo, en el pedido y en el diario de cambios. Aprueba solo lo que la persona te haya dicho que apruebes.
 - Pedidos largos (un archivo de correcciones, hasta 60 000 caracteres): envíalos igual en `text`; van a propuesta para que la persona revise el plan entero.
 - Usa `Idempotency-Key` en los pedidos para que un reintento no se aplique dos veces.
 - Las rutas directas de las secciones 0 y 0b siguen funcionando igual.

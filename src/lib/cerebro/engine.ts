@@ -27,6 +27,8 @@ export interface CerebroRequest {
   ops: Op[]; plan: string[]; why?: string; results?: string[]; message?: string; changeId?: string;
   model?: string; inputTokens?: number; outputTokens?: number; ms?: number; rounds?: number; confidence?: number | null;
   decidedBy?: string; decidedAt?: string;
+  /** Cómo se decidió: una persona en la app, o un agente con su llave. Queda en el registro. */
+  decidedVia?: 'persona' | 'agente';
   /** Conversación: lo que el Cerebro preguntó y lo que le respondieron. */
   dialog?: { q: string; a?: string; by?: string }[];
   /** A quién reconoció: «Tomás = Tomás Casas (persona, sin verificar)». */
@@ -312,12 +314,13 @@ export async function decidir(id: string, approve: boolean, skip: number[] = [])
   if (!r) return { ok: false, status: 404, error: 'No existe ese pedido.' };
   if (r.status !== 'pendiente') return { ok: false, status: 409, error: `Ese pedido ya está ${r.status}.` };
   const may = canDecide(); if (!may.ok) return { ok: false, status: 403, error: may.error };
-  const stamp = { decidedBy: who(), decidedAt: new Date().toISOString() };
+  const via = isAgent() ? 'agente' as const : 'persona' as const;
+  const stamp = { decidedBy: who(), decidedVia: via, decidedAt: new Date().toISOString() };
   if (!approve) { const rec = { ...r, ...stamp, status: 'rechazado' as const }; saveRequest(vault, rec); return { ok: true, status: 200, request: rec }; }
   const ops = r.ops.filter((_, i) => !skip.includes(i));
   if (!ops.length) return { ok: false, status: 400, error: 'No queda ninguna operación por aplicar.' };
   const before = snapshotBefore(ops);
-  const a = await applyPlan(vault, ops, r.text, `Cerebro (aprobado por ${stamp.decidedBy})`);
+  const a = await applyPlan(vault, ops, r.text, `Cerebro (${via === 'agente' ? 'aprobado por el AGENTE' : 'aprobado MANUALMENTE por'} ${stamp.decidedBy})`);
   if (!a.ok) return { ok: false, status: 409, error: a.error };
   const links = linksOf(ops); const obs: Observations = { ...(r.obs || { supuso: [], fuertes: [], avisos: [], falta: [] }), ...(skip.length ? inspectPlan(ops, r.obs?.supuso) : {}), jev: r.obs?.jev };
   await afterApply(vault, r.id, obs, before, a.results, r.text);
