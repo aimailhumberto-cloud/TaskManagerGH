@@ -37,7 +37,7 @@ allcon = [c for o in ag for c in o['args'].get('con', [])]
 check('3. no inventa: sin mercados ni empresas que nadie nombró', 'market-us-miami' not in allcon and 'dist-morgan-williams' not in allcon and allcon.count('person-humberto-bouche') == 3, allcon)
 check('3b. y lo dice', any('Quité' in x for x in r1['obs']['supuso']), r1['obs']['supuso'])
 check('4. el modelo no dice «ya agendé»', not any('He agendado' in x for x in r1['obs']['supuso']) and any('zonas horarias' in x for x in r1['obs']['supuso']), r1['obs']['supuso'])
-check('5. informe claro: nada hecho, tres tramos esperando', 'NO se aplicó nada' in r1.get('message', '') and len(r1['report']['esperando']) == 3 and r1['report']['hecho'] == [], r1.get('report'))
+check('5. informe claro: nada hecho, tres tramos esperando', 'NO se guardó nada' in r1.get('message', '') and len(r1['report']['esperando']) == 3 and r1['report']['hecho'] == [], r1.get('report'))
 check('5b. el plan muestra la llegada y el detalle', all('hasta' in p and 'detalle' in p for p in r1['plan']), r1['plan'][2][:200])
 check('5c. el título del viaje no dice «con» la misma persona', not any('con Humberto' in p for p in r1['plan']), r1['plan'][0][:120])
 
@@ -76,4 +76,29 @@ parts = m.get('parts', [])
 check('13. pedido de varios temas: se parte y cada tema es un pedido aparte', m.get('multi') and len(parts) == 2 and parts[0]['id'] != parts[1]['id'] and parts[0].get('group') == parts[1].get('group'), (m.get('status'), m.get('message', '')[:200]))
 check('13b. cada tema con su plan propio', [p['ops'][0]['name'] for p in parts if p.get('ops')] == ['registrar_indicador', 'marcar_verificado'], [(p.get('status'), p.get('model')) for p in parts])
 check('13c. el mensaje dice el estado de cada tema', 'Tema 1' in m.get('message', '') and 'Tema 2' in m.get('message', ''), m.get('message', '')[:260])
+# Casos: abierto, cerrado con acta, estado, casos abiertos y novedades
+check('14. caso abierto: lo dice y explica cómo aprobar', r1.get('caso', {}).get('estado') == 'espera_aprobacion' and not r1['caso']['cerrado'] and 'ABIERTO' in r1.get('message', '') and "action:'aprobar'" in r1.get('next', ''), (r1.get('caso', {}).get('estado'), r1.get('next')))
+check('14b. pregunta: caso abierto que espera respuesta', q2.get('caso', {}).get('estado') == 'espera_respuesta' and "action:'responder'" in q2.get('next', ''), q2.get('next'))
+check('14c. al aprobar: acta de cierre', ap.get('caso', {}).get('cerrado') and ap['caso'].get('tipo') in ('completo', 'parcial') and 'CERRADO' in ap.get('message', '') and 'No tienes que hacer nada más' in ap.get('message', '') and len(ap['caso']['guardado']) == 3, ap.get('message', '')[:300])
+s, e1 = P({'action': 'estado', 'id': r1['id']})
+check('14d. estado de un caso reemplazado: cerrado sin cambios', e1.get('caso', {}).get('cerrado') and e1['caso'].get('tipo') == 'sin_cambios' and r2['id'] in e1.get('message', ''), e1.get('message'))
+s, cs = P({'action': 'casos'})
+ab = [c['id'] for c in cs.get('abiertos', [])]
+check('14e. «tus casos abiertos»: están los que esperan y no los cerrados', q2['id'] in ab and r2['id'] not in ab and r1['id'] not in ab, ab)
+# Novedades: un agente abre un caso, la persona lo aprueba en la app, y el agente se entera en su siguiente visita
+import urllib.request as U
+def agent(body):
+    req = U.Request(B + C, data=json.dumps(body).encode(), headers={'Content-Type': 'application/json', 'Authorization': 'Bearer k-prueba-123'}, method='POST')
+    try:
+        with U.urlopen(req) as r: return r.status, json.loads(r.read().decode() or '{}')
+    except urllib.error.HTTPError as e: return e.code, json.loads(e.read().decode() or '{}')
+s, a1 = agent({'action': 'pedir', 'text': 'tarea-parecida'})
+check('15. agente: su caso queda abierto esperando aprobación', a1.get('caso', {}).get('estado') == 'espera_aprobacion', (s, a1.get('message')))
+s, a2 = agent({'action': 'casos'})
+check('15b. agente: lo ve en sus casos abiertos, sin novedades', a1['id'] in [c['id'] for c in a2.get('abiertos', [])] and not a2.get('novedades'), a2)
+P({'action': 'aprobar', 'id': a1['id']})
+s, a3 = agent({'action': 'casos'})
+check('15c. agente: se entera de que la persona lo cerró', any(a1['id'] in n and 'CERRADO' in n for n in a3.get('novedades', [])) and a1['id'] not in [c['id'] for c in a3.get('abiertos', [])], a3)
+s, a4 = agent({'action': 'casos'})
+check('15d. la novedad se avisa una sola vez', not a4.get('novedades'), a4.get('novedades'))
 res_n = len(res); print(f"\n{sum(res)}/{res_n} pruebas"); raise SystemExit(0 if all(res) else 1)

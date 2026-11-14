@@ -7,7 +7,7 @@
  * Salida de emergencia: AGENT_WRITE_MODE=legacy en Render devuelve el comportamiento anterior (sin redeploy de código).
  */
 export const AGENT_ALLOWED: Record<string, string[]> = {
-  '/api/agent/cerebro': ['pedir', 'leer', 'consultar', 'responder', 'aprobar', 'rechazar'],
+  '/api/agent/cerebro': ['pedir', 'leer', 'consultar', 'responder', 'aprobar', 'rechazar', 'estado', 'casos'],
 };
 export const legacyWriteMode = (env: string | undefined = process.env.AGENT_WRITE_MODE) => env === 'legacy';
 export const agentMayWrite = (path: string, action?: string): boolean => !!action && (AGENT_ALLOWED[path] || []).includes(action);

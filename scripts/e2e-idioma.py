@@ -33,14 +33,14 @@ s, st = http(C); check('GET sin idioma: español', 'pedir un cambio en palabras'
 
 # 1. Pedido en inglés con llave de agente: responde en inglés; las fichas siguen en el idioma de trabajo (español, aún sin elegir)
 s, r = ask('Schedule a meeting with Richard Bailey to see the second brain tomorrow at 8')
-check('inglés → respuesta en inglés (lang, mensaje, plan, resultados)', s == 200 and r['lang'] == 'en' and r['message'] == 'Done.' and r['plan'][0].startswith('Agenda: “') and 'on the agenda for 2026-11-13 at 08:00' in r['results'][0] and not ES_WORDS.search(json.dumps(r['plan'] + r['results'] + [r['message']])), (r.get('message'), r.get('plan'), r.get('results')))
+check('inglés → respuesta en inglés (lang, mensaje, plan, resultados)', s == 200 and r['lang'] == 'en' and r['message'].startswith('CASE ') and 'CLOSED (complete)' in r['message'] and r['plan'][0].startswith('Agenda: “') and 'on the agenda for 2026-11-13 at 08:00' in r['results'][0] and not ES_WORDS.search(json.dumps(r['plan'] + r['results'] + [r['message']])), (r.get('message'), r.get('plan'), r.get('results')))
 check('…los enlaces salen en inglés', any(l['label'].startswith('Note of') or l['label'].startswith('Agenda for') for l in r.get('links', [])) and not any(l['label'].startswith('Ficha de') for l in r['links']), r.get('links'))
 check('…y el título guardado sigue el idioma de TRABAJO (español)', any('Reunión con Richard' in e.get('title', '') for e in (lambda g: g.get('occurrences', g.get('events', [])))(http('/api/agent/agenda?from=2026-11-13&to=2026-11-13')[1])), '')
 b = node('person-richard-bailey').get('body', ''); check('…y la bitácora en español (fuente/registró)', 'registró:' in b and 'logged by' not in b, b[-200:])
 
 # 2. Pedido en español en el mismo cerebro: responde en español
 s, r = ask('La reunión con MEDIMEX pasó al lunes 16 a las 3 pm; anótalo y crea tarea de enviar la propuesta el viernes.')
-check('español → respuesta en español', s == 200 and r['lang'] == 'es' and r['message'] == 'Hecho.' and r['plan'][0].startswith('Anotar en'), (s, r.get('message'), r.get('plan')))
+check('español → respuesta en español', s == 200 and r['lang'] == 'es' and r['message'].startswith('CASO ') and 'CERRADO (completo)' in r['message'] and r['plan'][0].startswith('Anotar en'), (s, r.get('message'), r.get('plan')))
 
 # 3. Persona con la pantalla en inglés, cerebro sin idioma elegido: se toma el de la pantalla y queda guardado
 s, r = P({'action': 'pedir', 'text': 'move the Richard Bailey meeting to next week', 'uiLang': 'en'})
@@ -66,7 +66,7 @@ s, ch = http('/api/agent/changes'); dump = json.dumps(ch); check('el diario dice
 s, r = ask('delete the ficha of Luisa'); check('borrar espera a una persona (motivo en inglés)', s == 202 and 'a person always approves' in r['why'], r.get('why'))
 P({'action': 'ajustes', 'mode': 'auto'})
 s, r = ask('indicator: sales Canada 99 boxes'); check('menú en inglés: nombre del indicador queda tal cual', s == 200 and r['lang'] == 'en', (s, r.get('message')))
-s, r = ask('ambiguous: move it to Monday'); check('pregunta del modelo en inglés', s == 200 and r['status'] == 'pregunta' and r['message'] == 'Which distributor do you mean?', r.get('message'))
+s, r = ask('ambiguous: move it to Monday'); check('pregunta del modelo en inglés', s == 200 and r['status'] == 'pregunta' and r['message'].startswith('CASE ') and r['message'].endswith('Question: Which distributor do you mean?'), r.get('message'))
 
 # 6. Errores de la app en inglés
 s, r = ask('siempre-mal: note something'); check('error de plan inválido en inglés (422)', s == 422 and 'could not build a valid plan' in r['message'] and 'does not exist' in r['message'], r.get('message'))

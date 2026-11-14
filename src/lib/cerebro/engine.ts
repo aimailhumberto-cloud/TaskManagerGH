@@ -28,6 +28,8 @@ export interface CerebroRequest {
   ops: Op[]; plan: string[]; why?: string; results?: string[]; message?: string; changeId?: string;
   model?: string; inputTokens?: number; outputTokens?: number; ms?: number; rounds?: number; confidence?: number | null;
   decidedBy?: string; decidedAt?: string;
+  /** Cuándo se cerró el caso (aplicado, rechazado, reemplazado, fallo…). */
+  closedAt?: string;
   /** Cómo se decidió: una persona en la app, o un agente con su llave. Queda en el registro. */
   decidedVia?: 'persona' | 'agente';
   /** Conversación: lo que el Cerebro preguntó y lo que le respondieron. */
@@ -60,6 +62,7 @@ const usageFile = (v: string) => path.join(cerebroDir(v), 'usage.jsonl');
 const MAX_KEEP = 400;
 export function listRequests(vaultPath: string): CerebroRequest[] { try { const d = JSON.parse(fs.readFileSync(reqFile(vaultPath), 'utf8')); return Array.isArray(d) ? d : []; } catch { return []; } }
 function saveRequest(vaultPath: string, r: CerebroRequest) {
+  if (r.status !== 'pregunta' && r.status !== 'pendiente' && !r.closedAt) r.closedAt = new Date().toISOString();
   const all = listRequests(vaultPath).filter(x => x.id !== r.id); all.unshift(r);
   const keep = [...all.filter(x => x.status === 'pendiente'), ...all.filter(x => x.status !== 'pendiente').slice(0, MAX_KEEP)].sort((a, b) => b.at.localeCompare(a.at));
   fs.mkdirSync(cerebroDir(vaultPath), { recursive: true });
@@ -87,6 +90,18 @@ export function usageSummary(vaultPath: string, now = new Date()) {
 
 // ---------- Quién pide ----------
 const isAgent = () => String(currentBrain()?.actor || '').startsWith('agente');
+// ---------- Casos: los abiertos de quien pide y lo que se cerró mientras no estaba ----------
+const seenFile = (v: string) => path.join(cerebroDir(v), 'seen.json');
+const loadSeen = (v: string): Record<string, string> => { try { return JSON.parse(fs.readFileSync(seenFile(v), 'utf8')) || {}; } catch { return {}; } };
+/** Casos abiertos de quien está pidiendo (espera respuesta o aprobación), los más nuevos primero. */
+export function openCases(vault: string): CerebroRequest[] { const me = who(); return listRequests(vault).filter(r => r.by === me && (r.status === 'pregunta' || r.status === 'pendiente')).slice(0, 20); }
+/** Casos de quien pide que se cerraron desde su última visita (lo aprobó otra persona, se reemplazó, etc.). Marca la visita. */
+export function caseNews(vault: string): CerebroRequest[] {
+  const me = who(); const seen = loadSeen(vault); const last = seen[me] || '';
+  const news = last ? listRequests(vault).filter(r => r.by === me && r.closedAt && r.closedAt > last).slice(0, 10) : [];
+  try { fs.mkdirSync(cerebroDir(vault), { recursive: true }); fs.writeFileSync(seenFile(vault), JSON.stringify({ ...seen, [me]: new Date().toISOString() })); } catch {}
+  return news;
+}
 const who = () => { const c = currentBrain(); return isAgent() ? `${tw('Agente', 'Agent')}${c?.actor?.includes(':') ? ' ' + c.actor.split(':')[1].slice(0, 8) : ''}` : actorLabel(tw('Persona', 'Person')); };
 const newId = () => `ped-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${crypto.randomBytes(3).toString('hex')}`;
 

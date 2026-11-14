@@ -340,3 +340,12 @@ Existen el vault de Obsidian (local), la carpeta `vault/` del repositorio y el d
 - **Varios temas en un pedido:** la respuesta trae `multi: true`, `status: "varios"` y `parts` (un pedido por tema, cada uno con su `id`, `status` y `report`). Lo claro se aplica; lo dudoso espera o pregunta. Sigue cada tema con su propio `id`.
 - **Tareas existentes:** el Cerebro ve las tareas abiertas del mismo tema; si ya existe, la usa y dice «Ya existe la tarea …» en vez de crear otra.
 - Mejor resultado: nombres completos, y los datos dentro del pedido (horas, aerolínea). Pedidos largos de agente usan el modelo grande: pueden tardar hasta un minuto.
+
+## Casos: todo pedido se abre y se cierra (vuelta 38)
+
+- Cada pedido es un **caso**. Toda respuesta trae `caso` (estado, acta) y `next` (qué puedes hacer ahora, con la acción exacta). Lee `message`: empieza con «CASO … ABIERTO» o «CASO … CERRADO».
+- **Abierto, espera tu respuesta:** contesta con `responder`. **Abierto, espera aprobación:** muéstrale la propuesta a tu persona; si la aprueba, pásalo con `{action:'aprobar', id}` (o `rechazar`). Todavía no se guardó nada.
+- **Cerrado:** el acta dice qué se guardó, qué no, qué quedó por confirmar y cómo deshacer. Tipo: completo, parcial o sin cambios. No hay nada más que hacer.
+- **Estado de un caso:** `POST {action:'estado', id}`. **Tus casos abiertos:** `POST {action:'casos'}`; además toda respuesta trae `abiertos`. Si un caso no está en `abiertos`, está cerrado.
+- **Novedades:** si tu persona cerró un caso mientras no estabas, la siguiente respuesta trae `novedades` con el acta.
+- Un caso cerrado no se reabre: una corrección es un caso nuevo (`reemplaza` si el anterior aún esperaba).

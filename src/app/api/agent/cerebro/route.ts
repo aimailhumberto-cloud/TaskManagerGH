@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withBrain } from '@/lib/brains';
 import { currentBrain } from '@/lib/brainContext';
-import { pedir, pedirVarios, responder, consultar, decidir, listRequests, usageSummary, canDecide } from '@/lib/cerebro/engine';
+import { pedir, pedirVarios, responder, consultar, decidir, listRequests, usageSummary, canDecide, openCases, caseNews, type CerebroRequest } from '@/lib/cerebro/engine';
+import { caseOf, caseLine } from '@/lib/cerebro/cases';
 import { loadSettings, saveSettings } from '@/lib/cerebro/settings';
 import { llmConfigured, listModels, balance, chat, LlmError } from '@/lib/cerebro/ollama';
 import { MENU } from '@/lib/cerebro/ops';
@@ -47,6 +48,15 @@ function langsFor(vaultPath: string, input: { forced?: unknown; ui?: unknown; te
 }
 
 const httpOf = (st: string) => (st === 'fallo' ? 502 : st === 'no_entendido' ? 422 : st === 'pendiente' ? 202 : 200);
+/** Todo lo que acompaña a una respuesta sobre un caso: su acta, qué hacer ahora, los casos abiertos de quien pide y lo cerrado desde su última visita. */
+function caseExtras(vault: string, r?: CerebroRequest, dry = false) {
+  const may = canDecide().ok; const caso = r ? caseOf(r, { canApprove: may }) : undefined;
+  if (dry) return caso ? { caso, next: caso.ahora } : {};
+  const news = caseNews(vault).filter(x => x.id !== r?.id); const open = openCases(vault).filter(x => x.id !== r?.id);
+  return { ...(caso ? { caso, next: caso.ahora } : {}), abiertos: open.map(caseLine), ...(news.length ? { novedades: news.map(x => caseOf(x, { canApprove: may }).texto) } : {}) };
+}
+/** El mensaje que lee el agente empieza por el estado del caso; cerrado o abierto se dice siempre. */
+const sayCase = (r: CerebroRequest, dry = false) => dry ? r.message : `${caseOf(r, { canApprove: canDecide().ok }).texto}${r.status === 'pendiente' || r.status === 'aplicado' || r.status === 'pregunta' ? '' : r.message ? ` ${r.message}` : ''}`;
 const nextOf = (st: string) => (st === 'pendiente' ? tr('Una persona lo aprueba en la app (Pedir → Por aprobar).', 'A person approves it in the app (Pedir → To approve).') : st === 'pregunta' ? tr("Contesta con POST {action:'responder', id, text}: solo lo que falta; el Cerebro recuerda el pedido.", "Answer with POST {action:'responder', id, text}: only what is missing; the Brain remembers the request.") : undefined);
 
 async function _GET(req: NextRequest) {
@@ -62,7 +72,7 @@ async function getInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, sp: U
     try { return NextResponse.json({ ok: true, models: await listModels(), balance: await balance() }); } catch (e: any) { return bad(e instanceof LlmError ? e.message : tr('No se pudo consultar Ollama.', 'Could not reach Ollama.'), 502); }
   }
   const all = listRequests(ctx.vaultPath);
-  if (sp.get('id')) { const r = all.find(x => x.id === sp.get('id')); return r ? NextResponse.json({ ok: true, request: r }) : bad(tr('No existe ese pedido.', 'That request does not exist.'), 404); }
+  if (sp.get('id')) { const r = all.find(x => x.id === sp.get('id')); return r ? NextResponse.json({ ok: true, request: r, caso: caseOf(r, { canApprove: canDecide().ok }) }) : bad(tr('No existe ese pedido.', 'That request does not exist.'), 404); }
   return NextResponse.json({
     ok: true, name: 'el Cerebro', lang: replyLang(), ...(isAgent() ? {} : (() => { const chatThread = loadChat(ctx.vaultPath, chatWho()); return { chat: chatThread, chatRequests: chatRequests(ctx.vaultPath, chatThread) }; })()), ready: llmConfigured(), jev: !!configuredProvider(), settings: loadSettings(ctx.vaultPath), usage: usageSummary(ctx.vaultPath),
     canApprove: canDecide().ok, pending: all.filter(r => r.status === 'pendiente'), review: listReview(ctx.vaultPath).filter(i => !i.closedAt).slice(0, 50), questions: all.filter(r => r.status === 'pregunta' && Date.now() - Date.parse(r.at) < 3 * 86400_000).slice(0, 10), recent: all.filter(r => r.status !== 'pendiente').slice(0, 20),
@@ -95,8 +105,8 @@ async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: a
     const replaces = typeof (b.reemplaza || b.replaces) === 'string' ? String(b.reemplaza || b.replaces) : undefined;
     if (action === 'pedir') {
       const v = await pedirVarios({ text, deep: b.deep === true, dryRun: b.dryRun === true, replaces });
-      if (v.multi) return NextResponse.json({ ok: true, multi: true, status: 'varios', id: v.parts[0].id, parts: v.parts.map(p => ({ ...p, next: nextOf(p.status) })), message: v.message, next: tr('Cada tema es un pedido aparte: mira «parts» y sigue con el id de cada uno (responder, aprobar).', 'Each topic is a separate request: see “parts” and continue with each id (responder, aprobar).') });
-      return NextResponse.json({ ...v.one, ok: httpOf(v.one.status) < 400, next: nextOf(v.one.status) }, { status: httpOf(v.one.status) });
+      if (v.multi) return NextResponse.json({ ok: true, multi: true, status: 'varios', id: v.parts[0].id, parts: v.parts.map(p => ({ ...p, ...caseExtras(ctx.vaultPath, p, true), message: sayCase(p, b.dryRun === true) })), message: v.message, ...(b.dryRun === true ? {} : caseExtras(ctx.vaultPath)), next: tr('Cada tema es un pedido aparte: mira «parts» y sigue con el id de cada uno (responder, aprobar).', 'Each topic is a separate request: see “parts” and continue with each id (responder, aprobar).') });
+      return NextResponse.json({ ...v.one, ok: httpOf(v.one.status) < 400, ...caseExtras(ctx.vaultPath, v.one, b.dryRun === true), message: sayCase(v.one, b.dryRun === true) }, { status: httpOf(v.one.status) });
     }
     const r = await pedir({ text: typeof b.source === 'string' && b.source.trim() ? `Fuente: ${b.source.trim().slice(0, 200)}\n\n${text}` : text, deep: b.deep === true, dryRun: b.dryRun === true, kind: 'leer' });
     return NextResponse.json({ ...r, ok: httpOf(r.status) < 400, next: nextOf(r.status) }, { status: httpOf(r.status) });
@@ -105,11 +115,17 @@ async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: a
     const text = String(b.text || '').trim(); if (!text) return bad(tr('Escribe la respuesta en «text».', 'Write the answer in “text”.'));
     const r = await responder(String(b.id || ''), text);
     if (!r.ok) return bad(r.error, r.status);
-    return NextResponse.json({ ...r, ok: !['fallo', 'no_entendido'].includes(r.status), next: nextOf(r.status) }, { status: httpOf(r.status) });
+    return NextResponse.json({ ...r, ok: !['fallo', 'no_entendido'].includes(r.status), ...caseExtras(ctx.vaultPath, r), message: sayCase(r) }, { status: httpOf(r.status) });
   }
   if (action === 'aprobar' || action === 'rechazar') {
     const r = await decidir(String(b.id || ''), action === 'aprobar', Array.isArray(b.omitir) ? b.omitir.map(Number).filter(Number.isInteger) : []);
-    return NextResponse.json(r.ok ? { ok: true, request: r.request, receipt: r.receipt } : { ok: false, error: r.error }, { status: r.status });
+    return NextResponse.json(r.ok ? { ok: true, request: r.request, receipt: r.receipt, ...caseExtras(ctx.vaultPath, r.request), message: r.request ? sayCase(r.request) : undefined } : { ok: false, error: r.error }, { status: r.status });
+  }
+  if (action === 'estado' || action === 'casos') {
+    if (action === 'casos') return NextResponse.json({ ok: true, ...caseExtras(ctx.vaultPath) });
+    const r = listRequests(ctx.vaultPath).find(x => x.id === String(b.id || ''));
+    if (!r) return bad(tr('No existe ese caso.', 'That case does not exist.'), 404);
+    return NextResponse.json({ ok: true, request: r, ...caseExtras(ctx.vaultPath, r), message: sayCase(r) });
   }
   if (action === 'ajustes' || action === 'probar') {
     if (isAgent()) return bad(tr('Los ajustes del Cerebro los cambia una persona en la app.', 'Brain settings are changed by a person in the app.'), 403);
@@ -127,7 +143,7 @@ async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: a
     }
     return NextResponse.json({ ok: Object.values(out).every((o: any) => o.ok), test: out });
   }
-  return bad(tr("action debe ser 'pedir', 'leer', 'chat', 'chat_reset', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.", "action must be 'pedir', 'leer', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' or 'probar'."));
+  return bad(tr("action debe ser 'pedir', 'leer', 'chat', 'chat_reset', 'responder', 'estado', 'casos', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.", "action must be 'pedir', 'leer', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' or 'probar'."));
 }
 export const GET = withBrain(_GET);
 export const POST = withBrain(_POST);
