@@ -582,7 +582,7 @@ export default function CerebroPage() {
   };
 
   // Bucle de dibujo y física del lienzo (60 FPS)
-  useCanvasRenderLoop({ animFrameRef, canvasRef, cappedInfoRef, drilldownStackRef, expansionsRef, gravityActive, hoveredNodeRef, linksRef, mounted, nativeLayoutDecorRef, nodesRef, selectedNodeIdRef, stackedDeck, transformRef, viewMode });
+  useCanvasRenderLoop({ animFrameRef, canvasRef, cappedInfoRef, drilldownStackRef, expansionsRef, gravityActive, hoveredNodeRef, linksRef, mounted, nativeLayoutDecorRef, nodesRef, selectedNodeIdRef, stackedDeck, transformRef, viewMode, hoodRef });
 
     // Camera bounds clamping (prevents drifting into infinite void)
   const clampCameraBounds = () => {
@@ -604,6 +604,8 @@ export default function CerebroPage() {
     if (!canvas) return;
     const w = canvas.clientWidth || 800;
     const h = canvas.clientHeight || 600;
+    // Dentro de un vecindario, cualquier encuadre (carga, girar el teléfono, botón Centrar) es el del vecindario.
+    if (!targetNode && hoodRef.current) targetNode = nodesRef.current.find(n => n.id === hoodRef.current?.id);
 
     const context = targetNode ? nodesRef.current.filter(n => focusNodeIdsRef.current.includes(n.id)) : nodesRef.current.filter(n => n.type !== 'packaging' && n.type !== 'flavor');
     const mobile = window.innerWidth < 768;
@@ -612,8 +614,8 @@ export default function CerebroPage() {
     // Se encuadra por destino (donde van a quedar los nodos), no por donde estan mientras brotan.
     // En vecindario se deja libre la franja de abajo (nombre y botones) y un margen arriba.
     const inHood = !!hoodRef.current && mobile && !!targetNode;
-    const fitted = fitIdentityBounds(context.map(n => ({ x: Number.isFinite(n.targetX) ? n.targetX : n.x, y: Number.isFinite(n.targetY) ? n.targetY : n.y })), w, inHood ? Math.max(260, h - 230) : h, inHood ? false : panelOverlaysCanvas, mobile);
-    if (fitted && inHood) fitted.y += 60;
+    const fitted = fitIdentityBounds(context.map(n => ({ x: Number.isFinite(n.targetX) ? n.targetX : n.x, y: Number.isFinite(n.targetY) ? n.targetY : n.y })), w, inHood ? Math.max(240, h - 215) : h, inHood ? false : panelOverlaysCanvas, mobile);
+    if (fitted && inHood) fitted.y += 44;
     if (!fitted) return;
     let targetX = fitted.x;
     let targetY = fitted.y;
@@ -896,6 +898,17 @@ export default function CerebroPage() {
   const resetView = () => {
     handleCenterAndFit();
   };
+
+  // En celular el cerebro abre directo en el vecindario del centro; el mapa completo queda en "Todo el cerebro".
+  const autoHoodRef = useRef(false);
+  useEffect(() => {
+    if (autoHoodRef.current || !graphData || typeof window === 'undefined' || window.innerWidth >= 768) return;
+    const core = graphData.nodes.find(n => n.type === 'core');
+    if (!core) return;
+    autoHoodRef.current = true;
+    requestAnimationFrame(() => requestAnimationFrame(() => { updateCanvasDimensions(); if (!hoodRef.current) enterHood(core as NodeData); }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [graphData]);
 
   // Vecindario: deja a la vista solo esta ficha y lo que toca directamente, en círculo.
   const enterHood = (node: NodeData, limit: number = 8) => {
@@ -1222,7 +1235,7 @@ export default function CerebroPage() {
 
   return (
     <LangContext.Provider value={{ lang, setLang, t }}>
-    <div className="cerebro-lux fixed inset-0 z-[60] flex flex-col w-screen h-screen bg-[#071230] text-gray-100 overflow-hidden font-sans">
+    <div className="cerebro-lux fixed inset-0 z-[60] flex flex-col w-screen h-[100dvh] bg-[#071230] text-gray-100 overflow-hidden font-sans">
       {/* Top Header Navigation & Executive HUD */}
       {/* Top Header Navigation & Executive HUD */}
       <CerebroHeader graphData={graphData} handleCenterAndFit={handleCenterAndFit} handleSetViewMode={handleSetViewMode} isSettingsMenuOpen={isSettingsMenuOpen} lastSyncTime={lastSyncTime} nodesRef={nodesRef} pushToStackedDeck={pushToStackedDeck} searchQuery={searchQuery} searchResults={searchResults} setIsSettingsMenuOpen={setIsSettingsMenuOpen} setSearchQuery={setSearchQuery} setStackedDeck={setStackedDeck} stackedDeck={stackedDeck} summary={summary} viewMode={viewMode} />
@@ -1248,9 +1261,9 @@ export default function CerebroPage() {
       <CerebroHud contactStats={contactStats} graphData={graphData} handleConsolidate={handleConsolidate} isHudOpen={isHudOpen} isSubmitting={isSubmitting} linkHealthAudit={linkHealthAudit} summary={summary} workingMemoryStats={workingMemoryStats} />
 
       {/* Main Workspace Area */}
-      <div className="relative flex-1 flex flex-col md:flex-row overflow-hidden min-h-[550px] h-[calc(100vh-48px)]">
+      <div className="relative flex-1 flex flex-col md:flex-row overflow-hidden min-h-[550px] h-[calc(100dvh-48px)]">
         {/* Orbital Canvas Viewport (flex-1 min-w-0 ensures aside fits seamlessly on right) */}
-        <div ref={containerRef} className="flex-1 min-w-0 relative h-full min-h-[550px]">
+        <div ref={containerRef} className="flex-1 min-w-0 relative h-full min-h-0 md:min-h-[550px]">
           <canvas
             ref={canvasRef}
             onClick={(e) => { if (!hoodRef.current) handleCanvasClick(e); }}
@@ -1275,7 +1288,7 @@ export default function CerebroPage() {
                 <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4cc9ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
                 {t("Todo el cerebro")}
               </button>
-              <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col gap-1.5 rounded-t-3xl border-t border-sky-300/35 bg-[#0b1f4d]/95 px-5 pb-5 pt-4 shadow-2xl backdrop-blur">
+              <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col gap-1.5 rounded-t-3xl border-t border-sky-300/35 bg-[#0b1f4d]/95 px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-4 shadow-2xl backdrop-blur">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="truncate text-[17px] font-semibold text-slate-50">{hood.title}</span>
                   <span className="shrink-0 text-[11px] font-medium text-sky-200">{t(TYPE_CONFIG[hood.type]?.label || '')}</span>

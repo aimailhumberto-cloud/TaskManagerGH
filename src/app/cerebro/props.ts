@@ -85,6 +85,7 @@ export interface CerebroShared {
   resetToDefaultView: () => void;
   toggleNodeOpen: (node: NodeData) => void;
   tapNode: (node: NodeData) => boolean;
+  hoodRef: React.MutableRefObject<{ id: string; ids: string[] } | null>;
   showMoreOfNode: (node: NodeData) => void;
   unpinNode: (node: NodeData) => void;
   clampCameraBounds: () => void;
@@ -97,4 +98,4 @@ export type SettingsMenuProps = Pick<CerebroShared, 'catalogScope' | 'fetchGraph
 export type HudProps = Pick<CerebroShared, 'contactStats' | 'graphData' | 'handleConsolidate' | 'isHudOpen' | 'isSubmitting' | 'linkHealthAudit' | 'summary' | 'workingMemoryStats'>;
 export type SideCardProps = Pick<CerebroShared, 'catalogScope' | 'expandedBrandInDossier' | 'expandedDeptInDossier' | 'expandedLeaderInDossier' | 'getWikilinkLabel' | 'graphData' | 'handleSetCatalogScope' | 'handleSetOrgScope' | 'handleWikilinkClick' | 'inspectorRef' | 'linksRef' | 'nodeBodies' | 'nodesRef' | 'pushToStackedDeck' | 'removeFromDeck' | 'setExpandedBrandInDossier' | 'setExpandedDeptInDossier' | 'setExpandedLeaderInDossier' | 'setStackedDeck' | 'setStatusMessage' | 'stackedDeck'>;
 export type GesturesProps = Pick<CerebroShared, 'canvasRef' | 'clampCameraBounds' | 'dragStartMousePosRef' | 'draggedNodeRef' | 'findNodeAtClientPoint' | 'findPillAtClientPoint' | 'hoveredNodeRef' | 'initialPinchDistRef' | 'initialPinchScaleRef' | 'isDraggingCanvasRef' | 'lastMousePosRef' | 'lastTapTimeRef' | 'lastTouchPosRef' | 'linksRef' | 'nodesRef' | 'pinchCenterRef' | 'pushToStackedDeck' | 'resetToDefaultView' | 'selectedNodeIdRef' | 'setHoveredNode' | 'setPinnedCount' | 'setTooltipPos' | 'showMoreOfNode' | 'tapNode' | 'toggleNodeOpen' | 'touchMovedRef' | 'touchStartPosRef' | 'transformRef' | 'unpinNode'>;
-export type RenderLoopProps = Pick<CerebroShared, 'animFrameRef' | 'canvasRef' | 'cappedInfoRef' | 'drilldownStackRef' | 'expansionsRef' | 'gravityActive' | 'hoveredNodeRef' | 'linksRef' | 'mounted' | 'nativeLayoutDecorRef' | 'nodesRef' | 'selectedNodeIdRef' | 'stackedDeck' | 'transformRef' | 'viewMode'>;
+export type RenderLoopProps = Pick<CerebroShared, 'animFrameRef' | 'canvasRef' | 'cappedInfoRef' | 'drilldownStackRef' | 'expansionsRef' | 'gravityActive' | 'hoveredNodeRef' | 'linksRef' | 'mounted' | 'nativeLayoutDecorRef' | 'nodesRef' | 'selectedNodeIdRef' | 'stackedDeck' | 'transformRef' | 'viewMode' | 'hoodRef'>;

@@ -27,7 +27,7 @@ import { CerebroHud } from './CerebroHud';
 
 // Bucle de dibujo y física del lienzo (60 FPS). Extraído de page.tsx sin cambios de comportamiento.
 export function useCanvasRenderLoop(props: RenderLoopProps) {
-  const { animFrameRef, canvasRef, cappedInfoRef, drilldownStackRef, expansionsRef, gravityActive, hoveredNodeRef, linksRef, mounted, nativeLayoutDecorRef, nodesRef, selectedNodeIdRef, stackedDeck, transformRef, viewMode } = props;
+  const { animFrameRef, canvasRef, cappedInfoRef, drilldownStackRef, expansionsRef, gravityActive, hoveredNodeRef, linksRef, mounted, nativeLayoutDecorRef, nodesRef, selectedNodeIdRef, stackedDeck, transformRef, viewMode, hoodRef } = props;
     // 60FPS High-Precision Kinetic Loop with Collision Repulsion (Zero Overlap)
   useEffect(() => {
     if (!mounted) return;
@@ -457,7 +457,9 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
           ctx.textBaseline = 'top';
           // El tipo ya se lee debajo: se quita el prefijo "Brand: ", "Department: ", etc.
           const humanTitle = humanNodeName(n).replace(/^[A-Za-z][A-Za-z &]{2,22}(?::\s+|\s+-\s+)/, '');
-          const displayTitle = humanTitle.length > 25 ? humanTitle.slice(0, 23) + '…' : humanTitle;
+          // En el vecindario los nombres de alrededor van más cortos para no encimarse con la burbuja vecina.
+          const cap = hoodRef.current && hoodRef.current.id !== n.id ? 16 : 25;
+          const displayTitle = humanTitle.length > cap ? humanTitle.slice(0, cap - 2) + '…' : humanTitle;
           ctx.fillText(displayTitle, n.x, n.y + r + 7);
 
           // Tipo de nodo: solo al acercar o al enfocar
