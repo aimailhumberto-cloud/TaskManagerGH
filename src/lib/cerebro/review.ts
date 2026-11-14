@@ -23,7 +23,7 @@ export interface Observations {
   avisos: string[];
   /** Datos que faltan en las fichas tocadas. */
   falta: string[];
-  jev?: { fiel: number | null; coherente?: number | null; error?: string };
+  jev?: { fiel: number | null; coherente?: number | null; error?: string; motivo?: string };
 }
 export interface ReviewItem { id: string; at: string; requestId?: string; kind: 'falta' | 'aviso'; text: string; nodeId?: string; closedAt?: string; closedBy?: string }
 

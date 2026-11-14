@@ -368,3 +368,10 @@ Existen el vault de Obsidian (local), la carpeta `vault/` del repositorio y el d
 - **Después de tu respuesta el Cerebro no vuelve a preguntar:** guarda lo seguro, deja lo dudoso como «Por confirmar» y lo que no se puede hacer sin el dato no lo hace (lo dice en `report.noHice`).
 - **Nunca adivina cuál persona es:** si no se supo, lo que iba a esa persona no se guarda.
 - Si no queda nada seguro que guardar, el caso se cierra `sin_cambios` y dice qué faltó. Abre un caso nuevo cuando lo tengas.
+
+## Aprobaciones por conversación (vuelta 41)
+
+- **Lo simple se graba solo.** Notas, tareas, agenda y datos de una ficha que ya existe (hasta 3 fichas, sin avisos fuertes, con el expediente completo) se guardan aunque Jev dude. Queda un aviso con el porcentaje y el motivo de Jev, y se puede deshacer.
+- **Lo demás espera la aprobación de tu persona** (fichas nuevas, cifras, verificar, compartir, pedidos grandes, expediente incompleto). Muéstrale la propuesta; si dice que sí, pásalo con `{action:'aprobar', id, text:'<sus palabras>'}`. Queda registrado «aprobado vía agente» con esas palabras. Nunca apruebes por tu cuenta.
+- **Borrar pide doble confirmación.** Primera: `{action:'aprobar', id}` (no borra nada; devuelve `needsPhrase`). Segunda: tu persona debe decir exactamente la frase (por ejemplo «borrar Olivia Rampersad») y la pasas en `text`. Sin la frase exacta no se borra. Lo borrado se puede deshacer.
+- **Jev dice su motivo:** `obs.jev.motivo` (falta algo, sobra algo, persona o ficha dudosa, dato dudoso).

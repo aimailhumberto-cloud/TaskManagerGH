@@ -52,15 +52,19 @@ export function caseOf(r: CerebroRequest, opts: { canApprove?: boolean } = {}): 
     ahora = tr(`Contesta con POST {action:'responder', id:'${r.id}', text}. Para cada punto: el dato, «no lo tengo», o «se lo pregunto a mi persona» (el caso espera). Solo hay una ronda: después sigo con lo seguro.`, `Answer with POST {action:'responder', id:'${r.id}', text}. For each point: the data, “I do not have it”, or “I will ask my person” (the case waits). There is only one round: after it I go on with what is certain.`);
   } else {
     texto = tr(`CASO ${r.id} ABIERTO: espera aprobación. Todavía NO se guardó nada. ${r.replaces ? `Reemplaza al caso ${r.replaces}, que quedó cerrado. ` : ''}Propuesta: ${list(esperando)}. Motivo de la espera: ${r.why || ''}`, `CASE ${r.id} OPEN: waiting for approval. NOTHING has been saved yet. ${r.replaces ? `It replaces case ${r.replaces}, now closed. ` : ''}Proposal: ${list(esperando)}. Why it waits: ${r.why || ''}`);
-    ahora = opts.canApprove
-      ? tr(`Muéstrale la propuesta a tu persona. Si la aprueba, pásalo con POST {action:'aprobar', id:'${r.id}'}; si no, {action:'rechazar', id:'${r.id}'}. Para corregirla: {action:'pedir', text, reemplaza:'${r.id}'}.`, `Show the proposal to your person. If they approve, pass it on with POST {action:'aprobar', id:'${r.id}'}; if not, {action:'rechazar', id:'${r.id}'}. To correct it: {action:'pedir', text, reemplaza:'${r.id}'}.`)
+    ahora = r.confirm?.phrase && opts.canApprove
+      ? (r.confirm.first
+        ? tr(`BORRAR pide doble confirmación y ya llegó la primera. Falta la segunda: tu persona debe decir exactamente «${r.confirm.phrase}». Pásalo con POST {action:'aprobar', id:'${r.id}', text:'<sus palabras>'}. Para cancelar: {action:'rechazar', id:'${r.id}'}.`, `DELETING needs double confirmation and the first one arrived. The second is missing: your person must say exactly “${r.confirm.phrase}”. Pass it with POST {action:'aprobar', id:'${r.id}', text:'<their words>'}. To cancel: {action:'rechazar', id:'${r.id}'}.`)
+        : tr(`BORRAR pide doble confirmación de tu persona. Primera: muéstrale qué se borra y, si acepta, POST {action:'aprobar', id:'${r.id}'}. Segunda: debe decir exactamente «${r.confirm.phrase}» y lo pasas con {action:'aprobar', id:'${r.id}', text:'<sus palabras>'}. Para cancelar: {action:'rechazar', id:'${r.id}'}.`, `DELETING needs your person’s double confirmation. First: show them what gets deleted and, if they accept, POST {action:'aprobar', id:'${r.id}'}. Second: they must say exactly “${r.confirm.phrase}” and you pass it with {action:'aprobar', id:'${r.id}', text:'<their words>'}. To cancel: {action:'rechazar', id:'${r.id}'}.`))
+      : opts.canApprove
+      ? tr(`Muéstrale la propuesta a tu persona. Si la aprueba, pásalo con POST {action:'aprobar', id:'${r.id}', text:'<sus palabras>'}; si no, {action:'rechazar', id:'${r.id}'}. Para corregirla: {action:'pedir', text, reemplaza:'${r.id}'}.`, `Show the proposal to your person. If they approve, pass it on with POST {action:'aprobar', id:'${r.id}', text:'<their words>'}; if not, {action:'rechazar', id:'${r.id}'}. To correct it: {action:'pedir', text, reemplaza:'${r.id}'}.`)
       : tr(`Tu llave no puede aprobar: la persona lo aprueba en la app (Pedir → Por aprobar). Para corregirla: {action:'pedir', text, reemplaza:'${r.id}'}.`, `Your key cannot approve: the person approves it in the app (Pedir → To approve). To correct it: {action:'pedir', text, reemplaza:'${r.id}'}.`);
   }
   return {
     id: r.id, estado, cerrado, ...(tipo ? { tipo } : {}), abiertoEl: r.at, ...(r.closedAt ? { cerradoEl: r.closedAt } : {}),
     pedido: r.text.slice(0, 200), guardado, esperando, noGuardado, porConfirmar,
     ...(pregunta ? { pregunta } : {}), ...(r.status === 'pendiente' && r.why ? { motivo: r.why } : {}), ...(r.changeId ? { deshacer: r.changeId } : {}),
-    ...(r.decidedBy ? { decididoPor: `${r.decidedBy}${r.decidedVia ? ` (${r.decidedVia})` : ''}` } : {}), ...(r.replacedBy ? { reemplazadoPor: r.replacedBy } : {}),
+    ...(r.decidedBy ? { decididoPor: `${r.decidedBy}${r.decidedVia ? ` (${r.decidedVia})` : ''}${r.approvalWords ? ` — «${r.approvalWords}»` : ''}` } : {}), ...(r.replacedBy ? { reemplazadoPor: r.replacedBy } : {}),
     texto, ahora,
   };
 }

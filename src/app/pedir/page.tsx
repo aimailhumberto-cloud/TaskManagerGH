@@ -25,6 +25,8 @@ export default function PedirPage() {
   const [open, setOpen] = useState(false);
   const [reply, setReply] = useState('');
   const [omit, setOmit] = useState<Record<string, number[]>>({});
+  const [phrase, setPhrase] = useState<Record<string, string>>({});
+  const [typed, setTyped] = useState<Record<string, string>>({});
   const [pending, setPending] = useState<string | null>(null); // mensaje que se está enviando
   const [readMode, setReadMode] = useState(false);
   const [detail, setDetail] = useState<Record<string, string>>({});
@@ -75,7 +77,8 @@ export default function PedirPage() {
   }
   async function decide(id: string, action: 'aprobar' | 'rechazar') {
     setBusy(id); setError(null);
-    const { r, d } = await post({ action, id, ...(action === 'aprobar' && omit[id]?.length ? { omitir: omit[id] } : {}) });
+    const { r, d } = await post({ action, id, ...(action === 'aprobar' && omit[id]?.length ? { omitir: omit[id] } : {}), ...(action === 'aprobar' && typed[id] ? { text: typed[id] } : {}) });
+    if (d.needsPhrase) setPhrase(p => ({ ...p, [id]: d.needsPhrase }));
     if (!r.ok) setError(d.error || L('No se pudo.', 'That did not work.')); else if (last?.id === id) setLast(d.request);
     setBusy(null); load();
   }
@@ -137,7 +140,8 @@ export default function PedirPage() {
     </div>
   );
   const Actions = ({ r }: { r: Req }) => r.status === 'pendiente' && st?.canApprove ? (
-    <div className="mt-3 flex gap-2">
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      {phrase[r.id] && <label className="w-full text-sm">{L('Para borrar, escribe exactamente:', 'To delete, type exactly:')} <b>{phrase[r.id]}</b><input className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2" value={typed[r.id] || ''} onChange={e => setTyped(t => ({ ...t, [r.id]: e.target.value }))} /></label>}
       <button className={btn} disabled={!!busy} onClick={() => decide(r.id, 'aprobar')}>{busy === r.id ? L('Aplicando…', 'Applying…') : L('Aprobar', 'Approve')}</button>
       <button className={ghost} disabled={!!busy} onClick={() => decide(r.id, 'rechazar')}>{L('Rechazar', 'Reject')}</button>
     </div>

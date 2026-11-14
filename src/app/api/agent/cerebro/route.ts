@@ -124,8 +124,9 @@ async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: a
     return NextResponse.json({ ...r, ok: !['fallo', 'no_entendido'].includes(r.status), ...caseExtras(ctx.vaultPath, r), message: sayCase(r) }, { status: httpOf(r.status) });
   }
   if (action === 'aprobar' || action === 'rechazar') {
-    const r = await decidir(String(b.id || ''), action === 'aprobar', Array.isArray(b.omitir) ? b.omitir.map(Number).filter(Number.isInteger) : []);
-    return NextResponse.json(r.ok ? { ok: true, request: r.request, receipt: r.receipt, ...caseExtras(ctx.vaultPath, r.request), message: r.request ? sayCase(r.request) : undefined } : { ok: false, error: r.error }, { status: r.status });
+    const r = await decidir(String(b.id || ''), action === 'aprobar', Array.isArray(b.omitir) ? b.omitir.map(Number).filter(Number.isInteger) : [], typeof (b.text ?? b.palabras) === 'string' ? String(b.text ?? b.palabras) : '');
+    if (r.ok && r.needsPhrase && r.request) return NextResponse.json({ ok: true, request: r.request, needsPhrase: r.needsPhrase, ...caseExtras(ctx.vaultPath, r.request), message: tr(`Primera confirmación recibida. TODAVÍA NO se borró nada. Para borrar de verdad, tu persona debe decir exactamente «${r.needsPhrase}»; envíalo con aprobar en «text».`, `First confirmation received. NOTHING has been deleted yet. To really delete, your person must say exactly “${r.needsPhrase}”; send it with aprobar in “text”.`) });
+    return NextResponse.json(r.ok ? { ok: true, request: r.request, receipt: r.receipt, ...caseExtras(ctx.vaultPath, r.request), message: r.request ? sayCase(r.request) : undefined } : { ok: false, error: r.error, ...(r.needsPhrase ? { needsPhrase: r.needsPhrase } : {}) }, { status: r.status });
   }
   if (action === 'estado' || action === 'casos') {
     if (action === 'casos') return NextResponse.json({ ok: true, ...caseExtras(ctx.vaultPath) });

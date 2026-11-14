@@ -1,6 +1,7 @@
 /** Pruebas del motor interno (sin modelo): nombres ambiguos, personas nombradas, reunión completada, avisos. Uso: SMJ_VAULT_PATH=vault npx tsx scripts/test-motor.ts */
 import { nameAmbiguities, peopleMentioned } from '../src/lib/brainLens';
 import { inspectPlan, completeMeetings } from '../src/lib/cerebro/review';
+import { lowRisk } from '../src/lib/cerebro/engine';
 let ok = 0, bad = 0; const t = (n: string, c: boolean, extra = '') => { c ? ok++ : (bad++, console.log('✗', n, extra)); };
 const amb = (q: string) => nameAmbiguities(q).map(a => `${a.word}:${a.kind}`);
 t('Richard es ambiguo', amb('llamar a Richard').includes('richard:igual'));
@@ -26,4 +27,14 @@ t('Richard ambiguo en el plan → fuerte', inspectPlan(rich, [], 'Richard llamó
 t('Richard con apellido en el plan → sin aviso', inspectPlan(rich, [], 'Richard Williams llamó').fuertes.length === 0);
 const lu = [{ name: 'registrar_novedad', args: { ficha: 'person-luisa-santos', resumen: 'x', fuente: 'x' } }];
 t('Luis → Luisa en el plan → fuerte', inspectPlan(lu, [], 'Luis llamó').fuertes.length === 1);
+// Riesgo bajo: lo simple y reversible no lo frena la duda de Jev
+const clean = { fuertes: [] as string[] };
+t('riesgo bajo: cambiar datos de una ficha existente', lowRisk([{ name: 'actualizar_campos', args: { ficha: 'person-luisa-santos', campos: { status: 'inactive' } } }], clean));
+t('riesgo bajo: una tarea y una nota', lowRisk([{ name: 'crear_tarea', args: { ficha: 'person-tomas-casas', titulo: 'x' } }, { name: 'registrar_novedad', args: { ficha: 'person-tomas-casas', resumen: 'x', fuente: 'x' } }], clean));
+t('no es bajo: crear una ficha', !lowRisk([{ name: 'crear_ficha', args: { tipo: 'person', nombre: 'X Y' } }], clean));
+t('no es bajo: una cifra', !lowRisk([{ name: 'registrar_indicador', args: { nombre: 'x', valor: 1 } }], clean));
+t('no es bajo: borrar', !lowRisk([{ name: 'borrar_ficha', args: { ficha: 'person-luisa-santos' } }], clean));
+t('no es bajo: con un aviso fuerte', !lowRisk([{ name: 'crear_tarea', args: { ficha: 'person-tomas-casas', titulo: 'x' } }], { fuertes: ['duda'] }));
+t('no es bajo: expediente incompleto', !lowRisk([{ name: 'crear_tarea', args: { ficha: 'person-tomas-casas', titulo: 'x' } }], clean, true));
+t('no es bajo: toca más de 3 fichas', !lowRisk(['person-tomas-casas', 'person-luisa-santos', 'person-jenna-hector', 'person-richard-bailey'].map(f => ({ name: 'registrar_novedad', args: { ficha: f, resumen: 'x', fuente: 'x' } })), clean));
 console.log(`${ok} bien, ${bad} mal`); process.exit(bad ? 1 : 0);

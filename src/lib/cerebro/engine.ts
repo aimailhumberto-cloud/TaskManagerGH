@@ -12,7 +12,7 @@ import { getVaultPath, getPanamaDate, getUnifiedBrainTasks } from '../smjBrainSe
 import { currentBrain } from '../brainContext';
 import { actorLabel } from '../actor';
 import { withChange, rollbackCurrent, receiptOf } from '../journal';
-import { dossier, searchBrain, resolveEntities, displayTitle, nameAmbiguities, peopleMentioned, unknownPeople, words } from '../brainLens';
+import { dossier, searchBrain, resolveEntities, displayTitle, nameAmbiguities, peopleMentioned, unknownPeople, words, norm } from '../brainLens';
 import { listEvents } from '../agenda';
 import { configuredProvider } from '../decisionEngine';
 import { chat, llmConfigured, LlmError, type ChatMessage, type ToolDef } from './ollama';
@@ -49,6 +49,10 @@ export interface CerebroRequest {
   summary?: string;
   /** Qué se hizo, qué espera aprobación y qué no se hizo, dicho por la app (no por el modelo). */
   report?: { hecho: string[]; esperando: string[]; noHice: string[] };
+  /** Palabras de la persona con las que se aprobó (las pasa su agente o las escribe ella). */
+  approvalWords?: string;
+  /** Borrar pide doble confirmación: la frase exacta que la persona debe decir, y cuándo llegó la primera confirmación. */
+  confirm?: { phrase: string; first?: string };
   /** Lo que el Cerebro preguntó en su única ronda, punto por punto. */
   faltan?: string[];
   /** El agente fue a preguntarle a su persona: el caso espera. */
@@ -233,9 +237,29 @@ export function validatePlan(ops: Op[]): string[] {
   return errors;
 }
 /** ¿Por qué este plan no se aplica solo? null = puede aplicarse. */
+/** Operaciones simples y reversibles: notas, tareas, agenda y datos de una ficha que ya existe. */
+const LOW_OPS = new Set(['registrar_novedad', 'crear_tarea', 'completar_tarea', 'reprogramar_tarea', 'agendar', 'cancelar_evento', 'actualizar_campos']);
+/**
+ * Riesgo bajo: solo operaciones simples, sobre pocas fichas que ya existen, sin avisos fuertes y con el expediente completo.
+ * En riesgo bajo, la duda de Jev no frena: se guarda, se avisa y se puede deshacer.
+ */
+export function lowRisk(ops: Op[], obs: { fuertes: string[] }, incompleto = false): boolean {
+  if (!ops.length || incompleto || obs.fuertes.length) return false;
+  if (!ops.every(o => LOW_OPS.has(o.name))) return false;
+  return new Set(ops.flatMap(touchesOf)).size <= 3;
+}
+/** La frase exacta que la persona debe decir para borrar: «borrar Nombre de la ficha». */
+function deletePhrase(ops: Op[]): string | null {
+  const dels = ops.filter(o => o.name === 'borrar_ficha'); if (!dels.length) return null;
+  let nodes: any[] = []; try { const g: any = loadBrainGraph(); nodes = g.allNodes || g.nodes || []; } catch {}
+  const name = (id: string) => { const n = nodes.find((x: any) => x.id === id); return n ? displayTitle(n.title) : id; };
+  return `${tr('borrar', 'delete')} ${dels.map(o => name(String(o.args?.ficha || ''))).join(tr(' y ', ' and '))}`;
+}
 export function whyProposal(ops: Op[], s: CerebroSettings, scope?: string): string | null {
   const strict = ops.filter(o => levelOf(o) === 'aprobar');
-  if (strict.length) return tr(`Incluye ${strict.map(o => o.name.replace(/_/g, ' ')).join(', ')}: eso siempre lo aprueba una persona.`, `Includes ${strict.map(o => o.name.replace(/_/g, ' ')).join(', ')}: a person always approves that.`);
+  if (strict.length) return strict.some(o => o.name === 'borrar_ficha')
+    ? tr(`Incluye borrar ficha: eso siempre lo aprueba una persona, con doble confirmación.`, `Includes delete note: a person always approves that, with double confirmation.`)
+    : tr(`Incluye ${strict.map(o => o.name.replace(/_/g, ' ')).join(', ')}: eso siempre lo aprueba una persona.`, `Includes ${strict.map(o => o.name.replace(/_/g, ' ')).join(', ')}: a person always approves that.`);
   const touched = new Set(ops.flatMap(touchesOf)).size, creates = ops.filter(o => MENU[o.name]?.creates).length;
   if (touched > s.bigTouch) return tr(`Es un pedido grande: toca ${touched} fichas (límite ${s.bigTouch}).`, `It is a big request: it touches ${touched} notes (limit ${s.bigTouch}).`);
   if (creates > s.bigCreate) return tr(`Es un pedido grande: crea ${creates} fichas (límite ${s.bigCreate}).`, `It is a big request: it creates ${creates} notes (limit ${s.bigCreate}).`);
@@ -260,13 +284,18 @@ async function applyPlan(vault: string, ops: Op[], note: string, actor: string):
 
 /** Último motivo por el que Jev no respondió (para mostrarlo y no fallar en silencio). */
 let jevProblem = '';
+/** Motivo principal de la duda de Jev en el último juicio (una frase). */
+let jevReason = '';
+const JEV_REASONS: Record<string, [string, string]> = { bien: ['El plan refleja el pedido', 'The plan reflects the request'], falta: ['al plan le falta algo que el pedido dice', 'the plan is missing something the request says'], sobra: ['el plan hace algo que el pedido no pide', 'the plan does something the request does not ask'], persona: ['la persona o la ficha elegida puede no ser la correcta', 'the chosen person or note may not be the right one'], dato: ['hay una fecha, cifra o dato dudoso', 'there is a doubtful date, figure or detail'] };
 /** Pregunta de puntaje a Jev. Las «criteria» son los peldaños de la escala, de peor a mejor; el resultado sale normalizado 0–1. */
-async function jevScore(state: string, id: string, instructions: string, anchors: string[]): Promise<number | null> {
+async function jevScore(state: string, id: string, instructions: string, anchors: string[], withReason = false): Promise<number | null> {
   const jev = configuredProvider();
   if (!jev) { jevProblem = tr('Jev no está conectado (falta TYPESAFE_API_KEY).', 'Jev is not connected (TYPESAFE_API_KEY is missing).'); return null; }
   try {
-    const r = await jev.decide(state, { [id]: { type: 'score', instructions, criteria: anchors } });
+    jevReason = '';
+    const r = await jev.decide(state, { [id]: { type: 'score', instructions, criteria: anchors }, ...(withReason ? { motivo: { type: 'choice' as const, instructions: 'Si el plan no refleja del todo el pedido, ¿cuál es la razón principal? Si lo refleja bien, elige «bien».', criteria: Object.fromEntries(Object.entries(JEV_REASONS).map(([k, v]) => [k, v[0]])) } } : {}) });
     const a = r.answers?.[id];
+    const m = withReason ? r.answers?.motivo : undefined; if (m && m.type === 'choice' && m.choice !== 'bien' && JEV_REASONS[m.choice]) jevReason = tr(JEV_REASONS[m.choice][0], JEV_REASONS[m.choice][1]);
     if (!a || a.type !== 'score') { jevProblem = tr('Jev respondió sin el puntaje esperado.', 'Jev answered without the expected score.'); return null; }
     jevProblem = ''; return Math.max(0, Math.min(1, a.score / (anchors.length - 1)));
   } catch (e: any) { jevProblem = String(e?.message || tr('Jev no respondió.', 'Jev did not answer.')).slice(0, 200); return null; }
@@ -274,7 +303,7 @@ async function jevScore(state: string, id: string, instructions: string, anchors
 async function judge(text: string, plan: string[]): Promise<number | null> {
   return jevScore(`PEDIDO:\n${text.slice(0, 4000)}\n\nPLAN PROPUESTO:\n${plan.map((p, i) => `${i + 1}. ${p}`).join('\n')}`, 'fiel',
     'Qué tan fielmente el plan recoge los HECHOS del pedido: que cada operación responda a algo que el pedido dice, que no invente datos, fechas ni cifras, y que las fichas elegidas sean las de las personas o empresas que el pedido nombra (un id como «person-jenna-hector» es la ficha de Jenna Hector) y no otras de nombre parecido. NO cuentes como falta las instrucciones generales del pedido («revisa lo existente», «evita duplicados», «muestra los cambios», «no envíes mensajes»): esas las cumple la aplicación. Anotar el mismo hecho también en la ficha de la empresa de esa persona es correcto. Resumir con otras palabras sin cambiar el sentido es correcto.',
-    ['No corresponde al pedido, o usa otra persona o ficha', 'Corresponde en parte: falta algo o hay un dato dudoso', 'Corresponde, con algún detalle menor por revisar', 'Corresponde exactamente']);
+    ['No corresponde al pedido, o usa otra persona o ficha', 'Corresponde en parte: falta algo o hay un dato dudoso', 'Corresponde, con algún detalle menor por revisar', 'Corresponde exactamente'], true);
 }
 /** Después de guardar: ¿lo nuevo contradice lo que la ficha ya decía? 1 = coherente, 0 = contradice. */
 async function coherence(before: string, results: string[], text: string): Promise<number | null> {
@@ -510,11 +539,17 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
   let why = whyProposal(ops, s, currentBrain()?.scope);
   if (!why && obs.fuertes.length) why = obs.fuertes[0];
   // Jev puntúa siempre que esté conectado: decide en automático y orienta a quien aprueba.
-  const confidence = await judge(full, plan); obs.jev = { fiel: confidence, ...(confidence === null ? { error: jevProblem } : {}) };
-  if (!why && confidence !== null && confidence < s.threshold) why = tr(`Jev no está seguro de que el plan refleje el pedido (confianza ${Math.round(confidence * 100)} %, mínimo ${Math.round(s.threshold * 100)} %).`, `Jev is not sure the plan reflects the request (confidence ${Math.round(confidence * 100)}%, minimum ${Math.round(s.threshold * 100)}%).`);
-  else if (confidence !== null && confidence < 0.65) obs.avisos.push(tr(`Jev dio ${Math.round(confidence * 100)} % de confianza a este plan: échale un ojo.`, `Jev gave this plan ${Math.round(confidence * 100)}% confidence: take a look.`));
+  const confidence = await judge(full, plan); const jevWhy = jevReason;
+  obs.jev = { fiel: confidence, ...(confidence === null ? { error: jevProblem } : {}), ...(jevWhy ? { motivo: jevWhy } : {}) };
+  const pct = confidence === null ? 0 : Math.round(confidence * 100); const because = jevWhy ? tr(` Motivo: ${jevWhy}.`, ` Reason: ${jevWhy}.`) : '';
+  if (!why && confidence !== null && confidence < s.threshold) {
+    // Riesgo bajo: la duda de Jev avisa pero no frena (cambio simple, reversible, sobre fichas que ya existen).
+    if (lowRisk(ops, obs, !!base.expediente?.incompleto)) obs.avisos.push(tr(`Jev dudó de este plan (${pct} %).${because} Se guardó igual porque es un cambio simple y se puede deshacer: revísalo.`, `Jev doubted this plan (${pct}%).${because} It was saved anyway because it is a simple change that can be undone: check it.`));
+    else why = tr(`Jev no está seguro de que el plan refleje el pedido (confianza ${pct} %, mínimo ${Math.round(s.threshold * 100)} %).${because}`, `Jev is not sure the plan reflects the request (confidence ${pct}%, minimum ${Math.round(s.threshold * 100)}%).${because}`);
+  } else if (confidence !== null && confidence < 0.65) obs.avisos.push(tr(`Jev dio ${pct} % de confianza a este plan: échale un ojo.${because}`, `Jev gave this plan ${pct}% confidence: take a look.${because}`));
+  const phrase = deletePhrase(ops);
   const gapsLeft = leer ? [] : coverageGaps(ops, text);
-  const common = { ...stats(), ops, plan, recognized, obs, confidence, ...(summary ? { summary } : {}) };
+  const common = { ...stats(), ops, plan, recognized, obs, confidence, ...(summary ? { summary } : {}), ...(phrase ? { confirm: { phrase } } : {}) };
   if (input.dryRun) return done({ ...common, status: 'pendiente', why: why || tr('Ensayo: se aplicaría solo.', 'Dry run: it would apply on its own.') });
   if (why) return done({ ...common, status: 'pendiente', why, report: reportOf('pendiente', plan, undefined, gapsLeft, skipped), message: tr(`Quedó en «Por aprobar»: todavía NO se aplicó nada. ${target ? `Reemplaza a ${target.id}. ` : ''}`, `It is waiting in “To approve”: NOTHING has been applied yet. ${target ? `It replaces ${target.id}. ` : ''}`) + reportText(reportOf('pendiente', plan, undefined, gapsLeft, skipped)) });
   return oneAtATime(async () => {
@@ -571,16 +606,23 @@ export function canDecide(): { ok: boolean; error?: string } {
   if (!loadSettings(getVaultPath()).agentCanApprove) return { ok: false, error: tr('Las propuestas del Cerebro las aprueba una persona en la app. (Se puede permitir a los agentes en Ajustes.)', 'Proposals from the Brain are approved by a person in the app. (Agents can be allowed in Settings.)') };
   return { ok: true };
 }
-export async function decidir(id: string, approve: boolean, skip: number[] = []): Promise<{ ok: boolean; status: number; error?: string; request?: CerebroRequest; receipt?: unknown }> {
+export async function decidir(id: string, approve: boolean, skip: number[] = [], words = ''): Promise<{ ok: boolean; status: number; error?: string; request?: CerebroRequest; receipt?: unknown; needsPhrase?: string }> {
   const vault = getVaultPath(); const r = listRequests(vault).find(x => x.id === id);
   if (!r) return { ok: false, status: 404, error: tr('No existe ese pedido.', 'That request does not exist.') };
   if (r.status !== 'pendiente') return { ok: false, status: 409, error: tr(`Ese pedido ya está ${r.status}.`, `That request is already ${r.status}.`) };
   const may = canDecide(); if (!may.ok) return { ok: false, status: 403, error: may.error };
   const via = isAgent() ? 'agente' as const : 'persona' as const;
-  const stamp = { decidedBy: who(), decidedVia: via, decidedAt: new Date().toISOString() };
+  const said = String(words || '').trim().slice(0, 300);
+  const stamp = { decidedBy: who(), decidedVia: via, decidedAt: new Date().toISOString(), ...(said ? { approvalWords: said } : {}) };
   if (!approve) { const rec = { ...r, ...stamp, status: 'rechazado' as const }; saveRequest(vault, rec); return { ok: true, status: 200, request: rec }; }
   const ops = r.ops.filter((_, i) => !skip.includes(i));
   if (!ops.length) return { ok: false, status: 400, error: tr('No queda ninguna operación por aplicar.', 'No operation is left to apply.') };
+  // Borrar pide doble confirmación: primero «aprobar»; después, las palabras exactas de la persona.
+  const phrase = deletePhrase(ops);
+  if (phrase) {
+    if (!r.confirm?.first) { const rec = { ...r, confirm: { phrase, first: new Date().toISOString() } }; saveRequest(vault, rec); return { ok: true, status: 200, request: rec, needsPhrase: phrase }; }
+    if (!norm(said).includes(norm(phrase))) return { ok: false, status: 400, error: tr(`Para borrar falta la segunda confirmación: la persona debe decir exactamente «${phrase}». Envíalo en «text».`, `Deleting needs the second confirmation: the person must say exactly “${phrase}”. Send it in “text”.`), needsPhrase: phrase };
+  }
   const before = snapshotBefore(ops);
   const a = await applyPlan(vault, ops, r.text, `Cerebro (${via === 'agente' ? tw('aprobado por el AGENTE', 'approved by the AGENT') : tw('aprobado MANUALMENTE por', 'approved MANUALLY by')} ${stamp.decidedBy})`);
   if (!a.ok) return { ok: false, status: 409, error: a.error };
