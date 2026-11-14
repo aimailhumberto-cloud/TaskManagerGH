@@ -1,6 +1,8 @@
 # Ollama simulado para probar el Cerebro sin llave real. Responde con planes fijos según palabras del pedido.
 # Uso: python3 scripts/fake-ollama.py 3981   (y el servidor con OLLAMA_HOST=http://localhost:3981 OLLAMA_API_KEY=prueba)
 import json, sys, re
+from datetime import datetime, timedelta, timezone
+HOY = (datetime.now(timezone.utc) - timedelta(hours=5)).strftime('%Y-%m-%d')  # hoy en Panamá, como lo ve el Cerebro
 from http.server import BaseHTTPRequestHandler, HTTPServer
 MANY = ['brand-oasis', 'brand-fruta', 'brand-chubby', 'brand-busta', 'brand-altitude', 'person-richard-bailey', 'person-angelo-martinez', 'person-amir-hosein', 'person-alanna-ramjattan', 'person-luisa-santos', 'person-sonia-harris', 'person-eesa-mohammed']
 tc = lambda name, **args: {'function': {'name': name, 'arguments': args}}
@@ -31,7 +33,7 @@ def plan(text, msgs, full=''):
     if 'correo-repetido' in t: return [tc('crear_ficha', tipo='person', nombre='Ricardo Bailey Dos', campos={'email_primary': 'richard.bailey@smjaleel.com'})]
     if 'bren' in t: return [tc('crear_ficha', tipo='person', nombre='Bren Prueba', campos={'job_title': 'Gerente de compras', 'organization': 'MEDIMEX'}, conectar_con=[{'hacia': 'dist-medimex', 'relacion': 'works_at'}]), tc('agendar', titulo='conocerse', fecha='2026-11-19', hora='10:00', con=['person-bren-prueba', 'person-richard-bailey'])] if talk else [tc('preguntar', pregunta=('I do not know Bren. Who is he (company, role) and who does he work with?' if en else 'No conozco a Bren. ¿Quién es (empresa, cargo) y con quién se relaciona?'))]
     if 'richard' in t and ('mueve' in t or 'move' in t): return [tc('agendar', titulo='ver second brain', fecha='2026-11-17', hora='09:30', con=['person-richard-bailey'])]
-    if 'richard' in t: return [tc('agendar', titulo='ver second brain', fecha='2026-11-13', hora='08:00', con=['person-richard-bailey'])]
+    if 'richard' in t: return [tc('agendar', titulo='ver second brain', fecha=HOY, hora='08:00', con=['person-richard-bailey'])]
     if 'medimex' in t and ('mueve' in t or 'move' in t): return [tc('agendar', titulo='Reunión MEDIMEX E2E', fecha='2026-11-18', hora='11:00', ficha='dist-medimex')]
     if 'siempre-mal' in t: return [tc('registrar_novedad', ficha='dist-no-existe', resumen='x')]
     if 'ficha-inventada' in t: return [tc('registrar_novedad', ficha='dist-medimex' if fixed else 'dist-inventado', resumen='Corregido tras revisión')]

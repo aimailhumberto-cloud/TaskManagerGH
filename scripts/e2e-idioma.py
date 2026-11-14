@@ -1,5 +1,7 @@
 # Idioma (publicación 1): el Cerebro responde en el idioma del pedido y escribe en las fichas en el idioma de trabajo.
 # Mismo servidor y Ollama simulado que e2e-fase3.py (restart limpio antes de correr).
+from datetime import datetime, timedelta, timezone
+HOY = (datetime.now(timezone.utc) - timedelta(hours=5)).strftime('%Y-%m-%d')  # hoy en Panamá
 import json, urllib.request, sys, http.cookiejar, re
 B = 'http://localhost:3979'
 jar = http.cookiejar.CookieJar(); opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
@@ -33,9 +35,9 @@ s, st = http(C); check('GET sin idioma: español', 'pedir un cambio en palabras'
 
 # 1. Pedido en inglés con llave de agente: responde en inglés; las fichas siguen en el idioma de trabajo (español, aún sin elegir)
 s, r = ask('Schedule a meeting with Richard Bailey to see the second brain tomorrow at 8')
-check('inglés → respuesta en inglés (lang, mensaje, plan, resultados)', s == 200 and r['lang'] == 'en' and r['message'].startswith('CASE ') and 'CLOSED (complete)' in r['message'] and r['plan'][0].startswith('Agenda: “') and 'on the agenda for 2026-11-13 at 08:00' in r['results'][0] and not ES_WORDS.search(json.dumps(r['plan'] + r['results'] + [r['message']])), (r.get('message'), r.get('plan'), r.get('results')))
+check('inglés → respuesta en inglés (lang, mensaje, plan, resultados)', s == 200 and r['lang'] == 'en' and r['message'].startswith('CASE ') and 'CLOSED (complete)' in r['message'] and r['plan'][0].startswith('Agenda: “') and ('on the agenda for ' + HOY + ' at 08:00') in r['results'][0] and not ES_WORDS.search(json.dumps(r['plan'] + r['results'] + [r['message']])), (r.get('message'), r.get('plan'), r.get('results')))
 check('…los enlaces salen en inglés', any(l['label'].startswith('Note of') or l['label'].startswith('Agenda for') for l in r.get('links', [])) and not any(l['label'].startswith('Ficha de') for l in r['links']), r.get('links'))
-check('…y el título guardado sigue el idioma de TRABAJO (español)', any('Reunión con Richard' in e.get('title', '') for e in (lambda g: g.get('occurrences', g.get('events', [])))(http('/api/agent/agenda?from=2026-11-13&to=2026-11-13')[1])), '')
+check('…y el título guardado sigue el idioma de TRABAJO (español)', any('Reunión con Richard' in e.get('title', '') for e in (lambda g: g.get('occurrences', g.get('events', [])))(http(('/api/agent/agenda?from=' + HOY + '&to=' + HOY + ''))[1])), '')
 b = node('person-richard-bailey').get('body', ''); check('…y la bitácora en español (fuente/registró)', 'registró:' in b and 'logged by' not in b, b[-200:])
 
 # 2. Pedido en español en el mismo cerebro: responde en español

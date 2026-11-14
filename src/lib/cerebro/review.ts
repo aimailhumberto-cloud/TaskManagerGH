@@ -10,6 +10,7 @@ import * as crypto from 'crypto';
 import { getUnifiedBrainTasks, getVaultPath, loadBrainGraph, type BrainNode } from '../smjBrainService';
 import { listEvents } from '../agenda';
 import { displayTitle, norm, words, nameAmbiguities, peopleMentioned } from '../brainLens';
+import { getPanamaDate } from '../smjBrainService';
 import { cerebroDir } from './settings';
 import { createdIdOf, linked, eventTitle, type Op } from './ops';
 import { tr } from '../reqLang';
@@ -81,6 +82,51 @@ export function coverageGaps(ops: Op[], text: string): string[] {
   if (/(no (se ha )?verific|sin verificar|not (yet )?verified|unverified|no (est[aá]n?|aparece[n]?) expl[ií]cit|not explicit|not confirmed|sin confirmar|zonas? horarias?|time ?zones?)/i.test(t) && !/(verific|zona|huso|time ?zone|confirm|expl[ií]cit)/i.test(plan)) out.push(tr('las dudas que dice el pedido (sin verificar, zona horaria)', 'the doubts the request states (unverified, time zone)'));
   return out;
 }
+
+const WD: Record<string, number> = { domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6, sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
+const WD_NAME = () => [tr('domingo', 'Sunday'), tr('lunes', 'Monday'), tr('martes', 'Tuesday'), tr('miércoles', 'Wednesday'), tr('jueves', 'Thursday'), tr('viernes', 'Friday'), tr('sábado', 'Saturday')];
+const MONTHS = 'enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre|january|february|march|april|may|june|july|august|september|october|november|december';
+/**
+ * Fechas del plan que no cuadran con lo que dice el pedido (solo en tareas y agenda, que miran hacia adelante):
+ * el día de la semana no coincide, el número de día no es el que se dijo, o la fecha ya pasó.
+ */
+export function dateIssues(ops: Op[], text: string, today: string): string[] {
+  const t = norm(text.replace(/PLAN DE LA PROPUESTA ANTERIOR[\s\S]*$/i, '').replace(/EXPEDIENTE DEL CASO[\s\S]*$/i, ''));
+  const days = new Set(Object.keys(WD).filter(w => new RegExp(`\\b${w}\\b`).test(t)).map(w => WD[w]));
+  const nums = new Set<number>();
+  for (const m of t.matchAll(new RegExp(`\\b(?:${Object.keys(WD).join('|')}|el|dia|on|the)\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?!\\s*[:h])`, 'g'))) nums.add(Number(m[1]));
+  for (const m of t.matchAll(new RegExp(`\\b(\\d{1,2})\\s+(?:de\\s+)?(?:${MONTHS})\\b`, 'g'))) nums.add(Number(m[1]));
+  for (const m of t.matchAll(new RegExp(`\\b(?:${MONTHS})\\s+(\\d{1,2})\\b`, 'g'))) nums.add(Number(m[1]));
+  const out: string[] = []; const names = WD_NAME();
+  // «mañana», «hoy», «la próxima semana»: fechas relativas; ahí solo se revisa que no esté en el pasado.
+  const relative = /\b(hoy|manana|pasado manana|proxim[oa]|siguiente|que viene|en \d+ dias|today|tomorrow|next|in \d+ days)\b/.test(t);
+  for (const op of ops) {
+    if (!['agendar', 'crear_tarea', 'reprogramar_tarea'].includes(op.name)) continue;
+    for (const k of ['fecha', 'vence', 'nueva_fecha']) {
+      const d = String(op.args?.[k] || ''); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+      const wd = new Date(`${d}T12:00:00Z`).getUTCDay(); const dom = Number(d.slice(8));
+      const single = days.size <= 1 && nums.size <= 1;
+      const okDay = single ? (!days.size || days.has(wd)) && (!nums.size || nums.has(dom)) : days.has(wd) || nums.has(dom);
+      if (!relative && (days.size || nums.size) && !okDay && nums.size <= 6 && ![...nums].some(n => n > 31)) out.push(days.size && !days.has(wd) && !nums.has(dom)
+        ? tr(`El pedido dice ${[...days].map(x => names[x]).join(' / ')}${nums.size ? ` ${[...nums].join(', ')}` : ''}, pero ${d} es ${names[wd]}.`, `The request says ${[...days].map(x => names[x]).join(' / ')}${nums.size ? ` ${[...nums].join(', ')}` : ''}, but ${d} is a ${names[wd]}.`)
+        : tr(`El pedido habla del día ${[...nums].join(', ')} y el plan pone ${d}.`, `The request talks about day ${[...nums].join(', ')} and the plan uses ${d}.`));
+      else if (d < today && !t.includes(d)) out.push(tr(`La fecha ${d} ya pasó.`, `The date ${d} is already past.`));
+    }
+  }
+  return [...new Set(out)];
+}
+/** Campos que el plan quiere escribir y que ninguna ficha de ese tipo usa (posible nombre inventado). */
+export function fieldIssues(ops: Op[]): string[] {
+  const out: string[] = []; const byId = nodesById(); const all = [...byId.values()];
+  for (const op of ops) {
+    if (op.name !== 'actualizar_campos' || !op.args?.campos || typeof op.args.campos !== 'object') continue;
+    const n: any = byId.get(String(op.args.ficha || '')); if (!n) continue;
+    const known = new Set<string>(); for (const x of all as any[]) if (x.type === n.type) for (const k of Object.keys(x.frontmatter || {})) known.add(k);
+    const odd = Object.keys(op.args.campos).filter(k => !known.has(k)); if (!odd.length || known.size < 5) continue;
+    out.push(tr(`El plan escribe ${odd.map(k => `«${k}»`).join(', ')} en ${displayTitle(n.title)}, y ninguna ficha de ese tipo usa ese campo. ¿Es el nombre correcto?`, `The plan writes ${odd.map(k => `“${k}”`).join(', ')} in ${displayTitle(n.title)}, and no note of that type uses that field. Is it the right name?`));
+  }
+  return out;
+}
 export function inspectPlan(ops: Op[], supuso: string[] = [], text = '', namesText = text): Observations {
   const o: Observations = { supuso: supuso.slice(0, 8), fuertes: [], avisos: [], falta: [] };
   const nodes = nodesById(); const vault = getVaultPath();
@@ -114,6 +160,7 @@ export function inspectPlan(ops: Op[], supuso: string[] = [], text = '', namesTe
       if (clash) o.avisos.push(tr(`El ${a.fecha} a las ${a.hora} ya tienes «${clash.title}».`, `On ${a.fecha} at ${a.hora} you already have “${clash.title}”.`));
     }
   }
+  try { o.fuertes.push(...fieldIssues(ops)); } catch {}
   if (text) {
     const refs = refsOf(ops);
     try {
@@ -123,6 +170,7 @@ export function inspectPlan(ops: Op[], supuso: string[] = [], text = '', namesTe
           ? tr(`«${x.word}» puede ser ${x.people.map(p => p.title).join(' o ')}: el plan usa a ${used.map(p => p.title).join(', ')}. ¿Es esa persona?`, `“${x.word}” can be ${x.people.map(p => p.title).join(' or ')}: the plan uses ${used.map(p => p.title).join(', ')}. Is that the right person?`)
           : tr(`«${x.word}» no es el nombre exacto de nadie y el plan usa a ${used.map(p => p.title).join(', ')}. ¿Es esa persona?`, `“${x.word}” is nobody’s exact name and the plan uses ${used.map(p => p.title).join(', ')}. Is that the right person?`));
       }
+      try { const { dateStr } = getPanamaDate(); o.fuertes.push(...dateIssues(ops, text, dateStr)); } catch {}
       const gaps = coverageGaps(ops, text); if (gaps.length) o.fuertes.push(tr(`El plan no recoge todo lo que dice el pedido: ${gaps.join('; ')}.`, `The plan does not capture everything the request says: ${gaps.join('; ')}.`));
       for (const p of peopleMentioned(text)) if (!refs.has(p.id)) o.avisos.push(tr(`El pedido nombra a ${p.title}, pero el plan no lo menciona.`, `The request names ${p.title}, but the plan does not mention them.`));
     } catch {}

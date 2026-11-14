@@ -1,6 +1,6 @@
 /** Pruebas del motor interno (sin modelo): nombres ambiguos, personas nombradas, reunión completada, avisos. Uso: SMJ_VAULT_PATH=vault npx tsx scripts/test-motor.ts */
 import { nameAmbiguities, peopleMentioned } from '../src/lib/brainLens';
-import { inspectPlan, completeMeetings } from '../src/lib/cerebro/review';
+import { inspectPlan, completeMeetings, dateIssues, fieldIssues } from '../src/lib/cerebro/review';
 import { lowRisk } from '../src/lib/cerebro/engine';
 let ok = 0, bad = 0; const t = (n: string, c: boolean, extra = '') => { c ? ok++ : (bad++, console.log('✗', n, extra)); };
 const amb = (q: string) => nameAmbiguities(q).map(a => `${a.word}:${a.kind}`);
@@ -37,4 +37,15 @@ t('no es bajo: borrar', !lowRisk([{ name: 'borrar_ficha', args: { ficha: 'person
 t('no es bajo: con un aviso fuerte', !lowRisk([{ name: 'crear_tarea', args: { ficha: 'person-tomas-casas', titulo: 'x' } }], { fuertes: ['duda'] }));
 t('no es bajo: expediente incompleto', !lowRisk([{ name: 'crear_tarea', args: { ficha: 'person-tomas-casas', titulo: 'x' } }], clean, true));
 t('no es bajo: toca más de 3 fichas', !lowRisk(['person-tomas-casas', 'person-luisa-santos', 'person-jenna-hector', 'person-richard-bailey'].map(f => ({ name: 'registrar_novedad', args: { ficha: f, resumen: 'x', fuente: 'x' } })), clean));
+// Fechas que no cuadran con el pedido, y campos inventados
+const T = '2026-11-14'; const task = (f: string) => [{ name: 'crear_tarea', args: { ficha: 'person-tomas-casas', titulo: 'x', fecha: f } }];
+t('lunes 16 pero el plan pone martes 17', dateIssues(task('2026-11-17'), 'Crea una tarea para el lunes 16: llamar a Tomás Casas', T).length === 1);
+t('lunes 16 y el plan pone lunes 16', dateIssues(task('2026-11-16'), 'Crea una tarea para el lunes 16: llamar a Tomás Casas', T).length === 0);
+t('20 de noviembre pero el plan pone 21', dateIssues([{ name: 'agendar', args: { titulo: 'x', fecha: '2026-11-21' } }], 'Reunión el 20 de noviembre a las 10:00', T).length === 1);
+t('la hora no se confunde con el día', dateIssues([{ name: 'agendar', args: { titulo: 'x', fecha: '2026-11-20', hora: '10:00' } }], 'Reunión el 20 de noviembre a las 10:00', T).length === 0);
+t('fecha ya pasada en una tarea', dateIssues(task('2026-11-01'), 'Crea una tarea para mañana', T).length === 1);
+t('una novedad con fecha pasada es normal', dateIssues([{ name: 'registrar_novedad', args: { ficha: 'person-tomas-casas', resumen: 'x', fuente: 'x', fecha: '2026-11-01' } }], 'Ayer llamó', T).length === 0);
+t('sin día dicho no hay queja', dateIssues(task('2026-11-18'), 'Crea una tarea para la próxima semana', T).length === 0);
+t('campo inventado «estado» en una persona', fieldIssues([{ name: 'actualizar_campos', args: { ficha: 'person-luisa-santos', campos: { estado: 'inactiva' } } }]).length === 1);
+t('campo real «job_title» pasa', fieldIssues([{ name: 'actualizar_campos', args: { ficha: 'person-luisa-santos', campos: { job_title: 'Gerente' } } }]).length === 0);
 console.log(`${ok} bien, ${bad} mal`); process.exit(bad ? 1 : 0);
