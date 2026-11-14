@@ -130,6 +130,9 @@ export default function CerebroPage() {
   const lastToggleRef = useRef(0);
   const fetchInFlightRef = useRef(false);
   const focusNodeIdsRef = useRef<string[]>([]);
+  // Vecindario (solo celular): una ficha al centro y sus conexiones directas alrededor.
+  const hoodRef = useRef<{ id: string; ids: string[] } | null>(null);
+  const [hood, setHood] = useState<{ id: string; title: string; type: string; total: number; shown: number } | null>(null);
   const cameraAnimationRef = useRef(0);
   const linksRef = useRef<LinkData[]>([]);
   const transformRef = useRef({ x: 0, y: 0, scale: 0.72 });
@@ -387,7 +390,10 @@ export default function CerebroPage() {
 
     // Filter nodes by both catalogScope and orgScope (hides granular clutter, keeps executive clarity)
     const rawPool = [...new Map([...rawNodes, ...fullGraphRef.current.nodes.filter(n => revealedNodeIdsRef.current.has(n.id))].map(n => [n.id, n])).values()];
-    const filteredRawNodes = rawPool.filter((n: any) => {
+    const existingMap = new Map(nodesRef.current.map(n => [n.id, n]));
+    const hoodNow = hoodRef.current;
+    const hoodSet = hoodNow ? new Set(hoodNow.ids) : null;
+    const filteredRawNodes = hoodSet ? fullGraphRef.current.nodes.filter((n: any) => hoodSet.has(n.id)) : rawPool.filter((n: any) => {
       if (revealedNodeIdsRef.current.has(n.id)) return true;
       // Vista por defecto: nucleo y primer anillo. Lo demas aparece al abrir un nodo (doble clic).
       if (nodeLevel(n.type) <= 1) return true;
@@ -420,7 +426,6 @@ export default function CerebroPage() {
       return activeNodeIdSet.has(s) && activeNodeIdSet.has(t);
     });
 
-    const existingMap = new Map(nodesRef.current.map(n => [n.id, n]));
 
     // Precomputar layout nativo si el modo actual es brujula o version-1-ajustada
     if (viewModeRef.current === 'brujula' || viewModeRef.current === 'version-1-ajustada') {
@@ -436,6 +441,20 @@ export default function CerebroPage() {
         if (stored) savedPositions = JSON.parse(stored);
       } catch {}
     }
+    // En vecindario no cuentan las posiciones fijadas: todo se acomoda alrededor del centro.
+    if (hoodNow) savedPositions = {};
+    const hoodTargets = new Map<string, { x: number; y: number }>();
+    if (hoodNow) {
+      const centerRaw = filteredRawNodes.find((n: any) => n.id === hoodNow.id);
+      // El centro se queda donde ya está la burbuja: así no viaja, solo se abre lo de alrededor.
+      const here = existingMap.get(hoodNow.id);
+      const c = here ? { x: here.x, y: here.y } : centerRaw ? getNodeTarget(centerRaw, viewModeRef.current) : { x: 0, y: 0 };
+      hoodTargets.set(hoodNow.id, c);
+      const around = hoodNow.ids.slice(1);
+      const first = around.slice(0, 8), second = around.slice(8);
+      first.forEach((id, i) => { const a = -Math.PI / 2 + (i / Math.max(1, first.length)) * Math.PI * 2; hoodTargets.set(id, { x: c.x + Math.cos(a) * 165, y: c.y + Math.sin(a) * 165 }); });
+      second.forEach((id, i) => { const a = -Math.PI / 2 + ((i + 0.5) / second.length) * Math.PI * 2; hoodTargets.set(id, { x: c.x + Math.cos(a) * 300, y: c.y + Math.sin(a) * 300 }); });
+    }
 
     // Nodos «comunidad»: solo actúan si hay muchísimos nodos visibles a la vez (ver communities.ts).
     const protectedIds = new Set<string>(
@@ -443,6 +462,7 @@ export default function CerebroPage() {
         selectedNodeIdRef.current,
         ...stackedDeckRef.current.map((d) => d.id),
         ...focusNodeIdsRef.current,
+        ...(hoodNow ? hoodNow.ids : []),
         ...Object.keys(savedPositions),
         ...nodesRef.current.filter((x) => x.isPinned).map((x) => x.id),
       ].filter(Boolean) as string[],
@@ -457,6 +477,8 @@ export default function CerebroPage() {
     communityKeysRef.current = comm.keys;
     const memberTargets = new Map<string, { x: number; y: number }>();
     const targetFor = (n: any) => {
+      const ht = hoodTargets.get(n.id);
+      if (ht) return ht;
       if (n.type !== 'community') return getNodeTarget(n, viewModeRef.current);
       // La burbuja se coloca en el centro de sus miembros.
       const ids = comm.members.get(n.id) || [];
@@ -493,7 +515,7 @@ export default function CerebroPage() {
       else nodeRadius = 20;
       if (n.type !== 'core' && n.type !== 'community') nodeRadius = Math.round(nodeRadius * importanceFactor(degree.get(n.id) || 0));
 
-      const isPinned = saved ? true : (existing ? existing.isPinned : false);
+      const isPinned = hoodNow ? false : saved ? true : (existing ? existing.isPinned : false);
       const pinnedX = saved ? saved.x : (existing ? existing.pinnedX : undefined);
       const pinnedY = saved ? saved.y : (existing ? existing.pinnedY : undefined);
 
@@ -588,7 +610,10 @@ export default function CerebroPage() {
     // En escritorio la ficha va al lado del lienzo (no encima), asi que solo en movil resta espacio.
     const panelOverlaysCanvas = stackedDeckRef.current.length > 0 && mobile;
     // Se encuadra por destino (donde van a quedar los nodos), no por donde estan mientras brotan.
-    const fitted = fitIdentityBounds(context.map(n => ({ x: Number.isFinite(n.targetX) ? n.targetX : n.x, y: Number.isFinite(n.targetY) ? n.targetY : n.y })), w, h, panelOverlaysCanvas, mobile);
+    // En vecindario se deja libre la franja de abajo (nombre y botones) y un margen arriba.
+    const inHood = !!hoodRef.current && mobile && !!targetNode;
+    const fitted = fitIdentityBounds(context.map(n => ({ x: Number.isFinite(n.targetX) ? n.targetX : n.x, y: Number.isFinite(n.targetY) ? n.targetY : n.y })), w, inHood ? Math.max(260, h - 230) : h, inHood ? false : panelOverlaysCanvas, mobile);
+    if (fitted && inHood) fitted.y += 60;
     if (!fitted) return;
     let targetX = fitted.x;
     let targetY = fitted.y;
@@ -840,6 +865,11 @@ export default function CerebroPage() {
 
   // Vista por defecto: todo cerrado, sin fichas, camara encuadrada.
   const resetToDefaultView = () => {
+    hoodRef.current = null;
+    setHood(null);
+    focusNodeIdsRef.current = [];
+    hoveredNodeRef.current = null;
+    setHoveredNode(null);
     openCommunitiesRef.current.clear();
     expansionsRef.current.clear();
     capLimitRef.current.clear();
@@ -867,8 +897,58 @@ export default function CerebroPage() {
     handleCenterAndFit();
   };
 
+  // Vecindario: deja a la vista solo esta ficha y lo que toca directamente, en círculo.
+  const enterHood = (node: NodeData, limit: number = 8) => {
+    const full = fullGraphRef.current;
+    const byId = new Map<string, any>(full.nodes.map((n: any) => [n.id, n]));
+    const raw = byId.get(node.id);
+    if (!raw) return;
+    const degree = new Map<string, number>();
+    const near = new Set<string>();
+    for (const l of full.links) {
+      degree.set(l.source, (degree.get(l.source) || 0) + 1);
+      degree.set(l.target, (degree.get(l.target) || 0) + 1);
+      if (l.source === node.id) near.add(l.target);
+      if (l.target === node.id) near.add(l.source);
+    }
+    near.delete(node.id);
+    const list = [...near].filter(id => byId.has(id)).sort((a, b) => (degree.get(b) || 0) - (degree.get(a) || 0) || String(byId.get(a).title || a).localeCompare(String(byId.get(b).title || b)));
+    const shown = list.slice(0, Math.min(limit, 22));
+    hoodRef.current = { id: node.id, ids: [node.id, ...shown] };
+    selectedNodeIdRef.current = node.id;
+    focusNodeIdsRef.current = [node.id, ...shown];
+    stackedDeckRef.current = [];
+    setStackedDeck([]);
+    setupNodesWithMode(full.nodes, full.links);
+    // El toque que abre el vecindario no es un arrastre: ninguna burbuja queda agarrada.
+    draggedNodeRef.current = null;
+    for (const n of nodesRef.current) n.isDragged = false;
+    setHood({ id: node.id, title: humanNodeName(raw), type: raw.type, total: list.length, shown: shown.length });
+    const live = nodesRef.current.find(n => n.id === node.id) || node;
+    requestAnimationFrame(() => requestAnimationFrame(() => handleCenterAndFit(live)));
+  };
+
+  // Abre la ficha completa de la burbuja del centro, sin mover el vecindario.
+  const openHoodCard = () => {
+    const live = nodesRef.current.find(n => n.id === hoodRef.current?.id);
+    if (!live) return;
+    stackedDeckRef.current = [live];
+    setStackedDeck([live]);
+  };
+
+  // Un toque en celular: salta al vecindario de esa burbuja (o abre el grupo, o la ficha si ya es el centro).
+  const tapNode = (node: NodeData): boolean => {
+    if (typeof window === 'undefined' || window.innerWidth >= 768) return false;
+    if (node.type === 'community') { expandCommunity(node); return true; }
+    if (hoodRef.current?.id === node.id) { openHoodCard(); return true; }
+    enterHood(node);
+    return true;
+  };
+
   // Stacked Deck Inspector (Multi-Abrir - Trae siempre al frente la ficha seleccionada y auto-encuadra la cámara)
   const pushToStackedDeck = (node: NodeData, bloomLayer: boolean = false, sourceNodeId?: string) => {
+    // En celular, abrir una ficha (buscador, enlaces) lleva a su vecindario; la ficha se abre desde ahí.
+    if (typeof window !== 'undefined' && window.innerWidth < 768 && node.type !== 'community') { enterHood(node); return; }
     const full = fullGraphRef.current;
     const focusIds = new Set<string>([node.id]);
     if (sourceNodeId) focusIds.add(sourceNodeId);
@@ -948,7 +1028,7 @@ export default function CerebroPage() {
     }
   };
 
-  const { handleCanvasClick, handleCanvasDoubleClick, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd } = useCanvasGestures({ canvasRef, clampCameraBounds, dragStartMousePosRef, draggedNodeRef, findNodeAtClientPoint, findPillAtClientPoint, hoveredNodeRef, initialPinchDistRef, initialPinchScaleRef, isDraggingCanvasRef, lastMousePosRef, lastTapTimeRef, lastTouchPosRef, linksRef, nodesRef, pinchCenterRef, pushToStackedDeck, resetToDefaultView, selectedNodeIdRef, setHoveredNode, setPinnedCount, setTooltipPos, showMoreOfNode, toggleNodeOpen, touchMovedRef, touchStartPosRef, transformRef, unpinNode });
+  const { handleCanvasClick, handleCanvasDoubleClick, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel, handleTouchStart, handleTouchMove, handleTouchEnd } = useCanvasGestures({ canvasRef, clampCameraBounds, dragStartMousePosRef, draggedNodeRef, findNodeAtClientPoint, findPillAtClientPoint, hoveredNodeRef, initialPinchDistRef, initialPinchScaleRef, isDraggingCanvasRef, lastMousePosRef, lastTapTimeRef, lastTouchPosRef, linksRef, nodesRef, pinchCenterRef, pushToStackedDeck, resetToDefaultView, selectedNodeIdRef, setHoveredNode, setPinnedCount, setTooltipPos, showMoreOfNode, tapNode, toggleNodeOpen, touchMovedRef, touchStartPosRef, transformRef, unpinNode });
 
   const removeFromDeck = (nodeId: string) => {
     setStackedDeck(prev => prev.filter(d => d.id !== nodeId));
@@ -1173,7 +1253,7 @@ export default function CerebroPage() {
         <div ref={containerRef} className="flex-1 min-w-0 relative h-full min-h-[550px]">
           <canvas
             ref={canvasRef}
-            onClick={handleCanvasClick}
+            onClick={(e) => { if (!hoodRef.current) handleCanvasClick(e); }}
             onDoubleClick={handleCanvasDoubleClick}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
@@ -1185,6 +1265,34 @@ export default function CerebroPage() {
             onTouchCancel={handleTouchEnd}
             className="w-full h-full cursor-pointer block touch-none"
           />
+
+          {hood && stackedDeck.length === 0 && (
+            <div className="md:hidden">
+              <button
+                onClick={resetToDefaultView}
+                className="absolute left-3 top-[58px] z-30 flex h-11 items-center gap-1.5 rounded-full border border-sky-300/40 bg-[#0b1f4d]/90 pl-2.5 pr-4 text-[13px] font-semibold text-slate-50 shadow-xl backdrop-blur active:scale-95"
+              >
+                <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4cc9ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
+                {t("Todo el cerebro")}
+              </button>
+              <div className="absolute inset-x-0 bottom-0 z-30 flex flex-col gap-1.5 rounded-t-3xl border-t border-sky-300/35 bg-[#0b1f4d]/95 px-5 pb-5 pt-4 shadow-2xl backdrop-blur">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="truncate text-[17px] font-semibold text-slate-50">{hood.title}</span>
+                  <span className="shrink-0 text-[11px] font-medium text-sky-200">{t(TYPE_CONFIG[hood.type]?.label || '')}</span>
+                </div>
+                <span className="text-xs text-[#9db0d8]">
+                  {hood.total === 0 ? t("Sin conexiones todavía") : hood.shown < hood.total ? `${hood.shown} / ${hood.total} ${t("conexiones directas")}` : `${hood.total} ${t("conexiones directas")}`}
+                  {hood.total > 0 ? ` · ${t("toca una burbuja para saltar")}` : ''}
+                </span>
+                <div className="mt-2 flex gap-2.5">
+                  <button onClick={openHoodCard} className="h-11 flex-1 rounded-full bg-[#4cc9ff] text-sm font-semibold text-[#071230] active:scale-95">{t("Abrir ficha")}</button>
+                  {hood.shown < hood.total && hood.shown < 22 && (
+                    <button onClick={() => { const n = nodesRef.current.find(x => x.id === hood.id); if (n) enterHood(n, 22); }} className="h-11 flex-1 rounded-full border border-sky-300/50 text-sm font-semibold text-slate-50 active:scale-95">{t("Ver más")}</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Hierarchical Progressive Breadcrumbs (P3/P4) */}
           {drilldownStack.length > 0 && (

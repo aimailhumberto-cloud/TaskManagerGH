@@ -22,7 +22,7 @@ import { CerebroHud } from './CerebroHud';
 
 // Gestos del lienzo (clic, doble clic, arrastre, rueda, toque). Extraído de page.tsx sin cambios de comportamiento.
 export function useCanvasGestures(props: GesturesProps) {
-  const { canvasRef, clampCameraBounds, dragStartMousePosRef, draggedNodeRef, findNodeAtClientPoint, findPillAtClientPoint, hoveredNodeRef, initialPinchDistRef, initialPinchScaleRef, isDraggingCanvasRef, lastMousePosRef, lastTapTimeRef, lastTouchPosRef, linksRef, nodesRef, pinchCenterRef, pushToStackedDeck, resetToDefaultView, selectedNodeIdRef, setHoveredNode, setPinnedCount, setTooltipPos, showMoreOfNode, toggleNodeOpen, touchMovedRef, touchStartPosRef, transformRef, unpinNode } = props;
+  const { canvasRef, clampCameraBounds, dragStartMousePosRef, draggedNodeRef, findNodeAtClientPoint, findPillAtClientPoint, hoveredNodeRef, initialPinchDistRef, initialPinchScaleRef, isDraggingCanvasRef, lastMousePosRef, lastTapTimeRef, lastTouchPosRef, linksRef, nodesRef, pinchCenterRef, pushToStackedDeck, resetToDefaultView, selectedNodeIdRef, setHoveredNode, setPinnedCount, setTooltipPos, showMoreOfNode, tapNode, toggleNodeOpen, touchMovedRef, touchStartPosRef, transformRef, unpinNode } = props;
     // Un clic: solo selecciona y resalta conexiones. No agrega nada al lienzo.
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -349,7 +349,9 @@ export function useCanvasGestures(props: GesturesProps) {
       if (wasTap) {
         const now = Date.now();
         const timeSinceLast = now - lastTapTimeRef.current;
-        if (timeSinceLast < 360) {
+        if (tappedNode && !tappedNode.hiddenByFilter && tapNode(tappedNode)) {
+          lastTapTimeRef.current = 0;
+        } else if (timeSinceLast < 360) {
           // Double Tap Detected!
           if (tappedNode) {
             toggleNodeOpen(tappedNode);

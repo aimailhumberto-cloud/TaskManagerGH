@@ -374,6 +374,12 @@ const ES_PLAIN: Record<string, string> = {
   "Física & Control de Nodos:": "Movimiento del mapa:"
 };
 const EN_PLAIN: Record<string, string> = {
+  "Todo el cerebro": "Whole brain",
+  "Sin conexiones todavía": "No connections yet",
+  "conexiones directas": "direct connections",
+  "toca una burbuja para saltar": "tap a bubble to jump",
+  "Abrir ficha": "Open note",
+  "Ver más": "Show more",
   "SMJ Cerebro": "Brain",
   "| Segundo Cerebro Vivo": "· S.M. Jaleel",
   "Ir a TaskManager Ejecutivo (Tareas)": "Back to Home",
