@@ -360,3 +360,11 @@ Existen el vault de Obsidian (local), la carpeta `vault/` del repositorio y el d
 - **Plantillas:** `GET ?plantillas=1` lista todas; `GET ?plantilla=<nombre>` devuelve el MD. Hay de acción (reunion_viaje, tarea, novedad, cifra, cambio_estado, varios) y de ficha (persona, empresa, producto, marca, mercado, pedido_exportacion y una por cada tipo de ficha que exista). Las de ficha están vivas: sus campos salen de las fichas reales. Siempre terminan en «Otros datos», libre.
 - **El expediente vive en el Cerebro:** cada respuesta trae `expedienteMd` (tu MD más lo que hizo el Cerebro). Si pierdes el hilo, pídelo con `{action:'estado', id}`.
 - Un expediente con varios temas se parte: cada tema sigue como su propio caso (`parts`).
+
+## Una sola ronda de preguntas (vuelta 40)
+
+- El Cerebro pregunta **una vez**, con los puntos numerados (`faltan`). Contesta cada punto con: el dato · «no lo tengo» · «se lo pregunto a mi persona».
+- **«Se lo pregunto a mi persona»:** el caso queda abierto esperando (`esperaPersona`) y no gasta la ronda. Vuelve con `responder` cuando tengas la respuesta.
+- **Después de tu respuesta el Cerebro no vuelve a preguntar:** guarda lo seguro, deja lo dudoso como «Por confirmar» y lo que no se puede hacer sin el dato no lo hace (lo dice en `report.noHice`).
+- **Nunca adivina cuál persona es:** si no se supo, lo que iba a esa persona no se guarda.
+- Si no queda nada seguro que guardar, el caso se cierra `sin_cambios` y dice qué faltó. Abre un caso nuevo cuando lo tengas.

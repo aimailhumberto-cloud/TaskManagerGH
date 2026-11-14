@@ -66,7 +66,7 @@ s, ch = http('/api/agent/changes'); dump = json.dumps(ch); check('el diario dice
 s, r = ask('delete the ficha of Luisa'); check('borrar espera a una persona (motivo en inglés)', s == 202 and 'a person always approves' in r['why'], r.get('why'))
 P({'action': 'ajustes', 'mode': 'auto'})
 s, r = ask('indicator: sales Canada 99 boxes'); check('menú en inglés: nombre del indicador queda tal cual', s == 200 and r['lang'] == 'en', (s, r.get('message')))
-s, r = ask('ambiguous: move it to Monday'); check('pregunta del modelo en inglés', s == 200 and r['status'] == 'pregunta' and r['message'].startswith('CASE ') and r['message'].endswith('Question: Which distributor do you mean?'), r.get('message'))
+s, r = ask('ambiguous: move it to Monday'); check('pregunta del modelo en inglés', s == 200 and r['status'] == 'pregunta' and r['message'].startswith('CASE ') and 'Question: Which distributor do you mean?' in r['message'] and 'only round' in r['message'], r.get('message'))
 
 # 6. Errores de la app en inglés
 s, r = ask('siempre-mal: note something'); check('error de plan inválido en inglés (422)', s == 422 and 'could not build a valid plan' in r['message'] and 'does not exist' in r['message'], r.get('message'))

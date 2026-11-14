@@ -23,7 +23,7 @@ import { inspectPlan, completeMeetings, pruneUnnamed, coverageGaps, snapshotBefo
 import { loadBrainGraph } from '../smjBrainService';
 import { tr, tw, replyLang, type Lang } from '../reqLang';
 
-export type ReqStatus = 'aplicado' | 'pendiente' | 'reemplazado' | 'rechazado' | 'pregunta' | 'respuesta' | 'no_entendido' | 'fallo';
+export type ReqStatus = 'aplicado' | 'pendiente' | 'sin_cambios' | 'reemplazado' | 'rechazado' | 'pregunta' | 'respuesta' | 'no_entendido' | 'fallo';
 export interface CerebroRequest {
   id: string; at: string; by: string; via: string; text: string; status: ReqStatus;
   ops: Op[]; plan: string[]; why?: string; results?: string[]; message?: string; changeId?: string;
@@ -49,6 +49,10 @@ export interface CerebroRequest {
   summary?: string;
   /** Qué se hizo, qué espera aprobación y qué no se hizo, dicho por la app (no por el modelo). */
   report?: { hecho: string[]; esperando: string[]; noHice: string[] };
+  /** Lo que el Cerebro preguntó en su única ronda, punto por punto. */
+  faltan?: string[];
+  /** El agente fue a preguntarle a su persona: el caso espera. */
+  esperaPersona?: boolean;
   /** Expediente del caso (el MD vive aparte, con versiones). */
   expediente?: { versiones: number; pedido?: boolean; incompleto?: boolean; plantilla?: string; plantillaMd?: string };
   /** Pedido de varios temas: grupo y «2/4». */
@@ -312,8 +316,8 @@ function findTarget(vault: string, text: string, explicit?: string): Target {
 const DONE_CLAIM = /^\s*(he|ya|i have|i've|i)\s+(agend|regist|cre[eéo]|anot|actualiz|guard|aplic|modific|scheduled|logged|created|updated|saved|applied|added|recorded)/i;
 const honest = (lines: string[]) => lines.flatMap(l => l.split(/(?<=[.!?])\s+/)).filter(x => x.trim() && !DONE_CLAIM.test(x));
 /** Lo que se hizo, lo que espera aprobación y lo que no se hizo. */
-function reportOf(status: 'aplicado' | 'pendiente', plan: string[], results: string[] | undefined, gaps: string[], why?: string): NonNullable<CerebroRequest['report']> {
-  return { hecho: status === 'aplicado' ? (results?.length ? results : plan) : [], esperando: status === 'pendiente' ? plan : [], noHice: gaps.length ? [tr(`No recogí en el plan: ${gaps.join('; ')}.`, `The plan does not capture: ${gaps.join('; ')}.`)] : [] };
+function reportOf(status: 'aplicado' | 'pendiente', plan: string[], results: string[] | undefined, gaps: string[], extra: string[] = []): NonNullable<CerebroRequest['report']> {
+  return { hecho: status === 'aplicado' ? (results?.length ? results : plan) : [], esperando: status === 'pendiente' ? plan : [], noHice: [...extra, ...(gaps.length ? [tr(`No recogí en el plan: ${gaps.join('; ')}.`, `The plan does not capture: ${gaps.join('; ')}.`)] : [])] };
 }
 export function reportText(rep: NonNullable<CerebroRequest['report']>): string {
   const list = (a: string[]) => a.length ? a.map((x, i) => `${i + 1}. ${x}`).join(' ') : tr('nada', 'nothing');
@@ -321,7 +325,7 @@ export function reportText(rep: NonNullable<CerebroRequest['report']>): string {
 }
 // ---------- Preguntar en vez de rellenar (lo decide la app, no el modelo) ----------
 /** Lo que el pedido deja sin decir y no se debe adivinar: nombres que pueden ser varias personas, gente que no existe, horarios que nadie dio. */
-function preAsk(vault: string, text: string, md = ''): string {
+function preAsk(vault: string, text: string, md = ''): string[] {
   const q: string[] = []; const all = md ? `${text}\n${md}` : text;
   try {
     for (const a of nameAmbiguities(all.slice(0, 12000)).filter(x => words(text).includes(x.word))) q.push(a.kind === 'igual'
@@ -335,8 +339,15 @@ function preAsk(vault: string, text: string, md = ''): string {
     const { dateStr } = getPanamaDate(); const saved = listEvents(vault).some(e => e.kind === 'viaje' && e.date >= dateStr && !!e.time);
     if (!saved) q.push(tr('No tengo guardados los horarios de esos vuelos (no hay ningún vuelo con hora en la agenda). Dime por cada tramo: salida, llegada, aerolínea y en cuál va la escala.', 'I have no saved times for those flights (there is no flight with a time on the agenda). Tell me for each leg: departure, arrival, airline and which one has the stop.'));
   }
-  return q.join(' ');
+  return q;
 }
+/** La pregunta del Cerebro: puntos numerados y las tres formas de contestar. Solo hay una ronda. */
+function askText(items: string[], lead = ''): string {
+  const body = items.length > 1 ? items.map((x, i) => `${i + 1}) ${x}`).join(' ') : items[0] || '';
+  return `${lead}${body} ${tr('— Contesta cada punto con el dato, con «no lo tengo» o con «se lo pregunto a mi persona». Es mi única ronda de preguntas: con lo que me des sigo, guardo lo seguro y dejo lo demás por confirmar.', '— Answer each point with the data, with “I do not have it” or with “I will ask my person”. This is my only round of questions: with what you give me I go on, save what is certain and leave the rest to confirm.')}`.trim();
+}
+/** «Se lo pregunto a mi persona»: el caso sigue abierto, esperando. */
+const DEFER = /(se lo (pregunto|consulto|voy a preguntar)|le (pregunto|consulto|voy a preguntar) a|d[eé]jame (preguntar|consultar)|lo consulto con|voy a (preguntar|consultar)|i('ll| will) ask (my|the|him|her)|let me (ask|check with))/i;
 /** Un solo cambio a la vez en la bóveda, aunque se piensen varios temas en paralelo. */
 let applyChain: Promise<unknown> = Promise.resolve();
 const oneAtATime = <T>(fn: () => Promise<T>): Promise<T> => { const run = applyChain.then(fn, fn); applyChain = run.catch(() => {}); return run; };
@@ -396,27 +407,40 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
   if (tg && 'ask' in tg) return done({ status: 'pregunta', message: tg.ask, dialog: [...dialog, { q: tg.ask }] });
   if (mdIn && !input.dryRun) saveExpediente(vault, caseId, mdIn);
   const noMore = !md && dialog.some(d => d.a && NO_MORE.test(d.a));
+  const noData = dialog.some(d => d.a && NO_MORE.test(d.a));
   const exp = () => ({ versiones: input.dryRun ? (md ? 1 : 0) : expedienteVersions(vault, caseId), ...(input.prior?.expediente?.pedido ? { pedido: true } : {}), ...(noMore ? { incompleto: true } : {}) });
   base.expediente = exp();
   if (!leer && !dialog.length) {
-    const ask = preAsk(vault, text, md);
+    const asks = preAsk(vault, text, md); const ask = asks.length ? ` ${asks.map((x, i) => `${i + 1}) ${x}`).join(' ')}` : '';
     // El agente que trae información de afuera o un pedido largo debe mandar el expediente: sin él, el Cerebro espera.
     if (!md && isAgent() && !input.sub && needsExpediente(shown)) {
       const plantilla = detectTemplate(shown);
       let known: string[] = []; try { known = peopleMentioned(shown).map(p => `${p.title} (${p.id})`); } catch {}
       const plantillaMd = templateMd(plantilla, { pedido: shown, quien: base.by, known });
-      const q = tr(`Recibido. Antes de seguir, mándame el expediente de este caso: fuente, qué verificaste, qué confirmó tu persona y qué no sabes. Te dejo la plantilla «${plantilla}» en «expediente.plantillaMd», ya con lo que entendí: complétala y envíala en «md» con responder. Si no tienes más datos, responde «no tengo más» y sigo con lo que hay.${ask ? ` Además: ${ask}` : ''}`, `Received. Before going on, send me the case file: source, what you verified, what your person confirmed and what you do not know. The “${plantilla}” template is in “expediente.plantillaMd”, already filled with what I understood: complete it and send it in “md” with responder. If you have no more data, answer “I do not have more” and I will go on with what there is.${ask ? ` Also: ${ask}` : ''}`);
-      return done({ status: 'pregunta', message: q, dialog: [{ q }], expediente: { versiones: 0, pedido: true, plantilla, plantillaMd } });
+      const q = tr(`Recibido. Antes de seguir, mándame el expediente de este caso: fuente, qué verificaste, qué confirmó tu persona y qué no sabes. Te dejo la plantilla «${plantilla}» en «expediente.plantillaMd», ya con lo que entendí: complétala y envíala en «md» con responder. Si no tienes más datos, responde «no tengo más» y sigo con lo que hay.${ask ? ` Además contesta:${ask}` : ''}`, `Received. Before going on, send me the case file: source, what you verified, what your person confirmed and what you do not know. The “${plantilla}” template is in “expediente.plantillaMd”, already filled with what I understood: complete it and send it in “md” with responder. If you have no more data, answer “I do not have more” and I will go on with what there is.${ask ? ` Also: ${ask}` : ''}`);
+      return done({ status: 'pregunta', message: q, dialog: [{ q }], faltan: asks, expediente: { versiones: 0, pedido: true, plantilla, plantillaMd } });
     }
-    if (ask) return done({ status: 'pregunta', message: ask, dialog: [{ q: ask }] });
+    if (asks.length) { const q = askText(asks); return done({ status: 'pregunta', message: q, dialog: [{ q }], faltan: asks }); }
   }
   if (!llmConfigured()) return done({ message: tr('El Cerebro todavía no tiene modelo: falta OLLAMA_API_KEY en Render.', 'The Brain has no model yet: OLLAMA_API_KEY is missing in Render.') });
   const heavy = full.length > 2500 || (full.match(/\b\d{1,2}:\d{2}\b/g) || []).length >= 4; // textos largos o itinerarios con muchas horas
   let model = input.deep || heavy || (isAgent() && !input.sub && full.length > 200) ? s.models.grande : s.models.rapido;
   const tools = [...toolDefs(), ...META];
   const messages: ChatMessage[] = [{ role: 'system', content: systemFor(replyLang(), leer) }, { role: 'user', content: `${contextBlock(talk ? `${full}\n${dialog.map(d => d.a || '').join('\n')}` : full)}\n\n${leer ? tr('TEXTO PARA LEER Y EXTRAER, ENVIADO POR', 'TEXT TO READ AND EXTRACT, SENT BY') : tr('PEDIDO DE', 'REQUEST FROM')} ${base.by.toUpperCase()}:\n"""\n${full.slice(0, 60000)}\n"""${talk ? `\n\n${tr('CONVERSACIÓN', 'CONVERSATION')}:\n${talk}` : ''}${replyLang() === 'en' ? '\n\nLANGUAGE: write every text you produce in English.' : ''}` }];
-  let inTok = 0, outTok = 0, ms = 0, rounds = 0, repaired = false, gapTried = false, ops: Op[] = [], errors: string[] = [], supuso: string[] = [];
+  let inTok = 0, outTok = 0, ms = 0, rounds = 0, repaired = false, gapTried = false, nudged = false, ops: Op[] = [], errors: string[] = [], supuso: string[] = [];
   const stats = () => ({ model, inputTokens: inTok, outputTokens: outTok, ms, rounds });
+  // Una sola ronda de preguntas: la primera vez se pregunta; si ya hubo ronda, el Cerebro debe seguir con lo seguro, y si no puede, cierra sin cambios.
+  const roundDone = dialog.some(d => !!d.a);
+  const askOnce = (q: string, r: { content: string; toolCalls: { name: string; args: any }[] }) => {
+    if (!roundDone) { const text1 = askText([q]); return done({ ...stats(), status: 'pregunta', message: text1, dialog: [...dialog, { q: text1 }], faltan: [q] }); }
+    if (!nudged) {
+      nudged = true;
+      messages.push({ role: 'assistant', content: r.content, tool_calls: r.toolCalls.map(c => ({ function: { name: c.name, arguments: c.args } })) });
+      messages.push({ role: 'user', content: tr('Ya hiciste tu única ronda de preguntas y ya te respondieron. NO preguntes más. Arma ahora el plan con lo que es seguro; lo que siga dudoso déjalo en «observar» como «por confirmar»; y lo que no se pueda hacer sin ese dato, no lo hagas.', 'You already used your only round of questions and got an answer. Do NOT ask again. Build the plan now with what is certain; leave what is still doubtful in “observar” as “to confirm”; and do not do what cannot be done without that data.') });
+      return null;
+    }
+    return done({ ...stats(), status: 'sin_cambios', message: tr(`No guardé nada: después de la ronda de preguntas seguía faltando esto: ${q} Cuando lo tengas, abre un caso nuevo.`, `I saved nothing: after the round of questions this was still missing: ${q} When you have it, open a new case.`) });
+  };
   try {
     for (;;) {
       if (++rounds > 6) return done({ ...stats(), status: 'no_entendido', message: tr('No logré armar el plan en pocos pasos. Di el pedido con el nombre exacto de la ficha.', 'I could not build the plan in a few steps. Say the request with the exact name of the note.') });
@@ -428,8 +452,10 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
       const searches = r.toolCalls.filter(c => c.name === 'buscar');
       supuso = honest(r.toolCalls.filter(c => c.name === 'observar').map(c => String(c.args.texto || '').slice(0, 300)).filter(Boolean));
       ops = resolveRefs(r.toolCalls.filter(c => !['buscar', 'preguntar', 'observar'].includes(c.name)).map(c => ({ name: c.name, args: c.args })));
+      if (!ops.length && supuso.length && !ask && !searches.length && !leer) { const out = askOnce(supuso.join(' '), r); if (out) return out; continue; }
       if (!ops.length && supuso.length && !ask && !searches.length) return done({ ...stats(), status: leer ? 'respuesta' : 'pregunta', message: supuso.join(' ') , ...(leer ? { summary: 'nada que guardar' } : { dialog: [...dialog, { q: supuso.join(' ') }] }) });
-      if (ask && !ops.length) { const q = String(ask.args.pregunta || tr('Necesito un dato más.', 'I need one more detail.')).slice(0, 500); return done({ ...stats(), status: 'pregunta', message: q, dialog: [...dialog, { q }] }); }
+      if (ask && !ops.length) { const out = askOnce(String(ask.args.pregunta || tr('Necesito un dato más.', 'I need one more detail.')).slice(0, 500), r); if (out) return out; continue; }
+      if (!r.toolCalls.length && r.content.trim() && !leer) { const out = askOnce(r.content.trim().slice(0, 800), r); if (out) return out; continue; }
       if (!r.toolCalls.length) { const q = r.content.trim().slice(0, 800); return done(q ? { ...stats(), status: 'pregunta', message: q, dialog: [...dialog, { q }] } : { ...stats(), status: 'no_entendido', message: tr('No entendí el pedido. Dilo de otra forma.', 'I did not understand the request. Say it another way.') }); }
       if (searches.length && !ops.length) {
         messages.push({ role: 'assistant', content: r.content, tool_calls: searches.map(c => ({ function: { name: c.name, arguments: c.args } })) });
@@ -465,9 +491,21 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
     if (dropped.length) { ops = ops.filter(o => !dropped.includes(o)); supuso.push(tr(`El expediente traía una instrucción de ${dropped.map(o => o.name.replace(/_/g, ' ')).join(', ')}: no la seguí, porque eso solo se pide en el pedido.`, `The case file carried an instruction to ${dropped.map(o => o.name.replace(/_/g, ' ')).join(', ')}: I did not follow it, because that can only be asked in the request.`)); }
     if (!ops.length) return done({ ...stats(), status: 'no_entendido', message: supuso.join(' ') });
   }
+  // Lo que nunca se adivina: si después de la ronda sigue sin saberse cuál persona es, lo que iba a esa persona no se guarda.
+  const skipped: string[] = [];
+  if (roundDone) {
+    let amb: ReturnType<typeof nameAmbiguities> = []; try { amb = nameAmbiguities(`${full}\n${dialog.map(d => d.a || '').join('\n')}`.slice(0, 14000)).filter(x => words(text).includes(x.word)); } catch {}
+    const ids = new Set(amb.flatMap(a => a.people.map(p => p.id)));
+    if (ids.size) {
+      const whoIs = amb.map(a => a.word).join(', ');
+      ops = ops.filter(o => { const a = o.args || {}; if (Array.isArray(a.con)) a.con = a.con.filter((c: string) => !ids.has(String(c))); if (ids.has(String(a.ficha || '')) || ids.has(String(a.desde || '')) || ids.has(String(a.hacia || ''))) { skipped.push(tr(`No guardé «${describeOp(o).slice(0, 160)}» porque no se supo cuál «${whoIs}» es.`, `I did not save “${describeOp(o).slice(0, 160)}” because it was never clear which “${whoIs}” it is.`)); return false; } return true; });
+      if (!ops.length) return done({ ...stats(), status: 'sin_cambios', message: skipped.join(' '), report: { hecho: [], esperando: [], noHice: skipped } });
+    }
+  }
   const removed = pruneUnnamed(ops, full); const added = completeMeetings(ops, text); supuso.push(...removed, ...added);
   const plan = ops.map(describeOp); const recognized = recognizedOf(ops);
   const obs = inspectPlan(ops, supuso, text, `${full}\n${dialog.map(d => d.a || '').join('\n')}`); if (noMore) obs.avisos.push(tr('Expediente incompleto: quien pidió no tenía más datos. Se siguió con lo que había.', 'Incomplete case file: the requester had no more data. It went on with what there was.'));
+  if (noData) for (const q of input.prior?.faltan || []) obs.avisos.push(tr(`Por confirmar (quien pidió no tenía el dato): ${q}`, `To confirm (the requester did not have the data): ${q}`));
   const summary = leer ? summarize(ops, obs) : undefined;
   let why = whyProposal(ops, s, currentBrain()?.scope);
   if (!why && obs.fuertes.length) why = obs.fuertes[0];
@@ -478,15 +516,15 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
   const gapsLeft = leer ? [] : coverageGaps(ops, text);
   const common = { ...stats(), ops, plan, recognized, obs, confidence, ...(summary ? { summary } : {}) };
   if (input.dryRun) return done({ ...common, status: 'pendiente', why: why || tr('Ensayo: se aplicaría solo.', 'Dry run: it would apply on its own.') });
-  if (why) return done({ ...common, status: 'pendiente', why, report: reportOf('pendiente', plan, undefined, gapsLeft), message: tr(`Quedó en «Por aprobar»: todavía NO se aplicó nada. ${target ? `Reemplaza a ${target.id}. ` : ''}`, `It is waiting in “To approve”: NOTHING has been applied yet. ${target ? `It replaces ${target.id}. ` : ''}`) + reportText(reportOf('pendiente', plan, undefined, gapsLeft)) });
+  if (why) return done({ ...common, status: 'pendiente', why, report: reportOf('pendiente', plan, undefined, gapsLeft, skipped), message: tr(`Quedó en «Por aprobar»: todavía NO se aplicó nada. ${target ? `Reemplaza a ${target.id}. ` : ''}`, `It is waiting in “To approve”: NOTHING has been applied yet. ${target ? `It replaces ${target.id}. ` : ''}`) + reportText(reportOf('pendiente', plan, undefined, gapsLeft, skipped)) });
   return oneAtATime(async () => {
   const stale = validatePlan(ops); // otro tema del mismo pedido pudo cambiar algo mientras tanto
-  if (stale.length) return done({ ...common, status: 'pendiente', why: stale[0], report: reportOf('pendiente', plan, undefined, gapsLeft), message: tr('Quedó en «Por aprobar»: todavía NO se aplicó nada.', 'It is waiting in “To approve”: NOTHING has been applied yet.') });
+  if (stale.length) return done({ ...common, status: 'pendiente', why: stale[0], report: reportOf('pendiente', plan, undefined, gapsLeft, skipped), message: tr('Quedó en «Por aprobar»: todavía NO se aplicó nada.', 'It is waiting in “To approve”: NOTHING has been applied yet.') });
   const before = snapshotBefore(ops);
   const a = await applyPlan(vault, ops, text, tw(`Cerebro (pedido de ${base.by})`, `Cerebro (request from ${base.by})`));
   if (!a.ok) return done({ ...common, status: 'fallo', message: a.error });
   await afterApply(vault, base.id, obs, before, a.results, text);
-  return done({ ...common, status: 'aplicado', links: linksOf(ops), results: a.results, changeId: a.changeId, receipt: a.receipt, report: reportOf('aplicado', plan, a.results, gapsLeft), message: tr('Hecho.', 'Done.') });
+  return done({ ...common, status: 'aplicado', links: linksOf(ops), results: a.results, changeId: a.changeId, receipt: a.receipt, report: reportOf('aplicado', plan, a.results, gapsLeft, skipped), message: tr('Hecho.', 'Done.') });
   });
 }
 /** Después de guardar: Jev compara con lo que había y lo pendiente pasa a «Por revisar». */
@@ -502,6 +540,10 @@ export async function responder(id: string, answer: string, md?: string): Promis
   const vault = getVaultPath(); const r = listRequests(vault).find(x => x.id === id);
   if (!r) return { ok: false, status: 404, error: tr('No existe ese pedido.', 'That request does not exist.') };
   if (r.status !== 'pregunta') return { ok: false, status: 409, error: tr(`Ese pedido no está esperando respuesta (está ${r.status}).`, `That request is not waiting for an answer (it is ${r.status}).`) };
+  if (DEFER.test(answer) && !String(md || '').trim() && !NO_MORE.test(answer)) {
+    const wait = { ...r, esperaPersona: true };
+    saveRequest(vault, wait); return { ...wait, ok: true };
+  }
   const dialog = [...(r.dialog || [])]; const last = dialog[dialog.length - 1];
   if (!last || last.a) dialog.push({ q: r.message || '', a: answer.slice(0, 4000), by: who() }); else dialog[dialog.length - 1] = { ...last, a: answer.slice(0, 4000), by: who() };
   if (dialog.length > 6) return { ok: false, status: 409, error: tr('Esta conversación ya es muy larga. Haz el pedido de nuevo, completo.', 'This conversation is already too long. Make the request again, complete.') };
@@ -516,7 +558,7 @@ export async function responder(id: string, answer: string, md?: string): Promis
       return { ok: true, multi: true, ...v };
     }
   }
-  const out = await pedir({ text: r.text, prior: { ...r, dialog }, md: mdIn });
+  const out = await pedir({ text: r.text, prior: { ...r, dialog, esperaPersona: false }, md: mdIn });
   return { ok: true, ...out };
 }
 

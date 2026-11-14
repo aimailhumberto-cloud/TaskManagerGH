@@ -29,11 +29,12 @@ export function caseOf(r: CerebroRequest, opts: { canApprove?: boolean } = {}): 
   const noGuardado = [...(r.report?.noHice || []),
     ...(r.status === 'rechazado' ? [tr('Se rechazó: no se guardó nada.', 'It was rejected: nothing was saved.')] : []),
     ...(r.status === 'reemplazado' ? [tr(`Lo reemplazó el caso ${r.replacedBy || ''}: de este no se guardó nada.`, `Case ${r.replacedBy || ''} replaced it: nothing from this one was saved.`)] : []),
+    ...(r.status === 'sin_cambios' && !r.report?.noHice?.length ? [r.message || tr('No se guardó nada.', 'Nothing was saved.')] : []),
     ...(r.status === 'fallo' || r.status === 'no_entendido' ? [r.message || tr('No se pudo hacer.', 'It could not be done.')] : [])];
   const tipo: CloseType | undefined = !cerrado ? undefined : r.status === 'aplicado' ? (porConfirmar.length || r.report?.noHice?.length ? 'parcial' : 'completo') : r.status === 'respuesta' ? 'completo' : 'sin_cambios';
   const tipoWord = tipo === 'completo' ? tr('completo', 'complete') : tipo === 'parcial' ? tr('parcial', 'partial') : tr('sin cambios', 'no changes');
   const lastQ = r.dialog?.length ? r.dialog[r.dialog.length - 1] : undefined;
-  const pregunta = r.status === 'pregunta' ? (lastQ && !lastQ.a ? lastQ.q : r.message) : undefined;
+  const pregunta = r.status === 'pregunta' ? (lastQ && !lastQ.a ? lastQ.q : r.esperaPersona && r.faltan?.length ? r.faltan.join(' ') : r.message) : undefined;
 
   let texto: string, ahora: string;
   if (cerrado) {
@@ -45,8 +46,10 @@ export function caseOf(r: CerebroRequest, opts: { canApprove?: boolean } = {}): 
       + tr('No tienes que hacer nada más con este caso.', 'You do not have to do anything else with this case.');
     ahora = tr("Nada: el caso está cerrado. Para cambiar algo, abre un caso nuevo con POST {action:'pedir', text}.", "Nothing: the case is closed. To change something, open a new case with POST {action:'pedir', text}.");
   } else if (estado === 'espera_respuesta') {
-    texto = tr(`CASO ${r.id} ABIERTO: espera tu respuesta. Todavía NO se guardó nada. Pregunta: ${pregunta || ''}`, `CASE ${r.id} OPEN: waiting for your answer. NOTHING has been saved yet. Question: ${pregunta || ''}`);
-    ahora = tr(`Contesta con POST {action:'responder', id:'${r.id}', text}. Si no tienes el dato, dilo («no lo tengo») o pregúntale a tu persona.`, `Answer with POST {action:'responder', id:'${r.id}', text}. If you do not have the data, say so (“I do not have it”) or ask your person.`);
+    texto = r.esperaPersona
+      ? tr(`CASO ${r.id} ABIERTO: espera a que consultes con tu persona. Todavía NO se guardó nada. Cuando te responda, contesta aquí. Pregunta: ${pregunta || ''}`, `CASE ${r.id} OPEN: waiting for you to check with your person. NOTHING has been saved yet. When they answer, reply here. Question: ${pregunta || ''}`)
+      : tr(`CASO ${r.id} ABIERTO: espera tu respuesta. Todavía NO se guardó nada. Pregunta: ${pregunta || ''}`, `CASE ${r.id} OPEN: waiting for your answer. NOTHING has been saved yet. Question: ${pregunta || ''}`);
+    ahora = tr(`Contesta con POST {action:'responder', id:'${r.id}', text}. Para cada punto: el dato, «no lo tengo», o «se lo pregunto a mi persona» (el caso espera). Solo hay una ronda: después sigo con lo seguro.`, `Answer with POST {action:'responder', id:'${r.id}', text}. For each point: the data, “I do not have it”, or “I will ask my person” (the case waits). There is only one round: after it I go on with what is certain.`);
   } else {
     texto = tr(`CASO ${r.id} ABIERTO: espera aprobación. Todavía NO se guardó nada. ${r.replaces ? `Reemplaza al caso ${r.replaces}, que quedó cerrado. ` : ''}Propuesta: ${list(esperando)}. Motivo de la espera: ${r.why || ''}`, `CASE ${r.id} OPEN: waiting for approval. NOTHING has been saved yet. ${r.replaces ? `It replaces case ${r.replaces}, now closed. ` : ''}Proposal: ${list(esperando)}. Why it waits: ${r.why || ''}`);
     ahora = opts.canApprove
