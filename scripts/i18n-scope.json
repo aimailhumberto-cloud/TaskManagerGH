@@ -32,6 +32,7 @@
     "src/components/TaskDossierModal.tsx",
     "src/components/TaskDotsModal.tsx",
     "src/components/WorkspaceNavigation.tsx",
-    "src/app/inicio/KpiCard.tsx"
+    "src/app/inicio/KpiCard.tsx",
+    "src/app/inicio/BrainWelcome.tsx"
   ]
 }

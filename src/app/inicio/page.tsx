@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useUiLang } from '@/lib/uiLang';
 import { EN } from './en';
 import KpiCard from './KpiCard';
+import BrainWelcome, { markWelcomeSeen, welcomeSeen } from './BrainWelcome';
 
 // Idioma: el componente fija _lang en cada render; T traduce en el momento de pintar.
 let _lang: 'es' | 'en' = 'es';
@@ -122,6 +123,11 @@ export default function InicioPage() {
     catch { setErr(T('No se pudo cargar tu tablero.')); }
   }, []);
   useEffect(() => { load(); }, [load]);
+  // Bienvenida: sale sola una vez, en el cerebro propio y recién nacido; después se abre desde el enlace del pie.
+  const [welcome, setWelcome] = useState(false);
+  const ownBrainId = d && !d.brain.viewingOther ? d.brain.id : '';
+  const newborn = !!d && (d.brain.isEmpty || d.health.nodes <= 3);
+  useEffect(() => { if (ownBrainId && newborn && !welcomeSeen(ownBrainId)) { markWelcomeSeen(ownBrainId); setWelcome(true); } }, [ownBrainId, newborn]);
   // Ubicación: solo si la persona ya dio permiso antes; si no, se pide con un botón.
   const locate = useCallback(() => {
     if (!navigator.geolocation) return setGeo('denied');
@@ -385,6 +391,8 @@ export default function InicioPage() {
         </section>
 
         {d.me.isPrimary && !d.brain.viewingOther && <p className="text-xs text-slate-500">{T('Tu espacio de trabajo anterior (empresas, proyectos y reuniones) sigue en')} <Link className="underline" href="/clasico">{T('Espacio anterior')}</Link>.</p>}
+        {ownBrainId && <p className="text-xs text-slate-500"><button type="button" onClick={() => setWelcome(true)} className="underline hover:text-[#0a3fbf]">{T('Ver la bienvenida')}</button></p>}
+        {welcome && <BrainWelcome newborn={newborn} onClose={() => setWelcome(false)} />}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/brands/Brands-you-Love_2-copy-scaled.jpg" alt={T('Marcas de S.M. Jaleel')} className="w-full rounded-[20px]" />
       </div>

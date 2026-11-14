@@ -1,0 +1,56 @@
+/* Bienvenida «Nace un cerebro nuevo». Solo transform y opacity; sin animación si la persona pidió menos movimiento. */
+.bw-overlay { position: fixed; inset: 0; z-index: 70; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(6, 18, 48, 0.62); font-family: Poppins, system-ui, sans-serif; }
+.bw-panel { position: relative; display: grid; width: 100%; max-width: 940px; max-height: calc(100dvh - 32px); overflow-y: auto; border-radius: 28px; background: #fff; color: #0b1f4d; box-shadow: 0 30px 70px -30px rgba(6, 18, 48, 0.7); outline: none; }
+.bw-birth { display: flex; flex-direction: column; gap: 6px; padding: 26px 24px 22px; background: #0b1f4d; color: #fff; }
+.bw-art { display: block; width: 100%; max-width: 300px; height: auto; margin: 0 auto; }
+.bw-title { font-size: 30px; font-weight: 700; line-height: 1.12; letter-spacing: -0.01em; }
+.bw-lead { margin-top: 8px; font-size: 15px; line-height: 1.5; color: #dbeafe; }
+.bw-newborn { align-self: flex-start; margin-top: 12px; border-radius: 999px; padding: 5px 12px; font-size: 12px; font-weight: 600; background: #00a8f0; color: #04214f; }
+.bw-guide { display: flex; flex-direction: column; padding: 24px 22px 22px; }
+.bw-guide h3 { font-size: 16px; font-weight: 700; padding-right: 40px; }
+.bw-steps { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; }
+.bw-step { display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start; }
+.bw-num { display: flex; height: 30px; width: 30px; align-items: center; justify-content: center; border-radius: 999px; background: #e8f1ff; color: #0a3fbf; font-size: 13px; font-weight: 700; }
+.bw-step h4 { font-size: 14.5px; font-weight: 600; line-height: 1.35; }
+.bw-step p { margin-top: 2px; font-size: 13.5px; line-height: 1.5; color: #475569; }
+.bw-step a { color: #0a3fbf; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.bw-actions { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px; }
+.bw-go, .bw-later { border-radius: 999px; padding: 11px 22px; font-size: 14px; font-weight: 600; text-align: center; cursor: pointer; }
+.bw-go { background: #0a3fbf; color: #fff; flex: 1 1 160px; }
+.bw-go:hover { background: #08318f; }
+.bw-later { background: #f2f6fd; color: #0a3fbf; border: 1px solid #dbe4f3; }
+.bw-later:hover { background: #e8f1ff; }
+.bw-close { position: absolute; top: 12px; right: 12px; z-index: 1; display: flex; height: 36px; width: 36px; align-items: center; justify-content: center; border-radius: 999px; background: rgba(255, 255, 255, 0.14); color: #fff; cursor: pointer; }
+.bw-close:hover { background: rgba(255, 255, 255, 0.26); }
+.bw-panel a:focus-visible, .bw-panel button:focus-visible { outline: 3px solid #00a8f0; outline-offset: 2px; }
+
+@media (min-width: 820px) {
+  .bw-panel { grid-template-columns: 0.82fr 1fr; }
+  .bw-birth { justify-content: center; padding: 36px 32px; }
+  .bw-art { max-width: 340px; margin-bottom: 8px; }
+  .bw-title { font-size: 38px; }
+  .bw-guide { padding: 34px 34px 30px; }
+  .bw-close { background: #f2f6fd; color: #0b1f4d; }
+  .bw-close:hover { background: #e8f1ff; }
+}
+@media (max-width: 819px) {
+  .bw-overlay { padding: 0; align-items: stretch; }
+  .bw-panel { max-height: 100dvh; border-radius: 0; align-content: start; }
+  .bw-art { max-width: 220px; }
+}
+
+/* Una sola secuencia: el núcleo enciende, brotan los puntos desde él y luego se unen entre sí. */
+@media (prefers-reduced-motion: no-preference) {
+  .bw-overlay { animation: bw-fade 0.25s ease-out both; }
+  .bw-panel { animation: bw-rise 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .bw-core { transform-origin: 160px 122px; animation: bw-ignite 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.2) 0.25s both; }
+  .bw-halo { transform-origin: 160px 122px; animation: bw-halo 1.8s ease-out 0.7s 2 both; }
+  .bw-branch { transform-origin: 160px 122px; animation: bw-sprout 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(0.85s + var(--i) * 0.22s); }
+  .bw-synapse { animation: bw-fade 0.6s ease-out both; animation-delay: calc(2.5s + var(--i) * 0.15s); }
+  .bw-step { animation: bw-fade 0.5s ease-out both; animation-delay: calc(0.9s + var(--i) * 0.22s); }
+}
+@keyframes bw-fade { from { opacity: 0; } }
+@keyframes bw-rise { from { opacity: 0; transform: translateY(14px) scale(0.985); } }
+@keyframes bw-ignite { from { opacity: 0; transform: scale(0.2); } }
+@keyframes bw-halo { from { opacity: 0.55; transform: scale(0.5); } to { opacity: 0; transform: scale(2.6); } }
+@keyframes bw-sprout { from { opacity: 0; transform: scale(0); } }
