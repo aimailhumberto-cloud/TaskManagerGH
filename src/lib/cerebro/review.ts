@@ -81,7 +81,7 @@ export function coverageGaps(ops: Op[], text: string): string[] {
   if (/(no (se ha )?verific|sin verificar|not (yet )?verified|unverified|no (est[aá]n?|aparece[n]?) expl[ií]cit|not explicit|not confirmed|sin confirmar|zonas? horarias?|time ?zones?)/i.test(t) && !/(verific|zona|huso|time ?zone|confirm|expl[ií]cit)/i.test(plan)) out.push(tr('las dudas que dice el pedido (sin verificar, zona horaria)', 'the doubts the request states (unverified, time zone)'));
   return out;
 }
-export function inspectPlan(ops: Op[], supuso: string[] = [], text = ''): Observations {
+export function inspectPlan(ops: Op[], supuso: string[] = [], text = '', namesText = text): Observations {
   const o: Observations = { supuso: supuso.slice(0, 8), fuertes: [], avisos: [], falta: [] };
   const nodes = nodesById(); const vault = getVaultPath();
   const open = getUnifiedBrainTasks().tasks.filter(t => !t.isCompleted);
@@ -117,7 +117,7 @@ export function inspectPlan(ops: Op[], supuso: string[] = [], text = ''): Observ
   if (text) {
     const refs = refsOf(ops);
     try {
-      for (const x of nameAmbiguities(text)) {
+      for (const x of nameAmbiguities(namesText)) {
         const used = x.people.filter(p => refs.has(p.id)); if (!used.length) continue;
         o.fuertes.push(x.kind === 'igual'
           ? tr(`«${x.word}» puede ser ${x.people.map(p => p.title).join(' o ')}: el plan usa a ${used.map(p => p.title).join(', ')}. ¿Es esa persona?`, `“${x.word}” can be ${x.people.map(p => p.title).join(' or ')}: the plan uses ${used.map(p => p.title).join(', ')}. Is that the right person?`)

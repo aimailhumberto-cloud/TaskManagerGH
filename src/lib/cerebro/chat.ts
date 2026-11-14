@@ -77,6 +77,7 @@ export async function chatTurn(vault: string, who: string, text: string, opts: {
       intent = 'pedido';
       const r = await responder(waiting.id, t);
       if (!r.ok) { out = msg('brain', r.error, { kind: 'error', lang }); }
+      else if (r.multi) { request = r.parts[0]; out = msg('brain', r.message, { kind: 'request', requestId: r.parts[0].id, lang }); }
       else { request = r as CerebroRequest; out = msg('brain', r.message || '', { kind: 'request', requestId: r.id, lang, model: r.model }); }
     } else {
       intent = opts.mode === 'leer' ? 'pedido' : await intentOf(t, vault);

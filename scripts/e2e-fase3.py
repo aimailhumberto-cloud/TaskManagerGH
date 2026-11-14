@@ -17,7 +17,7 @@ res = []
 def check(name, cond, info=''):
     res.append(bool(cond)); print(('OK   ' if cond else 'FALLA'), name, ('· ' + str(info)[:200] if info != '' else ''))
 C = '/api/agent/cerebro'
-ask = lambda text, **kw: http(C, {'action': 'pedir', 'text': text}, **kw)
+ask = lambda text, **kw: http(C, {'action': 'pedir', 'text': text, 'md': 'x-prueba'}, **kw)  # con expediente, para probar el motor y no el requisito
 node = lambda i: http('/api/agent/brain?node=' + i)[1].get('node') or {}
 
 # Sesión de una persona (dueño)

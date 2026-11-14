@@ -3,6 +3,7 @@ import { withBrain } from '@/lib/brains';
 import { currentBrain } from '@/lib/brainContext';
 import { pedir, pedirVarios, responder, consultar, decidir, listRequests, usageSummary, canDecide, openCases, caseNews, type CerebroRequest } from '@/lib/cerebro/engine';
 import { caseOf, caseLine } from '@/lib/cerebro/cases';
+import { readExpediente, templateList, templateMd, detectTemplate } from '@/lib/cerebro/expediente';
 import { loadSettings, saveSettings } from '@/lib/cerebro/settings';
 import { llmConfigured, listModels, balance, chat, LlmError } from '@/lib/cerebro/ollama';
 import { MENU } from '@/lib/cerebro/ops';
@@ -52,8 +53,10 @@ const httpOf = (st: string) => (st === 'fallo' ? 502 : st === 'no_entendido' ? 4
 function caseExtras(vault: string, r?: CerebroRequest, dry = false) {
   const may = canDecide().ok; const caso = r ? caseOf(r, { canApprove: may }) : undefined;
   if (dry) return caso ? { caso, next: caso.ahora } : {};
+  // El expediente al día: el MD del caso (o, si nadie mandó uno, el que arma el Cerebro con el pedido) más lo que el Cerebro hizo.
+  const expedienteMd = r && caso ? `${readExpediente(vault, r.id) || templateMd(detectTemplate(r.text), { pedido: r.text, quien: r.by })}\n\n## ${tr('El Cerebro', 'The Brain')}\n${caso.texto}\n` : undefined;
   const news = caseNews(vault).filter(x => x.id !== r?.id); const open = openCases(vault).filter(x => x.id !== r?.id);
-  return { ...(caso ? { caso, next: caso.ahora } : {}), abiertos: open.map(caseLine), ...(news.length ? { novedades: news.map(x => caseOf(x, { canApprove: may }).texto) } : {}) };
+  return { ...(caso ? { caso, next: caso.ahora, expedienteMd } : {}), abiertos: open.map(caseLine), ...(news.length ? { novedades: news.map(x => caseOf(x, { canApprove: may }).texto) } : {}) };
 }
 /** El mensaje que lee el agente empieza por el estado del caso; cerrado o abierto se dice siempre. */
 const sayCase = (r: CerebroRequest, dry = false) => dry ? r.message : `${caseOf(r, { canApprove: canDecide().ok }).texto}${r.status === 'pendiente' || r.status === 'aplicado' || r.status === 'pregunta' ? '' : r.message ? ` ${r.message}` : ''}`;
@@ -71,6 +74,8 @@ async function getInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, sp: U
     if (!llmConfigured()) return bad(tr('Falta OLLAMA_API_KEY en Render.', 'OLLAMA_API_KEY is missing in Render.'), 503);
     try { return NextResponse.json({ ok: true, models: await listModels(), balance: await balance() }); } catch (e: any) { return bad(e instanceof LlmError ? e.message : tr('No se pudo consultar Ollama.', 'Could not reach Ollama.'), 502); }
   }
+  if (sp.get('plantillas')) return NextResponse.json({ ok: true, plantillas: templateList(), how: tr('GET ?plantilla=<nombre> devuelve la plantilla en MD. Complétala y envíala en «md» con pedir o responder.', 'GET ?plantilla=<name> returns the template in MD. Fill it and send it in “md” with pedir or responder.') });
+  if (sp.get('plantilla')) { const name = String(sp.get('plantilla')); return templateList().some(t => t.name === name) ? NextResponse.json({ ok: true, plantilla: name, md: templateMd(name) }) : bad(tr('No existe esa plantilla. Mira GET ?plantillas=1.', 'That template does not exist. See GET ?plantillas=1.'), 404); }
   const all = listRequests(ctx.vaultPath);
   if (sp.get('id')) { const r = all.find(x => x.id === sp.get('id')); return r ? NextResponse.json({ ok: true, request: r, caso: caseOf(r, { canApprove: canDecide().ok }) }) : bad(tr('No existe ese pedido.', 'That request does not exist.'), 404); }
   return NextResponse.json({
@@ -104,7 +109,7 @@ async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: a
     if (text.length > 60000) return bad(tr('El pedido es demasiado largo (máximo 60 000 caracteres). Divídelo.', 'The request is too long (60,000 characters maximum). Split it.'), 413);
     const replaces = typeof (b.reemplaza || b.replaces) === 'string' ? String(b.reemplaza || b.replaces) : undefined;
     if (action === 'pedir') {
-      const v = await pedirVarios({ text, deep: b.deep === true, dryRun: b.dryRun === true, replaces });
+      const v = await pedirVarios({ text, deep: b.deep === true, dryRun: b.dryRun === true, replaces, md: typeof (b.md ?? b.expediente) === 'string' ? String(b.md ?? b.expediente) : undefined });
       if (v.multi) return NextResponse.json({ ok: true, multi: true, status: 'varios', id: v.parts[0].id, parts: v.parts.map(p => ({ ...p, ...caseExtras(ctx.vaultPath, p, true), message: sayCase(p, b.dryRun === true) })), message: v.message, ...(b.dryRun === true ? {} : caseExtras(ctx.vaultPath)), next: tr('Cada tema es un pedido aparte: mira «parts» y sigue con el id de cada uno (responder, aprobar).', 'Each topic is a separate request: see “parts” and continue with each id (responder, aprobar).') });
       return NextResponse.json({ ...v.one, ok: httpOf(v.one.status) < 400, ...caseExtras(ctx.vaultPath, v.one, b.dryRun === true), message: sayCase(v.one, b.dryRun === true) }, { status: httpOf(v.one.status) });
     }
@@ -112,9 +117,10 @@ async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: a
     return NextResponse.json({ ...r, ok: httpOf(r.status) < 400, next: nextOf(r.status) }, { status: httpOf(r.status) });
   }
   if (action === 'responder') {
-    const text = String(b.text || '').trim(); if (!text) return bad(tr('Escribe la respuesta en «text».', 'Write the answer in “text”.'));
-    const r = await responder(String(b.id || ''), text);
+    const text = String(b.text || '').trim() || (typeof (b.md ?? b.expediente) === 'string' ? tr('Va el expediente.', 'Here is the case file.') : ''); if (!text) return bad(tr('Escribe la respuesta en «text» o manda el expediente en «md».', 'Write the answer in “text” or send the case file in “md”.'));
+    const r = await responder(String(b.id || ''), text, typeof (b.md ?? b.expediente) === 'string' ? String(b.md ?? b.expediente) : undefined);
     if (!r.ok) return bad(r.error, r.status);
+    if (r.multi) return NextResponse.json({ ok: true, multi: true, status: 'varios', id: r.parts[0].id, parts: r.parts.map(p => ({ ...p, ...caseExtras(ctx.vaultPath, p, true), message: sayCase(p) })), message: r.message, ...caseExtras(ctx.vaultPath), next: tr('Cada tema es un caso aparte: mira «parts» y sigue con el id de cada uno.', 'Each topic is a separate case: see “parts” and continue with each id.') });
     return NextResponse.json({ ...r, ok: !['fallo', 'no_entendido'].includes(r.status), ...caseExtras(ctx.vaultPath, r), message: sayCase(r) }, { status: httpOf(r.status) });
   }
   if (action === 'aprobar' || action === 'rechazar') {
