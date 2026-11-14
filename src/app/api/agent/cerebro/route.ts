@@ -3,6 +3,7 @@ import { withBrain } from '@/lib/brains';
 import { currentBrain } from '@/lib/brainContext';
 import { pedir, pedirVarios, responder, consultar, decidir, listRequests, usageSummary, canDecide, openCases, caseNews, followUp, cancelar, advanceStale, type CerebroRequest } from '@/lib/cerebro/engine';
 import { caseOf, caseLine } from '@/lib/cerebro/cases';
+import { agentGuide } from '@/lib/cerebro/guide';
 import { readExpediente, templateList, templateMd, autoExpediente } from '@/lib/cerebro/expediente';
 import { loadSettings, saveSettings } from '@/lib/cerebro/settings';
 import { llmConfigured, listModels, balance, chat, LlmError } from '@/lib/cerebro/ollama';
@@ -57,7 +58,7 @@ function caseExtras(vault: string, r?: CerebroRequest, dry = false) {
   const expedienteMd = r && caso ? `${readExpediente(vault, r.id) || autoExpediente(r)}\n\n## ${tr('El Cerebro', 'The Brain')}\n${caso.texto}\n` : undefined;
   const news = caseNews(vault).filter(x => x.id !== r?.id); const open = openCases(vault).filter(x => x.id !== r?.id);
   const fu = followUp(vault, isAgent());
-  return { ...(caso ? { caso, next: caso.ahora, expedienteMd } : {}), ...(fu ? { seguimiento: fu } : {}), abiertos: open.map(caseLine), ...(news.length ? { novedades: news.map(x => caseOf(x, { canApprove: may }).texto) } : {}) };
+  return { ...(isAgent() ? { guia: '/api/agent/cerebro?guia=1' } : {}), ...(caso ? { caso, next: caso.ahora, expedienteMd } : {}), ...(fu ? { seguimiento: fu } : {}), abiertos: open.map(caseLine), ...(news.length ? { novedades: news.map(x => caseOf(x, { canApprove: may }).texto) } : {}) };
 }
 /** El mensaje que lee el agente empieza por el estado del caso; cerrado o abierto se dice siempre. */
 const sayCase = (r: CerebroRequest, dry = false) => dry ? r.message : `${caseOf(r, { canApprove: canDecide().ok }).texto}${r.status === 'pendiente' || r.status === 'aplicado' || r.status === 'pregunta' ? '' : r.message ? ` ${r.message}` : ''}`;
@@ -75,6 +76,7 @@ async function getInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, sp: U
     if (!llmConfigured()) return bad(tr('Falta OLLAMA_API_KEY en Render.', 'OLLAMA_API_KEY is missing in Render.'), 503);
     try { return NextResponse.json({ ok: true, models: await listModels(), balance: await balance() }); } catch (e: any) { return bad(e instanceof LlmError ? e.message : tr('No se pudo consultar Ollama.', 'Could not reach Ollama.'), 502); }
   }
+  if (sp.get('guia') || sp.get('guide')) { const fu = followUp(ctx.vaultPath, isAgent()); return NextResponse.json({ ok: true, guia: agentGuide({ canApprove: canDecide().ok, pendientes: fu?.total || 0 }) }); }
   if (sp.get('plantillas')) return NextResponse.json({ ok: true, plantillas: templateList(), how: tr('GET ?plantilla=<nombre> devuelve la plantilla en MD. Complétala y envíala en «md» con pedir o responder.', 'GET ?plantilla=<name> returns the template in MD. Fill it and send it in “md” with pedir or responder.') });
   if (sp.get('plantilla')) { const name = String(sp.get('plantilla')); return templateList().some(t => t.name === name) ? NextResponse.json({ ok: true, plantilla: name, md: templateMd(name) }) : bad(tr('No existe esa plantilla. Mira GET ?plantillas=1.', 'That template does not exist. See GET ?plantillas=1.'), 404); }
   void advanceStale().catch(() => {}); // regla de las 24 horas: en segundo plano, sin frenar esta respuesta
@@ -84,7 +86,8 @@ async function getInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, sp: U
     ok: true, name: 'el Cerebro', lang: replyLang(), ...(isAgent() ? {} : (() => { const chatThread = loadChat(ctx.vaultPath, chatWho()); return { chat: chatThread, chatRequests: chatRequests(ctx.vaultPath, chatThread) }; })()), ready: llmConfigured(), jev: !!configuredProvider(), settings: loadSettings(ctx.vaultPath), usage: usageSummary(ctx.vaultPath),
     canApprove: canDecide().ok, pending: all.filter(r => r.status === 'pendiente'), review: listReview(ctx.vaultPath).filter(i => !i.closedAt).slice(0, 50), questions: all.filter(r => r.status === 'pregunta').slice(0, 30), followUp: followUp(ctx.vaultPath), recent: all.filter(r => r.status !== 'pendiente').slice(0, 20),
     menu: Object.entries(MENU).map(([name, d]) => ({ name, level: d.level, what: d.desc })),
-    how: tr("POST {action:'pedir', text} para pedir un cambio en palabras; GET ?q= para consultar. Borrar, verificar y compartir siempre esperan a una persona.", "POST {action:'pedir', text} to ask for a change in words; GET ?q= to look something up. Deleting, verifying and sharing always wait for a person."),
+    guia: '/api/agent/cerebro?guia=1',
+    how: tr("Lee primero la guía: GET /api/agent/cerebro?guia=1. POST {action:'pedir', text} para pedir un cambio en palabras; GET ?q= para consultar. Borrar, verificar y compartir siempre esperan a una persona.", "POST {action:'pedir', text} to ask for a change in words; GET ?q= to look something up. Deleting, verifying and sharing always wait for a person."),
   });
 }
 
@@ -103,6 +106,11 @@ async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: a
     if (action === 'chat_reset') { resetChat(ctx.vaultPath, chatWho()); return NextResponse.json({ ok: true }); }
     const r = await chatTurn(ctx.vaultPath, chatWho(), String(b.text || ''), { mode: b.mode === 'leer' ? 'leer' : undefined, deep: b.deep === true });
     return NextResponse.json({ ok: r.ok, error: r.error, intent: r.intent, added: r.added, request: r.request, next: r.request ? nextOf(r.request.status) : undefined }, { status: r.status });
+  }
+  if (action === 'banco') {
+    if (isAgent()) return bad(tr('El banco de pedidos lo corre una persona.', 'The request bank is run by a person.'), 403);
+    const { runBank } = await import('@/lib/cerebro/bank');
+    return NextResponse.json({ ok: true, ...(await runBank(Array.isArray(b.solo) ? b.solo.map(Number).filter(Number.isInteger) : undefined)) });
   }
   if (action === 'cancelar') {
     const r = cancelar(String(b.id || ''), String(b.motivo ?? b.reason ?? b.text ?? ''));
@@ -158,7 +166,7 @@ async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: a
     }
     return NextResponse.json({ ok: Object.values(out).every((o: any) => o.ok), test: out });
   }
-  return bad(tr("action debe ser 'pedir', 'leer', 'chat', 'chat_reset', 'responder', 'estado', 'casos', 'cancelar', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.", "action must be 'pedir', 'leer', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' or 'probar'."));
+  return bad(tr("action debe ser 'pedir', 'leer', 'chat', 'chat_reset', 'responder', 'estado', 'casos', 'cancelar', 'banco', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.", "action must be 'pedir', 'leer', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' or 'probar'."));
 }
 export const GET = withBrain(_GET);
 export const POST = withBrain(_POST);

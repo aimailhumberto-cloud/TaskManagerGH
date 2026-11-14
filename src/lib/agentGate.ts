@@ -11,4 +11,4 @@ export const AGENT_ALLOWED: Record<string, string[]> = {
 };
 export const legacyWriteMode = (env: string | undefined = process.env.AGENT_WRITE_MODE) => env === 'legacy';
 export const agentMayWrite = (path: string, action?: string): boolean => !!action && (AGENT_ALLOWED[path] || []).includes(action);
-export const ASK_HINT = "POST /api/agent/cerebro {action:'pedir', text:'lo que quieres que pase, en palabras'} (o 'consultar' con q, 'leer' con un correo o nota, 'responder' a una pregunta suya).";
+export const ASK_HINT = "Guía completa: GET /api/agent/cerebro?guia=1. POST /api/agent/cerebro {action:'pedir', text:'lo que quieres que pase, en palabras'} (o 'consultar' con q, 'leer' con un correo o nota, 'responder' a una pregunta suya).";

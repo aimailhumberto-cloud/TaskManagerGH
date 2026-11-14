@@ -101,7 +101,7 @@ s, d = http(C, {'action': 'responder', 'id': qid, 'text': 'otra vez'}); check('3
 
 # Fase 3b, publicación 2: observaciones, por revisar, leer y extraer, autonomía por tipo
 check('3b2: lo que falta pasa a «Por revisar»', any('Bren Prueba: sin correo' in i['text'] for i in http(C)[1]['review']), [i['text'] for i in http(C)[1]['review']][:4])
-rid = next(i['id'] for i in http(C)[1]['review'] if 'Bren Prueba' in i['text']); s, d = http(C, {'action': 'revisado', 'id': rid})
+rid = next(i['id'] for i in http(C)[1]['review'] if 'Bren Prueba' in i['text']); s, d = http(C, {'action': 'revisado', 'id': rid, 'motivo': 'resuelto en la prueba'})
 check('3b2: cerrar un pendiente de «Por revisar»', s == 200 and not any(i['id'] == rid for i in http(C)[1]['review']))
 s, r = ask('tarea-parecida: crea la tarea de la propuesta'); check('3b2: una tarea parecida a otra no se aplica sola', s == 202 and 'se parece a una que ya existe' in r['why'] and r['obs']['fuertes'], r.get('why'))
 P({'action': 'rechazar', 'id': r['id']})

@@ -383,3 +383,8 @@ Existen el vault de Obsidian (local), la carpeta `vault/` del repositorio y el d
 - Cada pendiente sale de la lista solo de tres formas: **se completa** (`responder`, `aprobar`), **se cierra** (`{action:'revisado', id, motivo:'cómo se resolvió'}` para los «por confirmar») o **se cancela** (`{action:'cancelar', id, motivo}`). El motivo es obligatorio.
 - **Regla de las 24 horas:** una pregunta sin respuesta en un día no frena el trabajo: el Cerebro sigue con lo seguro, como si le hubieras dicho «no lo tengo», y lo que faltó queda «por confirmar». Lo que está en «se lo pregunto a mi persona» y lo que espera aprobación NO se toca solo.
 - Revisa tus pendientes al empezar cada sesión: `{action:'casos'}`.
+
+## La guía la entrega el Cerebro (vuelta 44)
+
+- **`GET /api/agent/cerebro?guia=1`** devuelve «Cómo trabajar con el Cerebro», siempre al día con las reglas vigentes, las acciones que tu llave puede usar, las plantillas que existen y cuántos pendientes tienes. Léela al empezar. Cada respuesta te recuerda dónde está (`guia`).
+- **Ensayo:** añade `dryRun: true` a `pedir` para ver qué haría el Cerebro sin guardar nada.
