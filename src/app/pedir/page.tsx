@@ -2,8 +2,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import PageHero from '@/components/PageHero';
 import { useUiLang } from '@/lib/uiLang';
+import { caseOf } from '@/lib/cerebro/cases';
 
-type Req = { id: string; at: string; by: string; text: string; status: string; plan: string[]; why?: string; results?: string[]; message?: string; changeId?: string; model?: string; ms?: number; confidence?: number | null; decidedBy?: string; decidedVia?: string; decidedAt?: string; dialog?: { q: string; a?: string }[]; recognized?: { id: string; name: string; type: string; verification?: string; isNew?: boolean }[]; links?: { label: string; href: string }[]; summary?: string; kind?: string; obs?: { supuso: string[]; fuertes: string[]; avisos: string[]; falta: string[]; jev?: { fiel: number | null; coherente?: number | null; error?: string } } };
+type Req = { id: string; at: string; by: string; text: string; status: string; plan: string[]; why?: string; results?: string[]; message?: string; changeId?: string; model?: string; ms?: number; confidence?: number | null; decidedBy?: string; decidedVia?: string; decidedAt?: string; dialog?: { q: string; a?: string }[]; recognized?: { id: string; name: string; type: string; verification?: string; isNew?: boolean }[]; links?: { label: string; href: string }[]; summary?: string; kind?: string; obs?: { supuso: string[]; fuertes: string[]; avisos: string[]; falta: string[]; jev?: { fiel: number | null; coherente?: number | null; error?: string; motivo?: string } }; esperaPersona?: boolean; report?: { hecho: string[]; esperando: string[]; noHice: string[] }; replacedBy?: string; closedAt?: string; approvalWords?: string; confirm?: { phrase: string; first?: string } };
 type Auto = { agenda: boolean; novedades: boolean; contactos: boolean; cifras: boolean };
 type Settings = { workLang?: 'es' | 'en'; workLangSet?: boolean; models: { rapido: string; grande: string }; mode: 'proponer' | 'auto' | 'mixto'; auto: Auto; bigTouch: number; bigCreate: number; agentCanApprove: boolean; threshold: number };
 type Msg = { id: string; at: string; role: 'user' | 'brain'; text: string; kind?: 'answer' | 'talk' | 'request' | 'error'; requestId?: string; sources?: string[]; lang?: string; model?: string };
@@ -27,6 +28,7 @@ export default function PedirPage() {
   const [omit, setOmit] = useState<Record<string, number[]>>({});
   const [phrase, setPhrase] = useState<Record<string, string>>({});
   const [typed, setTyped] = useState<Record<string, string>>({});
+  const [exp, setExp] = useState<Record<string, string | null>>({}); // expediente abierto por caso
   const [pending, setPending] = useState<string | null>(null); // mensaje que se está enviando
   const [readMode, setReadMode] = useState(false);
   const [detail, setDetail] = useState<Record<string, string>>({});
@@ -110,8 +112,31 @@ export default function PedirPage() {
   };
   const Badge = ({ s }: { s: string }) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS[s]?.[1] || 'bg-slate-100'}`}>{STATUS[s]?.[0] || s}</span>;
   const TYPE: Record<string, string> = { person: L('persona', 'person'), distributor: L('distribuidor', 'distributor'), brand: L('marca', 'brand'), market: L('mercado', 'market'), customer: L('cliente', 'customer'), organization: L('organización', 'organization'), department: L('departamento', 'department') };
+  async function toggleExp(id: string) {
+    if (exp[id] != null) { setExp(e => ({ ...e, [id]: null })); return; }
+    try { const d = await (await fetch(`/api/agent/cerebro?id=${encodeURIComponent(id)}`)).json(); setExp(e => ({ ...e, [id]: d.expedienteMd || L('Este caso no tiene expediente.', 'This case has no case file.') })); } catch { setError(L('No se pudo abrir el expediente.', 'The case file could not be opened.')); }
+  }
+  // El caso: abierto o cerrado, qué se guardó, qué no y qué quedó por confirmar; y su expediente.
+  const CaseHead = ({ r }: { r: Req }) => {
+    const c = caseOf(r as any, { canApprove: !!st?.canApprove });
+    const kind = c.tipo === 'completo' ? L('completo', 'complete') : c.tipo === 'parcial' ? L('parcial', 'partial') : L('sin cambios', 'no changes');
+    const label = c.cerrado ? `${L('Caso cerrado', 'Case closed')} · ${kind}` : c.estado === 'espera_respuesta' ? (r.esperaPersona ? L('Caso abierto · espera a que consultes', 'Case open · waiting for you to check') : L('Caso abierto · espera tu respuesta', 'Case open · waiting for your answer')) : L('Caso abierto · espera aprobación', 'Case open · waiting for approval');
+    return (
+      <div className={`mt-2 rounded-xl border p-3 text-xs ${c.cerrado ? 'border-emerald-200 bg-emerald-50/60' : 'border-amber-200 bg-amber-50/60'}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="font-semibold text-[#0b1f4d]">{label}</p>
+          <button type="button" className="font-semibold text-[#0a3fbf] underline" onClick={() => toggleExp(r.id)}>{exp[r.id] != null ? L('Ocultar expediente', 'Hide case file') : L('Ver expediente', 'See case file')}</button>
+        </div>
+        {!c.cerrado && <p className="mt-1 text-slate-700">{L('Todavía no se guardó nada.', 'Nothing has been saved yet.')}{c.motivo ? ` ${c.motivo}` : ''}</p>}
+        {c.cerrado && <p className="mt-1 text-slate-700">{L('Guardado:', 'Saved:')} {c.guardado.length || L('nada', 'nothing')}{c.porConfirmar.length ? ` · ${L('Por confirmar:', 'To confirm:')} ${c.porConfirmar.length}` : ''}{c.decididoPor ? ` · ${L('Aprobó:', 'Approved by:')} ${c.decididoPor}` : ''}</p>}
+        {c.noGuardado.map((t, i) => <p key={i} className="mt-1 text-rose-700"><span className="font-semibold">{L('No guardado:', 'Not saved:')}</span> {t}</p>)}
+        {exp[r.id] != null && <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-white p-3 text-[11px] leading-relaxed text-slate-700">{exp[r.id]}</pre>}
+      </div>
+    );
+  };
   const Plan = ({ r }: { r: Req }) => (
     <>
+      <CaseHead r={r} />
       {!!r.recognized?.length && <p className="mt-2 text-xs text-slate-600">{L('Reconocí a:', 'I recognized:')} {r.recognized.map(x => `${x.name} (${TYPE[x.type] || x.type}${x.isNew ? `, ${L('NUEVA', 'NEW')}` : x.verification === 'verified' ? `, ${L('verificada', 'verified')}` : `, ${L('sin verificar', 'unverified')}`})`).join(' · ')}</p>}
       {r.decidedBy && (r.status === 'aplicado' || r.status === 'rechazado') && <p className="mt-2 text-xs text-slate-500">{r.status === 'rechazado' ? L('Rechazado', 'Rejected') : L('Aprobado', 'Approved')} {r.decidedVia === 'agente' ? L('por el agente', 'by the agent') : L('manualmente', 'manually')} · {r.decidedBy}{r.decidedAt ? ` · ${new Date(r.decidedAt).toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}` : ''}</p>}
       {r.summary && <p className="mt-2 text-sm font-semibold">{L('Encontré:', 'I found:')} {r.summary}</p>}

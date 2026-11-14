@@ -116,3 +116,20 @@ export function templateMd(name: string, opts: { pedido?: string; quien?: string
     ...head, '', ...(opts.known?.length ? [tr('## Lo que el Cerebro ya entendió', '## What the Brain already understood'), ...opts.known.map(k => `- ${k}`), ''] : []),
     `## ${label}`, ...fields.map(x => `- ${x}:`), '', ...FREE()].join('\n');
 }
+
+/**
+ * Expediente que arma el propio Cerebro cuando nadie mandó uno (la persona que escribe en la pantalla nunca lo escribe):
+ * quién pidió, cuándo, por dónde, lo que dijo, lo que se conversó y a quién reconoció. Se calcula al vuelo; siempre está al día.
+ */
+export function autoExpediente(r: { text: string; by: string; at: string; via?: string; dialog?: { q: string; a?: string }[]; recognized?: { name: string; type: string; isNew?: boolean }[] }): string {
+  const day = r.at.slice(0, 10); const dialog = (r.dialog || []).filter(d => d.q || d.a);
+  return [
+    tr('# Expediente (armado por el Cerebro)', '# Case file (put together by the Brain)'), '',
+    tr('## Cabecera', '## Header'),
+    tr(`- Quién pide: ${r.by}`, `- Who asks: ${r.by}`),
+    tr(`- Fuente y fecha: ${r.via === 'llave' || r.via === 'llave-de-agente' ? 'pedido de su agente' : 'lo que la persona escribió en Pedir'}, ${day}`, `- Source and date: ${r.via === 'llave' || r.via === 'llave-de-agente' ? 'request from their agent' : 'what the person wrote in Pedir'}, ${day}`),
+    ...(r.recognized?.length ? [tr(`- Fichas reconocidas: ${r.recognized.map(x => `${x.name}${x.isNew ? ' (nueva)' : ''}`).join(', ')}`, `- Notes recognized: ${r.recognized.map(x => `${x.name}${x.isNew ? ' (new)' : ''}`).join(', ')}`)] : []), '',
+    tr('## Lo que se pidió', '## What was asked'), r.text.slice(0, 4000), '',
+    ...(dialog.length ? [tr('## Lo conversado', '## The conversation'), ...dialog.flatMap(d => [tr(`- El Cerebro preguntó: ${d.q}`, `- The Brain asked: ${d.q}`), ...(d.a ? [tr(`  - Respuesta: ${d.a}`, `  - Answer: ${d.a}`)] : [])]), ''] : []),
+  ].join('\n');
+}

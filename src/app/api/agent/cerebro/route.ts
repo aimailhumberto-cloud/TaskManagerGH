@@ -3,7 +3,7 @@ import { withBrain } from '@/lib/brains';
 import { currentBrain } from '@/lib/brainContext';
 import { pedir, pedirVarios, responder, consultar, decidir, listRequests, usageSummary, canDecide, openCases, caseNews, type CerebroRequest } from '@/lib/cerebro/engine';
 import { caseOf, caseLine } from '@/lib/cerebro/cases';
-import { readExpediente, templateList, templateMd, detectTemplate } from '@/lib/cerebro/expediente';
+import { readExpediente, templateList, templateMd, autoExpediente } from '@/lib/cerebro/expediente';
 import { loadSettings, saveSettings } from '@/lib/cerebro/settings';
 import { llmConfigured, listModels, balance, chat, LlmError } from '@/lib/cerebro/ollama';
 import { MENU } from '@/lib/cerebro/ops';
@@ -54,7 +54,7 @@ function caseExtras(vault: string, r?: CerebroRequest, dry = false) {
   const may = canDecide().ok; const caso = r ? caseOf(r, { canApprove: may }) : undefined;
   if (dry) return caso ? { caso, next: caso.ahora } : {};
   // El expediente al día: el MD del caso (o, si nadie mandó uno, el que arma el Cerebro con el pedido) más lo que el Cerebro hizo.
-  const expedienteMd = r && caso ? `${readExpediente(vault, r.id) || templateMd(detectTemplate(r.text), { pedido: r.text, quien: r.by })}\n\n## ${tr('El Cerebro', 'The Brain')}\n${caso.texto}\n` : undefined;
+  const expedienteMd = r && caso ? `${readExpediente(vault, r.id) || autoExpediente(r)}\n\n## ${tr('El Cerebro', 'The Brain')}\n${caso.texto}\n` : undefined;
   const news = caseNews(vault).filter(x => x.id !== r?.id); const open = openCases(vault).filter(x => x.id !== r?.id);
   return { ...(caso ? { caso, next: caso.ahora, expedienteMd } : {}), abiertos: open.map(caseLine), ...(news.length ? { novedades: news.map(x => caseOf(x, { canApprove: may }).texto) } : {}) };
 }
@@ -77,7 +77,7 @@ async function getInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, sp: U
   if (sp.get('plantillas')) return NextResponse.json({ ok: true, plantillas: templateList(), how: tr('GET ?plantilla=<nombre> devuelve la plantilla en MD. Complétala y envíala en «md» con pedir o responder.', 'GET ?plantilla=<name> returns the template in MD. Fill it and send it in “md” with pedir or responder.') });
   if (sp.get('plantilla')) { const name = String(sp.get('plantilla')); return templateList().some(t => t.name === name) ? NextResponse.json({ ok: true, plantilla: name, md: templateMd(name) }) : bad(tr('No existe esa plantilla. Mira GET ?plantillas=1.', 'That template does not exist. See GET ?plantillas=1.'), 404); }
   const all = listRequests(ctx.vaultPath);
-  if (sp.get('id')) { const r = all.find(x => x.id === sp.get('id')); return r ? NextResponse.json({ ok: true, request: r, caso: caseOf(r, { canApprove: canDecide().ok }) }) : bad(tr('No existe ese pedido.', 'That request does not exist.'), 404); }
+  if (sp.get('id')) { const r = all.find(x => x.id === sp.get('id')); return r ? NextResponse.json({ ok: true, request: r, caso: caseOf(r, { canApprove: canDecide().ok }), expedienteMd: `${readExpediente(ctx.vaultPath, r.id) || autoExpediente(r)}\n\n## ${tr('El Cerebro', 'The Brain')}\n${caseOf(r, { canApprove: canDecide().ok }).texto}\n` }) : bad(tr('No existe ese pedido.', 'That request does not exist.'), 404); }
   return NextResponse.json({
     ok: true, name: 'el Cerebro', lang: replyLang(), ...(isAgent() ? {} : (() => { const chatThread = loadChat(ctx.vaultPath, chatWho()); return { chat: chatThread, chatRequests: chatRequests(ctx.vaultPath, chatThread) }; })()), ready: llmConfigured(), jev: !!configuredProvider(), settings: loadSettings(ctx.vaultPath), usage: usageSummary(ctx.vaultPath),
     canApprove: canDecide().ok, pending: all.filter(r => r.status === 'pendiente'), review: listReview(ctx.vaultPath).filter(i => !i.closedAt).slice(0, 50), questions: all.filter(r => r.status === 'pregunta' && Date.now() - Date.parse(r.at) < 3 * 86400_000).slice(0, 10), recent: all.filter(r => r.status !== 'pendiente').slice(0, 20),
