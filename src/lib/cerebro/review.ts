@@ -115,6 +115,11 @@ export function dateIssues(ops: Op[], text: string, today: string): string[] {
   }
   return [...new Set(out)];
 }
+/** Los campos que ya tienen las fichas que el plan quiere cambiar (para que el modelo use esos nombres y no invente otros). */
+export function fieldHints(ops: Op[]): string {
+  const byId = nodesById(); const INTERNAL = /^(id|title|type|tags|relations|source.*|.*sha256|icon_.*|completeness_score|memory_tier)$/;
+  return [...new Set(ops.filter(o => o.name === 'actualizar_campos').map(o => String(o.args?.ficha || '')))].map(id => { const n: any = byId.get(id); return n ? `${id}: ${Object.keys(n.frontmatter || {}).filter(k => !INTERNAL.test(k)).slice(0, 40).join(', ')}` : ''; }).filter(Boolean).join(' | ');
+}
 /** Campos que el plan quiere escribir y que ninguna ficha de ese tipo usa (posible nombre inventado). */
 export function fieldIssues(ops: Op[]): string[] {
   const out: string[] = []; const byId = nodesById(); const all = [...byId.values()];

@@ -19,7 +19,7 @@ import { chat, llmConfigured, LlmError, type ChatMessage, type ToolDef } from '.
 import { loadSettings, cerebroDir, type CerebroSettings } from './settings';
 import { MENU, toolDefs, validateOp, createdIdOf, levelOf, kindOf, kindName, resolveRefs, touchesOf, describeOp, executeOp, linked, type Op } from './ops';
 import { saveExpediente, readExpediente, expedienteVersions, needsExpediente, detectTemplate, templateMd, NO_MORE, MAX_MD } from './expediente';
-import { inspectPlan, completeMeetings, pruneUnnamed, coverageGaps, snapshotBefore, fileObservations, type Observations } from './review';
+import { inspectPlan, completeMeetings, pruneUnnamed, coverageGaps, dateIssues, fieldIssues, fieldHints, snapshotBefore, fileObservations, type Observations } from './review';
 import { loadBrainGraph } from '../smjBrainService';
 import { tr, tw, replyLang, type Lang } from '../reqLang';
 
@@ -301,7 +301,11 @@ async function jevScore(state: string, id: string, instructions: string, anchors
   } catch (e: any) { jevProblem = String(e?.message || tr('Jev no respondió.', 'Jev did not answer.')).slice(0, 200); return null; }
 }
 async function judge(text: string, plan: string[]): Promise<number | null> {
-  return jevScore(`PEDIDO:\n${text.slice(0, 4000)}\n\nPLAN PROPUESTO:\n${plan.map((p, i) => `${i + 1}. ${p}`).join('\n')}`, 'fiel',
+  // Jev no tiene calendario: se le dice qué día es hoy y qué día de la semana cae cada fecha del plan.
+  const wd = (d: string) => ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][new Date(`${d}T12:00:00Z`).getUTCDay()];
+  const { dateStr } = getPanamaDate(); const dates = [...new Set(plan.join(' ').match(/\d{4}-\d{2}-\d{2}/g) || [])].slice(0, 12);
+  const cal = `CALENDARIO (dato cierto): hoy es ${wd(dateStr)} ${dateStr}.${dates.length ? ` ${dates.map(d => `${d} es ${wd(d)}`).join('; ')}.` : ''}`;
+  return jevScore(`PEDIDO:\n${text.slice(0, 4000)}\n\n${cal}\n\nPLAN PROPUESTO:\n${plan.map((p, i) => `${i + 1}. ${p}`).join('\n')}`, 'fiel',
     'Qué tan fielmente el plan recoge los HECHOS del pedido: que cada operación responda a algo que el pedido dice, que no invente datos, fechas ni cifras, y que las fichas elegidas sean las de las personas o empresas que el pedido nombra (un id como «person-jenna-hector» es la ficha de Jenna Hector) y no otras de nombre parecido. NO cuentes como falta las instrucciones generales del pedido («revisa lo existente», «evita duplicados», «muestra los cambios», «no envíes mensajes»): esas las cumple la aplicación. Anotar el mismo hecho también en la ficha de la empresa de esa persona es correcto. Resumir con otras palabras sin cambiar el sentido es correcto.',
     ['No corresponde al pedido, o usa otra persona o ficha', 'Corresponde en parte: falta algo o hay un dato dudoso', 'Corresponde, con algún detalle menor por revisar', 'Corresponde exactamente'], true);
 }
@@ -538,6 +542,11 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
   const obs = inspectPlan(ops, supuso, text, `${full}\n${dialog.map(d => d.a || '').join('\n')}`); if (noMore) obs.avisos.push(tr('Expediente incompleto: quien pidió no tenía más datos. Se siguió con lo que había.', 'Incomplete case file: the requester had no more data. It went on with what there was.'));
   if (noData) for (const q of input.prior?.faltan || []) obs.avisos.push(tr(`Por confirmar (quien pidió no tenía el dato): ${q}`, `To confirm (the requester did not have the data): ${q}`));
   const summary = leer ? summarize(ops, obs) : undefined;
+  // Errores que se pueden corregir (fecha que no cuadra con el pedido, campo con nombre inventado): una segunda vuelta con el modelo grande antes de proponer.
+  if (!input.second && !leer) {
+    let fixable: string[] = []; try { fixable = [...dateIssues(ops, text, getPanamaDate().dateStr), ...fieldIssues(ops)]; } catch {}
+    if (fixable.length) { const hints = fieldHints(ops); return pedir({ ...input, second: `${fixable.join(' ')}${hints ? ` ${tr('Campos que ya tiene la ficha', 'Fields the note already has')}: ${hints}` : ''}`.slice(0, 1500), caseId }); }
+  }
   let why = whyProposal(ops, s, currentBrain()?.scope);
   if (!why && obs.fuertes.length) why = obs.fuertes[0];
   // Jev puntúa siempre que esté conectado: decide en automático y orienta a quien aprueba.
