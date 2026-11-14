@@ -4,6 +4,7 @@ import { currentBrain } from '@/lib/brainContext';
 import { getUnifiedBrainTasks, loadBrainGraph, getPanamaDate } from '@/lib/smjBrainService';
 import { applyDecisions, loadDecisions, loadLatestReport } from '@/lib/dotsSleep';
 import { loadAutonomy, recentActivity, blockedAttempts } from '@/lib/autonomy';
+import { followUp } from '@/lib/cerebro/engine';
 import { recentAppliedAll } from '@/lib/sleepApply';
 import { querySharedNodes } from '@/lib/sharing';
 import { getAccount, listAccounts, TOP_ROLES, canManageUsers } from '@/lib/localAccounts';
@@ -97,6 +98,7 @@ async function _GET(req: NextRequest) {
       activity: recentActivity(ctx.vaultPath, 6),
       blocked: blockedAttempts(ctx.vaultPath, 7),
       pending: pending.length,
+      followUp: (() => { try { const f = followUp(ctx.vaultPath); return f ? { total: f.total, viejos: f.viejos } : { total: 0, viejos: 0 }; } catch { return { total: 0, viejos: 0 }; } })(),
       pendingKinds: pending.reduce((m: Record<string, number>, p: any) => { m[p.kind] = (m[p.kind] || 0) + 1; return m; }, {}),
     },
     health: { nodes: nodes.length, links: g.links.length, brokenLinks: report?.counts?.enlace_roto || 0, isolated: (report?.proposals.find(p => p.kind === 'nodo_aislado')?.nodeIds.length) || 0, working: nodes.filter(n => n.memory_tier === 'working').length },

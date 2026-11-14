@@ -23,7 +23,7 @@ type D = {
   brain: { id: string; viewingOther: boolean; viewingName: string; readOnly: boolean; isEmpty: boolean };
   counts: { overdue: number; today: number; open: number; completed: number };
   tasksToday: Tk[]; agenda: Tk[];
-  log: { autonomy: string | null; applied: { id: string; title?: string; by?: string; at: string }[]; activity: { at: string; actor: string; action?: string; path: string }[]; blocked?: { count: number; byDoor: { door: string; count: number }[] }; pending: number };
+  log: { followUp?: { total: number; viejos: number }; autonomy: string | null; applied: { id: string; title?: string; by?: string; at: string }[]; activity: { at: string; actor: string; action?: string; path: string }[]; blocked?: { count: number; byDoor: { door: string; count: number }[] }; pending: number };
   health: { nodes: number; links: number; brokenLinks: number; isolated: number; working: number };
   shared: { withMe: { title: string; owner: string; type: string }[]; companyExists: boolean };
   charts: { types: NV[]; countries: NV[]; verification: { verified: number; pending: number; other: number }; quality: number | null; scored: number; week: { date: string; count: number }[]; brands: { name: string; slug: string; count: number }[]; tasks: { overdue: number; today: number; later: number; undated: number } };
@@ -254,6 +254,7 @@ export default function InicioPage() {
           {kpi(T('Calidad de las fichas'), d.charts.quality === null ? '—' : `${d.charts.quality} %`, d.charts.scored ? `${T('promedio de')} ${fmt(d.charts.scored)} ${T('fichas con puntaje')}` : T('aún sin fichas con puntaje'), '#2a9d8f')}
           {kpi(T('Cambios de Jev y mi agente'), fmt(d.log.applied.length + d.log.activity.length), T('recientes, con deshacer'), CYAN)}
           {kpi(T('Esperan tu criterio'), fmt(d.log.pending), T('propuestas por revisar'), d.log.pending ? '#b45309' : NAVY)}
+          {!!d.log.followUp?.total && <a href="/pedir" className="contents">{kpi(T('Pendientes de seguimiento'), fmt(d.log.followUp.total), d.log.followUp.viejos ? `${fmt(d.log.followUp.viejos)} ${T('de más de un día')}` : T('se completan, se cierran o se cancelan'), '#b45309')}</a>}
         </section>
 
         {!d.brain.readOnly && (

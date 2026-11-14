@@ -27,6 +27,7 @@ export function caseOf(r: CerebroRequest, opts: { canApprove?: boolean } = {}): 
   const guardado = r.status === 'aplicado' ? (r.results?.length ? r.results : r.plan) : [];
   const esperando = r.status === 'pendiente' ? r.plan : [];
   const noGuardado = [...(r.report?.noHice || []),
+    ...(r.status === 'cancelado' ? [tr(`Se canceló: ${r.cancelReason || 'sin motivo'}. No se guardó nada.`, `It was cancelled: ${r.cancelReason || 'no reason'}. Nothing was saved.`)] : []),
     ...(r.status === 'rechazado' ? [tr('Se rechazó: no se guardó nada.', 'It was rejected: nothing was saved.')] : []),
     ...(r.status === 'reemplazado' ? [tr(`Lo reemplazó el caso ${r.replacedBy || ''}: de este no se guardó nada.`, `Case ${r.replacedBy || ''} replaced it: nothing from this one was saved.`)] : []),
     ...(r.status === 'sin_cambios' && !r.report?.noHice?.length ? [r.message || tr('No se guardó nada.', 'Nothing was saved.')] : []),

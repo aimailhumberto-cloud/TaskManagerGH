@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withBrain } from '@/lib/brains';
 import { currentBrain } from '@/lib/brainContext';
-import { pedir, pedirVarios, responder, consultar, decidir, listRequests, usageSummary, canDecide, openCases, caseNews, type CerebroRequest } from '@/lib/cerebro/engine';
+import { pedir, pedirVarios, responder, consultar, decidir, listRequests, usageSummary, canDecide, openCases, caseNews, followUp, cancelar, advanceStale, type CerebroRequest } from '@/lib/cerebro/engine';
 import { caseOf, caseLine } from '@/lib/cerebro/cases';
 import { readExpediente, templateList, templateMd, autoExpediente } from '@/lib/cerebro/expediente';
 import { loadSettings, saveSettings } from '@/lib/cerebro/settings';
@@ -56,7 +56,8 @@ function caseExtras(vault: string, r?: CerebroRequest, dry = false) {
   // El expediente al día: el MD del caso (o, si nadie mandó uno, el que arma el Cerebro con el pedido) más lo que el Cerebro hizo.
   const expedienteMd = r && caso ? `${readExpediente(vault, r.id) || autoExpediente(r)}\n\n## ${tr('El Cerebro', 'The Brain')}\n${caso.texto}\n` : undefined;
   const news = caseNews(vault).filter(x => x.id !== r?.id); const open = openCases(vault).filter(x => x.id !== r?.id);
-  return { ...(caso ? { caso, next: caso.ahora, expedienteMd } : {}), abiertos: open.map(caseLine), ...(news.length ? { novedades: news.map(x => caseOf(x, { canApprove: may }).texto) } : {}) };
+  const fu = followUp(vault, isAgent());
+  return { ...(caso ? { caso, next: caso.ahora, expedienteMd } : {}), ...(fu ? { seguimiento: fu } : {}), abiertos: open.map(caseLine), ...(news.length ? { novedades: news.map(x => caseOf(x, { canApprove: may }).texto) } : {}) };
 }
 /** El mensaje que lee el agente empieza por el estado del caso; cerrado o abierto se dice siempre. */
 const sayCase = (r: CerebroRequest, dry = false) => dry ? r.message : `${caseOf(r, { canApprove: canDecide().ok }).texto}${r.status === 'pendiente' || r.status === 'aplicado' || r.status === 'pregunta' ? '' : r.message ? ` ${r.message}` : ''}`;
@@ -76,11 +77,12 @@ async function getInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, sp: U
   }
   if (sp.get('plantillas')) return NextResponse.json({ ok: true, plantillas: templateList(), how: tr('GET ?plantilla=<nombre> devuelve la plantilla en MD. Complétala y envíala en «md» con pedir o responder.', 'GET ?plantilla=<name> returns the template in MD. Fill it and send it in “md” with pedir or responder.') });
   if (sp.get('plantilla')) { const name = String(sp.get('plantilla')); return templateList().some(t => t.name === name) ? NextResponse.json({ ok: true, plantilla: name, md: templateMd(name) }) : bad(tr('No existe esa plantilla. Mira GET ?plantillas=1.', 'That template does not exist. See GET ?plantillas=1.'), 404); }
+  void advanceStale().catch(() => {}); // regla de las 24 horas: en segundo plano, sin frenar esta respuesta
   const all = listRequests(ctx.vaultPath);
   if (sp.get('id')) { const r = all.find(x => x.id === sp.get('id')); return r ? NextResponse.json({ ok: true, request: r, caso: caseOf(r, { canApprove: canDecide().ok }), expedienteMd: `${readExpediente(ctx.vaultPath, r.id) || autoExpediente(r)}\n\n## ${tr('El Cerebro', 'The Brain')}\n${caseOf(r, { canApprove: canDecide().ok }).texto}\n` }) : bad(tr('No existe ese pedido.', 'That request does not exist.'), 404); }
   return NextResponse.json({
     ok: true, name: 'el Cerebro', lang: replyLang(), ...(isAgent() ? {} : (() => { const chatThread = loadChat(ctx.vaultPath, chatWho()); return { chat: chatThread, chatRequests: chatRequests(ctx.vaultPath, chatThread) }; })()), ready: llmConfigured(), jev: !!configuredProvider(), settings: loadSettings(ctx.vaultPath), usage: usageSummary(ctx.vaultPath),
-    canApprove: canDecide().ok, pending: all.filter(r => r.status === 'pendiente'), review: listReview(ctx.vaultPath).filter(i => !i.closedAt).slice(0, 50), questions: all.filter(r => r.status === 'pregunta' && Date.now() - Date.parse(r.at) < 3 * 86400_000).slice(0, 10), recent: all.filter(r => r.status !== 'pendiente').slice(0, 20),
+    canApprove: canDecide().ok, pending: all.filter(r => r.status === 'pendiente'), review: listReview(ctx.vaultPath).filter(i => !i.closedAt).slice(0, 50), questions: all.filter(r => r.status === 'pregunta').slice(0, 30), followUp: followUp(ctx.vaultPath), recent: all.filter(r => r.status !== 'pendiente').slice(0, 20),
     menu: Object.entries(MENU).map(([name, d]) => ({ name, level: d.level, what: d.desc })),
     how: tr("POST {action:'pedir', text} para pedir un cambio en palabras; GET ?q= para consultar. Borrar, verificar y compartir siempre esperan a una persona.", "POST {action:'pedir', text} to ask for a change in words; GET ?q= to look something up. Deleting, verifying and sharing always wait for a person."),
   });
@@ -102,7 +104,13 @@ async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: a
     const r = await chatTurn(ctx.vaultPath, chatWho(), String(b.text || ''), { mode: b.mode === 'leer' ? 'leer' : undefined, deep: b.deep === true });
     return NextResponse.json({ ok: r.ok, error: r.error, intent: r.intent, added: r.added, request: r.request, next: r.request ? nextOf(r.request.status) : undefined }, { status: r.status });
   }
-  if (action === 'revisado') { const okk = closeReview(ctx.vaultPath, String(b.id || ''), isAgent() ? tw('Agente', 'Agent') : actorLabel(tw('Persona', 'Person'))); return okk ? NextResponse.json({ ok: true }) : bad(tr('No existe ese pendiente o ya está cerrado.', 'That item does not exist or is already closed.'), 404); }
+  if (action === 'cancelar') {
+    const r = cancelar(String(b.id || ''), String(b.motivo ?? b.reason ?? b.text ?? ''));
+    return r.ok && r.request ? NextResponse.json({ ok: true, request: r.request, ...caseExtras(ctx.vaultPath, r.request), message: sayCase(r.request) }) : bad(r.error || '', r.status);
+  }
+  if (action === 'revisado') {
+    const why = String(b.motivo ?? b.nota ?? '').trim().slice(0, 200);
+    if (isAgent() && why.length < 3) return bad(tr('Para cerrar un pendiente, el agente debe decir en «motivo» cómo se resolvió (o por qué ya no aplica).', 'To close an item, the agent must say in “motivo” how it was resolved (or why it no longer applies).')); const okk = closeReview(ctx.vaultPath, String(b.id || ''), isAgent() ? `${tw('Agente', 'Agent')} — ${why}` : actorLabel(tw('Persona', 'Person'))); return okk ? NextResponse.json({ ok: true }) : bad(tr('No existe ese pendiente o ya está cerrado.', 'That item does not exist or is already closed.'), 404); }
   if (action === 'pedir' || action === 'leer') {
     const text = String(b.text || '').trim();
     if (text.length < 3) return bad(action === 'leer' ? tr('Pega el correo o la nota en «text».', 'Paste the email or note in “text”.') : tr('Escribe el pedido en «text».', 'Write the request in “text”.'));
@@ -150,7 +158,7 @@ async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: a
     }
     return NextResponse.json({ ok: Object.values(out).every((o: any) => o.ok), test: out });
   }
-  return bad(tr("action debe ser 'pedir', 'leer', 'chat', 'chat_reset', 'responder', 'estado', 'casos', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.", "action must be 'pedir', 'leer', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' or 'probar'."));
+  return bad(tr("action debe ser 'pedir', 'leer', 'chat', 'chat_reset', 'responder', 'estado', 'casos', 'cancelar', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.", "action must be 'pedir', 'leer', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' or 'probar'."));
 }
 export const GET = withBrain(_GET);
 export const POST = withBrain(_POST);

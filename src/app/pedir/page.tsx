@@ -8,7 +8,8 @@ type Req = { id: string; at: string; by: string; text: string; status: string; p
 type Auto = { agenda: boolean; novedades: boolean; contactos: boolean; cifras: boolean };
 type Settings = { workLang?: 'es' | 'en'; workLangSet?: boolean; models: { rapido: string; grande: string }; mode: 'proponer' | 'auto' | 'mixto'; auto: Auto; bigTouch: number; bigCreate: number; agentCanApprove: boolean; threshold: number };
 type Msg = { id: string; at: string; role: 'user' | 'brain'; text: string; kind?: 'answer' | 'talk' | 'request' | 'error'; requestId?: string; sources?: string[]; lang?: string; model?: string };
-type State = { chat?: Msg[]; chatRequests?: Record<string, Req>; ready: boolean; jev: boolean; settings: Settings; usage: { today: { calls: number; usd: number }; month: { calls: number; usd: number }; avgMs: number; unknownPrice: boolean }; canApprove: boolean; pending: Req[]; questions?: Req[]; review?: { id: string; kind: string; text: string; at: string }[]; recent: Req[] };
+type FollowUp = { total: number; viejos: number; texto: string };
+type State = { followUp?: FollowUp | null; chat?: Msg[]; chatRequests?: Record<string, Req>; ready: boolean; jev: boolean; settings: Settings; usage: { today: { calls: number; usd: number }; month: { calls: number; usd: number }; avgMs: number; unknownPrice: boolean }; canApprove: boolean; pending: Req[]; questions?: Req[]; review?: { id: string; kind: string; text: string; at: string }[]; recent: Req[] };
 const card = 'rounded-2xl border border-[#dbe4f3] bg-white p-5 shadow-[0_12px_28px_-18px_rgba(11,31,77,0.22)]';
 const input = 'w-full rounded-xl border border-[#dbe4f3] bg-white px-3 py-2 text-sm outline-none focus:border-[#0a3fbf]';
 const btn = 'rounded-xl bg-[#0a3fbf] px-4 py-2 text-sm font-semibold text-white hover:bg-[#08318f] disabled:opacity-50';
@@ -29,6 +30,7 @@ export default function PedirPage() {
   const [phrase, setPhrase] = useState<Record<string, string>>({});
   const [typed, setTyped] = useState<Record<string, string>>({});
   const [exp, setExp] = useState<Record<string, string | null>>({}); // expediente abierto por caso
+  const [motive, setMotive] = useState<Record<string, string | undefined>>({}); // motivo al cancelar un caso
   const [pending, setPending] = useState<string | null>(null); // mensaje que se está enviando
   const [readMode, setReadMode] = useState(false);
   const [detail, setDetail] = useState<Record<string, string>>({});
@@ -107,7 +109,7 @@ export default function PedirPage() {
   }
   const when = (iso: string) => new Date(iso).toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
   const STATUS: Record<string, [string, string]> = {
-    aplicado: [L('Hecho', 'Done'), 'bg-emerald-100 text-emerald-800'], pendiente: [L('Por aprobar', 'To approve'), 'bg-amber-100 text-amber-800'], rechazado: [L('Rechazado', 'Rejected'), 'bg-slate-100 text-slate-600'], reemplazado: [L('Reemplazada', 'Replaced'), 'bg-slate-100 text-slate-600'], sin_cambios: [L('Sin cambios', 'No changes'), 'bg-slate-100 text-slate-600'],
+    aplicado: [L('Hecho', 'Done'), 'bg-emerald-100 text-emerald-800'], pendiente: [L('Por aprobar', 'To approve'), 'bg-amber-100 text-amber-800'], rechazado: [L('Rechazado', 'Rejected'), 'bg-slate-100 text-slate-600'], reemplazado: [L('Reemplazada', 'Replaced'), 'bg-slate-100 text-slate-600'], sin_cambios: [L('Sin cambios', 'No changes'), 'bg-slate-100 text-slate-600'], cancelado: [L('Cancelado', 'Cancelled'), 'bg-slate-100 text-slate-600'],
     pregunta: [L('Falta un dato', 'Needs detail'), 'bg-sky-100 text-sky-800'], no_entendido: [L('No entendido', 'Not understood'), 'bg-rose-100 text-rose-700'], fallo: [L('Falló', 'Failed'), 'bg-rose-100 text-rose-700'],
   };
   const Badge = ({ s }: { s: string }) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS[s]?.[1] || 'bg-slate-100'}`}>{STATUS[s]?.[0] || s}</span>;
@@ -115,6 +117,12 @@ export default function PedirPage() {
   async function toggleExp(id: string) {
     if (exp[id] != null) { setExp(e => ({ ...e, [id]: null })); return; }
     try { const d = await (await fetch(`/api/agent/cerebro?id=${encodeURIComponent(id)}`)).json(); setExp(e => ({ ...e, [id]: d.expedienteMd || L('Este caso no tiene expediente.', 'This case has no case file.') })); } catch { setError(L('No se pudo abrir el expediente.', 'The case file could not be opened.')); }
+  }
+  async function cancelCase(id: string) {
+    setBusy(id); setError(null);
+    const { r, d } = await post({ action: 'cancelar', id, motivo: motive[id] || '' });
+    if (!r.ok) setError(d.error || L('No se pudo.', 'That did not work.')); else { setMotive(m => ({ ...m, [id]: undefined })); if (last?.id === id) setLast(d.request); }
+    setBusy(null); load();
   }
   // El caso: abierto o cerrado, qué se guardó, qué no y qué quedó por confirmar; y su expediente.
   const CaseHead = ({ r }: { r: Req }) => {
@@ -130,6 +138,9 @@ export default function PedirPage() {
         {!c.cerrado && <p className="mt-1 text-slate-700">{L('Todavía no se guardó nada.', 'Nothing has been saved yet.')}{c.motivo ? ` ${c.motivo}` : ''}</p>}
         {c.cerrado && <p className="mt-1 text-slate-700">{L('Guardado:', 'Saved:')} {c.guardado.length || L('nada', 'nothing')}{c.porConfirmar.length ? ` · ${L('Por confirmar:', 'To confirm:')} ${c.porConfirmar.length}` : ''}{c.decididoPor ? ` · ${L('Aprobó:', 'Approved by:')} ${c.decididoPor}` : ''}</p>}
         {c.noGuardado.map((t, i) => <p key={i} className="mt-1 text-rose-700"><span className="font-semibold">{L('No guardado:', 'Not saved:')}</span> {t}</p>)}
+        {!c.cerrado && (motive[r.id] === undefined
+          ? <button type="button" className="mt-2 font-semibold text-rose-700 underline" onClick={() => setMotive(m => ({ ...m, [r.id]: '' }))}>{L('Cancelar este caso', 'Cancel this case')}</button>
+          : <form className="mt-2 flex gap-2" onSubmit={e => { e.preventDefault(); cancelCase(r.id); }}><input className={input} value={motive[r.id] || ''} onChange={e => setMotive(m => ({ ...m, [r.id]: e.target.value }))} placeholder={L('¿Por qué se cancela?', 'Why is it cancelled?')} /><button className={ghost} disabled={!!busy || (motive[r.id] || '').trim().length < 3}>{L('Cancelar caso', 'Cancel case')}</button></form>)}
         {exp[r.id] != null && <pre className="mt-2 max-h-80 overflow-auto whitespace-pre-wrap rounded-lg bg-white p-3 text-[11px] leading-relaxed text-slate-700">{exp[r.id]}</pre>}
       </div>
     );
@@ -185,6 +196,7 @@ export default function PedirPage() {
         <div className="flex flex-col rounded-2xl border border-[#dbe4f3] bg-white shadow-[0_12px_28px_-18px_rgba(11,31,77,0.22)]">
           <div className="flex items-center justify-between border-b border-[#eef3fb] px-4 py-2 text-xs text-slate-500">
             <span>{s?.mode === 'auto' ? L('Lo simple se aplica solo; lo grande y lo delicado espera tu aprobación.', 'Simple things apply on their own; big or sensitive ones wait for your approval.') : s?.mode === 'proponer' ? L('Nada cambia hasta que apruebes.', 'Nothing changes until you approve.') : L('Lo que marcaste como automático se aplica solo; el resto espera tu aprobación.', 'What you set as automatic applies on its own; the rest waits for your approval.')}</span>
+            {!!st?.followUp?.total && <span className="rounded-full bg-amber-100 px-2.5 py-0.5 font-semibold text-amber-800" title={st.followUp.texto}>{st.followUp.total} {L('pendientes de seguimiento', 'follow-up items')}</span>}
             {!!st?.chat?.length && <button className="font-semibold text-[#0a3fbf] underline underline-offset-2" onClick={newThread}>{L('Nuevo hilo', 'New thread')}</button>}
           </div>
           <div className="max-h-[min(58vh,calc(100dvh_-_470px))] min-h-[200px] space-y-3 overflow-y-auto px-4 py-4" aria-live="polite">

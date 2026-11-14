@@ -52,7 +52,8 @@ for door, body in DOORS:
 s, d = http('/api/agent/kpis', {'action': 'set', 'name': 'Directo', 'value': 1}, headers={'x-lang': 'en'}); check('el bloqueo habla inglés si se pide', s == 403 and 'Agent keys can only ask' in d.get('error', ''), d.get('error'))
 s, d = http(C, {'action': 'ajustes', 'mode': 'auto'}); check('el agente no cambia ajustes', s == 403, s)
 s, d = http(C, {'action': 'chat', 'text': 'hola'}); check('el agente no usa el chat de personas', s == 403, s)
-s, d = http(C, {'action': 'revisado', 'id': 'x'}); check('el agente no cierra pendientes de calidad', s == 403 and d.get('blocked'), s)
+s, d = http(C, {'action': 'revisado', 'id': 'x'}); check('el agente solo cierra un pendiente diciendo cómo se resolvió (sin motivo, 400)', s == 400 and 'motivo' in d.get('error', ''), (s, d.get('error')))
+s, d = http(C, {'action': 'revisado', 'id': 'x', 'motivo': 'ya llegó el dato'}); check('…y con motivo, un pendiente que no existe da 404', s == 404, s)
 s, d = http('/api/agent/vault-sync?path=00-Working-Memory/Directo.md'); check('lo bloqueado no escribió nada', s == 404 or not d.get('content'), s)
 s, d = http('/api/agent/kpis'); check('…ni indicadores', not any(k['name'] == 'Directo' for k in d.get('kpis', [])), s)
 # 3. Pedir y consultar siguen abiertos

@@ -375,3 +375,11 @@ Existen el vault de Obsidian (local), la carpeta `vault/` del repositorio y el d
 - **Lo demás espera la aprobación de tu persona** (fichas nuevas, cifras, verificar, compartir, pedidos grandes, expediente incompleto). Muéstrale la propuesta; si dice que sí, pásalo con `{action:'aprobar', id, text:'<sus palabras>'}`. Queda registrado «aprobado vía agente» con esas palabras. Nunca apruebes por tu cuenta.
 - **Borrar pide doble confirmación.** Primera: `{action:'aprobar', id}` (no borra nada; devuelve `needsPhrase`). Segunda: tu persona debe decir exactamente la frase (por ejemplo «borrar Olivia Rampersad») y la pasas en `text`. Sin la frase exacta no se borra. Lo borrado se puede deshacer.
 - **Jev dice su motivo:** `obs.jev.motivo` (falta algo, sobra algo, persona o ficha dudosa, dato dudoso).
+
+## Seguimiento de pendientes (vuelta 43)
+
+- **Nada guindado se da por cerrado.** Toda respuesta trae `seguimiento` cuando tienes pendientes: `total`, `viejos` (de más de un día) y `lista`, con qué hacer con cada uno (`como`).
+- Tipos: `pregunta` (el Cerebro espera tu respuesta), `espera_persona` (dijiste que le preguntarías a tu persona), `aprobacion` (espera el sí de tu persona), `por_confirmar` (un dato quedó dudoso).
+- Cada pendiente sale de la lista solo de tres formas: **se completa** (`responder`, `aprobar`), **se cierra** (`{action:'revisado', id, motivo:'cómo se resolvió'}` para los «por confirmar») o **se cancela** (`{action:'cancelar', id, motivo}`). El motivo es obligatorio.
+- **Regla de las 24 horas:** una pregunta sin respuesta en un día no frena el trabajo: el Cerebro sigue con lo seguro, como si le hubieras dicho «no lo tengo», y lo que faltó queda «por confirmar». Lo que está en «se lo pregunto a mi persona» y lo que espera aprobación NO se toca solo.
+- Revisa tus pendientes al empezar cada sesión: `{action:'casos'}`.

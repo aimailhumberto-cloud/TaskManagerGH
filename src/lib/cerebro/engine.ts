@@ -19,11 +19,12 @@ import { chat, llmConfigured, LlmError, type ChatMessage, type ToolDef } from '.
 import { loadSettings, cerebroDir, type CerebroSettings } from './settings';
 import { MENU, toolDefs, validateOp, createdIdOf, levelOf, kindOf, kindName, resolveRefs, touchesOf, describeOp, executeOp, linked, type Op } from './ops';
 import { saveExpediente, readExpediente, expedienteVersions, needsExpediente, detectTemplate, templateMd, NO_MORE, MAX_MD } from './expediente';
+import { listReview } from './review';
 import { inspectPlan, completeMeetings, pruneUnnamed, coverageGaps, dateIssues, fieldIssues, fieldHints, snapshotBefore, fileObservations, type Observations } from './review';
 import { loadBrainGraph } from '../smjBrainService';
 import { tr, tw, replyLang, type Lang } from '../reqLang';
 
-export type ReqStatus = 'aplicado' | 'pendiente' | 'sin_cambios' | 'reemplazado' | 'rechazado' | 'pregunta' | 'respuesta' | 'no_entendido' | 'fallo';
+export type ReqStatus = 'aplicado' | 'pendiente' | 'sin_cambios' | 'cancelado' | 'reemplazado' | 'rechazado' | 'pregunta' | 'respuesta' | 'no_entendido' | 'fallo';
 export interface CerebroRequest {
   id: string; at: string; by: string; via: string; text: string; status: ReqStatus;
   ops: Op[]; plan: string[]; why?: string; results?: string[]; message?: string; changeId?: string;
@@ -49,6 +50,8 @@ export interface CerebroRequest {
   summary?: string;
   /** Qué se hizo, qué espera aprobación y qué no se hizo, dicho por la app (no por el modelo). */
   report?: { hecho: string[]; esperando: string[]; noHice: string[] };
+  /** Por qué se canceló el caso (obligatorio al cancelar). */
+  cancelReason?: string;
   /** Palabras de la persona con las que se aprobó (las pasa su agente o las escribe ella). */
   approvalWords?: string;
   /** Borrar pide doble confirmación: la frase exacta que la persona debe decir, y cuándo llegó la primera confirmación. */
@@ -584,7 +587,7 @@ async function afterApply(vault: string, requestId: string, obs: Observations, b
 }
 
 // ---------- Responder una pregunta del Cerebro ----------
-export async function responder(id: string, answer: string, md?: string): Promise<{ ok: false; status: number; error: string } | { ok: true; multi: true; parts: Awaited<ReturnType<typeof pedir>>[]; message: string } | (CerebroRequest & { ok: true; multi?: false; receipt?: unknown; errors?: string[] })> {
+export async function responder(id: string, answer: string, md?: string, byLabel?: string): Promise<{ ok: false; status: number; error: string } | { ok: true; multi: true; parts: Awaited<ReturnType<typeof pedir>>[]; message: string } | (CerebroRequest & { ok: true; multi?: false; receipt?: unknown; errors?: string[] })> {
   const vault = getVaultPath(); const r = listRequests(vault).find(x => x.id === id);
   if (!r) return { ok: false, status: 404, error: tr('No existe ese pedido.', 'That request does not exist.') };
   if (r.status !== 'pregunta') return { ok: false, status: 409, error: tr(`Ese pedido no está esperando respuesta (está ${r.status}).`, `That request is not waiting for an answer (it is ${r.status}).`) };
@@ -593,7 +596,7 @@ export async function responder(id: string, answer: string, md?: string): Promis
     saveRequest(vault, wait); return { ...wait, ok: true };
   }
   const dialog = [...(r.dialog || [])]; const last = dialog[dialog.length - 1];
-  if (!last || last.a) dialog.push({ q: r.message || '', a: answer.slice(0, 4000), by: who() }); else dialog[dialog.length - 1] = { ...last, a: answer.slice(0, 4000), by: who() };
+  if (!last || last.a) dialog.push({ q: r.message || '', a: answer.slice(0, 4000), by: byLabel || who() }); else dialog[dialog.length - 1] = { ...last, a: answer.slice(0, 4000), by: byLabel || who() };
   if (dialog.length > 6) return { ok: false, status: 409, error: tr('Esta conversación ya es muy larga. Haz el pedido de nuevo, completo.', 'This conversation is already too long. Make the request again, complete.') };
   // Llegó el expediente que se había pedido: si trae varios temas, cada uno sigue como su propio caso.
   const mdIn = String(md || '').trim();
@@ -644,6 +647,59 @@ export async function decidir(id: string, approve: boolean, skip: number[] = [],
   const rec = { ...r, ...stamp, status: 'aplicado' as const, ops, plan: ops.map(describeOp), links, obs, results: a.results, changeId: a.changeId };
   saveRequest(vault, rec);
   return { ok: true, status: 200, request: rec, receipt: a.receipt };
+}
+
+// ---------- Seguimiento de pendientes: nada guindado se da por cerrado ----------
+export interface Pendiente { tipo: 'pregunta' | 'espera_persona' | 'aprobacion' | 'por_confirmar'; id: string; desde: string; dias: number; texto: string; como: string }
+const DAY = 86400_000;
+/**
+ * Todo lo que sigue abierto en este cerebro: preguntas sin contestar, casos que esperan a la persona o su aprobación,
+ * y puntos «por confirmar». No caducan: cada uno sale solo al completarse, cerrarse o cancelarse con motivo.
+ */
+export function pendientes(vault: string, onlyMine = false): Pendiente[] {
+  const me = who(); const now = Date.now(); const out: Pendiente[] = [];
+  const age = (iso: string) => Math.floor((now - Date.parse(iso)) / DAY);
+  for (const r of listRequests(vault)) {
+    if (onlyMine && r.by !== me) continue;
+    if (r.status === 'pregunta') out.push({ tipo: r.esperaPersona ? 'espera_persona' : 'pregunta', id: r.id, desde: r.at, dias: age(r.at), texto: `${r.text.slice(0, 120)} — ${(r.faltan?.length ? r.faltan.join(' ') : r.message || '').slice(0, 240)}`,
+      como: tr(`Complétalo: {action:'responder', id:'${r.id}', text} · o cancélalo: {action:'cancelar', id:'${r.id}', motivo}`, `Complete it: {action:'responder', id:'${r.id}', text} · or cancel it: {action:'cancelar', id:'${r.id}', motivo}`) });
+    else if (r.status === 'pendiente') out.push({ tipo: 'aprobacion', id: r.id, desde: r.at, dias: age(r.at), texto: `${r.text.slice(0, 120)} — ${r.plan.slice(0, 3).join('; ').slice(0, 240)}`,
+      como: tr(`Con el sí de tu persona: {action:'aprobar', id:'${r.id}', text:'<sus palabras>'} · si no: {action:'rechazar', id:'${r.id}'} · o cancélalo con motivo: {action:'cancelar', id:'${r.id}', motivo}`, `With your person’s yes: {action:'aprobar', id:'${r.id}', text:'<their words>'} · if not: {action:'rechazar', id:'${r.id}'} · or cancel it with a reason: {action:'cancelar', id:'${r.id}', motivo}`) });
+  }
+  if (!onlyMine) for (const i of listReview(vault).filter(x => !x.closedAt)) out.push({ tipo: 'por_confirmar', id: i.id, desde: i.at, dias: age(i.at), texto: i.text.slice(0, 300),
+    como: tr(`Complétalo con un pedido nuevo que traiga el dato, y ciérralo: {action:'revisado', id:'${i.id}'}`, `Complete it with a new request that brings the data, and close it: {action:'revisado', id:'${i.id}'}`) });
+  return out.sort((a, b) => a.desde.localeCompare(b.desde)).slice(0, 100);
+}
+/** Resumen para acompañar cada respuesta: cuántos pendientes hay y qué se espera de quien pide. */
+export function followUp(vault: string, onlyMine = false): { total: number; viejos: number; texto: string; lista: Pendiente[] } | null {
+  const lista = pendientes(vault, onlyMine); if (!lista.length) return null; const viejos = lista.filter(p => p.dias >= 1).length;
+  return { total: lista.length, viejos, lista: lista.slice(0, 20), texto: tr(`Hay ${lista.length} pendiente(s) de seguimiento${viejos ? `, ${viejos} de más de un día` : ''}. No se cierran solos: cada uno se completa, se cierra o se cancela con motivo.`, `There are ${lista.length} follow-up item(s)${viejos ? `, ${viejos} older than a day` : ''}. They do not close on their own: each one is completed, closed, or cancelled with a reason.`) };
+}
+/** Cancelar un caso abierto, con motivo. Queda cerrado «sin cambios» y registrado quién lo canceló y por qué. */
+export function cancelar(id: string, motivo: string): { ok: boolean; status: number; error?: string; request?: CerebroRequest } {
+  const vault = getVaultPath(); const r = listRequests(vault).find(x => x.id === id);
+  if (!r) return { ok: false, status: 404, error: tr('No existe ese caso.', 'That case does not exist.') };
+  if (r.status !== 'pregunta' && r.status !== 'pendiente') return { ok: false, status: 409, error: tr(`Ese caso ya está cerrado (${r.status}).`, `That case is already closed (${r.status}).`) };
+  const reason = String(motivo || '').trim().slice(0, 300);
+  if (reason.length < 3) return { ok: false, status: 400, error: tr('Para cancelar hace falta el motivo en «motivo».', 'To cancel, give the reason in “motivo”.') };
+  const rec: CerebroRequest = { ...r, status: 'cancelado', cancelReason: reason, esperaPersona: false, decidedBy: who(), decidedVia: isAgent() ? 'agente' : 'persona', decidedAt: new Date().toISOString() };
+  saveRequest(vault, rec); return { ok: true, status: 200, request: rec };
+}
+/**
+ * Regla de las 24 horas: una pregunta que nadie contestó en un día no frena el trabajo. El Cerebro sigue con lo seguro
+ * (como si le hubieran dicho «no lo tengo») y lo que faltó queda «por confirmar». Los casos en «se lo pregunto a mi persona» no se tocan.
+ */
+const advancing = new Map<string, number>();
+export async function advanceStale(): Promise<number> {
+  const vault = getVaultPath(); if (currentBrain()?.readOnly) return 0;
+  // Solo casos con el formato nuevo (traen «faltan»): los anteriores a esta regla no se tocan solos.
+  const stale = listRequests(vault).filter(r => r.status === 'pregunta' && !r.esperaPersona && Array.isArray(r.faltan) && Date.now() - Date.parse(r.at) > DAY).slice(0, 3);
+  if (!stale.length) return 0;
+  // De una en una: si ya hay una tanda corriendo en este cerebro (o corrió hace menos de un minuto), no se lanza otra.
+  const last = advancing.get(vault) || 0; if (Date.now() - last < 60_000) return 0; advancing.set(vault, Date.now());
+  let n = 0;
+  for (const r of stale) { try { const out = await responder(r.id, tr('No lo tengo (nadie respondió en 24 horas): sigue con lo seguro.', 'I do not have it (nobody answered in 24 hours): go on with what is certain.'), undefined, tr('Cerebro (24 h sin respuesta)', 'Brain (24 h without answer)')); if (out.ok) n++; } catch {} }
+  return n;
 }
 
 // ---------- Consultar ----------

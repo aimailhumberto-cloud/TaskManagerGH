@@ -148,4 +148,34 @@ check('22c. sin la frase exacta no se borra', s == 400 and 'borrar Luisa Santos'
 s, d4 = P({'action': 'aprobar', 'id': d1['id'], 'text': 'Confirmo: borrar Luisa Santos'})
 s_n, gn = http('/api/agent/brain?view=lite&market=all&lens=all'); alive = any(n['id'] == 'person-luisa-santos' for n in gn.get('nodes', []))
 check('22d. con la frase exacta se borra, queda registrado y se puede deshacer', d4.get('ok') and d4.get('request', {}).get('status') == 'aplicado' and not alive and d4.get('caso', {}).get('deshacer') and 'borrar Luisa Santos' in d4.get('caso', {}).get('decididoPor', ''), (s, alive, d4.get('caso', {}).get('decididoPor')))
+# Seguimiento de pendientes: nada guindado se da por cerrado
+s, f1 = P({'action': 'pedir', 'text': 'Richard pidió la lista de precios de MEDIMEX'})
+s, cs2 = P({'action': 'casos'}); seg = cs2.get('seguimiento') or {}
+check('23. los pendientes se listan con qué hacer con cada uno', seg.get('total', 0) >= 1 and any(p['id'] == f1['id'] and p['tipo'] == 'pregunta' and 'cancelar' in p['como'] for p in seg.get('lista', [])) and 'No se cierran solos' in seg.get('texto', ''), (seg.get('total'), seg.get('texto')))
+s, c0 = P({'action': 'cancelar', 'id': f1['id']}); check('24. cancelar exige motivo', s == 400, (s, c0.get('error')))
+s, c1 = P({'action': 'cancelar', 'id': f1['id'], 'motivo': 'Ya no aplica: MEDIMEX mandó la lista por otro lado'})
+check('24b. cancelado con motivo: caso cerrado sin cambios y queda dicho por qué', c1.get('ok') and c1.get('request', {}).get('status') == 'cancelado' and c1.get('caso', {}).get('tipo') == 'sin_cambios' and 'Ya no aplica' in c1.get('message', ''), (s, c1.get('message', '')[:200]))
+s, c2 = P({'action': 'cancelar', 'id': f1['id'], 'motivo': 'otra vez'}); check('24c. un caso cerrado no se cancela dos veces (409)', s == 409, s)
+# Regla de las 24 horas: una pregunta vieja sin respuesta no frena; el Cerebro sigue con lo seguro
+import time, os
+s, o1 = P({'action': 'pedir', 'text': 'Richard confirmó la visita a MEDIMEX'})
+RQ = '/tmp/t3/dots-sleep/cerebro/requests.json'; data = json.load(open(RQ))
+for x in data:
+    if x['id'] == o1['id']: x['at'] = '2026-11-01T10:00:00.000Z'
+json.dump(data, open(RQ, 'w'))
+http(C); final = {}
+for _ in range(20):
+    time.sleep(0.5); s, final = P({'action': 'estado', 'id': o1['id']})
+    if final.get('request', {}).get('status') != 'pregunta': break
+fr = final.get('request', {})
+check('25. a las 24 h sin respuesta el Cerebro sigue con lo seguro y deja dicho por qué', fr.get('status') in ('pendiente', 'aplicado', 'sin_cambios') and any('24' in (d.get('by') or '') for d in fr.get('dialog', [])) and 'person-richard' not in json.dumps(fr.get('ops', [])), (fr.get('status'), [d.get('by') for d in fr.get('dialog', [])]))
+s, w1 = P({'action': 'pedir', 'text': 'Richard preguntó por el contrato de MEDIMEX'})
+P({'action': 'responder', 'id': w1['id'], 'text': 'Se lo pregunto a HB y vuelvo.'})
+data = json.load(open(RQ))
+for x in data:
+    if x['id'] == w1['id']: x['at'] = '2026-11-01T10:00:00.000Z'
+json.dump(data, open(RQ, 'w'))
+time.sleep(61); http(C); time.sleep(3)
+s, w2 = P({'action': 'estado', 'id': w1['id']})
+check('25b. lo que espera a la persona NO se toca solo, aunque pasen días', w2.get('request', {}).get('status') == 'pregunta' and w2['request'].get('esperaPersona') and any(p['id'] == w1['id'] and p['tipo'] == 'espera_persona' and p['dias'] >= 1 for p in (w2.get('seguimiento') or {}).get('lista', [])), (w2.get('request', {}).get('status'), (w2.get('seguimiento') or {}).get('viejos')))
 res_n = len(res); print(f"\n{sum(res)}/{res_n} pruebas"); raise SystemExit(0 if all(res) else 1)
