@@ -115,6 +115,8 @@ export function dateIssues(ops: Op[], text: string, today: string): string[] {
   }
   return [...new Set(out)];
 }
+/** Campos estándar que siempre se aceptan aunque la ficha todavía no los tenga (estado y fechas de alta y baja). */
+const CANON = new Set(['status', 'end_date', 'start_date', 'inactive_reason', 'is_active']);
 /** Los campos que ya tienen las fichas que el plan quiere cambiar (para que el modelo use esos nombres y no invente otros). */
 export function fieldHints(ops: Op[]): string {
   const byId = nodesById(); const INTERNAL = /^(id|title|type|tags|relations|source.*|.*sha256|icon_.*|completeness_score|memory_tier)$/;
@@ -127,7 +129,7 @@ export function fieldIssues(ops: Op[]): string[] {
     if (op.name !== 'actualizar_campos' || !op.args?.campos || typeof op.args.campos !== 'object') continue;
     const n: any = byId.get(String(op.args.ficha || '')); if (!n) continue;
     const known = new Set<string>(); for (const x of all as any[]) if (x.type === n.type) for (const k of Object.keys(x.frontmatter || {})) known.add(k);
-    const odd = Object.keys(op.args.campos).filter(k => !known.has(k)); if (!odd.length || known.size < 5) continue;
+    const odd = Object.keys(op.args.campos).filter(k => !known.has(k) && !CANON.has(k)); if (!odd.length || known.size < 5) continue;
     out.push(tr(`El plan escribe ${odd.map(k => `«${k}»`).join(', ')} en ${displayTitle(n.title)}, y ninguna ficha de ese tipo usa ese campo. ¿Es el nombre correcto?`, `The plan writes ${odd.map(k => `“${k}”`).join(', ')} in ${displayTitle(n.title)}, and no note of that type uses that field. Is it the right name?`));
   }
   return out;
@@ -157,6 +159,8 @@ export function inspectPlan(ops: Op[], supuso: string[] = [], text = '', namesTe
       const n = nodes.get(String(a.ficha)); const fm = n?.frontmatter || {};
       const changed = Object.entries(a.campos || {}).filter(([k, v]) => fm[k] !== undefined && fm[k] !== null && fm[k] !== '' && String(fm[k]) !== String(v));
       if (changed.length && fm.verification_status === 'verified') o.fuertes.push(tr(`Cambia datos de una ficha VERIFICADA (${displayTitle(n!.title)}): `, `Changes data of a VERIFIED note (${displayTitle(n!.title)}): `) + `${changed.map(([k, v]) => `${k}: «${String(fm[k]).slice(0, 40)}» → «${String(v).slice(0, 40)}»`).join('; ')}.`);
+      // Pisar un texto largo que ya existía (notas, descripción) borra información: eso lo decide una persona.
+      else if (changed.some(([k, v]) => { const was = String(fm[k] ?? ''); return was.length > 25 && /\s/.test(was) && !norm(String(v ?? '')).includes(norm(was).slice(0, 40)); })) o.fuertes.push(tr(`${displayTitle(n!.title)}: el plan REEMPLAZA un texto que ya existía en ${changed.filter(([k]) => String(fm[k] ?? '').length > 25).map(([k]) => `${k} («${String(fm[k]).slice(0, 60)}…»)`).join(', ')}. Se perdería lo anterior.`, `${displayTitle(n!.title)}: the plan REPLACES text that already existed in ${changed.filter(([k]) => String(fm[k] ?? '').length > 25).map(([k]) => `${k} (“${String(fm[k]).slice(0, 60)}…”)`).join(', ')}. The previous content would be lost.`));
       else if (changed.length) o.avisos.push(tr(`${displayTitle(n!.title)}: se reemplaza ${changed.map(([k]) => `${k} (antes «${String(fm[k]).slice(0, 40)}»)`).join(', ')}.`, `${displayTitle(n!.title)}: replaces ${changed.map(([k]) => `${k} (was “${String(fm[k]).slice(0, 40)}”)`).join(', ')}.`));
     }
     if (op.name === 'agendar' && a.hora) {

@@ -47,5 +47,6 @@ t('fecha ya pasada en una tarea', dateIssues(task('2026-11-01'), 'Crea una tarea
 t('una novedad con fecha pasada es normal', dateIssues([{ name: 'registrar_novedad', args: { ficha: 'person-tomas-casas', resumen: 'x', fuente: 'x', fecha: '2026-11-01' } }], 'Ayer llamó', T).length === 0);
 t('sin día dicho no hay queja', dateIssues(task('2026-11-18'), 'Crea una tarea para la próxima semana', T).length === 0);
 t('campo inventado «estado» en una persona', fieldIssues([{ name: 'actualizar_campos', args: { ficha: 'person-luisa-santos', campos: { estado: 'inactiva' } } }]).length === 1);
+t('campos estándar de baja (status, end_date, inactive_reason) pasan aunque la ficha no los tenga', fieldIssues([{ name: 'actualizar_campos', args: { ficha: 'person-luisa-santos', campos: { status: 'inactive', end_date: '2026-11-13', inactive_reason: 'renuncia' } } }]).length === 0);
 t('campo real «job_title» pasa', fieldIssues([{ name: 'actualizar_campos', args: { ficha: 'person-luisa-santos', campos: { job_title: 'Gerente' } } }]).length === 0);
 console.log(`${ok} bien, ${bad} mal`); process.exit(bad ? 1 : 0);
