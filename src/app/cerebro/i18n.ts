@@ -305,7 +305,7 @@ export const EN: Record<string, string> = {
   'Manufactura & Marcas': 'Manufacturing & Brands',
   'Supply Chain & S&OP': 'Supply Chain & S&OP',
   'Temporal': 'Temporary',
-  'Clic para abrir nivel y ficha · Doble clic para cerrarlo · Doble clic en el fondo para volver al inicio': 'Click to open level and note · Double-click to close it · Double-click the background to return to start',
+  'Clic en una región para abrirla o cerrarla · Clic en una ficha para ver su vecindario · Doble clic en el fondo para volver al inicio': 'Click a region to open or close it · Click a note to see its neighborhood · Double-click the background to return to start',
   'Abrir Ficha Lateral': 'Open Side Note',
   'Abrir Ficha Lateral Ejecutiva': 'Open Executive Side Note',
   'Volver al nivel anterior (o presiona Escape)': 'Back to previous level (or press Escape)',

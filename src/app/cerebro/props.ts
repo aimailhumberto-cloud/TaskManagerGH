@@ -85,7 +85,7 @@ export interface CerebroShared {
   resetToDefaultView: () => void;
   toggleNodeOpen: (node: NodeData) => void;
   tapNode: (node: NodeData) => boolean;
-  hoodRef: React.MutableRefObject<{ id: string; ids: string[] } | null>;
+  hoodRef: React.MutableRefObject<{ id: string; ids: string[]; ring?: number; parents?: Record<string, string>; more?: Record<string, number> } | null>;
   showMoreOfNode: (node: NodeData) => void;
   unpinNode: (node: NodeData) => void;
   clampCameraBounds: () => void;

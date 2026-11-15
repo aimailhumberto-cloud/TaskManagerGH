@@ -393,6 +393,8 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
             if (n === hub || n.hiddenByFilter) continue;
             if (hub.type === 'region' ? false : n.type !== 'region') continue;
             const rgb = (hub.type === 'region' ? hub : n).frontmatter?.region_color || '0, 168, 240';
+            // Región abierta: su rayo queda como un hilo fino hasta el botón de cerrar.
+            if (n.frontmatter?.region_open) { ctx.beginPath(); ctx.moveTo(hub.x, hub.y); ctx.lineTo(n.x, n.y); ctx.strokeStyle = `rgba(${rgb}, 0.3)`; ctx.lineWidth = 1 * lw; ctx.stroke(); continue; }
             const dim = isFocusActive && activeEntityId !== hub.id && activeEntityId !== n.id ? 0.35 : 1;
             ctx.beginPath(); ctx.moveTo(hub.x, hub.y); ctx.lineTo(n.x, n.y);
             ctx.strokeStyle = `rgba(${rgb}, ${0.16 * dim})`; ctx.lineWidth = 7 * lw; ctx.stroke();
@@ -402,6 +404,25 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
               const u = (time * 0.25 + off + (n.x + n.y) * 0.0007) % 1, uu = u < 0 ? u + 1 : u;
               ctx.beginPath(); ctx.arc(hub.x + (n.x - hub.x) * uu, hub.y + (n.y - hub.y) * uu, 2.6 * lw, 0, Math.PI * 2);
               ctx.fillStyle = `rgba(255, 255, 255, ${0.9 * dim})`; ctx.fill();
+            }
+          }
+        }
+      }
+      // Segunda capa del vecindario (PC): un hilo fino de cada burbuja a su rama, y "+N" si la rama tiene más.
+      {
+        const hd = hoodRef.current;
+        if (hd?.parents) {
+          const lw = Math.max(1, Math.min(1.8, 0.85 / scale)), c = nodeMap.get(hd.id);
+          ctx.beginPath();
+          for (const id in hd.parents) { const k = nodeMap.get(id), p = nodeMap.get(hd.parents[id]); if (k && p) { ctx.moveTo(p.x, p.y); ctx.lineTo(k.x, k.y); } }
+          ctx.strokeStyle = 'rgba(159, 220, 255, 0.28)'; ctx.lineWidth = 1 * lw; ctx.stroke();
+          if (c && hd.more) {
+            ctx.font = `600 ${10.5 * Math.max(1, 0.92 / scale)}px Poppins, system-ui, -apple-system, "Segoe UI", sans-serif`;
+            ctx.fillStyle = 'rgba(159, 220, 255, 0.85)'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            for (const id in hd.more) {
+              const p = nodeMap.get(id); if (!p) continue;
+              const d = Math.hypot(p.x - c.x, p.y - c.y) || 1, ux = (p.x - c.x) / d, uy = (p.y - c.y) / d;
+              ctx.fillText(`+${hd.more[id]}`, c.x + ux * (d + 188), c.y + uy * (d + 188));
             }
           }
         }
@@ -453,12 +474,28 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
           ctx.globalAlpha = 1.0;
         }
 
+        // Segunda capa del vecindario: presente pero discreta.
+        const isOuter = !!hoodRef.current?.parents?.[n.id];
+        if (isOuter) ctx.globalAlpha = isHovered ? 1 : 0.72;
         mark('n_prep');
         // Burbuja on-brand: color por familia, foto o icono, anillo, chincheta y punto de estado.
         const nid = n.id.toLowerCase();
         if (n.type === 'region') {
           // Región cerrada: burbuja grande con su color y el número de fichas adentro.
           const rgb = n.frontmatter?.region_color || '0, 168, 240';
+          if (n.frontmatter?.region_open) {
+            // Región abierta: un botón pequeño con un "menos" para volver a cerrarla.
+            const rr = Math.max(n.radius, Math.min(13 / scale, n.radius * 2.4)) + (isHovered ? 3 : 0);
+            ctx.beginPath(); ctx.arc(n.x, n.y, rr, 0, Math.PI * 2);
+            ctx.fillStyle = '#0b1f4d'; ctx.fill(); ctx.fillStyle = `rgba(${rgb}, ${isHovered ? 0.4 : 0.18})`; ctx.fill();
+            ctx.lineWidth = 1.6 * Math.max(1, 0.8 / scale); ctx.strokeStyle = `rgba(${rgb}, 0.9)`; ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(n.x - rr * 0.45, n.y); ctx.lineTo(n.x + rr * 0.45, n.y);
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2 * Math.max(1, 0.8 / scale); ctx.stroke();
+            labelBoard.claim(n.x - rr, n.y - rr, rr * 2, rr * 2, true);
+            if (isHovered) labelJobs.push({ n, r: rr, emphasized: true, alpha: 1, typeLabel: '' });
+            ctx.globalAlpha = 1.0;
+            continue;
+          }
           const g = ctx.createRadialGradient(n.x, n.y - r * 0.3, r * 0.15, n.x, n.y, r);
           g.addColorStop(0, `rgba(${rgb}, 0.42)`); g.addColorStop(1, `rgba(${rgb}, 0.14)`);
           if (isHovered || isSelected) { ctx.beginPath(); ctx.arc(n.x, n.y, r + 9, 0, Math.PI * 2); ctx.fillStyle = `rgba(${rgb}, 0.16)`; ctx.fill(); }
@@ -493,7 +530,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         const emphasized = isSelected || isHovered || isOpen;
         const isMinorNode = (n.radius || 24) < 22;
         labelBoard.claim(n.x - r, n.y - r, r * 2, r * 2, true);
-        if (emphasized || (isFocusActive && isConnectedToFocus && (focusConnectedCount <= 10 || scale >= 1.8)) || !isMinorNode || scale >= 1.1) {
+        if (isOuter ? isHovered : hoodRef.current ? true : (emphasized || (isFocusActive && isConnectedToFocus && (focusConnectedCount <= 10 || scale >= 1.8)) || !isMinorNode || scale >= 1.1)) {
           labelJobs.push({ n, r, emphasized, alpha: ctx.globalAlpha, typeLabel: cfg.label });
         }
         mark('n_etiqueta');
@@ -526,7 +563,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         // El tipo ya se lee debajo: se quita el prefijo "Brand: ", "Department: ", etc.
         const humanTitle = humanNodeName(n).replace(/^[A-Za-z][A-Za-z &]{2,22}(?::\s+|\s+-\s+)/, '');
         // En el vecindario los nombres de alrededor van más cortos para no encimarse con la burbuja vecina.
-        const cap = hoodRef.current && hoodRef.current.id !== n.id ? 16 : 25;
+        const cap = hoodRef.current && hoodRef.current.id !== n.id ? (hoodRef.current.parents ? 22 : 16) : 25;
         const displayTitle = humanTitle.length > cap ? humanTitle.slice(0, cap - 2) + '…' : humanTitle;
         const w = (displayTitle.length * 6.6 + 8) * ls, gap = 7 * ls;
         const below = { x: n.x - w / 2, y: n.y + r + 4 * ls, h: (emphasized ? 32 : 18) * ls, align: 'center' as CanvasTextAlign, tx: n.x, ty: n.y + r + gap + 7 * ls };
