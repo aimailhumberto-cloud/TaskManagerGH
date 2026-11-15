@@ -13,6 +13,7 @@ import { readJournal, type JournalEntry } from './journal';
 import { addDays, listEvents, mergedAgenda } from './agenda';
 import { listKpis } from './kpis';
 import { tr, replyLang } from './reqLang';
+import { originsOf, originText, sourceOf } from './cerebro/origin';
 
 // ---------- Texto ----------
 export const norm = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -33,7 +34,7 @@ const CATALOG = new Set(['product_variant', 'flavor', 'packaging', 'catalog_list
 /** Prioridad al elegir qué ficha nombra una palabra (la marca antes que sus 200 variantes). */
 const TYPE_RANK: Record<string, number> = { brand: 10, market: 9, distributor: 9, customer: 8, person: 8, organization: 7, core: 7, group: 6, department: 6, project: 6, routine: 5, channel: 5, client_group: 5, country: 5, product_line: 4, site: 3, working_memory: 2, consolidation_session: 1 };
 const PARENT_RELS = ['belongs_to_line', 'belongs_to_brand', 'belongs_to_market', 'operates_in_market', 'belongs_to', 'part_of', 'channel_of', 'reports_to', 'parent_company', 'market'];
-const DROP = /^(visual_|icon_|source_file_sha256|person_evidence_audit|observed_on|availability_snapshot|.*_raw$|.*_sha256$|.*_asset_id$|.*_local_file$|.*_source_url$)/;
+const DROP = /^(field_sources$|relation_sources$|visual_|icon_|source_file_sha256|person_evidence_audit|observed_on|availability_snapshot|.*_raw$|.*_sha256$|.*_asset_id$|.*_local_file$|.*_source_url$)/;
 
 // ---------- Índice (se rehace solo si cambió la bóveda) ----------
 interface Edge { id: string; rel: string }
@@ -70,6 +71,21 @@ const verif = (n: BrainNode) => String(n.frontmatter?.verification_status || n.s
 const ref = (n: BrainNode) => ({ id: n.id, title: displayTitle(n.title), type: n.type });
 const neighbours = (ix: Idx, id: string) => [...(ix.out.get(id) || []).map(e => ({ ...e, dir: 'out' as const })), ...(ix.inn.get(id) || []).map(e => ({ ...e, dir: 'in' as const }))];
 const relLabel = (r: string) => r.replace(/_/g, ' ');
+// ---------- Origen de los datos (etapa 5.2): de dónde sale lo que dice una ficha ----------
+const lang = () => tr('es', 'en') as 'es' | 'en';
+/** Origen del cargo, el correo y el teléfono de una persona, si se sabe. */
+const cardOrigins = (fm: Record<string, any>): Record<string, string> | null => {
+  const out: Record<string, string> = {};
+  for (const [label, key] of [[tr('cargo', 'role'), 'job_title'], [tr('correo', 'email'), 'email_primary'], [tr('teléfono', 'phone'), 'phone_mobile']] as const) { const s = sourceOf(fm, key); if (s) out[label] = originText(s, lang()); }
+  return Object.keys(out).length ? out : null;
+};
+/** De dónde sale una conexión: el registro vive en la ficha desde la que se escribió (`from`) y apunta a `to`. */
+const relOrigin = (from: BrainNode, rel: string, to: BrainNode): string => {
+  const by = from.frontmatter?.relation_sources?.[rel]; if (!by || typeof by !== 'object') return '';
+  const want = norm(displayTitle(to.title));
+  for (const [k, e] of Object.entries(by)) { const name = norm(String(k).replace(/^\[\[|\]\]$/g, '').replace(/^[A-Za-z ]+ - /, '')); if (name && (name === want || name.includes(want) || want.includes(name))) return originText(e as any, lang()); }
+  return '';
+};
 
 function parentOf(ix: Idx, n: BrainNode): string | null {
   const outs = ix.out.get(n.id) || [];
@@ -144,6 +160,7 @@ export function nodeContext(id: string) {
   const memory = (ix.inn.get(n.id) || []).map(e => ix.byId.get(e.id)!).filter(m => m.type === 'working_memory' && !['consolidated', 'archived'].includes(String(m.status))).map(m => ({ ...ref(m), status: m.status, capturedAt: m.frontmatter?.captured_at || null }));
   return {
     node: { id: n.id, title: n.title, displayTitle: displayTitle(n.title), type: n.type, path: (detail as any).filePath, hash: (detail as any).hash, updated: updated(n), verification: verif(n), parent: parentOf(ix, n), frontmatter: cleanFrontmatter(n.frontmatter), body: n.body },
+    origins: originsOf(n.frontmatter || {}, lang()),
     pointsTo: group(ix.out.get(n.id) || []),
     mentionedBy: group((ix.inn.get(n.id) || []).filter(e => !CATALOG.has(ix.byId.get(e.id)!.type))),
     mentionedByCatalog: (ix.inn.get(n.id) || []).filter(e => CATALOG.has(ix.byId.get(e.id)!.type)).length,
@@ -283,7 +300,7 @@ export function dossier(input: { q?: string; nodeIds?: string[]; size?: DossierS
 
   // Contactos: los de la ficha (direct_contacts) y las personas conectadas, primero las del núcleo.
   const contacts: any[] = []; const seen = new Set<string>();
-  const personCard = (p: BrainNode, extra: Record<string, unknown> = {}) => { const fm = p.frontmatter || {}; return { name: displayTitle(p.title), role: fm.job_title || null, of: fm.organization || null, email: fm.email_primary || null, phone: fm.phone_mobile || fm.phone_office_ext || null, whatsapp: fm.whatsapp || null, ...extra, ...src(p) }; };
+  const personCard = (p: BrainNode, extra: Record<string, unknown> = {}) => { const fm = p.frontmatter || {}; return { name: displayTitle(p.title), role: fm.job_title || null, of: fm.organization || null, email: fm.email_primary || null, phone: fm.phone_mobile || fm.phone_office_ext || null, whatsapp: fm.whatsapp || null, ...(cardOrigins(fm) ? { origen: cardOrigins(fm) } : {}), ...extra, ...src(p) }; };
   for (const p of matched.filter(m => m.type === 'person')) { seen.add(p.id); contacts.push(personCard(p, { relation: 'es la persona buscada' })); }
   for (const n of primary.concat(matched)) {
     const dc = n.frontmatter?.direct_contacts;
@@ -292,7 +309,8 @@ export function dossier(input: { q?: string; nodeIds?: string[]; size?: DossierS
     }
     for (const e of neighbours(ix, n.id)) {
       const p = ix.byId.get(e.id)!; if (p.type !== 'person' || seen.has(p.id)) continue; seen.add(p.id);
-      contacts.push(personCard(p, { of: p.frontmatter?.organization || displayTitle(n.title), relation: `${relLabel(e.rel)} · ${displayTitle(n.title)}` }));
+      const ro = e.dir === 'in' ? relOrigin(p, e.rel, n) : relOrigin(n, e.rel, p); // de dónde sale que esta persona está conectada así
+      contacts.push(personCard(p, { of: p.frontmatter?.organization || displayTitle(n.title), relation: `${relLabel(e.rel)} · ${displayTitle(n.title)}`, ...(ro ? { relationOrigen: ro } : {}) }));
     }
   }
   // Personas de la misma empresa por el dominio del correo (jenna@morganwilliams.ca ↔ Morgan Williams), aunque nadie las haya conectado.

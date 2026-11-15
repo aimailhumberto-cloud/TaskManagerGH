@@ -11,7 +11,8 @@ Base: lectura completa de `src/lib/cerebro/*` (2.065 líneas), la ruta `/api/age
   - La **inversa de cada relación se pospone a la 5.3**, donde se usa para derivar el vecindario; agregarla ahora sería un campo sin uso.
   - La bóveda de **producción no tiene el archivo todavía**: hasta que se copie, el motor usa los valores por defecto del código (idénticos; una prueba lo vigila). Copiarlo es un paso aparte que aprueba HB.
 
-- **5.0b Jev bien usado: construida, sin commitear.** `src/lib/cerebro/jev.ts` (movido desde `engine.ts`), `jevcal.ts`, `scripts/jev-calibracion.ts`. Pruebas: `npm run test:jev-uso` (55, con modelo y Jev simulados, incluido `pedir()` completo). Detalle abajo.
+- **5.0b Jev bien usado: construida** (commit `f2ee0c5`). `src/lib/cerebro/jev.ts` (movido desde `engine.ts`), `jevcal.ts`, `scripts/jev-calibracion.ts`. Pruebas: `npm run test:jev-uso` (55, con modelo y Jev simulados, incluido `pedir()` completo). Detalle abajo.
+- **5.2 Origen del dato: construida, sin commitear.** `src/lib/cerebro/origin.ts` + cableado en `ops.ts`, `review.ts`, `brainLens.ts`. Pruebas: `npm run test:origen` (65, incluido `pedir()` completo con el caso de Pierre). Detalle en la sección «Origen del dato».
 
 ## Papel de Jev (auditoría y reglas)
 
@@ -38,6 +39,23 @@ Jev se usa en cuatro sitios: el motor (¿el plan refleja el pedido?, ¿lo nuevo 
 5. En la **fase 6**: banco con Jev simulado para probar sin red, y calibrar con pedidos reales.
 
 **Lo que no hace este cambio:** no cambia el umbral (sigue 0.6), no vuelve obligatorio a Jev, no usa la seguridad para decidir y no toca la revisión nocturna. Todo eso queda apagado o por defecto hasta tener datos.
+
+## Origen del dato (etapa 5.2)
+
+**Qué resuelve.** Un dato se guardaba como verdad o no se guardaba: no había dónde escribir «dueño, según HB». Ahora `actualizar_campos`, `crear_ficha` y `conectar` llevan `clase` y `fuente`, y verificar deja de ser todo o nada.
+
+- **Clases:** `persona` (lo dijo una persona del equipo, aunque no haya fuente pública), `publicado` (con la dirección en `fuente`), `documento` (correo o archivo), `inferido` (lo dedujo el Cerebro). **`verificado` no se puede poner por estas operaciones:** solo `marcar_verificado`, que aprueba una persona.
+- **Dónde queda:** en el encabezado de la ficha, `field_sources` (un registro por campo) y `relation_sources` (uno por conexión), con quién lo escribió y cuándo. Se ocultan de la vista normal de datos y se muestran ordenados (`nodeContext().origins`, y `origen` / `relationOrigen` en los contactos de una consulta). Ambos nombres son campos protegidos: nadie puede falsificar un origen escribiéndolo como dato.
+- **Sin origen dicho:** queda `sin_clasificar` con quién y cuándo (trazabilidad aunque nadie diga de dónde sale). La auditoría de la 5.5 puede listar esos campos.
+- **Verificación por campo:** `marcar_verificado` acepta `campos_verificados`. Solo esos datos quedan verificados (con quién, cuándo y contra qué fuente) y **la ficha no pasa a verificada en su totalidad**. Escribir de nuevo un campo verificado le quita la verificación (el valor nuevo no es el que se verificó). Sigue siendo una operación que aprueba una persona.
+- **La revisión lo usa:** en una ficha con verificación por campo, solo cambiar un dato verificado frena; cambiar otro no. Una ficha verificada entera, sin verificación por campo, frena como siempre.
+- **Regla 18 del modelo:** lo que dice quien pide va como `persona` y nunca se descarta por falta de fuente pública; «dueño o socio» es `owner_of` (no `works_at`); no se registra un empleo, cargo o propiedad que el pedido no diga. Ataca los dos errores del caso de Pierre. Es la única regla de texto que se agrega en esta fase y va ligada a los parámetros nuevos.
+- **Jev y las consultas lo ven:** el plan trae « · origen: …» (lo ve Jev, quien aprueba y el recibo) y la respuesta de una consulta debe decir el origen y no presentar como seguro lo no verificado.
+- **Banco:** el caso 12 ahora mide: dueño como `owner_of` hacia MEDIMEX, con clase `persona` y quién lo dijo.
+
+**Defecto de prueba (no de producto) hallado:** `upsertNode` copia cada ficha nueva a `<cwd>/vault` (la bóveda empaquetada del repo) cuando es el cerebro principal. Las pruebas que crean fichas deben correr con el directorio de trabajo en su carpeta temporal; `test:origen` lo hace y comprueba que no deja nada en el repo.
+
+**Lo que no hace:** no reescribe fichas existentes para agregarles origen (solo lo que se escriba desde ahora), no cambia la interfaz del mapa (la ficha expone el origen por la API; mostrarlo en pantalla es un paso aparte) y no se probó con un modelo real: que el modelo ponga bien `clase` y `fuente` lo mide el caso 12 del banco cuando se corra.
 
 ## 1. Cómo funciona hoy
 

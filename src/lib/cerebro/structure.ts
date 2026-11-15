@@ -54,7 +54,7 @@ export type StructureSource = 'archivo' | 'ultima_buena' | 'defecto';
 export interface Loaded { s: Structure; source: StructureSource; errors: string[]; hash: string }
 
 /** Campos que ninguna operación del Cerebro puede escribir, pase lo que pase con el archivo. */
-export const PROTECTED_FIELDS = new Set(['id', 'title', 'type', 'brain_id', 'brain_owner', 'owner', 'visibility', 'shared_with', 'verification_status', 'verified_at', 'verified_by', 'memory_tier', 'relations', 'recent_actions', 'pending_tasks', 'updated_at', 'last_updated_at']);
+export const PROTECTED_FIELDS = new Set(['id', 'title', 'type', 'brain_id', 'brain_owner', 'owner', 'visibility', 'shared_with', 'verification_status', 'verified_at', 'verified_by', 'memory_tier', 'relations', 'recent_actions', 'pending_tasks', 'updated_at', 'last_updated_at', 'field_sources', 'relation_sources']);
 
 const PERSON_FIELDS = ['email_primary', 'email_secondary', 'phone_mobile', 'phone_office_ext', 'whatsapp', 'job_title', 'organization', 'mailing_address'];
 const COMPANY_FIELDS = ['email_general', 'email_orders', 'email_accounting', 'phone_main', 'headquarters_address', 'company_name', 'short_name', 'legal_name'];

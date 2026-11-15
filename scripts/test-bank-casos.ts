@@ -27,9 +27,15 @@ async function main() {
   t('11 mal: sin el correo dado', /correo/.test(String(run(11, { ops: [pierre({ job_title: 'Dueño' })] }))));
 
   // 12: lo que HB sabe se guarda con su origen
-  t('12 bien: «dueño» con origen HB', run(12, { ops: [pierre({ email_primary: 'pcanavaggio@medimex.com', job_title: 'Dueño de MEDIMEX (según HB, 2026-11-15)' })] }) === null);
-  t('12 mal: descartó que es dueño', /descartó/.test(String(run(12, { ops: [pierre()] }))));
-  t('12 mal: «dueño» sin decir de dónde viene', /sin decir/.test(String(run(12, { ops: [pierre({ email_primary: 'x@y.z', job_title: 'Dueño de MEDIMEX' })] }))));
+  const dueno = (extra: Record<string, unknown> = {}, hacia = 'dist-medimex') => pierre(undefined, { conectar_con: [{ hacia, relacion: 'owner_of' }, { hacia: 'person-humberto-bouche', relacion: 'coordinates_with' }], clase: 'persona', fuente: 'según HB, 2026-11-15; sin fuente pública', ...extra });
+  t('12 bien: dueño como owner_of hacia MEDIMEX, clase persona y quién lo dijo', run(12, { ops: [dueno()] }) === null, String(run(12, { ops: [dueno()] })));
+  t('12 bien: también si el dueño va en una operación conectar aparte', run(12, { ops: [pierre(), { name: 'conectar', args: { desde: 'person-pierre-canavaggio', hacia: 'dist-medimex', relacion: 'owner_of', clase: 'persona', fuente: 'lo dijo HB' } }] }) === null);
+  t('12 mal: descartó que es dueño', /no lo registró como dueño/.test(String(run(12, { ops: [pierre()] }))));
+  t('12 mal: lo registró como empleado, no como dueño', /no lo registró como dueño/.test(String(run(12, { ops: [pierre(undefined, { conectar_con: [{ hacia: 'dist-medimex', relacion: 'works_at' }] })] }))));
+  t('12 mal: dueño de otra empresa', /no apunta a MEDIMEX/.test(String(run(12, { ops: [dueno({}, 'dist-otra')] }))));
+  t('12 mal: «dueño» sin clase persona (lo dijo HB)', /sin clase «persona»/.test(String(run(12, { ops: [dueno({ clase: 'publicado' })] }))));
+  t('12 mal: «dueño» sin ninguna clase', /sin clase «persona»/.test(String(run(12, { ops: [dueno({ clase: undefined })] }))));
+  t('12 mal: clase persona pero sin decir quién', /no quién/.test(String(run(12, { ops: [dueno({ fuente: 'web' })] }))));
 
   // 13: una sola decisión (se aplica solo)
   t('13 bien: se aplicaría solo', run(13, { why: ENSAYO, ops: [pierre()] }) === null);

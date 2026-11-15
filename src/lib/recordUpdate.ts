@@ -31,7 +31,7 @@ export interface RecordInput {
 export type RecordResult = { ok: true; message: string; nodeId: string; file: string; done: string[]; taskId?: string; eventId?: string } | { ok: false; status: number; error: string };
 
 /** Campos que una novedad nunca cambia: identidad, permisos y verificación (eso lo decide una persona). */
-const PROTECTED = new Set(['id', 'title', 'type', 'brain_id', 'brain_owner', 'owner', 'visibility', 'shared_with', 'verification_status', 'verified_at', 'verified_by', 'memory_tier', 'relations', 'recent_actions', 'pending_tasks', 'updated_at', 'last_updated_at']);
+const PROTECTED = new Set(['id', 'title', 'type', 'brain_id', 'brain_owner', 'owner', 'visibility', 'shared_with', 'verification_status', 'verified_at', 'verified_by', 'memory_tier', 'relations', 'recent_actions', 'pending_tasks', 'updated_at', 'last_updated_at', 'field_sources', 'relation_sources']);
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const fail = (status: number, error: string): RecordResult => ({ ok: false, status, error });
 

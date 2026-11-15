@@ -14,6 +14,7 @@ import { getPanamaDate } from '../smjBrainService';
 import { cerebroDir } from './settings';
 import { createdIdOf, linked, eventTitle, type Op } from './ops';
 import { knownFieldsOf } from './structure';
+import { isFieldVerified, hasFieldVerification } from './origin';
 import { tr } from '../reqLang';
 
 export interface Observations {
@@ -163,7 +164,10 @@ export function inspectPlan(ops: Op[], supuso: string[] = [], text = '', namesTe
     if (op.name === 'actualizar_campos') {
       const n = nodes.get(String(a.ficha)); const fm = n?.frontmatter || {};
       const changed = Object.entries(a.campos || {}).filter(([k, v]) => fm[k] !== undefined && fm[k] !== null && fm[k] !== '' && String(fm[k]) !== String(v));
-      if (changed.length && fm.verification_status === 'verified') o.fuertes.push(tr(`Cambia datos de una ficha VERIFICADA (${displayTitle(n!.title)}): `, `Changes data of a VERIFIED note (${displayTitle(n!.title)}): `) + `${changed.map(([k, v]) => `${k}: «${String(fm[k]).slice(0, 40)}» → «${String(v).slice(0, 40)}»`).join('; ')}.`);
+      // Verificación por campo: si la ficha ya tiene datos verificados uno por uno, solo cambiar ESOS frena; si no, vale la regla de siempre (ficha verificada completa).
+      const wholeVerified = fm.verification_status === 'verified' && !hasFieldVerification(fm);
+      const hitVerified = wholeVerified ? changed : changed.filter(([k]) => isFieldVerified(fm, k));
+      if (hitVerified.length) o.fuertes.push(tr(`Cambia datos ${wholeVerified ? 'de una ficha VERIFICADA' : 'VERIFICADOS'} (${displayTitle(n!.title)}): `, `Changes ${wholeVerified ? 'data of a VERIFIED note' : 'VERIFIED data'} (${displayTitle(n!.title)}): `) + `${hitVerified.map(([k, v]) => `${k}: «${String(fm[k]).slice(0, 40)}» → «${String(v).slice(0, 40)}»`).join('; ')}.`);
       // Pisar un texto largo que ya existía (notas, descripción) borra información: eso lo decide una persona.
       else if (changed.some(([k, v]) => { const was = String(fm[k] ?? ''); return was.length > 25 && /\s/.test(was) && !norm(String(v ?? '')).includes(norm(was).slice(0, 40)); })) o.fuertes.push(tr(`${displayTitle(n!.title)}: el plan REEMPLAZA un texto que ya existía en ${changed.filter(([k]) => String(fm[k] ?? '').length > 25).map(([k]) => `${k} («${String(fm[k]).slice(0, 60)}…»)`).join(', ')}. Se perdería lo anterior.`, `${displayTitle(n!.title)}: the plan REPLACES text that already existed in ${changed.filter(([k]) => String(fm[k] ?? '').length > 25).map(([k]) => `${k} (“${String(fm[k]).slice(0, 60)}…”)`).join(', ')}. The previous content would be lost.`));
       else if (changed.length) o.avisos.push(tr(`${displayTitle(n!.title)}: se reemplaza ${changed.map(([k]) => `${k} (antes «${String(fm[k]).slice(0, 40)}»)`).join(', ')}.`, `${displayTitle(n!.title)}: replaces ${changed.map(([k]) => `${k} (was “${String(fm[k]).slice(0, 40)}”)`).join(', ')}.`));
