@@ -4,7 +4,7 @@ import PageHero from '@/components/PageHero';
 import { useUiLang } from '@/lib/uiLang';
 import { caseOf } from '@/lib/cerebro/cases';
 
-type Req = { id: string; at: string; by: string; text: string; status: string; plan: string[]; why?: string; results?: string[]; message?: string; changeId?: string; model?: string; ms?: number; confidence?: number | null; decidedBy?: string; decidedVia?: string; decidedAt?: string; dialog?: { q: string; a?: string }[]; recognized?: { id: string; name: string; type: string; verification?: string; isNew?: boolean }[]; links?: { label: string; href: string }[]; summary?: string; kind?: string; obs?: { supuso: string[]; fuertes: string[]; avisos: string[]; falta: string[]; jev?: { fiel: number | null; coherente?: number | null; error?: string; motivo?: string } }; esperaPersona?: boolean; report?: { hecho: string[]; esperando: string[]; noHice: string[] }; replacedBy?: string; closedAt?: string; approvalWords?: string; confirm?: { phrase: string; first?: string } };
+type Req = { partial?: { saved: string[]; changeId?: string }; waitWhy?: string[]; id: string; at: string; by: string; text: string; status: string; plan: string[]; why?: string; results?: string[]; message?: string; changeId?: string; model?: string; ms?: number; confidence?: number | null; decidedBy?: string; decidedVia?: string; decidedAt?: string; dialog?: { q: string; a?: string }[]; recognized?: { id: string; name: string; type: string; verification?: string; isNew?: boolean }[]; links?: { label: string; href: string }[]; summary?: string; kind?: string; obs?: { supuso: string[]; fuertes: string[]; avisos: string[]; falta: string[]; jev?: { fiel: number | null; coherente?: number | null; error?: string; motivo?: string } }; esperaPersona?: boolean; report?: { hecho: string[]; esperando: string[]; noHice: string[] }; replacedBy?: string; closedAt?: string; approvalWords?: string; confirm?: { phrase: string; first?: string } };
 type Auto = { agenda: boolean; novedades: boolean; contactos: boolean; cifras: boolean };
 type Settings = { workLang?: 'es' | 'en'; workLangSet?: boolean; models: { rapido: string; grande: string }; mode: 'proponer' | 'auto' | 'mixto'; auto: Auto; bigTouch: number; bigCreate: number; agentCanApprove: boolean; threshold: number };
 type Msg = { id: string; at: string; role: 'user' | 'brain'; text: string; kind?: 'answer' | 'talk' | 'request' | 'error'; requestId?: string; sources?: string[]; lang?: string; model?: string };
@@ -279,6 +279,7 @@ export default function PedirPage() {
                 <p className="text-xs text-slate-500">{r.by} · {when(r.at)}</p>
                 <p className="mt-1 text-sm font-medium">«{r.text.length > 220 ? r.text.slice(0, 220) + '…' : r.text}»</p>
                 {r.why && <p className="mt-1 text-xs text-amber-700">{r.why}</p>}
+                {!!r.partial?.saved?.length && <p className="mt-1 text-xs text-emerald-700">{L('Ya guardado', 'Already saved')}: {r.partial.saved.join(' · ')}</p>}
                 <Plan r={r} /><Actions r={r} />
               </div>))}
           </div>

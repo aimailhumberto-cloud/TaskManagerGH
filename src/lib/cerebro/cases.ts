@@ -24,15 +24,15 @@ export function caseOf(r: CerebroRequest, opts: { canApprove?: boolean } = {}): 
   const estado: CaseState = r.status === 'pregunta' ? 'espera_respuesta' : r.status === 'pendiente' ? 'espera_aprobacion' : 'cerrado';
   const cerrado = estado === 'cerrado';
   const porConfirmar = [...(r.obs?.fuertes || []), ...(r.obs?.avisos || []), ...(r.obs?.falta || [])];
-  const guardado = r.status === 'aplicado' ? (r.results?.length ? r.results : r.plan) : [];
+  const guardado = r.status === 'aplicado' ? (r.results?.length ? r.results : r.plan) : (r.partial?.saved || []);
   const esperando = r.status === 'pendiente' ? r.plan : [];
   const noGuardado = [...(r.report?.noHice || []),
-    ...(r.status === 'cancelado' ? [tr(`Se canceló: ${r.cancelReason || 'sin motivo'}. No se guardó nada.`, `It was cancelled: ${r.cancelReason || 'no reason'}. Nothing was saved.`)] : []),
-    ...(r.status === 'rechazado' ? [tr('Se rechazó: no se guardó nada.', 'It was rejected: nothing was saved.')] : []),
+    ...(r.status === 'cancelado' ? [tr(`Se canceló: ${r.cancelReason || 'sin motivo'}. ${r.partial ? 'Lo que esperaba no se guardó.' : 'No se guardó nada.'}`, `It was cancelled: ${r.cancelReason || 'no reason'}. ${r.partial ? 'What was waiting was not saved.' : 'Nothing was saved.'}`)] : []),
+    ...(r.status === 'rechazado' ? [r.partial ? tr('Se rechazó lo que esperaba: no se guardó.', 'What was waiting was rejected: not saved.') : tr('Se rechazó: no se guardó nada.', 'It was rejected: nothing was saved.')] : []),
     ...(r.status === 'reemplazado' ? [tr(`Lo reemplazó el caso ${r.replacedBy || ''}: de este no se guardó nada.`, `Case ${r.replacedBy || ''} replaced it: nothing from this one was saved.`)] : []),
     ...(r.status === 'sin_cambios' && !r.report?.noHice?.length ? [r.message || tr('No se guardó nada.', 'Nothing was saved.')] : []),
     ...(r.status === 'fallo' || r.status === 'no_entendido' ? [r.message || tr('No se pudo hacer.', 'It could not be done.')] : [])];
-  const tipo: CloseType | undefined = !cerrado ? undefined : r.status === 'aplicado' ? (porConfirmar.length || r.report?.noHice?.length ? 'parcial' : 'completo') : r.status === 'respuesta' ? 'completo' : 'sin_cambios';
+  const tipo: CloseType | undefined = !cerrado ? undefined : r.partial?.saved?.length && r.status !== 'aplicado' ? 'parcial' : r.status === 'aplicado' ? (porConfirmar.length || r.report?.noHice?.length ? 'parcial' : 'completo') : r.status === 'respuesta' ? 'completo' : 'sin_cambios';
   const tipoWord = tipo === 'completo' ? tr('completo', 'complete') : tipo === 'parcial' ? tr('parcial', 'partial') : tr('sin cambios', 'no changes');
   const lastQ = r.dialog?.length ? r.dialog[r.dialog.length - 1] : undefined;
   const pregunta = r.status === 'pregunta' ? (lastQ && !lastQ.a ? lastQ.q : r.esperaPersona && r.faltan?.length ? r.faltan.join(' ') : r.message) : undefined;
@@ -52,7 +52,8 @@ export function caseOf(r: CerebroRequest, opts: { canApprove?: boolean } = {}): 
       : tr(`CASO ${r.id} ABIERTO: espera tu respuesta. Todavía NO se guardó nada. Pregunta: ${pregunta || ''}`, `CASE ${r.id} OPEN: waiting for your answer. NOTHING has been saved yet. Question: ${pregunta || ''}`);
     ahora = tr(`Contesta con POST {action:'responder', id:'${r.id}', text}. Para cada punto: el dato, «no lo tengo», o «se lo pregunto a mi persona» (el caso espera). Solo hay una ronda: después sigo con lo seguro.`, `Answer with POST {action:'responder', id:'${r.id}', text}. For each point: the data, “I do not have it”, or “I will ask my person” (the case waits). There is only one round: after it I go on with what is certain.`);
   } else {
-    texto = tr(`CASO ${r.id} ABIERTO: espera aprobación. Todavía NO se guardó nada. ${r.replaces ? `Reemplaza al caso ${r.replaces}, que quedó cerrado. ` : ''}Propuesta: ${list(esperando)}. Motivo de la espera: ${r.why || ''}`, `CASE ${r.id} OPEN: waiting for approval. NOTHING has been saved yet. ${r.replaces ? `It replaces case ${r.replaces}, now closed. ` : ''}Proposal: ${list(esperando)}. Why it waits: ${r.why || ''}`);
+    const saved = r.partial?.saved?.length ? tr(`Ya se guardó lo seguro: ${list(r.partial.saved)}. ${r.partial.changeId ? `Se puede deshacer (cambio ${r.partial.changeId}). ` : ''}Lo demás espera. `, `The safe part is already saved: ${list(r.partial.saved)}. ${r.partial.changeId ? `It can be undone (change ${r.partial.changeId}). ` : ''}The rest waits. `) : '';
+    texto = saved + tr(`CASO ${r.id} ABIERTO: espera aprobación. ${r.partial ? 'Lo demás todavía NO se guardó.' : 'Todavía NO se guardó nada.'} ${r.replaces ? `Reemplaza al caso ${r.replaces}, que quedó cerrado. ` : ''}Propuesta: ${list(esperando)}. Motivo de la espera: ${r.why || ''}`, `CASE ${r.id} OPEN: waiting for approval. ${r.partial ? 'The rest has NOT been saved yet.' : 'NOTHING has been saved yet.'} ${r.replaces ? `It replaces case ${r.replaces}, now closed. ` : ''}Proposal: ${list(esperando)}. Why it waits: ${r.why || ''}`);
     ahora = r.confirm?.phrase && opts.canApprove
       ? (r.confirm.first
         ? tr(`BORRAR pide doble confirmación y ya llegó la primera. Falta la segunda: tu persona debe decir exactamente «${r.confirm.phrase}». Pásalo con POST {action:'aprobar', id:'${r.id}', text:'<sus palabras>'}. Para cancelar: {action:'rechazar', id:'${r.id}'}.`, `DELETING needs double confirmation and the first one arrived. The second is missing: your person must say exactly “${r.confirm.phrase}”. Pass it with POST {action:'aprobar', id:'${r.id}', text:'<their words>'}. To cancel: {action:'rechazar', id:'${r.id}'}.`)

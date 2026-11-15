@@ -38,6 +38,9 @@ export interface CerebroRequest {
   /** Conversación: lo que el Cerebro preguntó y lo que le respondieron. */
   dialog?: { q: string; a?: string; by?: string }[];
   /** A quién reconoció: «Tomás = Tomás Casas (persona, sin verificar)». */
+  /** Guardar primero: lo seguro ya se guardó; lo demás espera. waitWhy[i] dice por qué espera ops[i]. */
+  partial?: { saved: string[]; changeId?: string };
+  waitWhy?: string[];
   recognized?: { id: string; name: string; type: string; verification?: string; isNew?: boolean }[];
   /** Dónde quedó cada cosa, para ir a verla. */
   links?: { label: string; href: string }[];
@@ -282,6 +285,36 @@ export function whyProposal(ops: Op[], s: CerebroSettings, scope?: string): stri
   const waits = [...new Set(ops.map(kindOf).filter((k): k is NonNullable<ReturnType<typeof kindOf>> => !!k && !s.auto[k]))];
   if (waits.length) return tr(`Incluye ${waits.map(kindName).join(' y ')}: eso está en «proponer» en tus Ajustes.`, `Includes ${waits.map(kindName).join(' and ')}: that is set to “propose” in your Settings.`);
   return null;
+}
+
+/** «Nueva y completa»: una persona o empresa con nombre y al menos dos datos (correo, teléfono, cargo, empresa) o una conexión. Se crea sola. */
+function isCompleteNew(op: Op): boolean {
+  if (op.name !== 'crear_ficha' || !['person', 'organization', 'distributor', 'customer'].includes(String(op.args?.tipo))) return false;
+  const c = op.args?.campos && typeof op.args.campos === 'object' ? op.args.campos : {};
+  const data = ['email_primary', 'phone_mobile', 'phone', 'job_title', 'organization', 'company'].filter(k => String(c[k] || '').trim()).length + (Array.isArray(op.args?.conectar_con) && op.args.conectar_con.length ? 1 : 0);
+  return String(op.args?.nombre || '').trim().length >= 3 && data >= 2;
+}
+/**
+ * Guardar primero: reparte el plan en tres. CIERTO (simple, sin duda, permitido en Ajustes) se guarda ya;
+ * DUDOSO (una advertencia fuerte lo toca) y DELICADO (borrar, verificar, compartir, o lo que Ajustes manda proponer) esperan.
+ * Lo que depende de algo que espera, espera también. Devuelve por qué espera cada una.
+ */
+export function splitCierto(ops: Op[], fuertes: string[], s: CerebroSettings): { now: Op[]; wait: Op[]; whyEach: string[] } {
+  const titleOf = (id: string) => { try { const n = ((loadBrainGraph() as any).allNodes || []).find((x: any) => x.id === id); return n ? displayTitle(n.title).toLowerCase() : id.toLowerCase(); } catch { return id.toLowerCase(); } };
+  const fs_ = fuertes.map(f => f.toLowerCase());
+  const reason: (string | null)[] = ops.map(op => {
+    if (levelOf(op) === 'aprobar') return tr('delicado: siempre lo aprueba una persona', 'sensitive: a person always approves it');
+    const k = kindOf(op);
+    if (touchesOf(op).some(id => fs_.some(f => f.includes(String(id).toLowerCase()) || f.includes(titleOf(String(id)))))) return tr('dudoso: queda por confirmar', 'doubtful: left to confirm');
+    if (k && !s.auto[k] && !isCompleteNew(op)) return tr(`está en «proponer» en tus Ajustes (${kindName(k)})`, `it is set to “propose” in your Settings (${kindName(k)})`);
+    return null;
+  });
+  const made = new Map<string, number>(); ops.forEach((o, i) => { const id = createdIdOf(o); if (id) made.set(id, i); });
+  for (let again = true; again;) {
+    again = false;
+    ops.forEach((op, i) => { if (reason[i]) return; const raw = JSON.stringify(op.args || {}); for (const [id, j] of made) if (j !== i && reason[j] && raw.includes(id)) { reason[i] = tr('depende de algo que espera', 'it depends on something that is waiting'); again = true; break; } });
+  }
+  return { now: ops.filter((_, i) => !reason[i]), wait: ops.filter((_, i) => reason[i]), whyEach: reason.filter((r): r is string => !!r) };
 }
 
 /** Ejecuta un plan ya revisado. Todo o nada: si una operación falla, se deshace lo anterior. */
@@ -554,7 +587,7 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
     let fixable: string[] = []; try { fixable = [...dateIssues(ops, text, getPanamaDate().dateStr), ...fieldIssues(ops)]; } catch {}
     if (fixable.length) { const hints = fieldHints(ops); return pedir({ ...input, second: `${fixable.join(' ')}${hints ? ` ${tr('Campos que ya tiene la ficha', 'Fields the note already has')}: ${hints}` : ''}`.slice(0, 1500), caseId }); }
   }
-  let why = whyProposal(ops, s, currentBrain()?.scope);
+  let why: string | null = whyProposal(ops, s, currentBrain()?.scope);
   if (!why && obs.fuertes.length) why = obs.fuertes[0];
   // Jev puntúa siempre que esté conectado: decide en automático y orienta a quien aprueba.
   const confidence = await judge(full, plan); const jevWhy = jevReason;
@@ -570,6 +603,24 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
   const gapsLeft = leer ? [] : coverageGaps(ops, text);
   const common = { ...stats(), ops, plan, recognized, obs, confidence, ...(summary ? { summary } : {}), ...(phrase ? { confirm: { phrase } } : {}) };
   if (input.dryRun) return done({ ...common, status: 'pendiente', why: why || tr('Ensayo: se aplicaría solo.', 'Dry run: it would apply on its own.') });
+  // Guardar primero: si lo único que frena es lo dudoso o lo delicado, lo cierto se guarda ya y lo demás espera.
+  const splitOk = !!why && !leer && !target && !!ops.length && s.mode !== 'proponer' && currentBrain()?.scope !== 'proponer' && !base.expediente?.incompleto
+    && new Set(ops.flatMap(touchesOf)).size <= s.bigTouch && ops.filter(o => MENU[o.name]?.creates).length <= s.bigCreate && (confidence === null || confidence >= s.threshold);
+  const split = splitOk ? splitCierto(ops, obs.fuertes, s) : null;
+  if (split && !split.wait.length && !obs.fuertes.length) why = null; // todo era cierto (p. ej. fichas nuevas completas): se guarda como siempre
+  if (why && split && split.now.length && split.wait.length) return oneAtATime(async () => {
+    const stale = validatePlan(split.now);
+    if (stale.length) return done({ ...common, status: 'pendiente', why: stale[0], report: reportOf('pendiente', plan, undefined, gapsLeft, skipped), message: tr('Quedó en «Por aprobar»: todavía NO se aplicó nada.', 'It is waiting in “To approve”: NOTHING has been applied yet.') });
+    const before = snapshotBefore(split.now);
+    const a = await applyPlan(vault, split.now, text, tw(`Cerebro (pedido de ${base.by}; la parte segura)`, `Cerebro (request from ${base.by}; the safe part)`));
+    if (!a.ok) return done({ ...common, status: 'fallo', message: a.error });
+    await afterApply(vault, base.id, obs, before, a.results, text);
+    const waitPlan = split.wait.map(describeOp); const wp = deletePhrase(split.wait);
+    const rep = { hecho: a.results, esperando: waitPlan, noHice: reportOf('pendiente', plan, undefined, gapsLeft, skipped).noHice };
+    return done({ ...common, ops: split.wait, plan: waitPlan, recognized: recognizedOf(ops), confirm: wp ? { phrase: wp } : undefined, status: 'pendiente', why: [...new Set(split.whyEach)].join(' · '), waitWhy: split.whyEach,
+      partial: { saved: a.results, changeId: a.changeId }, links: linksOf(split.now), receipt: a.receipt, report: rep,
+      message: tr(`Guardé lo seguro (${a.results.length}); lo demás espera (${waitPlan.length}). `, `I saved the safe part (${a.results.length}); the rest waits (${waitPlan.length}). `) + reportText(rep) });
+  });
   if (why) return done({ ...common, status: 'pendiente', why, report: reportOf('pendiente', plan, undefined, gapsLeft, skipped), message: tr(`Quedó en «Por aprobar»: todavía NO se aplicó nada. ${target ? `Reemplaza a ${target.id}. ` : ''}`, `It is waiting in “To approve”: NOTHING has been applied yet. ${target ? `It replaces ${target.id}. ` : ''}`) + reportText(reportOf('pendiente', plan, undefined, gapsLeft, skipped)) });
   return oneAtATime(async () => {
   const stale = validatePlan(ops); // otro tema del mismo pedido pudo cambiar algo mientras tanto
@@ -647,7 +698,7 @@ export async function decidir(id: string, approve: boolean, skip: number[] = [],
   if (!a.ok) return { ok: false, status: 409, error: a.error };
   const links = linksOf(ops); const obs: Observations = { ...(r.obs || { supuso: [], fuertes: [], avisos: [], falta: [] }), ...(skip.length ? inspectPlan(ops, r.obs?.supuso) : {}), jev: r.obs?.jev };
   await afterApply(vault, r.id, obs, before, a.results, r.text);
-  const rec = { ...r, ...stamp, status: 'aplicado' as const, ops, plan: ops.map(describeOp), links, obs, results: a.results, changeId: a.changeId };
+  const rec = { ...r, ...stamp, status: 'aplicado' as const, ops, plan: ops.map(describeOp), links, obs, results: [...(r.partial?.saved || []), ...a.results], changeId: a.changeId };
   saveRequest(vault, rec);
   return { ok: true, status: 200, request: rec, receipt: a.receipt };
 }

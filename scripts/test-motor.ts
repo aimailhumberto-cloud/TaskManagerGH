@@ -1,7 +1,8 @@
 /** Pruebas del motor interno (sin modelo): nombres ambiguos, personas nombradas, reunión completada, avisos. Uso: SMJ_VAULT_PATH=vault npx tsx scripts/test-motor.ts */
 import { nameAmbiguities, peopleMentioned } from '../src/lib/brainLens';
 import { inspectPlan, completeMeetings, dateIssues, fieldIssues } from '../src/lib/cerebro/review';
-import { lowRisk } from '../src/lib/cerebro/engine';
+import { lowRisk, splitCierto } from '../src/lib/cerebro/engine';
+import { defaults } from '../src/lib/cerebro/settings';
 let ok = 0, bad = 0; const t = (n: string, c: boolean, extra = '') => { c ? ok++ : (bad++, console.log('✗', n, extra)); };
 const amb = (q: string) => nameAmbiguities(q).map(a => `${a.word}:${a.kind}`);
 t('Richard es ambiguo', amb('llamar a Richard').includes('richard:igual'));
@@ -49,4 +50,18 @@ t('sin día dicho no hay queja', dateIssues(task('2026-11-18'), 'Crea una tarea 
 t('campo inventado «estado» en una persona', fieldIssues([{ name: 'actualizar_campos', args: { ficha: 'person-luisa-santos', campos: { estado: 'inactiva' } } }]).length === 1);
 t('campos estándar de baja (status, end_date, inactive_reason) pasan aunque la ficha no los tenga', fieldIssues([{ name: 'actualizar_campos', args: { ficha: 'person-luisa-santos', campos: { status: 'inactive', end_date: '2026-11-13', inactive_reason: 'renuncia' } } }]).length === 0);
 t('campo real «job_title» pasa', fieldIssues([{ name: 'actualizar_campos', args: { ficha: 'person-luisa-santos', campos: { job_title: 'Gerente' } } }]).length === 0);
+// Guardar primero: repartir en cierto / dudoso / delicado
+const S = defaults(); // agenda y novedades solas; contactos y cifras esperan
+const nov = { name: 'registrar_novedad', args: { ficha: 'dist-medimex', resumen: 'x', fuente: 'x' } };
+const del = { name: 'borrar_ficha', args: { ficha: 'person-luisa-santos', motivo: 'dup' } };
+let sp = splitCierto([nov, del], [], S);
+t('cierto se guarda y borrar espera', sp.now.length === 1 && sp.wait.length === 1 && sp.wait[0].name === 'borrar_ficha' && /delicado/.test(sp.whyEach[0]));
+sp = splitCierto([{ name: 'crear_ficha', args: { tipo: 'person', nombre: 'Zoe Prueba Tres', campos: { email_primary: 'z@x.test', job_title: 'Gerente' } } }, { name: 'agendar', args: { titulo: 'a', fecha: '2026-11-20', ficha: 'person-zoe-prueba-tres' } }], [], S);
+t('ficha nueva completa se crea sola (con lo que depende de ella)', sp.now.length === 2 && sp.wait.length === 0, JSON.stringify(sp.whyEach));
+sp = splitCierto([{ name: 'crear_ficha', args: { tipo: 'person', nombre: 'Yan Solo Nombre' } }, { name: 'registrar_novedad', args: { ficha: 'person-yan-solo-nombre', resumen: 'x', fuente: 'x' } }], [], S);
+t('ficha nueva sin datos espera y arrastra lo que depende de ella', sp.now.length === 0 && sp.wait.length === 2 && /depende/.test(sp.whyEach[1]), JSON.stringify(sp.whyEach));
+sp = splitCierto([nov, { name: 'registrar_novedad', args: { ficha: 'person-richard-williams', resumen: 'x', fuente: 'x' } }], ['Richard puede ser Richard Williams o Richard Bailey'], S);
+t('lo que toca una advertencia fuerte queda por confirmar y lo demás se guarda', sp.now.length === 1 && sp.wait.length === 1 && /dudoso/.test(sp.whyEach[0]), JSON.stringify(sp.whyEach));
+sp = splitCierto([{ name: 'registrar_indicador', args: { nombre: 'v', valor: 1 } }, nov], [], S);
+t('lo que Ajustes manda proponer (cifras) espera', sp.now.length === 1 && sp.wait.length === 1 && /Ajustes/.test(sp.whyEach[0]));
 console.log(`${ok} bien, ${bad} mal`); process.exit(bad ? 1 : 0);
