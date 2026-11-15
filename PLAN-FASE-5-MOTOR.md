@@ -15,7 +15,8 @@ Base: lectura completa de `src/lib/cerebro/*` (2.065 líneas), la ruta `/api/age
 - **5.2 Origen del dato: construida** (commit `5939d1b`). `src/lib/cerebro/origin.ts` + cableado en `ops.ts`, `review.ts`, `brainLens.ts`. Pruebas: `npm run test:origen` (65, incluido `pedir()` completo con el caso de Pierre). Detalle en la sección «Origen del dato».
 - **5.3 Vecindario: construida** (commit `56b65fb`). `src/lib/cerebro/neighborhood.ts` (+ `src/lib/titles.ts`), reglas `derives` e `inverse` en la estructura, cableado en `engine.ts` y `brainLens.ts`. Pruebas: `npm run test:vecindario` (63, incluido `pedir()` completo). Detalle en la sección «Vecindario».
 - **5.4 Decisión simple: construida y subida (`fde02c0`).** `src/lib/cerebro/decision.ts` (tabla pura `decide()`), categorías en `review.ts`, `politica` y `textFields` en Ajustes y estructura, `scripts/esperas.ts`. Pruebas: `npm run test:decision` (84, incluido `pedir()` completo). Detalle en la sección «Decisión simple».
-- **5.5 Noche: construida, sin commitear.** `src/lib/cerebro/night.ts` (un solo proceso nocturno), enganchado al temporizador existente en `dotsSleepScheduler.ts`; acción `manana` en la ruta del agente. Pruebas: `npm run test:noche` (61, incluida la corrida completa con el motor real). Detalle en la sección «Noche».
+- **5.5 Noche: construida y subida (`bb6ceef`).** `src/lib/cerebro/night.ts` (un solo proceso nocturno), enganchado al temporizador existente en `dotsSleepScheduler.ts`; acción `manana` en la ruta del agente. Pruebas: `npm run test:noche` (61, incluida la corrida completa con el motor real). Detalle en la sección «Noche».
+- **5.6 Contrato del agente: construida, sin commitear.** Guía nueva en `guide.ts` (palabras de HB tal cual, investigación como evidencia aparte, orden clara y reversible sin pedir permiso, un tema por caso, respuesta en dos niveles) y campo `caso.paraPersona` en `cases.ts` (3–4 líneas, sin números de caso, ids ni archivos; el acta queda en `caso.texto`). Pruebas: `npm run test:contrato` (24). Detalle en la sección «Contrato del agente».
 
 ## Papel de Jev (auditoría y reglas)
 
@@ -153,6 +154,18 @@ Lo que está bien y se conserva: menú cerrado de operaciones, la app es la úni
 4. **Un enlace verdadero; lo demás se deriva al leer.** Pierre se enlaza a MEDIMEX y a HB. Su mercado y sus marcas se muestran a través de MEDIMEX, sin copiarlos (si se copian, quedan viejos cuando MEDIMEX cambie).
 5. **Preguntar solo lo que bloquea.** Identidad dudosa o algo que no se puede deshacer. Lo demás se guarda con su origen y se avisa.
 6. **Congelar las reglas por caso.** No se agregan más reglas al texto del modelo ni listas fijas mientras dure la fase.
+
+## Contrato del agente (etapa 5.6)
+
+**Qué resuelve.** Los agentes reescribían las palabras de HB, mezclaban su investigación con la orden, pedían permiso para cosas reversibles y contestaban a la persona con el acta entera (número de caso, ids, archivos).
+
+**Qué hace.**
+1. La guía (`guide.ts`, ES y EN) trae el contrato: `text` lleva las palabras de la persona tal cual; lo investigado va en `md` como evidencia aparte; una orden clara y reversible se manda sin pedir permiso (se pregunta solo por lo delicado o si no se sabe de quién se trata); un tema por caso.
+2. Respuesta en dos niveles: `caso.paraPersona` es lo corto para la persona (qué se guardó, qué falta, si se puede deshacer; máximo 4 líneas; se recortan listas a 3 con «y N más»; se quitan ids, rutas y números de caso). `caso.texto` sigue siendo el acta completa para el registro. No cambia ninguna decisión del motor.
+
+**Pruebas.** `npm run test:contrato` (24): cada estado del caso, recorte, inglés, limpieza de ruido y el contrato en la guía. Mutaciones detectadas: guía sin el contrato, sin recorte, sin limpieza de rutas. No detectada (guarda inocua): el tope de 4 líneas, que ya se cumple por construcción.
+
+**Límites.** Esto es texto: no hay forma de obligar al agente a seguirlo. No se ha visto con ChatGPT/DOTS reales. `paraPersona` limpia ids con reglas simples; una ficha con nombre raro puede dejar una frase cortada.
 
 ## 4. Etapas
 

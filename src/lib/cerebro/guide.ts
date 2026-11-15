@@ -23,12 +23,23 @@ Una sola puerta: POST /api/agent/cerebro. Acciones que puedes usar: ${acciones}.
    - El md es opcional: si no mandas uno, el Cerebro arma el expediente con tu pedido y lo que conversen, y lo guarda en la nota viva del caso (00-Working-Memory/caso-<id>.md). Si lo mandas, mejor: se suma. Nunca se te devuelve por no mandarlo.
    - Plantillas: GET ?plantillas=1 y GET ?plantilla=<nombre>. Hoy: ${plantillas}.
 2. CONVERSACIÓN — una sola ronda. Si message empieza con «CASO … ABIERTO: espera tu respuesta», contesta con {action:'responder', id, text, md?}. Para cada punto: el dato · «no lo tengo» · «se lo pregunto a mi persona» (el caso espera). No inventes para rellenar.
-3. CIERRE — el caso termina cuando message empieza con «CASO … CERRADO». El acta dice qué se guardó, qué no y por qué, qué quedó por confirmar y cómo deshacer. Repórtasela a ${p} tal cual. No digas «listo» sin acta.
+3. CIERRE — el caso termina cuando message empieza con «CASO … CERRADO». El acta (en caso.texto) es el detalle: queda en el registro. No digas «listo» sin que el caso esté cerrado.
+
+## Qué le dices al Cerebro (el contrato)
+- Las palabras de ${p}, tal cual. En text va su orden como la dijo; no la resumas, no la mejores, no le cambies los nombres. Si necesitas contexto, va en md.
+- Lo que investigaste tú (correos, búsquedas, fichas que miraste) va en md como evidencia tuya, marcada como tal y aparte de lo que dijo ${p}. Evidencia no es orden.
+- Una orden clara y reversible se manda ya, sin pedirle permiso a ${p} antes. Pregunta antes solo si es delicado (borrar, compartir, verificar, cifras) o si de verdad no sabes de quién o de qué se trata. Lo reversible se puede deshacer.
+- Un tema por caso: si ${p} pidió dos cosas, son dos pedidos. (Si los mandas juntos, el Cerebro los separa y te da un id por tema.)
+
+## Qué le dices a ${p} (dos niveles)
+- Nivel corto: lee caso.paraPersona y dilo. Son tres o cuatro líneas: qué se guardó, qué falta, si se puede deshacer. Sin números de caso, sin ids, sin nombres de archivos ni de acciones.
+- Nivel detalle: el acta (caso.texto), el id del caso y el cambio para deshacer quedan en el registro. Los das solo si ${p} los pide.
+- Si algo espera, di qué falta y qué tiene que decir ${p}, en una frase.
 
 ## Cómo leer cada respuesta
 - message: empieza con el estado del caso. Léelo siempre.
 - next: qué puedes hacer ahora, con la acción exacta. Síguelo.
-- caso: estado (espera_respuesta, espera_aprobacion, cerrado), guardado, noGuardado, porConfirmar.
+- caso: estado (espera_respuesta, espera_aprobacion, cerrado), guardado, noGuardado, porConfirmar y paraPersona (la respuesta corta lista para decirle a ${p}).
 - parts: si el pedido tenía varios temas, cada tema es un caso aparte con su id.
 - seguimiento: tus pendientes y qué hacer con cada uno.
 - expedienteMd: el expediente al día, con lo que hizo el Cerebro.
@@ -73,12 +84,23 @@ One door: POST /api/agent/cerebro. Actions you can use: ${acciones}.
    - The md is optional: if you send none, the Brain builds the case file from your request and what you discuss, and keeps it in the case's living note (00-Working-Memory/caso-<id>.md). Sending one is better: it is added. You are never sent back for not sending it.
    - Templates: GET ?plantillas=1 and GET ?plantilla=<name>. Today: ${plantillas}.
 2. CONVERSATION — one round only. If message starts with “CASE … OPEN: waiting for your answer”, reply with {action:'responder', id, text, md?}. For each point: the data · “I do not have it” · “I will ask my person” (the case waits). Do not invent to fill gaps.
-3. CLOSING — the case ends when message starts with “CASE … CLOSED”. The record says what was saved, what was not and why, what is left to confirm and how to undo. Report it to ${p} as is. Do not say “done” without the record.
+3. CLOSING — the case ends when message starts with “CASE … CLOSED”. The record (caso.texto) is the detail: it stays in the log. Do not say “done” until the case is closed.
+
+## What you tell the Brain (the contract)
+- ${p}'s words, as they said them. text carries their order as spoken; do not summarise it, improve it or change the names. Context goes in md.
+- What you researched yourself (emails, searches, notes you looked at) goes in md as your evidence, marked as such and apart from what ${p} said. Evidence is not an order.
+- A clear, reversible order is sent right away, without asking ${p} for permission first. Ask first only if it is sensitive (deleting, sharing, verifying, figures) or if you truly do not know who or what it is about. Reversible things can be undone.
+- One topic per case: if ${p} asked for two things, that is two requests. (If you send them together the Brain splits them and gives you one id per topic.)
+
+## What you tell ${p} (two levels)
+- Short level: read caso.paraPersona and say it. Three or four lines: what was saved, what is missing, whether it can be undone. No case numbers, no ids, no file names or action names.
+- Detail level: the record (caso.texto), the case id and the undo change stay in the log. Give them only if ${p} asks.
+- If something waits, say what is missing and what ${p} has to say, in one sentence.
 
 ## How to read every answer
 - message: starts with the state of the case. Always read it.
 - next: what you can do now, with the exact action. Follow it.
-- caso: state (espera_respuesta, espera_aprobacion, cerrado), guardado, noGuardado, porConfirmar.
+- caso: state (espera_respuesta, espera_aprobacion, cerrado), guardado, noGuardado, porConfirmar and paraPersona (the short reply, ready to tell ${p}).
 - parts: if the request had several topics, each topic is a separate case with its id.
 - seguimiento: your follow-up items and what to do with each.
 - expedienteMd: the case file up to date, with what the Brain did.

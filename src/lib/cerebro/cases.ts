@@ -15,6 +15,8 @@ export interface Caso {
   texto: string;
   /** Qué puede hacer ahora quien pidió. */
   ahora: string;
+  /** Dos niveles: esto es lo corto para la persona (hasta 4 líneas, sin números de caso ni nombres técnicos); `texto` es el detalle del registro. */
+  paraPersona: string;
 }
 
 export const isClosed = (r: Pick<CerebroRequest, 'status'>) => r.status !== 'pregunta' && r.status !== 'pendiente';
@@ -68,7 +70,44 @@ export function caseOf(r: CerebroRequest, opts: { canApprove?: boolean } = {}): 
     ...(pregunta ? { pregunta } : {}), ...(r.status === 'pendiente' && r.why ? { motivo: r.why } : {}), ...(r.changeId ? { deshacer: r.changeId } : {}),
     ...(r.decidedBy ? { decididoPor: `${r.decidedBy}${r.decidedVia ? ` (${r.decidedVia})` : ''}${r.approvalWords ? ` — «${r.approvalWords}»` : ''}` } : {}), ...(r.replacedBy ? { reemplazadoPor: r.replacedBy } : {}),
     texto, ahora,
+    paraPersona: paraPersona({ estado, guardado, esperando, noGuardado, porConfirmar, pregunta, why: r.why, deshacer: !!(r.changeId || r.partial?.changeId), parcial: !!r.partial?.saved?.length }),
   };
+}
+
+/** Quita lo que la persona no necesita ver: números de caso, rutas de archivo e ids internos. */
+export const limpio = (x: string, max = 110): string => {
+  let t = String(x || '')
+    .replace(/\b(?:ped|chg)-[\w-]+/gi, '')
+    .replace(/\S+\.md\b/g, '')
+    .replace(/\b[a-z]+(?:-[a-z0-9]+)*-\d[a-z0-9-]*\b/g, '')
+    .replace(/\(\s*\)/g, '')
+    .replace(/\s+/g, ' ').replace(/\s+([.,;:])/g, '$1').trim();
+  if (t.length > max) t = t.slice(0, max - 1).replace(/\s+\S*$/, '') + '…';
+  return t;
+};
+const some = (a: string[], n = 3) => {
+  const c = a.map(x => limpio(x)).filter(Boolean);
+  return c.length > n ? [...c.slice(0, n), tr(`y ${c.length - n} más`, `and ${c.length - n} more`)].join('; ') : c.join('; ');
+};
+interface ShortIn { estado: CaseState; guardado: string[]; esperando: string[]; noGuardado: string[]; porConfirmar: string[]; pregunta?: string; why?: string; deshacer: boolean; parcial: boolean }
+/** La respuesta corta para la persona: qué pasó, qué falta y si se puede deshacer. Nunca más de 4 líneas. */
+export function paraPersona(c: ShortIn): string {
+  const L: string[] = [];
+  if (c.estado === 'espera_respuesta') {
+    L.push(tr('Todavía no guardé nada: me falta un dato.', 'I have not saved anything yet: I am missing one thing.'));
+    if (c.pregunta) L.push(limpio(c.pregunta, 160));
+  } else if (c.estado === 'espera_aprobacion') {
+    if (c.parcial && c.guardado.length) L.push(tr(`Ya guardé: ${some(c.guardado)}.`, `Already saved: ${some(c.guardado)}.`));
+    L.push(tr(`Falta tu visto bueno para: ${some(c.esperando, 2)}.`, `Waiting for your approval: ${some(c.esperando, 2)}.`));
+    if (c.why) L.push(tr(`Motivo: ${limpio(c.why, 140)}`, `Why: ${limpio(c.why, 140)}`));
+  } else {
+    if (c.guardado.length) L.push(tr(`Guardado: ${some(c.guardado)}.`, `Saved: ${some(c.guardado)}.`));
+    else L.push(c.noGuardado.length ? tr(`No se guardó nada: ${some(c.noGuardado, 2)}.`, `Nothing was saved: ${some(c.noGuardado, 2)}.`) : tr('No se guardó nada.', 'Nothing was saved.'));
+    if (c.noGuardado.length && c.guardado.length) L.push(tr(`No se guardó: ${some(c.noGuardado, 2)}.`, `Not saved: ${some(c.noGuardado, 2)}.`));
+    if (c.porConfirmar.length) L.push(tr(`Por confirmar: ${some(c.porConfirmar, 2)}.`, `To confirm: ${some(c.porConfirmar, 2)}.`));
+    if (c.deshacer && c.guardado.length) L.push(tr('Se puede deshacer.', 'It can be undone.'));
+  }
+  return L.slice(0, 4).join('\n');
 }
 /** Una línea por caso, para «tus casos abiertos» y las novedades. */
 export const caseLine = (r: CerebroRequest) => ({ id: r.id, estado: caseOf(r).estado, tipo: caseOf(r).tipo, desde: r.at, pedido: r.text.slice(0, 120), ...(r.status === 'pregunta' ? { pregunta: caseOf(r).pregunta } : {}) });

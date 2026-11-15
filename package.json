@@ -54,6 +54,7 @@
     "test:vecindario": "tsx scripts/test-vecindario.ts",
     "test:decision": "tsx scripts/test-decision.ts",
     "test:noche": "tsx scripts/test-noche.ts",
+    "test:contrato": "tsx scripts/test-contrato.ts",
     "esperas": "tsx scripts/esperas.ts",
     "test:motor": "SMJ_VAULT_PATH=vault tsx scripts/test-motor.ts",
     "test:e2e-motor": "python3 scripts/e2e-motor.py",
