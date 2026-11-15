@@ -215,8 +215,13 @@ function coveredWords(ix: Idx, q: string): Set<string> {
   const qw = words(q); const out = new Set<string>(); if (qw.length < 2) return out;
   const pairs = qw.slice(1).map((w, i) => [qw[i], w] as const);
   for (const n of ix.nodes) {
-    if ((TYPE_RANK[n.type] || 0) < 3) continue; const t = ' ' + words(displayTitle(n.title)).join(' ') + ' ';
-    for (const [x, y] of pairs) if (t.includes(' ' + x + ' ' + y + ' ')) { out.add(x); out.add(y); }
+    if ((TYPE_RANK[n.type] || 0) < 3) continue;
+    // El título y también los alias: una ficha renombrada («Miss Ana Mohamed») sigue siendo «Anna Mohammed» para quien la nombra como antes.
+    const fm: any = (n as any).frontmatter || {}; const al = Array.isArray(fm.aliases) ? fm.aliases : typeof fm.aliases === 'string' ? [fm.aliases] : [];
+    for (const nm of [displayTitle(n.title), ...al.filter((a: unknown) => typeof a === 'string')]) {
+      const t = ' ' + words(String(nm)).join(' ') + ' ';
+      for (const [x, y] of pairs) if (t.includes(' ' + x + ' ' + y + ' ')) { out.add(x); out.add(y); }
+    }
   }
   return out;
 }

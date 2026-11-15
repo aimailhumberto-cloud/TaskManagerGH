@@ -58,9 +58,19 @@ async function main() {
   const g = fmOf(ANNA);
   t('B10 un segundo cambio deja a los dos anteriores como alias', g.title === 'Person: Ms. Anna Mohammed' && g.aliases.includes('Miss Ana Mohamed') && g.aliases.includes('Anna Mohammed'), JSON.stringify(g.aliases));
 
+  // B11. Una ficha renombrada se sigue pudiendo nombrar como antes. En producción, tras renombrar a Ana, «Anna Mohammed» dejó de ser
+  // un nombre completo y el Cerebro preguntó «¿Cuál Anna: Anna Phillip, Anna-Leah Jugoon?». Con los alias ya no pregunta.
+  O.executeOp(op('Miss Ana Mohamed') as any); // el título ya no contiene «Anna Mohammed»: solo queda como alias
+  const { nameAmbiguities } = await import('../src/lib/brainLens');
+  for (const x of ['Person - Anna Phillip.md', 'Person - Anna-Leah Jugoon.md']) fs.copyFileSync(path.join(REPO, '01-Internal-Clients', x), path.join(vault, '01-Internal-Clients', x));
+  loadBrainGraph();
+  const amb = nameAmbiguities('Cambia el nombre de Anna Mohammed a «Miss Ana Mohamed».').map(a => a.word);
+  t('B11 tras renombrar, «Anna Mohammed» (el nombre de antes, ahora alias) no vuelve a ser ambiguo', !amb.includes('anna'), JSON.stringify(amb));
+  t('B12 y una Anna suelta sigue siendo ambigua (la regla no se aflojó)', nameAmbiguities('Llama a Anna mañana').some(a => a.word === 'anna'));
+
   // ================= C. Describir y clasificar =================
-  const d = O.describeOp(op('Miss Ana Mohamed', { clase: 'persona', fuente: 'HB' }) as any);
-  t('C1 el plan dice «antes → después» y el origen', /Ms\. Anna Mohammed/.test(d) && /Miss Ana Mohamed/.test(d) && /HB/.test(d), d);
+  const d = O.describeOp(op('Dra. Ana Mohamed', { clase: 'persona', fuente: 'HB' }) as any);
+  t('C1 el plan dice «antes → después» y el origen', /«Miss Ana Mohamed» → «Dra\. Ana Mohamed»/.test(d) && /HB/.test(d), d);
   t('C2 se guarda sola (nivel «sola») y cuenta como «novedades» para los interruptores', O.levelOf(op('X Y') as any) === 'sola' && O.kindOf(op('X Y') as any) === 'novedades');
   t('C3 toca solo esa ficha', JSON.stringify(O.touchesOf(op('X Y') as any)) === JSON.stringify(['person-anna-mohammed']));
   t('C4 está en el menú que ve el modelo, con el nombre y la ficha como obligatorios', O.toolDefs().some((x: any) => x.function.name === 'cambiar_nombre' && x.function.parameters.required.includes('nombre') && x.function.parameters.required.includes('ficha')));
