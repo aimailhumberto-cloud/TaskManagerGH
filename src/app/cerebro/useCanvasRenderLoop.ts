@@ -26,6 +26,31 @@ import { useCanvasGestures } from './useCanvasGestures';
 import { CerebroHud } from './CerebroHud';
 
 // Bucle de dibujo y física del lienzo (60 FPS). Extraído de page.tsx sin cambios de comportamiento.
+/** Ola de luz: al abrir una ficha o una región, dos anillos salen desde ella. La página pone id y momento. */
+export const cerebroWave = { id: '', t: 0 };
+/** Bandeja de memoria temporal (PC): qué fichas están en ella, cuántas más hay y su rótulo. */
+export const cerebroTray: { ids: Set<string>; more: number; label: string } = { ids: new Set(), more: 0, label: '' };
+/** Señales de vida de cada ficha (calor por recencia, seguimiento cercano, inactiva), calculadas una vez por burbuja. */
+const vitals = new WeakMap<object, { heat: number; due: number; inactive: boolean }>();
+function vitalsOf(n: NodeData) {
+  let v = vitals.get(n);
+  if (!v) {
+    const fm = n.frontmatter || {}, now = Date.now(), DAY = 86400000;
+    const upd = Date.parse(fm.updated_at || fm.last_updated_at || '');
+    const age = Number.isFinite(upd) ? (now - upd) / DAY : Infinity;
+    const next = Date.parse(fm.next_followup_date || '');
+    const left = Number.isFinite(next) ? (next - now) / DAY : Infinity;
+    v = {
+      heat: age < 2 ? 1 : age < 7 ? 0.5 : 0,
+      // 2 = vencido, 1 = en los próximos 3 días, 0 = nada cerca.
+      due: left < 0 ? 2 : left <= 3 ? 1 : 0,
+      inactive: fm.status === 'historical_inactive' || fm.is_active === false,
+    };
+    vitals.set(n, v);
+  }
+  return v;
+}
+
 export function useCanvasRenderLoop(props: RenderLoopProps) {
   const { animFrameRef, canvasRef, cappedInfoRef, drilldownStackRef, expansionsRef, gravityActive, hoveredNodeRef, linksRef, mounted, nativeLayoutDecorRef, nodesRef, selectedNodeIdRef, stackedDeck, transformRef, viewMode, hoodRef } = props;
     // 60FPS High-Precision Kinetic Loop with Collision Repulsion (Zero Overlap)
@@ -427,6 +452,34 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
           }
         }
       }
+      // Bandeja de memoria temporal: un marco suave alrededor de sus fichas, con su rótulo y un hilo al centro.
+      if (cerebroTray.ids.size && !hoodRef.current) {
+        let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+        for (const n of nodes) { if (!cerebroTray.ids.has(n.id) || n.hiddenByFilter) continue; x0 = Math.min(x0, n.x); x1 = Math.max(x1, n.x); y0 = Math.min(y0, n.y); y1 = Math.max(y1, n.y); }
+        if (Number.isFinite(x0)) {
+          const ls = Math.max(1, 0.92 / scale), padX = 52, top = y0 - 44, bottom = y1 + 40 + 20 * ls;
+          const core = nodes.find(n => n.type === 'core' && !n.hiddenByFilter);
+          if (core) { ctx.beginPath(); ctx.moveTo(core.x, core.y); ctx.lineTo((x0 + x1) / 2, top); ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)'; ctx.lineWidth = 1.2 * Math.max(1, 0.85 / scale); ctx.stroke(); }
+          ctx.beginPath(); ctx.roundRect(x0 - padX, top, x1 - x0 + padX * 2, bottom - top, 22);
+          ctx.fillStyle = 'rgba(251, 191, 36, 0.055)'; ctx.fill();
+          ctx.setLineDash([5, 6]); ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)'; ctx.lineWidth = 1 * Math.max(1, 0.85 / scale); ctx.stroke(); ctx.setLineDash([]);
+          ctx.font = `600 ${10 * Math.max(1, 0.95 / scale)}px Poppins, system-ui, -apple-system, "Segoe UI", sans-serif`;
+          ctx.fillStyle = 'rgba(251, 191, 36, 0.95)'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+          ctx.fillText(cerebroTray.label.split('').join('\u200A') + (cerebroTray.more > 0 ? `   +${cerebroTray.more}` : ''), x0 - padX + 4, top - 5);
+        }
+      }
+      // Ola de luz: dos anillos que salen desde la ficha o la región recién abierta.
+      {
+        const age = (performance.now() - cerebroWave.t) / 1100, src = cerebroWave.id ? nodeMap.get(cerebroWave.id) : undefined;
+        if (src && age >= 0 && age < 1) {
+          for (const lag of [0, 0.28]) {
+            const p = age - lag; if (p <= 0 || p >= 1) continue;
+            const e = 1 - Math.pow(1 - p, 3);
+            ctx.beginPath(); ctx.arc(src.x, src.y, src.radius + e * 300, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(159, 220, 255, ${0.55 * (1 - p)})`; ctx.lineWidth = 2.2 * Math.max(1, 0.85 / scale); ctx.stroke();
+          }
+        }
+      }
       mark('enlaces');
       // 6. Draw Celestial Nodes
       const labelBoard = new LabelBoard();
@@ -474,6 +527,21 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
           ctx.globalAlpha = 1.0;
         }
 
+        // Señales de vida: lo inactivo se apaga; lo tocado hace poco tiene un halo cálido; el seguimiento cercano late.
+        const vit = n.type === 'region' ? null : vitalsOf(n);
+        if (vit?.inactive && !isHovered && !isSelected) ctx.globalAlpha *= 0.45;
+        if (vit && vit.heat > 0 && r * scale >= 6) {
+          const hr = r + 12 + 6 * vit.heat;
+          const hg = ctx.createRadialGradient(n.x, n.y, r * 0.85, n.x, n.y, hr);
+          hg.addColorStop(0, `rgba(255, 176, 72, ${0.42 * vit.heat})`); hg.addColorStop(1, 'rgba(255, 176, 72, 0)');
+          ctx.beginPath(); ctx.arc(n.x, n.y, hr, 0, Math.PI * 2); ctx.fillStyle = hg; ctx.fill();
+        }
+        if (vit && vit.due > 0 && r * scale >= 6) {
+          const beat = (Math.sin(time * 2.6 + n.x * 0.01) + 1) / 2;
+          ctx.beginPath(); ctx.arc(n.x, n.y, r + 5 + beat * 5, 0, Math.PI * 2);
+          ctx.strokeStyle = vit.due === 2 ? `rgba(255, 120, 120, ${0.25 + 0.5 * (1 - beat)})` : `rgba(159, 220, 255, ${0.2 + 0.45 * (1 - beat)})`;
+          ctx.lineWidth = 1.6 * Math.max(1, 0.8 / scale); ctx.stroke();
+        }
         // Segunda capa del vecindario: presente pero discreta.
         const isOuter = !!hoodRef.current?.parents?.[n.id];
         if (isOuter) ctx.globalAlpha = isHovered ? 1 : 0.72;
@@ -492,7 +560,12 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
             ctx.beginPath(); ctx.moveTo(n.x - rr * 0.45, n.y); ctx.lineTo(n.x + rr * 0.45, n.y);
             ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2 * Math.max(1, 0.8 / scale); ctx.stroke();
             labelBoard.claim(n.x - rr, n.y - rr, rr * 2, rr * 2, true);
-            if (isHovered) labelJobs.push({ n, r: rr, emphasized: true, alpha: 1, typeLabel: '' });
+            // Su nombre, pequeño y en su color, debajo del botón.
+            const zs = Math.max(1, 0.95 / scale), name = String(n.title || '').toUpperCase();
+            ctx.font = `600 ${9.5 * zs}px Poppins, system-ui, -apple-system, "Segoe UI", sans-serif`;
+            ctx.fillStyle = `rgba(${rgb}, 0.95)`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+            ctx.fillText(name.split('').join('\u200A'), n.x, n.y + rr + 5 * zs);
+            labelBoard.claim(n.x - name.length * 3.6 * zs, n.y + rr + 3 * zs, name.length * 7.2 * zs, 14 * zs, true);
             ctx.globalAlpha = 1.0;
             continue;
           }
@@ -563,7 +636,8 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         // El tipo ya se lee debajo: se quita el prefijo "Brand: ", "Department: ", etc.
         const humanTitle = humanNodeName(n).replace(/^[A-Za-z][A-Za-z &]{2,22}(?::\s+|\s+-\s+)/, '');
         // En el vecindario los nombres de alrededor van más cortos para no encimarse con la burbuja vecina.
-        const cap = hoodRef.current && hoodRef.current.id !== n.id ? (hoodRef.current.parents ? 22 : 16) : 25;
+        const inTray = cerebroTray.ids.has(n.id) && !hoodRef.current;
+        const cap = inTray ? 12 : hoodRef.current && hoodRef.current.id !== n.id ? (hoodRef.current.parents ? 22 : 16) : 25;
         const displayTitle = humanTitle.length > cap ? humanTitle.slice(0, cap - 2) + '…' : humanTitle;
         const w = (displayTitle.length * 6.6 + 8) * ls, gap = 7 * ls;
         const below = { x: n.x - w / 2, y: n.y + r + 4 * ls, h: (emphasized ? 32 : 18) * ls, align: 'center' as CanvasTextAlign, tx: n.x, ty: n.y + r + gap + 7 * ls };
@@ -572,7 +646,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         const right = { x: n.x + r + gap, y: n.y - 9 * ls, h: 18 * ls, align: 'left' as CanvasTextAlign, tx: n.x + r + gap, ty: n.y };
         // En la brújula, lo que está a los lados lleva el nombre hacia afuera; lo de arriba y abajo, debajo.
         const outward = sideLabels && Math.abs(n.x) > 140 && Math.abs(n.y) < Math.abs(n.x) * 1.25;
-        const order = emphasized ? [below] : outward ? (n.x < 0 ? [left, below, above, right] : [right, below, above, left]) : [below, above, n.x < 0 ? left : right, n.x < 0 ? right : left];
+        const order = emphasized || inTray ? [below] : outward ? (n.x < 0 ? [left, below, above, right] : [right, below, above, left]) : [below, above, n.x < 0 ? left : right, n.x < 0 ? right : left];
         const spot = order.find(o => labelBoard.claim(o.x, o.y, w, o.h, emphasized));
         if (!spot) continue;
         ctx.globalAlpha = job.alpha;

@@ -24,7 +24,7 @@ import { LangContext, translate } from './i18n';
 import { useUiLang } from '@/lib/uiLang';
 import { buildCommunities, readCommunityThreshold } from './communities';
 import { importanceFactor } from './bubbleArt';
-import { useCanvasRenderLoop } from './useCanvasRenderLoop';
+import { useCanvasRenderLoop, cerebroWave, cerebroTray } from './useCanvasRenderLoop';
 import { useCanvasGestures } from './useCanvasGestures';
 import { CerebroHud } from './CerebroHud';
 
@@ -37,13 +37,16 @@ const HOOD_FLOOR: Record<string, string[]> = {
 // Regiones del cerebro: nombre a la vista, color y dirección fija desde el centro (grados; 0 = derecha, 90 = abajo).
 const REGION_PREFIX = 'region::';
 const REGION_ORDER = ['portfolio', 'market', 'organization', 'projects', 'supply', 'cognitive', 'unplaced'];
+// En PC la memoria temporal no es una región que se abre: es una bandeja siempre a la vista, abajo.
+const regionKeysFor = (mobile: boolean) => (mobile ? REGION_ORDER : REGION_ORDER.filter(k => k !== 'cognitive'));
+const isMobileNow = () => typeof window !== 'undefined' && window.innerWidth < 768;
 const REGION_INFO: Record<string, { name: string; color: string; angle: number }> = {
   portfolio: { name: 'Marcas', color: '251, 146, 60', angle: -90 },
   market: { name: 'Mercados', color: '45, 212, 191', angle: 180 },
   organization: { name: 'Organización', color: '111, 140, 255', angle: 0 },
   projects: { name: 'Proyectos', color: '244, 114, 182', angle: -135 },
-  supply: { name: 'Abastecimiento', color: '167, 139, 250', angle: 90 },
-  cognitive: { name: 'Memoria temporal', color: '251, 191, 36', angle: 45 },
+  supply: { name: 'Abastecimiento', color: '167, 139, 250', angle: 45 },
+  cognitive: { name: 'Memoria temporal', color: '251, 191, 36', angle: 90 },
   unplaced: { name: 'Sin ubicar', color: '248, 113, 113', angle: 135 },
 };
 
@@ -152,6 +155,7 @@ export default function CerebroPage() {
   // Vecindario (solo celular): una ficha al centro y sus conexiones directas alrededor.
   const hoodRef = useRef<{ id: string; ids: string[]; ring?: number; parents?: Record<string, string>; more?: Record<string, number> } | null>(null);
   const lastHoodPushRef = useRef(0);
+  const trayTargets = useRef(new Map<string, { x: number; y: number }>()).current;
   // Regiones: el cerebro entra cerrado (la empresa y sus regiones) y cada región se abre en su lugar.
   const openRegionsRef = useRef<Set<string>>(new Set());
   const nativePlacementsRef = useRef<Map<string, any>>(new Map());
@@ -277,7 +281,7 @@ export default function CerebroPage() {
     regionCountsRef.current = counts;
     // Los rótulos, carriles y bandejas solo se pintan para las regiones abiertas.
     const open = openRegionsRef.current;
-    const allOpen = REGION_ORDER.every(k => open.has(k) || !counts[k]);
+    const allOpen = regionKeysFor(isMobileNow()).every(k => open.has(k) || !counts[k]);
     nativeLayoutDecorRef.current = result.decor.filter((d: any) => {
       const txt = String(d.text || '');
       const region = d.kind === 'lane' ? 'market'
@@ -286,6 +290,8 @@ export default function CerebroPage() {
         : d.kind === 'column-label' ? '*' : null;
       // A la vista, el rótulo lleva el nombre de la región (no el técnico del layout).
       if (region && region !== '*' && (d.kind === 'axis-label' || (d.kind === 'tray' && region === 'cognitive'))) d.text = t(REGION_INFO[region].name).toUpperCase();
+      // El nombre de cada región abierta ya va junto a su botón de cerrar, cerca del centro.
+      if (d.kind === 'axis-label') return false;
       return region === null || (region === '*' ? allOpen : open.has(region));
     });
   };
@@ -477,12 +483,14 @@ export default function CerebroPage() {
     // El layout nativo se calcula con todo lo visible por defecto: así cada cosa cae siempre en el mismo lugar,
     // esté su región abierta o cerrada.
     const nativeMode = viewModeRef.current === 'brujula' || viewModeRef.current === 'version-1-ajustada';
+    if (!nativeMode) { trayTargets.clear(); cerebroTray.ids = new Set(); }
     if (nativeMode) {
       if (!hoodNow && cScope !== 'collapsed') openRegionsRef.current.add('portfolio');
       if (!hoodNow && oScope !== 'collapsed') openRegionsRef.current.add('organization');
       const all = fullGraphRef.current.nodes.length ? fullGraphRef.current.nodes : filteredRawNodes;
       recomputeNativeLayout(viewModeRef.current as 'brujula', hoodNow ? rawPool : filteredRawNodes, all);
       if (hoodNow) {
+        trayTargets.clear(); cerebroTray.ids = new Set();
         if (hoodNow.id.startsWith(REGION_PREFIX)) filteredRawNodes.push(regionRaw(hoodNow.id.slice(REGION_PREFIX.length)));
       } else {
         const open = openRegionsRef.current, pl = nativePlacementsRef.current;
@@ -494,12 +502,26 @@ export default function CerebroPage() {
           const a = (acc[layer] ||= { x: 0, y: 0, c: 0 }); a.x += p.x; a.y += p.y; a.c++;
         }
         regionCentroidRef.current = Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, { x: v.x / v.c, y: v.y / v.c }]));
+        const mobileNow = isMobileNow();
+        // Bandeja de memoria temporal (PC): lo más reciente de la capa cognitiva, siempre a la vista, en una fila abajo.
+        trayTargets.clear();
+        cerebroTray.ids = new Set(); cerebroTray.more = 0; cerebroTray.label = t(REGION_INFO.cognitive.name).toUpperCase();
+        if (!mobileNow) {
+          const stamp = (n: any) => Date.parse(n.frontmatter?.updated_at || n.frontmatter?.last_updated_at || '') || 0;
+          const mem = fullGraphRef.current.nodes.filter((n: any) => pl.get(n.id)?.layer === 'cognitive').sort((a: any, b: any) => stamp(b) - stamp(a));
+          const top = mem.slice(0, 8);
+          const y = [...open].some(k => k !== 'cognitive') ? 640 : 350;
+          top.forEach((n: any, i: number) => { trayTargets.set(n.id, { x: (i - (top.length - 1) / 2) * 112, y }); });
+          cerebroTray.ids = new Set(top.map((n: any) => n.id)); cerebroTray.more = mem.length - top.length;
+          const have = new Set(filteredRawNodes.map((n: any) => n.id));
+          for (const n of top) if (!have.has(n.id)) filteredRawNodes.push(n);
+        }
         filteredRawNodes = filteredRawNodes.filter((n: any) => {
           const layer = pl.get(n.id)?.layer;
+          if (!mobileNow && layer === 'cognitive') return cerebroTray.ids.has(n.id);
           return !layer || layer === 'core' || open.has(layer) || revealedNodeIdsRef.current.has(n.id);
         });
-        const mobileNow = typeof window !== 'undefined' && window.innerWidth < 768;
-        for (const key of REGION_ORDER) if (regionCountsRef.current[key] && (!open.has(key) || !mobileNow)) filteredRawNodes.push(regionRaw(key, open.has(key)));
+        for (const key of regionKeysFor(mobileNow)) if (regionCountsRef.current[key] && (!open.has(key) || !mobileNow)) filteredRawNodes.push(regionRaw(key, open.has(key)));
       }
     }
 
@@ -570,6 +592,8 @@ export default function CerebroPage() {
     const targetFor = (n: any) => {
       const ht = hoodTargets.get(n.id);
       if (ht) return ht;
+      const tt = trayTargets.get(n.id);
+      if (tt) return tt;
       if (n.type === 'region') return regionTarget(n.frontmatter.region_key);
       if (n.type !== 'community') return getNodeTarget(n, viewModeRef.current);
       // La burbuja se coloca en el centro de sus miembros.
@@ -609,7 +633,7 @@ export default function CerebroPage() {
       if (hoodNow?.parents?.[n.id]) nodeRadius = Math.round(nodeRadius * 0.72);
       if (n.type !== 'core' && n.type !== 'community' && n.type !== 'region') nodeRadius = Math.round(nodeRadius * importanceFactor(degree.get(n.id) || 0));
 
-      const isPinned = hoodNow ? false : saved ? true : (existing ? existing.isPinned : false);
+      const isPinned = hoodNow || trayTargets.has(n.id) ? false : saved ? true : (existing ? existing.isPinned : false);
       const pinnedX = saved ? saved.x : (existing ? existing.pinnedX : undefined);
       const pinnedY = saved ? saved.y : (existing ? existing.pinnedY : undefined);
 
@@ -1011,6 +1035,7 @@ export default function CerebroPage() {
   const openRegion = (key: string) => {
     openRegionsRef.current.add(key);
     revealRegionIfEmpty(key);
+    cerebroWave.id = REGION_PREFIX + key; cerebroWave.t = performance.now();
     setRegionsOpenCount(openRegionsRef.current.size);
     selectedNodeIdRef.current = REGION_PREFIX + key;
     const full = fullGraphRef.current;
@@ -1042,7 +1067,7 @@ export default function CerebroPage() {
 
   // Abre todas las regiones (el mapa completo, para presentar) o las cierra todas (la entrada).
   const toggleAllRegions = () => {
-    const keys = REGION_ORDER.filter(k => regionCountsRef.current[k]);
+    const keys = regionKeysFor(isMobileNow()).filter(k => regionCountsRef.current[k]);
     if (keys.every(k => openRegionsRef.current.has(k))) { resetToDefaultView(); return; }
     for (const k of keys) { openRegionsRef.current.add(k); revealRegionIfEmpty(k); }
     setRegionsOpenCount(openRegionsRef.current.size);
@@ -1061,6 +1086,7 @@ export default function CerebroPage() {
     const list = (first.length ? first : inRegion).sort((a: any, b: any) => (degree.get(b.id) || 0) - (degree.get(a.id) || 0) || String(a.title || a.id).localeCompare(String(b.title || b.id))).map((n: any) => n.id);
     const shown = list.slice(0, Math.min(limit, 22));
     const id = REGION_PREFIX + key;
+    cerebroWave.id = id; cerebroWave.t = performance.now();
     hoodRef.current = { id, ids: [id, ...shown] };
     selectedNodeIdRef.current = id;
     focusNodeIdsRef.current = [id, ...shown];
@@ -1107,6 +1133,7 @@ export default function CerebroPage() {
         if (kids.length > 3) more[p] = kids.length - 3;
       }
     }
+    cerebroWave.id = node.id; cerebroWave.t = performance.now();
     hoodRef.current = desktop ? { id: node.id, ids: [node.id, ...shown, ...second], ring: shown.length, parents, more } : { id: node.id, ids: [node.id, ...shown] };
     selectedNodeIdRef.current = node.id;
     focusNodeIdsRef.current = [node.id, ...shown, ...second];
@@ -1574,7 +1601,7 @@ export default function CerebroPage() {
                 onClick={toggleAllRegions}
                 className="hidden md:flex px-3 py-1.5 rounded-xl bg-gray-900/95 hover:bg-gray-800 border border-sky-500/80 text-sky-300 text-xs font-mono font-semibold shadow-2xl items-center gap-1.5 backdrop-blur transition active:scale-95"
               >
-                <span>{regionsOpenCount > 0 && REGION_ORDER.every(k => openRegionsRef.current.has(k) || !regionCountsRef.current[k]) ? t("Cerrar todo") : t("Abrir todo")}</span>
+                <span>{regionsOpenCount > 0 && regionKeysFor(false).every(k => openRegionsRef.current.has(k) || !regionCountsRef.current[k]) ? t("Cerrar todo") : t("Abrir todo")}</span>
               </button>
             )}
             <button
