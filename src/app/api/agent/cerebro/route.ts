@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withBrain } from '@/lib/brains';
 import { currentBrain } from '@/lib/brainContext';
-import { pedir, pedirVarios, responder, consultar, decidir, listRequests, usageSummary, canDecide, openCases, caseNews, followUp, cancelar, advanceStale, type CerebroRequest } from '@/lib/cerebro/engine';
+import { pedir, pedirVarios, responder, consultar, decidir, listRequests, usageSummary, canDecide, openCases, caseNews, followUp, cancelar, advanceStale, findRepeat, type CerebroRequest } from '@/lib/cerebro/engine';
 import { caseOf, caseLine } from '@/lib/cerebro/cases';
 import { agentGuide } from '@/lib/cerebro/guide';
 import { readExpediente, templateList, templateMd, autoExpediente } from '@/lib/cerebro/expediente';
@@ -10,7 +10,8 @@ import { llmConfigured, listModels, balance, chat, LlmError } from '@/lib/cerebr
 import { MENU } from '@/lib/cerebro/ops';
 import { listReview, closeReview } from '@/lib/cerebro/review';
 import { actorLabel } from '@/lib/actor';
-import { chatTurn, loadChat, resetChat, chatRequests } from '@/lib/cerebro/chat';
+import { chatTurn, loadChat, resetChat, chatRequests, quickIntent } from '@/lib/cerebro/chat';
+import { consultIsRequest } from '@/lib/cerebro/intake';
 import { configuredProvider } from '@/lib/decisionEngine';
 import { withLang, tr, tw, replyLang, asLang, detectLang, type Lang } from '@/lib/reqLang';
 export const dynamic = 'force-dynamic';
@@ -67,10 +68,12 @@ const nextOf = (st: string) => (st === 'pendiente' ? tr('Una persona lo aprueba 
 async function _GET(req: NextRequest) {
   const ctx = currentBrain(); if (!ctx) return bad('Sin cerebro.', 401);
   const sp = new URL(req.url).searchParams;
+  if (!sp.get('q')) { const alt = sp.get('question') || sp.get('pregunta') || sp.get('query') || sp.get('text'); if (alt) sp.set('q', alt); }
   const { reply, work } = langsFor(ctx.vaultPath, { forced: sp.get('lang'), ui: sp.get('uiLang'), text: sp.get('q') || undefined });
   return withLang(reply, work, () => getInner(ctx, sp));
 }
 async function getInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, sp: URLSearchParams) {
+  if (sp.get('caja') && !isAgent()) { const { listCalls } = await import('@/lib/cerebro/blackbox'); return NextResponse.json({ ok: true, llamadas: listCalls(ctx.vaultPath, Number(sp.get('n')) || 50) }); }
   if (sp.get('q')) { const r = await consultar(String(sp.get('q')), sizeOf(sp.get('size'))); return NextResponse.json(r, { status: r.status }); }
   if (sp.get('models')) {
     if (!llmConfigured()) return bad(tr('Falta OLLAMA_API_KEY en Render.', 'OLLAMA_API_KEY is missing in Render.'), 503);
@@ -99,7 +102,24 @@ async function _POST(req: NextRequest) {
   const { reply, work } = langsFor(ctx.vaultPath, { forced: b?.lang, ui: b?.uiLang, text: text.trim() || undefined, fallback: known, persist: ['pedir', 'leer', 'consultar', 'responder', 'chat'].includes(action) });
   return withLang(reply, work, () => postInner(ctx, b, action));
 }
+/** Entrada tolerante: avisa qué se entendió y qué se arregló, y trata como pedido lo que llegó como consulta pero era para guardar. */
 async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: any, action: string) {
+  const arreglos: string[] = Array.isArray(b?._arreglos) ? b._arreglos.map(String) : [];
+  const recibi: string[] = Array.isArray(b?._recibi) ? b._recibi.map(String) : Object.keys(b || {}).filter(k => !k.startsWith('_'));
+  if (action === 'consultar' && isAgent() && consultIsRequest(b, (quickIntent(String(b.q || b.text || '')) || ''))) {
+    b = { ...b, text: String(b.text || b.q || '') }; action = 'pedir';
+    arreglos.push(tr('Tu «consultar» traía un pedido para guardar; lo traté como «pedir».', 'Your “consultar” carried a request to save; I treated it as “pedir”.'));
+  }
+  if (action === 'pedir' && !b.dryRun && !(b.reemplaza || b.replaces)) {
+    const rep = findRepeat(ctx.vaultPath, String(b.text || '').trim());
+    if (rep) return NextResponse.json({ ...rep, ok: true, repeated: true, ...caseExtras(ctx.vaultPath, rep), message: tr('Ya había recibido esto: es el caso que sigue abierto. No abrí otro. ', 'I had already received this: it is the case still open. I did not open another. ') + sayCase(rep), entrada: { recibi, arreglos } });
+  }
+  const res = await postCore(ctx, b, action);
+  if (!arreglos.length || !(res.headers.get('content-type') || '').includes('json')) return res;
+  try { const j = await res.clone().json(); if (j && typeof j === 'object' && !Array.isArray(j)) return NextResponse.json({ ...j, entrada: { recibi, arreglos } }, { status: res.status }); } catch {}
+  return res;
+}
+async function postCore(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: any, action: string): Promise<NextResponse> {
   if (action === 'consultar') { const q = String(b.q || b.text || '').trim(); if (!q) return bad(tr('Envía q.', 'Send q.')); const r = await consultar(q, sizeOf(b.size)); return NextResponse.json(r, { status: r.status }); }
   if (action === 'chat' || action === 'chat_reset') {
     if (isAgent()) return bad(tr('El chat es para personas; los agentes usan pedir y consultar.', 'The chat is for people; agents use pedir and consultar.'), 403);
@@ -166,7 +186,7 @@ async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: a
     }
     return NextResponse.json({ ok: Object.values(out).every((o: any) => o.ok), test: out });
   }
-  return bad(tr("action debe ser 'pedir', 'leer', 'chat', 'chat_reset', 'responder', 'estado', 'casos', 'cancelar', 'banco', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.", "action must be 'pedir', 'leer', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' or 'probar'."));
+  return bad(tr("Recibí estos campos: ", "I received these fields: ") + Object.keys(b || {}).filter(k => !k.startsWith("_")).join(", ") + ". " + tr("action debe ser 'pedir', 'leer', 'chat', 'chat_reset', 'responder', 'estado', 'casos', 'cancelar', 'banco', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.", "action must be 'pedir', 'leer', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' or 'probar'."));
 }
 export const GET = withBrain(_GET);
 export const POST = withBrain(_POST);

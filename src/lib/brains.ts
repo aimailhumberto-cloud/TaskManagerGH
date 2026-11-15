@@ -151,12 +151,48 @@ async function withBrainInner(handler: Handler, req: NextRequest, rest: any[]): 
     const byAgent = writing && (r.ctx.via === 'llave' || r.ctx.via === 'llave-de-agente');
     let body: any;
     if (writing) { try { body = await req.clone().json(); } catch {} }
+    // Agentes hacia el Cerebro: se lee lo que mandaron como venga (JSON torcido, texto, otro nombre de acción) y se deja en forma.
+    const isCerebro = req.nextUrl.pathname === '/api/agent/cerebro';
+    const t0 = Date.now(); let arreglos: string[] = []; let rawIn: unknown = body; let ctype = '';
+    if (writing && byAgent && isCerebro) {
+      try {
+        const { parseBody, normalizeBody } = await import('./cerebro/intake');
+        ctype = req.headers.get('content-type') || '';
+        const txt = await req.clone().text();
+        const p = parseBody(txt, ctype); rawIn = txt.length > 20000 ? txt.slice(0, 20000) : p.body;
+        const n = normalizeBody(p.body); arreglos = [...p.arreglos, ...n.arreglos];
+        body = { ...n.body, ...(arreglos.length ? { _arreglos: arreglos, _recibi: n.recibi } : {}) };
+        if (arreglos.length || !req.headers.get('content-type')?.includes('json')) {
+          const h = new Headers(req.headers); h.set('content-type', 'application/json'); h.delete('content-length');
+          req = new NextRequest(req.url, { method: req.method, headers: h, body: JSON.stringify(body) });
+        }
+      } catch { /* si falla, sigue con lo original */ }
+    }
     const action = typeof body?.action === 'string' ? body.action.slice(0, 40) : undefined;
+    const trace = (res: Response | null, extra: { blocked?: boolean; repeated?: boolean } = {}) => {
+      if (!byAgent && !(req.method === 'GET' && r.ctx.via?.startsWith('llave') && isCerebro)) return;
+      if (!isCerebro && !extra.blocked) return;
+      void (async () => {
+        try {
+          const { recordCall } = await import('./cerebro/blackbox');
+          let j: any = null; try { if (res && (res.headers.get('content-type') || '').includes('json')) j = await res.clone().json(); } catch {}
+          const b = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+          recordCall(r.ctx.vaultPath, {
+            actor: r.ctx.actor || 'agente', via: r.ctx.via, method: req.method, path: req.nextUrl.pathname, action,
+            campos: Object.keys(b).filter(k => !k.startsWith('_')), tieneMd: !!(typeof b.md === 'string' && b.md.trim()), mdChars: typeof b.md === 'string' ? b.md.length : 0,
+            textChars: typeof (b.text ?? b.q) === 'string' ? String(b.text ?? b.q).length : 0, raw: rawIn ?? (req.method === 'GET' ? Object.fromEntries(req.nextUrl.searchParams) : undefined), contentType: ctype || undefined,
+            arreglos, status: res?.status ?? 403, blocked: extra.blocked, repeated: extra.repeated || !!j?.repeated,
+            salida: j ? { ok: j.ok, status: j.status, caso: j.id || j.caso?.id, mensaje: typeof j.message === 'string' ? j.message.slice(0, 300) : typeof j.error === 'string' ? j.error.slice(0, 300) : undefined } : undefined, ms: Date.now() - t0,
+          });
+        } catch { /* nunca falla */ }
+      })();
+    };
     r.ctx.role = r.role;
     // Regla de los agentes: leer todo, escribir solo pidiéndoselo al Cerebro (pedir y consultar).
     if (byAgent && !legacyWriteMode() && !agentMayWrite(req.nextUrl.pathname, action)) {
       const { logActivity } = await import('./autonomy');
       logActivity(r.ctx.vaultPath, { actor: r.ctx.actor || 'agente', via: r.ctx.via, path: req.nextUrl.pathname, action, status: 403, blocked: true });
+      trace(null, { blocked: true });
       return NextResponse.json({ ok: false, blocked: true, error: tr('Las llaves de agente solo pueden pedir y consultar al Cerebro; él es quien escribe en las fichas.', 'Agent keys can only ask and consult the Brain; the Brain is the one that writes to the notes.'), how: ASK_HINT, allowed: AGENT_ALLOWED }, { status: 403 });
     }
     // Reintentos: la misma petición (misma clave) no se aplica dos veces; se devuelve la respuesta guardada.
@@ -164,6 +200,7 @@ async function withBrainInner(handler: Handler, req: NextRequest, rest: any[]): 
     const { idemGet, idemSave } = await import('./idempotency');
     if (idemKey) {
       const hit = idemGet(r.ctx.vaultPath, r.ctx.actor || 'anon', idemKey);
+      if (hit) trace(null, { repeated: true });
       if (hit) return NextResponse.json({ ...(hit.body as Record<string, unknown>), repeated: true, note: tr('Esta petición ya se había aplicado; no se repitió.', 'This request had already been applied; it was not repeated.') }, { status: hit.status, headers: { 'x-repeated': '1' } });
     }
     const workLang = writing ? (await import('./cerebro/settings')).loadSettings(r.ctx.vaultPath).workLang : 'es';
@@ -176,6 +213,7 @@ async function withBrainInner(handler: Handler, req: NextRequest, rest: any[]): 
       const who = r.ctx.actor?.startsWith('local-') ? getAccount(r.ctx.actor)?.name || r.ctx.actor : r.ctx.actor === 'agente' ? 'Agente (llave general)' : r.ctx.actor?.startsWith('agente:') ? `Agente ${r.ctx.actor.slice(7)}` : r.ctx.actor || 'sin identificar';
       ({ result: res, entry } = await withChange(r.ctx.vaultPath, { actor: who, via: r.ctx.via, route: req.nextUrl.pathname, action, request: idemKey || undefined }, handle));
     } else res = await handle();
+    trace(res);
     if (byAgent) { const { logActivity } = await import('./autonomy'); logActivity(r.ctx.vaultPath, { actor: r.ctx.actor || 'agente', via: r.ctx.via, path: req.nextUrl.pathname, action, status: res.status }); }
     if (!entry && !idemKey) return res;
     // Recibo: la respuesta dice qué cambió y cómo deshacerlo.

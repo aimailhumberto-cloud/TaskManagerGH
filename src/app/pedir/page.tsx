@@ -35,6 +35,9 @@ export default function PedirPage() {
   const [readMode, setReadMode] = useState(false);
   const [detail, setDetail] = useState<Record<string, string>>({});
   const [listening, setListening] = useState(false);
+  type Call = { id: string; at: string; actor: string; method: string; action?: string; campos: string[]; tieneMd: boolean; mdChars: number; textChars: number; arreglos: string[]; status?: number; blocked?: boolean; repeated?: boolean; salida?: { status?: string; mensaje?: string } };
+  const [calls, setCalls] = useState<Call[] | null>(null);
+  const loadCalls = async () => { const r = await fetch('/api/agent/cerebro?caja=1&n=30', { cache: 'no-store' }); const d = await r.json().catch(() => ({})); setCalls(r.ok ? d.llamadas || [] : []); };
   const endRef = React.useRef<HTMLDivElement>(null);
   const taRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -303,6 +306,23 @@ export default function PedirPage() {
               </details>))}
             {st && st.recent.length === 0 && <p className="py-2 text-sm text-slate-500">{L('Aún no hay pedidos.', 'No requests yet.')}</p>}
           </div>
+        </div>
+        <div className={card}>
+          <details onToggle={e => { if ((e.target as HTMLDetailsElement).open && calls === null) loadCalls(); }}>
+            <summary className="cursor-pointer text-base font-semibold">{L('Llamadas de agentes (caja negra)', 'Agent calls (black box)')}</summary>
+            <p className="mt-1 text-xs text-slate-500">{L('Lo que cada agente mandó de verdad, y lo que el Cerebro entendió y contestó.', 'What each agent really sent, and what the brain understood and answered.')}</p>
+            {calls && calls.length === 0 && <p className="mt-2 text-sm text-slate-500">{L('Aún no hay llamadas de agentes.', 'No agent calls yet.')}</p>}
+            <div className="mt-2 divide-y divide-[#eef3fb]">
+              {calls?.map(c => (
+                <div key={c.id} className="py-2 text-xs">
+                  <p><span className="font-semibold">{c.actor}</span> · {c.method} {c.action || '—'} · {when(c.at)} · {c.status}{c.blocked ? ` · ${L('bloqueado', 'blocked')}` : ''}{c.repeated ? ` · ${L('repetido', 'repeated')}` : ''}</p>
+                  <p className="text-slate-500">{L('Campos', 'Fields')}: {c.campos.join(', ') || '—'} · {L('texto', 'text')} {c.textChars} · {c.tieneMd ? `MD ${c.mdChars}` : L('sin MD', 'no MD')}</p>
+                  {c.arreglos.map((a, i) => <p key={i} className="text-amber-700">{a}</p>)}
+                  {c.salida?.mensaje && <p className="text-slate-600">→ {c.salida.status ? `${c.salida.status}: ` : ''}{c.salida.mensaje}</p>}
+                </div>))}
+            </div>
+            {calls && <button className={`${ghost} mt-2`} onClick={loadCalls}>{L('Actualizar', 'Refresh')}</button>}
+          </details>
         </div>
         <div className={card}>
           <button className="flex w-full items-center justify-between text-left text-base font-semibold" onClick={openSettings}>{L('Ajustes de la IA del cerebro', 'Brain AI settings')}<span className="text-sm text-[#0a3fbf]">{open ? '−' : '+'}</span></button>

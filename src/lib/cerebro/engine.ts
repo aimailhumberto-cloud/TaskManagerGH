@@ -117,7 +117,15 @@ export function caseNews(vault: string): CerebroRequest[] {
   return news;
 }
 const who = () => { const c = currentBrain(); return isAgent() ? `${tw('Agente', 'Agent')}${c?.actor?.includes(':') ? ' ' + c.actor.split(':')[1].slice(0, 8) : ''}` : actorLabel(tw('Persona', 'Person')); };
-const newId = () => `ped-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${crypto.randomBytes(3).toString('hex')}`;
+
+const normText = (t: string) => t.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 20000);
+/** Repetidos: el mismo agente mandó lo mismo y el caso sigue abierto (o se cerró hace poco). En vez de abrir otro, se devuelve ese. */
+export function findRepeat(vault: string, text: string): CerebroRequest | undefined {
+  const me = who(); const n = normText(text); if (n.length < 12) return undefined;
+  const day = Date.now() - 24 * 3600 * 1000;
+  return listRequests(vault).find(r => r.by === me && !r.group && normText(r.text) === n
+    && (r.status === 'pregunta' || r.status === 'pendiente' || ((r.status === 'aplicado' || r.status === 'sin_cambios') && new Date(r.at).getTime() > day)));
+}const newId = () => `ped-${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}-${crypto.randomBytes(3).toString('hex')}`;
 
 // ---------- Contexto que ve el modelo ----------
 const DAYS_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'], DAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
