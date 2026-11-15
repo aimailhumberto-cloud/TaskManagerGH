@@ -379,8 +379,33 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
           if (l.target === activeEntityId) focusNeighborIds.add(l.source);
         }
       }
+      // En el vecindario de una región, todas sus fichas cuentan como conectadas al centro (no se atenúan).
+      if (hoodRef.current?.id.startsWith('region::')) for (const id of hoodRef.current.ids) focusNeighborIds.add(id);
       drawLinks(ctx, { links, nodes, nodeMap, view: { left: viewLeft, right: viewRight, top: viewTop, bottom: viewBottom }, scale, time, focusId: activeEntityId, deckIds, focusCount: focusConnectedCount, hideIdle: viewMode === 'organigram' });
 
+      // Rayos de región: del centro a cada región cerrada (la entrada) o de una región a sus fichas (vecindario de región).
+      {
+        const hoodId = hoodRef.current?.id;
+        const hub = hoodId && hoodId.startsWith('region::') ? nodeMap.get(hoodId) : nodes.find(n => n.type === 'core' && !n.hiddenByFilter);
+        if (hub) {
+          const lw = Math.max(1, Math.min(1.8, 0.85 / scale));
+          for (const n of nodes) {
+            if (n === hub || n.hiddenByFilter) continue;
+            if (hub.type === 'region' ? false : n.type !== 'region') continue;
+            const rgb = (hub.type === 'region' ? hub : n).frontmatter?.region_color || '0, 168, 240';
+            const dim = isFocusActive && activeEntityId !== hub.id && activeEntityId !== n.id ? 0.35 : 1;
+            ctx.beginPath(); ctx.moveTo(hub.x, hub.y); ctx.lineTo(n.x, n.y);
+            ctx.strokeStyle = `rgba(${rgb}, ${0.16 * dim})`; ctx.lineWidth = 7 * lw; ctx.stroke();
+            ctx.strokeStyle = `rgba(${rgb}, ${0.85 * dim})`; ctx.lineWidth = 1.8 * lw; ctx.stroke();
+            // Dos pulsos que viajan del centro hacia afuera.
+            for (const off of [0, 0.5]) {
+              const u = (time * 0.25 + off + (n.x + n.y) * 0.0007) % 1, uu = u < 0 ? u + 1 : u;
+              ctx.beginPath(); ctx.arc(hub.x + (n.x - hub.x) * uu, hub.y + (n.y - hub.y) * uu, 2.6 * lw, 0, Math.PI * 2);
+              ctx.fillStyle = `rgba(255, 255, 255, ${0.9 * dim})`; ctx.fill();
+            }
+          }
+        }
+      }
       mark('enlaces');
       // 6. Draw Celestial Nodes
       const labelBoard = new LabelBoard();
@@ -397,7 +422,8 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         const isOpen = expansionsRef.current.has(n.id);
         const pulse = isWorking ? Math.sin(time * 4) * 3 : 0;
         // Tamaño mínimo en pantalla: de lejos las burbujas no se encogen hasta perderse.
-        const baseR = Math.max(n.radius, Math.min(14 / scale, n.radius * 1.35));
+        // Las regiones cerradas se mantienen grandes aunque la cámara se aleje: su número siempre se lee.
+        const baseR = n.type === 'region' ? Math.max(n.radius, Math.min(30 / scale, n.radius * 1.9)) : Math.max(n.radius, Math.min(14 / scale, n.radius * 1.35));
         const r = (baseR + (isHovered ? 6 : 0) + pulse);
 
         // Enfoque visual: Jerarquía progresiva (Drill-down) y conversación activa
@@ -430,6 +456,23 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         mark('n_prep');
         // Burbuja on-brand: color por familia, foto o icono, anillo, chincheta y punto de estado.
         const nid = n.id.toLowerCase();
+        if (n.type === 'region') {
+          // Región cerrada: burbuja grande con su color y el número de fichas adentro.
+          const rgb = n.frontmatter?.region_color || '0, 168, 240';
+          const g = ctx.createRadialGradient(n.x, n.y - r * 0.3, r * 0.15, n.x, n.y, r);
+          g.addColorStop(0, `rgba(${rgb}, 0.42)`); g.addColorStop(1, `rgba(${rgb}, 0.14)`);
+          if (isHovered || isSelected) { ctx.beginPath(); ctx.arc(n.x, n.y, r + 9, 0, Math.PI * 2); ctx.fillStyle = `rgba(${rgb}, 0.16)`; ctx.fill(); }
+          ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+          ctx.fillStyle = '#0b1f4d'; ctx.fill(); ctx.fillStyle = g; ctx.fill();
+          ctx.lineWidth = 2.5; ctx.strokeStyle = `rgba(${rgb}, 0.95)`; ctx.stroke();
+          ctx.font = `600 ${Math.round(r * 0.62)}px Poppins, system-ui, -apple-system, "Segoe UI", sans-serif`;
+          ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(String(n.frontmatter?.member_count ?? ''), n.x, n.y + 1);
+          labelBoard.claim(n.x - r, n.y - r, r * 2, r * 2, true);
+          labelJobs.push({ n, r, emphasized: true, alpha: ctx.globalAlpha, typeLabel: '' });
+          ctx.globalAlpha = 1.0;
+          continue;
+        }
         const drewFull = drawBubble(ctx, n, {
           r, scale, selected: isSelected, hovered: isHovered, open: isOpen, working: isWorking,
           inner: n.type !== 'market' ? undefined : () => {
@@ -502,7 +545,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         ctx.textBaseline = 'middle';
         ctx.fillText(displayTitle, spot.tx, spot.ty);
         // Tipo de nodo: solo en lo destacado, o al acercar.
-        if (spot === below && (emphasized || scale >= 0.95)) {
+        if (spot === below && job.typeLabel && (emphasized || scale >= 0.95)) {
           ctx.font = `500 ${9 * ls}px system-ui, -apple-system, "Segoe UI", sans-serif`;
           ctx.fillStyle = emphasized ? '#00a8f0' : 'rgba(148, 163, 184, 0.8)';
           ctx.textAlign = 'center';

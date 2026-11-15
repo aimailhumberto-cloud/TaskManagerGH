@@ -25,6 +25,8 @@ export function useCanvasGestures(props: GesturesProps) {
   const { canvasRef, clampCameraBounds, dragStartMousePosRef, draggedNodeRef, findNodeAtClientPoint, findPillAtClientPoint, hoveredNodeRef, initialPinchDistRef, initialPinchScaleRef, isDraggingCanvasRef, lastMousePosRef, lastTapTimeRef, lastTouchPosRef, linksRef, nodesRef, pinchCenterRef, pushToStackedDeck, resetToDefaultView, selectedNodeIdRef, setHoveredNode, setPinnedCount, setTooltipPos, showMoreOfNode, tapNode, toggleNodeOpen, touchMovedRef, touchStartPosRef, transformRef, unpinNode } = props;
     // Un clic: solo selecciona y resalta conexiones. No agrega nada al lienzo.
   const pressedNodeIdRef = useRef<string | null>(null);
+  // Momento del último toque: el navegador manda después un clic de ratón "de cortesía" que no debe abrir otra cosa.
+  const lastTouchRef = useRef(0);
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -43,7 +45,7 @@ export function useCanvasGestures(props: GesturesProps) {
     // queda marcada la burbuja que se presionó, no la que haya quedado después bajo el cursor.
     const pressedId = pressedNodeIdRef.current;
     pressedNodeIdRef.current = null;
-    if (pressedId) { selectedNodeIdRef.current = pressedId; return; }
+    if (pressedId) { selectedNodeIdRef.current = nodesRef.current.some((n: any) => n.id === pressedId) ? pressedId : null; return; }
     const clickedNode = findNodeAtClientPoint(e.clientX, e.clientY) || hoveredNodeRef.current;
     selectedNodeIdRef.current = clickedNode ? clickedNode.id : null;
   };
@@ -67,6 +69,7 @@ export function useCanvasGestures(props: GesturesProps) {
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    if (Date.now() - lastTouchRef.current < 900) return;
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
@@ -219,6 +222,7 @@ export function useCanvasGestures(props: GesturesProps) {
 
   // Native Touch Gestures (Mobile Support: 1-finger pan, 2-finger pinch-zoom, tap and double-tap detection)
   const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    lastTouchRef.current = Date.now();
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
@@ -333,6 +337,7 @@ export function useCanvasGestures(props: GesturesProps) {
   };
 
   const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    lastTouchRef.current = Date.now();
     const canvas = canvasRef.current;
     if (!canvas) return;
 

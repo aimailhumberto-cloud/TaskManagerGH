@@ -374,6 +374,17 @@ const ES_PLAIN: Record<string, string> = {
   "Física & Control de Nodos:": "Movimiento del mapa:"
 };
 const EN_PLAIN: Record<string, string> = {
+  "Marcas": "Brands",
+  "Organización": "Organization",
+  "Abastecimiento": "Supply",
+  "Proyectos": "Projects",
+  "Memoria temporal": "Working memory",
+  "Sin ubicar": "Unplaced",
+  "fichas": "notes",
+  "fichas principales": "main notes",
+  "Región": "Region",
+  "Abrir todo": "Open all",
+  "Cerrar todo": "Close all",
   "Todo el cerebro": "Whole brain",
   "Sin conexiones todavía": "No connections yet",
   "conexiones directas": "direct connections",
