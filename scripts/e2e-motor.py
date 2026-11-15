@@ -181,6 +181,7 @@ check('25b. lo que espera a la persona NO se toca solo, aunque pasen días', w2.
 req = U.Request(B + C + '?guia=1', headers={'Authorization': 'Bearer k-prueba-123'})
 g = json.loads(U.urlopen(req).read().decode())
 check('26. el Cerebro entrega su propia guía al agente, con sus pendientes y las acciones vigentes', '# Cómo trabajar con el Cerebro' in g.get('guia', '') and 'cancelar' in g['guia'] and 'doble confirmación' in g['guia'] and 'Ahora mismo tienes' in g['guia'] and 'reunion_viaje' in g['guia'], g.get('guia', '')[:120])
+check('26c. la guía enseña guardar primero, la entrada tolerante, la continuidad y la caja negra', all(x in g.get('guia', '') for x in ['GUARDAR PRIMERO', 'entrada.arreglos', 'relacionado', 'caja negra', 'repeated:true']), g.get('guia', '')[:80])
 s, a9 = agent({'action': 'casos'}); check('26b. cada respuesta al agente le recuerda dónde está la guía', a9.get('guia') == '/api/agent/cerebro?guia=1', a9.get('guia'))
 n_before = len(http(C)[1].get('questions', [])) + len(http(C)[1].get('pending', []))
 s, bk = P({'action': 'banco', 'solo': [5, 6]})

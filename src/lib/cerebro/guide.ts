@@ -34,11 +34,19 @@ Una sola puerta: POST /api/agent/cerebro. Acciones que puedes usar: ${acciones}.
 - expedienteMd: el expediente al día, con lo que hizo el Cerebro.
 
 ## Qué se graba solo y qué espera
-- Se graba solo: notas, tareas, agenda y datos de fichas que ya existen, cuando todo cuadra.
-- Espera aprobación de ${p}: fichas nuevas, cifras, verificar, compartir, pedidos grandes, expediente incompleto, o algo que no cuadra (una fecha, un campo, reemplazar notas existentes).
+- GUARDAR PRIMERO: lo seguro se guarda ya, en la misma llamada, aunque otra parte del pedido espere. Se graba solo: notas, tareas, agenda y datos de fichas que ya existen, y fichas nuevas completas (persona o empresa con nombre y al menos dos datos). Mira caso.guardado y partial.saved: eso YA está guardado y tiene recibo para deshacer.
+- Espera aprobación de ${p} (solo esa parte, con su motivo en why): borrar, verificar, compartir, cifras si así está en Ajustes, algo dudoso (un nombre ambiguo) o que no cuadra (una fecha, un campo). Lo que depende de algo que espera, espera también. Pedidos grandes, expediente incompleto y modo «proponer» esperan completos.
+- Nunca repitas lo que ya se guardó: pide solo lo que falta o contesta lo que espera.
 - ${o.canApprove ? `Tú pasas la aprobación: muéstrale la propuesta a ${p}; si dice que sí, {action:'aprobar', id, text:'<sus palabras>'}; si no, {action:'rechazar', id}. Nunca apruebes por tu cuenta.` : `Tu llave no puede aprobar: ${p} lo aprueba en la app.`}
 - Borrar pide doble confirmación: primero {action:'aprobar', id} (no borra; devuelve needsPhrase); después ${p} debe decir esa frase exacta y la pasas en text.
 - Para corregir una propuesta que espera: {action:'pedir', text, reemplaza:'<id>'}. La anterior se cierra sola.
+
+## Si te equivocas en la forma, el Cerebro te entiende
+- Acepta JSON torcido, texto plano o formulario; acciones con otro nombre (ask, query, reply…) y campos con otro nombre (message, expediente…). Cada arreglo vuelve en entrada.arreglos: léelo y usa los nombres correctos la próxima vez.
+- «consultar» es solo para preguntar. Si mandas ahí algo para guardar (o con md), el Cerebro lo trata como «pedir» y te lo dice. Para guardar usa siempre «pedir».
+- Si mandas lo mismo dos veces, no abre otro caso: te devuelve el que sigue abierto (repeated:true).
+- Si contestas sin id, el Cerebro lo junta con el caso que espera tu respuesta (te lo dice en entrada.arreglos). Si dudó, abrió uno nuevo y lo enlazó (relacionado): contesta con {action:'responder', id, text}. Un mensaje que empieza con una orden («Agenda…») siempre es un caso nuevo.
+- Cada llamada tuya queda en una caja negra que ${p} puede ver en la app (sin tus llaves): no hace falta que expliques qué mandaste.
 
 ## Pendientes: nada guindado se da por cerrado
 - Al empezar cada sesión: {action:'casos'}. ${o.pendientes ? `Ahora mismo tienes ${o.pendientes}.` : 'Ahora mismo no tienes ninguno.'}
@@ -75,11 +83,19 @@ One door: POST /api/agent/cerebro. Actions you can use: ${acciones}.
 - expedienteMd: the case file up to date, with what the Brain did.
 
 ## What is saved on its own and what waits
-- Saved on its own: notes, tasks, agenda and data of notes that already exist, when everything checks out.
-- Waits for ${p}'s approval: new notes, figures, verifying, sharing, big requests, incomplete case file, or something that does not check out (a date, a field, replacing existing notes).
+- SAVE FIRST: what is certain is saved right away, in the same call, even if another part of the request waits. Saved on its own: notes, tasks, agenda and data of notes that already exist, and complete new notes (a person or company with a name and at least two data points). Look at caso.guardado and partial.saved: that is ALREADY saved and has a receipt to undo.
+- Waits for ${p}'s approval (only that part, with its reason in why): deleting, verifying, sharing, figures if Settings say so, something doubtful (an ambiguous name) or that does not check out (a date, a field). What depends on something that waits, waits too. Big requests, an incomplete case file and “propose” mode wait whole.
+- Never repeat what was already saved: ask only for what is missing or answer what is waiting.
 - ${o.canApprove ? `You pass the approval on: show the proposal to ${p}; if they say yes, {action:'aprobar', id, text:'<their words>'}; if not, {action:'rechazar', id}. Never approve on your own.` : `Your key cannot approve: ${p} approves it in the app.`}
 - Deleting needs double confirmation: first {action:'aprobar', id} (it deletes nothing; it returns needsPhrase); then ${p} must say that exact phrase and you pass it in text.
 - To correct a waiting proposal: {action:'pedir', text, reemplaza:'<id>'}. The previous one closes on its own.
+
+## If you get the shape wrong, the Brain still understands you
+- It accepts crooked JSON, plain text or a form; actions with another name (ask, query, reply…) and fields with another name (message, expediente…). Every fix comes back in entrada.arreglos: read it and use the right names next time.
+- “consultar” is only for asking. If you send something to save there (or with md), the Brain treats it as “pedir” and tells you. To save, always use “pedir”.
+- If you send the same thing twice it does not open another case: it returns the one still open (repeated:true).
+- If you answer without an id, the Brain joins it to the case waiting for your answer (it says so in entrada.arreglos). If it doubted, it opened a new one and linked it (relacionado): answer with {action:'responder', id, text}. A message that starts with an order (“Schedule…”) is always a new case.
+- Every call of yours is kept in a black box that ${p} can see in the app (without your keys): you do not need to explain what you sent.
 
 ## Follow-up: nothing left hanging counts as closed
 - At the start of every session: {action:'casos'}. ${o.pendientes ? `Right now you have ${o.pendientes}.` : 'Right now you have none.'}
