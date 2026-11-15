@@ -61,9 +61,9 @@ export function bankCases(): BankCase[] {
       check: r => asked(r) ? 'preguntó' : !sola(r) ? `esperaría aprobación: ${(r.why || '').slice(0, 140)}` : null },
     { n: 14, nombre: 'Cambiar la dirección de una empresa no espera', etapa: '5.4', text: 'La dirección de MEDIMEX ahora es Calle 50, Edificio Ejemplo, Ciudad de Panamá, según su sitio web.',
       check: r => { const a = ops(r, 'actualizar_campos').find(o => o.args.ficha === 'dist-medimex'); return asked(r) ? 'preguntó' : !a ? 'no actualizó la ficha de MEDIMEX' : !sola(r) ? `esperaría aprobación: ${(r.why || '').slice(0, 140)}` : null; } },
-    { n: 15, nombre: 'Cambiar cómo se llama una ficha (un trato como Miss)', etapa: 'nombre', text: 'Cambia el nombre de Anna Mohammed a «Miss Ana Mohamed», así como a Dr. Aleem Mohammed se le da ese trato en su nombre.',
-      check: r => { const c = ops(r, 'cambiar_nombre').find(o => o.args.ficha === 'person-anna-mohammed'); const malo = ops(r, 'actualizar_campos').some(o => o.args.ficha === 'person-anna-mohammed' && /first_name|last_name/.test(JSON.stringify(o.args.campos || {})));
-        return asked(r) ? 'preguntó' : malo ? 'metió el trato en first_name / last_name' : !c ? 'no usó cambiar_nombre' : !/miss/i.test(String(c.args.nombre)) ? `nombre mal: ${c.args.nombre}` : !sola(r) ? `esperaría aprobación: ${(r.why || '').slice(0, 140)}` : null; } },
+    { n: 15, nombre: 'Cambiar cómo se llama una ficha (un trato como Miss)', etapa: 'nombre', text: 'Cambia el nombre de Eesa Mohammed a «Dr. Eesa Mohammed», así como al Dr. Aleem Mohammed se le da ese trato en su nombre.',
+      check: r => { const c = ops(r, 'cambiar_nombre').find(o => o.args.ficha === 'person-eesa-mohammed'); const malo = ops(r, 'actualizar_campos').some(o => o.args.ficha === 'person-eesa-mohammed' && /first_name|last_name/.test(JSON.stringify(o.args.campos || {})));
+        return asked(r) ? 'preguntó' : malo ? 'metió el trato en first_name / last_name' : !c ? 'no usó cambiar_nombre' : !/dr\./i.test(String(c.args.nombre)) ? `nombre mal: ${c.args.nombre}` : !sola(r) ? `esperaría aprobación: ${(r.why || '').slice(0, 140)}` : null; } },
   ];
 }
 export interface BankResult { n: number; nombre: string; ok: boolean; detalle: string; segundos: number; modelo?: string; confianza?: number | null; estado: string; etapa?: string; sola?: boolean }

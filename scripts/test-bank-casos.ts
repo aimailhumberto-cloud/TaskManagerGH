@@ -47,12 +47,12 @@ async function main() {
   t('14 mal: esperaría por «reemplaza un texto»', /esperaría/.test(String(run(14, { why: 'Los cambios reemplazan un texto que ya existía.', ops: [dir] }))));
   t('14 mal: no tocó MEDIMEX', /no actualizó/.test(String(run(14, { why: ENSAYO, ops: [] }))));
   // 15: cambiar cómo se llama una ficha (un trato)
-  const ren = { name: 'cambiar_nombre', args: { ficha: 'person-anna-mohammed', nombre: 'Miss Ana Mohamed', clase: 'persona', fuente: 'HB' } };
-  const malo = { name: 'actualizar_campos', args: { ficha: 'person-anna-mohammed', campos: { first_name: 'Miss Ana', last_name: 'Mohamed' } } };
+  const ren = { name: 'cambiar_nombre', args: { ficha: 'person-eesa-mohammed', nombre: 'Dr. Eesa Mohammed', clase: 'persona', fuente: 'HB' } };
+  const malo = { name: 'actualizar_campos', args: { ficha: 'person-eesa-mohammed', campos: { first_name: 'Miss Ana', last_name: 'Mohamed' } } };
   t('15 bien: usa cambiar_nombre y se aplica solo', run(15, { why: ENSAYO, ops: [ren] }) === null);
   t('15 mal: mete el trato en first_name / last_name', /first_name/.test(String(run(15, { why: ENSAYO, ops: [malo] }))));
   t('15 mal: no usó cambiar_nombre', /no usó cambiar_nombre/.test(String(run(15, { why: ENSAYO, ops: [] }))));
-  t('15 mal: nombre sin el trato', /nombre mal/.test(String(run(15, { why: ENSAYO, ops: [{ ...ren, args: { ...ren.args, nombre: 'Ana Mohamed' } }] }))));
+  t('15 mal: nombre sin el trato', /nombre mal/.test(String(run(15, { why: ENSAYO, ops: [{ ...ren, args: { ...ren.args, nombre: 'Eesa Mohammed' } }] }))));
   t('15 mal: preguntó', run(15, { status: 'pregunta', ops: [] }) === 'preguntó');
   console.log(`${ok} bien, ${bad} mal`); process.exit(bad ? 1 : 0);
 }
