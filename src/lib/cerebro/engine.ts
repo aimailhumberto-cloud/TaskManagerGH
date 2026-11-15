@@ -701,17 +701,19 @@ export function cancelar(id: string, motivo: string): { ok: boolean; status: num
  * (como si le hubieran dicho «no lo tengo») y lo que faltó queda «por confirmar». Los casos en «se lo pregunto a mi persona» no se tocan.
  */
 const advancing = new Map<string, number>();
-export async function advanceStale(): Promise<number> {
-  const vault = getVaultPath(); if (currentBrain()?.readOnly) return 0;
+/** Devuelve los ids de los casos que avanzó. `limit` (3 por visita; la noche pasa más) y `force` (la noche se salta el minuto de espera entre tandas). */
+export async function advanceStaleIds(opts: { limit?: number; force?: boolean } = {}): Promise<string[]> {
+  const vault = getVaultPath(); if (currentBrain()?.readOnly) return [];
   // Solo casos con el formato nuevo (traen «faltan»): los anteriores a esta regla no se tocan solos.
-  const stale = listRequests(vault).filter(r => r.status === 'pregunta' && !r.esperaPersona && Array.isArray(r.faltan) && Date.now() - Date.parse(r.at) > DAY).slice(0, 3);
-  if (!stale.length) return 0;
+  const stale = listRequests(vault).filter(r => r.status === 'pregunta' && !r.esperaPersona && Array.isArray(r.faltan) && Date.now() - Date.parse(r.at) > DAY).slice(0, opts.limit ?? 3);
+  if (!stale.length) return [];
   // De una en una: si ya hay una tanda corriendo en este cerebro (o corrió hace menos de un minuto), no se lanza otra.
-  const last = advancing.get(vault) || 0; if (Date.now() - last < 60_000) return 0; advancing.set(vault, Date.now());
-  let n = 0;
-  for (const r of stale) { try { const out = await responder(r.id, tr('No lo tengo (nadie respondió en 24 horas): sigue con lo seguro.', 'I do not have it (nobody answered in 24 hours): go on with what is certain.'), undefined, tr('Cerebro (24 h sin respuesta)', 'Brain (24 h without answer)')); if (out.ok) n++; } catch {} }
-  return n;
+  const last = advancing.get(vault) || 0; if (!opts.force && Date.now() - last < 60_000) return []; advancing.set(vault, Date.now());
+  const done: string[] = [];
+  for (const r of stale) { try { const out = await responder(r.id, tr('No lo tengo (nadie respondió en 24 horas): sigue con lo seguro.', 'I do not have it (nobody answered in 24 hours): go on with what is certain.'), undefined, tr('Cerebro (24 h sin respuesta)', 'Brain (24 h without answer)')); if (out.ok) done.push(r.id); } catch {} }
+  return done;
 }
+export async function advanceStale(): Promise<number> { return (await advanceStaleIds()).length; }
 
 // ---------- Consultar ----------
 const trim = (v: unknown, max: number) => { const s = JSON.stringify(v); return s.length > max ? s.slice(0, max) + '…' : s; };

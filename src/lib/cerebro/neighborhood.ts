@@ -36,7 +36,7 @@ function snap(): Snap {
 }
 
 /** Enlaces que no son relaciones de negocio: las menciones automáticas del texto, las firmas de correo y el contexto de correspondencia. */
-const NOISE_PATTERN = /^references$|signature|correspondence|_context$/;
+export const NOISE_PATTERN = /^references$|signature|correspondence|_context$/;
 const NOISE_REL = { has: (rel: string) => NOISE_PATTERN.test(rel) };
 /** Fichas que no son vecindario: el catálogo y la memoria de trabajo. */
 const SKIP_TYPES = new Set(['product_variant', 'flavor', 'packaging', 'catalog_listing', 'working_memory', 'consolidation_session']);

@@ -27,11 +27,36 @@ export function checkNightlyOnce(): boolean {
   return any;
 }
 
+const nightRunning = new Set<string>();
+/** Lanza la noche del Cerebro en segundo plano (una por bóveda a la vez). Solo avisa: no cambia fichas. CEREBRO_NIGHT_DISABLED=1 la apaga. */
+export function runNightOnce(vaultPath: string, now: Date = new Date()): boolean {
+  if (process.env.CEREBRO_NIGHT_DISABLED === '1') return false;
+  try {
+    const { needsNight, runNight } = require('./cerebro/night');
+    if (nightRunning.has(vaultPath) || !needsNight(vaultPath, now)) return false;
+    nightRunning.add(vaultPath);
+    const { advanceStaleIds, listRequests } = require('./cerebro/engine');
+    const { currentBrain } = require('./brainContext');
+    runNight(vaultPath, {
+      listRequests: () => listRequests(vaultPath),
+      advance: () => advanceStaleIds({ limit: 25, force: true }),
+      graph: () => { const g = loadBrainGraph(); return { nodes: (g.allNodes || g.nodes) as any, links: g.links as any }; },
+      readOnly: !!currentBrain?.()?.readOnly,
+    }, now).then((r: any) => console.log(`[cerebro-noche] ${r.corridaDia}: sesión ${r.sesion?.escrita ? 'escrita' : 'sin escribir'}, ${r.digest.avanzados.length} casos avanzados${r.errores.length ? `, errores: ${r.errores.join(' | ')}` : ''}`))
+      .catch((e: any) => console.error('[cerebro-noche] falló:', e?.message || e))
+      .finally(() => nightRunning.delete(vaultPath));
+    return true;
+  } catch (e: any) { nightRunning.delete(vaultPath); console.error('[cerebro-noche] no se pudo lanzar:', e?.message || e); return false; }
+}
+
+
 function checkCurrentBrain(): boolean {
   try {
     const vaultPath = getVaultPath();
     // Foto diaria de cifras para la curva de crecimiento, aunque nadie abra el tablero ese día.
     try { const g0 = loadBrainGraph(); recordGrowth(vaultPath, (g0.allNodes || g0.nodes) as any, g0.links.length, panamaDay(new Date())); } catch {}
+    // La noche del Cerebro (etapa 5.5): avanza lo vencido, escribe la sesión del día y deja el resumen. Corre aparte del informe: solo depende de que hoy no haya corrido.
+    runNightOnce(vaultPath);
     if (!needsNightlyReport(vaultPath)) return false;
     const graph = loadBrainGraph();
     const report = runSleepCycle(vaultPath, { nodes: graph.allNodes || graph.nodes, links: graph.links });

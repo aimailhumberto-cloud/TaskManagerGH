@@ -12,7 +12,7 @@ const ACTION_ALIAS: Record<string, string> = {
   query: 'consultar', consulta: 'consultar', question: 'consultar', search: 'consultar', buscar: 'consultar', preguntar: 'consultar', lookup: 'consultar', get: 'consultar',
   reply: 'responder', answer: 'responder', respond: 'responder', contestar: 'responder', respuesta: 'responder',
   approve: 'aprobar', aprobacion: 'aprobar', reject: 'rechazar', deny: 'rechazar', rechazo: 'rechazar',
-  status: 'estado', caso: 'estado', case: 'estado', cases: 'casos', list: 'casos', listar: 'casos', cancel: 'cancelar', read: 'leer',
+  status: 'estado', caso: 'estado', case: 'estado', cases: 'casos', list: 'casos', listar: 'casos', resumen: 'manana', morning: 'manana', summary: 'manana', mañana: 'manana', cancel: 'cancelar', read: 'leer',
 };
 const FIELD_ALIAS: Record<string, string[]> = {
   text: ['pedido', 'message', 'mensaje', 'request', 'prompt', 'content', 'contenido', 'instruction', 'instruccion', 'instrucción', 'texto', 'input', 'order', 'orden', 'body'],
@@ -73,7 +73,7 @@ export function normalizeBody(input: Body, opts: { hasQuestionPending?: boolean 
   // 3) acción
   const raw = typeof body.action === 'string' ? body.action : '';
   const n = norm(raw);
-  const known = new Set(['pedir', 'leer', 'consultar', 'responder', 'aprobar', 'rechazar', 'estado', 'casos', 'cancelar', 'revisado', 'chat', 'chat_reset', 'banco', 'ajustes', 'probar']);
+  const known = new Set(['pedir', 'leer', 'consultar', 'responder', 'aprobar', 'rechazar', 'estado', 'casos', 'cancelar', 'revisado', 'chat', 'chat_reset', 'banco', 'ajustes', 'probar', 'manana']);
   if (raw && !known.has(n)) {
     const al = ACTION_ALIAS[n];
     if (al) { body.action = al; arreglos.push(`La acción «${raw}» no existe; la leí como «${al}».`); }

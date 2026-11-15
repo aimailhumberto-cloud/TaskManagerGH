@@ -13,6 +13,7 @@ import { actorLabel } from '@/lib/actor';
 import { chatTurn, loadChat, resetChat, chatRequests, quickIntent } from '@/lib/cerebro/chat';
 import { consultIsRequest } from '@/lib/cerebro/intake';
 import { caseNoteRel } from '@/lib/cerebro/casenote';
+import { latestNight } from '@/lib/cerebro/night';
 import { configuredProvider } from '@/lib/decisionEngine';
 import { withLang, tr, tw, replyLang, asLang, detectLang, type Lang } from '@/lib/reqLang';
 export const dynamic = 'force-dynamic';
@@ -177,6 +178,11 @@ async function postCore(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: an
     if (r.ok && r.needsPhrase && r.request) return NextResponse.json({ ok: true, request: r.request, needsPhrase: r.needsPhrase, ...caseExtras(ctx.vaultPath, r.request), message: tr(`Primera confirmación recibida. TODAVÍA NO se borró nada. Para borrar de verdad, tu persona debe decir exactamente «${r.needsPhrase}»; envíalo con aprobar en «text».`, `First confirmation received. NOTHING has been deleted yet. To really delete, your person must say exactly “${r.needsPhrase}”; send it with aprobar in “text”.`) });
     return NextResponse.json(r.ok ? { ok: true, request: r.request, receipt: r.receipt, ...caseExtras(ctx.vaultPath, r.request), message: r.request ? sayCase(r.request) : undefined } : { ok: false, error: r.error, ...(r.needsPhrase ? { needsPhrase: r.needsPhrase } : {}) }, { status: r.status });
   }
+  // Resumen de la mañana: lo que dejó la última noche del Cerebro (qué entró, qué se guardó, qué falta, qué está raro). Solo lectura.
+  if (action === 'manana') {
+    const n = latestNight(ctx.vaultPath);
+    return NextResponse.json(n ? { ok: true, dia: n.dia, corridaEl: n.corridaEl, message: n.texto, sesion: n.sesion, digest: n.digest, auditoria: n.auditoria } : { ok: true, message: tr('Todavía no corrió ninguna noche.', 'No night has run yet.') });
+  }
   if (action === 'estado' || action === 'casos') {
     if (action === 'casos') return NextResponse.json({ ok: true, ...caseExtras(ctx.vaultPath) });
     const r = listRequests(ctx.vaultPath).find(x => x.id === String(b.id || ''));
@@ -199,7 +205,7 @@ async function postCore(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: an
     }
     return NextResponse.json({ ok: Object.values(out).every((o: any) => o.ok), test: out });
   }
-  return bad(tr("Recibí estos campos: ", "I received these fields: ") + Object.keys(b || {}).filter(k => !k.startsWith("_")).join(", ") + ". " + tr("action debe ser 'pedir', 'leer', 'chat', 'chat_reset', 'responder', 'estado', 'casos', 'cancelar', 'banco', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.", "action must be 'pedir', 'leer', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' or 'probar'."));
+  return bad(tr("Recibí estos campos: ", "I received these fields: ") + Object.keys(b || {}).filter(k => !k.startsWith("_")).join(", ") + ". " + tr("action debe ser 'pedir', 'leer', 'chat', 'chat_reset', 'responder', 'estado', 'casos', 'manana', 'cancelar', 'banco', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' o 'probar'.", "action must be 'pedir', 'leer', 'responder', 'revisado', 'consultar', 'aprobar', 'rechazar', 'ajustes' or 'probar'."));
 }
 export const GET = withBrain(_GET);
 export const POST = withBrain(_POST);

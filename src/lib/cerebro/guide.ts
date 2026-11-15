@@ -50,6 +50,7 @@ Una sola puerta: POST /api/agent/cerebro. Acciones que puedes usar: ${acciones}.
 
 ## Pendientes: nada guindado se da por cerrado
 - Al empezar cada sesión: {action:'casos'}. ${o.pendientes ? `Ahora mismo tienes ${o.pendientes}.` : 'Ahora mismo no tienes ninguno.'}
+- Para saber qué pasó anoche (qué entró, qué se guardó, qué falta, qué está raro): {action:'manana'}. Es una lectura corta que deja el Cerebro cada noche; no cambia nada.
 - Un pendiente solo sale si se completa (responder, aprobar), se cierra ({action:'revisado', id, motivo}) o se cancela ({action:'cancelar', id, motivo}).
 - Una pregunta sin respuesta en 24 horas no frena: el Cerebro sigue con lo seguro y lo que faltó queda por confirmar.
 
@@ -99,6 +100,7 @@ One door: POST /api/agent/cerebro. Actions you can use: ${acciones}.
 
 ## Follow-up: nothing left hanging counts as closed
 - At the start of every session: {action:'casos'}. ${o.pendientes ? `Right now you have ${o.pendientes}.` : 'Right now you have none.'}
+- To know what happened last night (what came in, what was saved, what is missing, what looks odd): {action:'manana'}. It is a short read the Brain leaves each night; it changes nothing.
 - An item only leaves if it is completed (responder, aprobar), closed ({action:'revisado', id, motivo}) or cancelled ({action:'cancelar', id, motivo}).
 - A question with no answer in 24 hours does not block: the Brain goes on with what is certain and what was missing stays to confirm.
 
