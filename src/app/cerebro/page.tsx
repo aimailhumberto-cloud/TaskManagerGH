@@ -616,6 +616,8 @@ export default function CerebroPage() {
     const inHood = !!hoodRef.current && mobile && !!targetNode;
     const fitted = fitIdentityBounds(context.map(n => ({ x: Number.isFinite(n.targetX) ? n.targetX : n.x, y: Number.isFinite(n.targetY) ? n.targetY : n.y })), w, inHood ? Math.max(240, h - 215) : h, inHood ? false : panelOverlaysCanvas, mobile);
     if (fitted && inHood) fitted.y += 44;
+    // En PC la leyenda ocupa la franja de abajo y los filtros la de arriba: la vista general se encuadra entre las dos.
+    if (fitted && !mobile && !targetNode && !panelOverlaysCanvas && h > 420) { const k = (h - 116) / h; fitted.scale *= k; fitted.x = fitted.visibleW / 2 - (fitted.visibleW / 2 - fitted.x) * k; fitted.y = 32 + (h - 116) / 2 - (h / 2 - fitted.y) * k; }
     if (!fitted) return;
     let targetX = fitted.x;
     let targetY = fitted.y;
@@ -936,7 +938,7 @@ export default function CerebroPage() {
     // El toque que abre el vecindario no es un arrastre: ninguna burbuja queda agarrada.
     draggedNodeRef.current = null;
     for (const n of nodesRef.current) n.isDragged = false;
-    setHood({ id: node.id, title: humanNodeName(raw), type: raw.type, total: list.length, shown: shown.length });
+    setHood({ id: node.id, title: humanNodeName(raw).replace(/^[A-Za-z][A-Za-z &]{2,22}(?::\s+|\s+-\s+)/, ''), type: raw.type, total: list.length, shown: shown.length });
     const live = nodesRef.current.find(n => n.id === node.id) || node;
     requestAnimationFrame(() => requestAnimationFrame(() => handleCenterAndFit(live)));
   };
@@ -1586,7 +1588,7 @@ export default function CerebroPage() {
               </span>
             </div>
             <div className="text-[10px] text-gray-500 pt-0.5">
-              {t("Clic para seleccionar · Doble clic para abrir nivel y ficha · Doble clic otra vez para cerrar · Doble clic en el fondo para volver al inicio")}
+              {t("Clic para abrir nivel y ficha · Doble clic para cerrarlo · Doble clic en el fondo para volver al inicio")}
             </div>
           </div>
         </div>

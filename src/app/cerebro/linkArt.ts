@@ -98,7 +98,8 @@ export function drawLinks(ctx: CanvasRenderingContext2D, f: LinkFrame): void {
     // Panorámica: todos los enlaces de un mismo color van en un solo trazo. Los que tocan algo reciente brillan más.
     const hot: number[] = [];
     for (const fam of FAMS) {
-      const quiet = fam === 'ref' ? 0.08 : 0.2;
+      // En reposo las líneas apenas se insinúan: el orden lo dan las burbujas; la luz es para lo que se mira.
+      const quiet = fam === 'ref' ? 0.035 : 0.09;
       for (const wide of [false, true]) {
         ctx.beginPath(); let any = false;
         for (let i = 0; i < links.length; i++) {
@@ -130,6 +131,8 @@ export function drawLinks(ctx: CanvasRenderingContext2D, f: LinkFrame): void {
   }
 
   // Con una ficha enfocada: solo su vecindario, en el color de cada vínculo, con resplandor y dos pulsos.
+  // Las líneas vivas mantienen su grosor en pantalla aunque la cámara esté lejos.
+  const lw = Math.max(1, Math.min(1.8, 0.85 / scale));
   const act: number[] = [];
   for (let i = 0; i < links.length; i++) {
     const l = links[i], s = nodeMap.get(l.source), t = nodeMap.get(l.target);
@@ -141,11 +144,11 @@ export function drawLinks(ctx: CanvasRenderingContext2D, f: LinkFrame): void {
     const rgb = fam === 'ref' ? '0, 168, 240' : COLOR[fam];
     // Resplandor: un trazo ancho y translúcido debajo (más barato que una sombra difuminada).
     ctx.beginPath(); for (const i of mine) trace(nodeMap.get(links[i].source)!, nodeMap.get(links[i].target)!, meta[i].bend);
-    ctx.strokeStyle = `rgba(${rgb}, 0.16)`; ctx.lineWidth = 6; ctx.stroke();
+    ctx.strokeStyle = `rgba(${rgb}, 0.16)`; ctx.lineWidth = 6 * lw; ctx.stroke();
     for (const wide of [false, true]) {
       ctx.beginPath(); let any = false;
       for (const i of mine) { if ((meta[i].width > 1.2) !== wide) continue; trace(nodeMap.get(links[i].source)!, nodeMap.get(links[i].target)!, meta[i].bend); any = true; }
-      if (any) { ctx.strokeStyle = `rgba(${rgb}, 0.9)`; ctx.lineWidth = wide ? 2.6 : 1.5; ctx.stroke(); }
+      if (any) { ctx.strokeStyle = `rgba(${rgb}, 0.9)`; ctx.lineWidth = (wide ? 2.6 : 1.5) * lw; ctx.stroke(); }
     }
   }
   const step = Math.max(1, Math.ceil(act.length / (MAX_PULSES / 2)));

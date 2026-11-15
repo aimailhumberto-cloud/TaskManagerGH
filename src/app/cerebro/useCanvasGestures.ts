@@ -24,6 +24,7 @@ import { CerebroHud } from './CerebroHud';
 export function useCanvasGestures(props: GesturesProps) {
   const { canvasRef, clampCameraBounds, dragStartMousePosRef, draggedNodeRef, findNodeAtClientPoint, findPillAtClientPoint, hoveredNodeRef, initialPinchDistRef, initialPinchScaleRef, isDraggingCanvasRef, lastMousePosRef, lastTapTimeRef, lastTouchPosRef, linksRef, nodesRef, pinchCenterRef, pushToStackedDeck, resetToDefaultView, selectedNodeIdRef, setHoveredNode, setPinnedCount, setTooltipPos, showMoreOfNode, tapNode, toggleNodeOpen, touchMovedRef, touchStartPosRef, transformRef, unpinNode } = props;
     // Un clic: solo selecciona y resalta conexiones. No agrega nada al lienzo.
+  const pressedNodeIdRef = useRef<string | null>(null);
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -38,6 +39,11 @@ export function useCanvasGestures(props: GesturesProps) {
       showMoreOfNode(pillNode);
       return;
     }
+    // El clic ya abrió nivel y ficha al presionar (handleMouseDown) y el mapa se reacomodó:
+    // queda marcada la burbuja que se presionó, no la que haya quedado después bajo el cursor.
+    const pressedId = pressedNodeIdRef.current;
+    pressedNodeIdRef.current = null;
+    if (pressedId) { selectedNodeIdRef.current = pressedId; return; }
     const clickedNode = findNodeAtClientPoint(e.clientX, e.clientY) || hoveredNodeRef.current;
     selectedNodeIdRef.current = clickedNode ? clickedNode.id : null;
   };
@@ -77,6 +83,7 @@ export function useCanvasGestures(props: GesturesProps) {
       return Math.sqrt(dx * dx + dy * dy) <= Math.max(n.radius + 24, 44);
     }) || hoveredNodeRef.current;
 
+    pressedNodeIdRef.current = clickedNode ? clickedNode.id : null;
     if (clickedNode) {
       draggedNodeRef.current = clickedNode;
       clickedNode.isDragged = true;

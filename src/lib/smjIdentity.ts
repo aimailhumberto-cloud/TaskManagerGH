@@ -36,7 +36,7 @@ export function fitIdentityBounds(nodes:{x:number;y:number}[],width:number,heigh
   const valid=nodes.filter(n=>Number.isFinite(n.x)&&Number.isFinite(n.y));if(!valid.length)return null;
   const visibleW=mobile?width:Math.max(220,width-(panelOpen?520:0));
   const visibleH=mobile&&panelOpen?Math.max(180,height*.4):height;
-  const pad=Math.min(90,visibleW*.16,visibleH*.2);
+  const pad=Math.min(mobile||panelOpen?90:64,visibleW*.16,visibleH*.2);
   const xs=valid.map(n=>n.x),ys=valid.map(n=>n.y);
   const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
   const scale=Math.max(.08,Math.min(1.05,(visibleW-pad*2)/Math.max(180,maxX-minX),(visibleH-pad*2)/Math.max(180,maxY-minY)));

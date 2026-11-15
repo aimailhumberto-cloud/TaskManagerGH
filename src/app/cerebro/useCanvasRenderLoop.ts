@@ -115,7 +115,8 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
       // 4. Mode-Specific Backdrop Graphics
       if (viewMode === 'brujula' || viewMode === 'version-1-ajustada') {
         // Dibujar decoraciones nativas (ejes, anillos, carriles, etiquetas de país [BZ], bandejas)
-        const decorList = nativeLayoutDecorRef.current || [];
+        // En un vecindario no hay regiones a la vista: sin sus rótulos ni carriles.
+        const decorList = hoodRef.current ? [] : (nativeLayoutDecorRef.current || []);
         for (const d of decorList) {
           if (d.kind === 'ring' && typeof d.r === 'number') {
             ctx.strokeStyle = 'rgba(0, 168, 240, 0.08)';
@@ -126,11 +127,13 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
             ctx.stroke();
             ctx.setLineDash([]);
           } else if (d.kind === 'axis-label' && d.text) {
-            ctx.font = 'bold 11px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
+            // Nombre de la región: siempre legible, sin importar qué tan lejos esté la cámara.
+            ctx.font = `600 ${11 * Math.max(1, 0.95 / scale)}px Poppins, system-ui, -apple-system, "Segoe UI", sans-serif`;
             ctx.fillStyle = 'rgba(0, 168, 240, 0.85)';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(d.text, d.x, d.y);
+            // Hacia adentro del arco: afuera van los nombres de las burbujas.
+            ctx.fillText(String(d.text).split('').join('\u200A'), d.x * 0.55, d.y * 0.55);
           } else if (d.kind === 'lane') {
             if (d.w && d.h) {
               ctx.fillStyle = d.dim ? 'rgba(255, 255, 255, 0.015)' : 'rgba(0, 168, 240, 0.025)';
@@ -139,18 +142,13 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
               ctx.lineWidth = 0.8;
               ctx.strokeRect(d.x, d.y, d.w, d.h);
             }
-            if (d.tag && !(hiddenFamilies.has('market') && /market/i.test(String(d.text || '')))) {
-              ctx.font = 'bold 10px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
-              ctx.fillStyle = 'rgba(0, 168, 240, 0.9)';
-              ctx.textAlign = 'right';
-              ctx.fillText(`${d.tag} ${d.text || ''}`, d.x - 12, (d.y || 0) + (d.h ? d.h / 2 : 0));
-            }
+            // La etiqueta técnica del carril ("[ZA] Market: ...") ya no se pinta: en ese lugar va el nombre de la burbuja.
           } else if (d.kind === 'column-label' && d.text) {
             ctx.font = 'bold 9px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
             ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
             ctx.textAlign = 'center';
             ctx.fillText(d.text, d.x, d.y);
-          } else if (d.kind === 'tray' && d.w && d.h) {
+          } else if (d.kind === 'tray' && d.w && d.h && !/\(0\)\s*$/.test(String(d.text || ''))) {
             ctx.fillStyle = d.dim ? 'rgba(15, 23, 42, 0.4)' : 'rgba(239, 68, 68, 0.04)';
             ctx.fillRect(d.x, d.y, d.w, d.h);
             ctx.strokeStyle = d.dim ? 'rgba(100, 116, 139, 0.25)' : 'rgba(239, 68, 68, 0.3)';
@@ -159,10 +157,11 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
             ctx.strokeRect(d.x, d.y, d.w, d.h);
             ctx.setLineDash([]);
             if (d.text) {
-              ctx.font = 'bold 9px \"Inter\", system-ui, -apple-system, \"Segoe UI\", sans-serif';
-              ctx.fillStyle = d.dim ? 'rgba(148, 163, 184, 0.7)' : 'rgba(248, 113, 113, 0.9)';
+              ctx.font = `600 ${9 * Math.max(1, 0.95 / scale)}px Poppins, system-ui, -apple-system, "Segoe UI", sans-serif`;
+              ctx.fillStyle = d.dim ? 'rgba(148, 163, 184, 0.8)' : 'rgba(248, 113, 113, 0.9)';
               ctx.textAlign = 'left';
-              ctx.fillText(d.text, d.x + 8, d.y + 14);
+              ctx.textBaseline = 'bottom';
+              ctx.fillText(d.text, d.x, d.y - 4);
             }
           }
         }
@@ -385,6 +384,8 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
       mark('enlaces');
       // 6. Draw Celestial Nodes
       const labelBoard = new LabelBoard();
+      const labelJobs: { n: NodeData; r: number; emphasized: boolean; alpha: number; typeLabel: string }[] = [];
+      const sideLabels = (viewMode === 'brujula' || viewMode === 'version-1-ajustada') && !hoodRef.current;
       for (const n of nodes) {
         // Nodo fuera de la zona visible: no se dibuja (ni se piden sus imágenes).
         if (n.x < viewLeft || n.x > viewRight || n.y < viewTop || n.y > viewBottom) continue;
@@ -395,7 +396,9 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         const isWorking = n.memory_tier === 'working';
         const isOpen = expansionsRef.current.has(n.id);
         const pulse = isWorking ? Math.sin(time * 4) * 3 : 0;
-        const r = (n.radius + (isHovered ? 6 : 0) + pulse);
+        // Tamaño mínimo en pantalla: de lejos las burbujas no se encogen hasta perderse.
+        const baseR = Math.max(n.radius, Math.min(14 / scale, n.radius * 1.35));
+        const r = (baseR + (isHovered ? 6 : 0) + pulse);
 
         // Enfoque visual: Jerarquía progresiva (Drill-down) y conversación activa
         const currentDrill = drilldownStackRef.current.length > 0 ? drilldownStackRef.current[drilldownStackRef.current.length - 1] : null;
@@ -443,31 +446,12 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         if (!drewFull) { ctx.globalAlpha = 1.0; continue; }
 
         mark('n_borde');
-        // Node Title Label
-        // Etiquetas segun zoom: de lejos solo se nombran los nodos principales; al acercar aparecen las demas.
+        // Nombre de la burbuja: se anota aquí y se pinta al final, encima de todas las burbujas y sin taparlas.
         const emphasized = isSelected || isHovered || isOpen;
         const isMinorNode = (n.radius || 24) < 22;
-        const showTitle = emphasized || (isFocusActive && isConnectedToFocus && (focusConnectedCount <= 10 || scale >= 1.8)) || scale >= (isMinorNode ? 1.4 : 0.5);
-        // La etiqueta ocupa un rectángulo; si choca con otra ya puesta no se dibuja (las destacadas siempre se ven).
-        const labelW = Math.min(25, (n.title || '').length) * 6.6 + 8;
-        if (showTitle && labelBoard.claim(n.x - labelW / 2, n.y + r + 5, labelW, 30, emphasized)) {
-          ctx.font = emphasized ? '600 13px Poppins, system-ui, -apple-system, "Segoe UI", sans-serif' : '12px Poppins, system-ui, -apple-system, "Segoe UI", sans-serif';
-          ctx.fillStyle = emphasized ? '#ffffff' : 'rgba(229, 231, 235, 0.88)';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'top';
-          // El tipo ya se lee debajo: se quita el prefijo "Brand: ", "Department: ", etc.
-          const humanTitle = humanNodeName(n).replace(/^[A-Za-z][A-Za-z &]{2,22}(?::\s+|\s+-\s+)/, '');
-          // En el vecindario los nombres de alrededor van más cortos para no encimarse con la burbuja vecina.
-          const cap = hoodRef.current && hoodRef.current.id !== n.id ? 16 : 25;
-          const displayTitle = humanTitle.length > cap ? humanTitle.slice(0, cap - 2) + '…' : humanTitle;
-          ctx.fillText(displayTitle, n.x, n.y + r + 7);
-
-          // Tipo de nodo: solo al acercar o al enfocar
-          if (emphasized || scale >= 0.95) {
-            ctx.font = '500 9px system-ui, -apple-system, "Segoe UI", sans-serif';
-            ctx.fillStyle = emphasized ? '#00a8f0' : 'rgba(148, 163, 184, 0.8)';
-            ctx.fillText(cfg.label.toUpperCase().split('').join('\u200A'), n.x, n.y + r + 24);
-          }
+        labelBoard.claim(n.x - r, n.y - r, r * 2, r * 2, true);
+        if (emphasized || (isFocusActive && isConnectedToFocus && (focusConnectedCount <= 10 || scale >= 1.8)) || !isMinorNode || scale >= 1.1) {
+          labelJobs.push({ n, r, emphasized, alpha: ctx.globalAlpha, typeLabel: cfg.label });
         }
         mark('n_etiqueta');
         // Burbuja "+N mas": hay mas nodos en este nivel; un clic en ella trae los siguientes
@@ -489,6 +473,43 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         }
         ctx.globalAlpha = 1.0;
       }
+
+      // Nombres: primero los destacados; cada uno busca un sitio libre (afuera a los lados, debajo o arriba).
+      // Se leen igual de lejos que de cerca: el texto crece cuando la cámara se aleja.
+      const ls = Math.max(1, 0.92 / scale);
+      labelJobs.sort((a, b) => Number(b.emphasized) - Number(a.emphasized) || (b.n.radius || 0) - (a.n.radius || 0));
+      for (const job of labelJobs) {
+        const { n, r, emphasized } = job;
+        // El tipo ya se lee debajo: se quita el prefijo "Brand: ", "Department: ", etc.
+        const humanTitle = humanNodeName(n).replace(/^[A-Za-z][A-Za-z &]{2,22}(?::\s+|\s+-\s+)/, '');
+        // En el vecindario los nombres de alrededor van más cortos para no encimarse con la burbuja vecina.
+        const cap = hoodRef.current && hoodRef.current.id !== n.id ? 16 : 25;
+        const displayTitle = humanTitle.length > cap ? humanTitle.slice(0, cap - 2) + '…' : humanTitle;
+        const w = (displayTitle.length * 6.6 + 8) * ls, gap = 7 * ls;
+        const below = { x: n.x - w / 2, y: n.y + r + 4 * ls, h: (emphasized ? 32 : 18) * ls, align: 'center' as CanvasTextAlign, tx: n.x, ty: n.y + r + gap + 7 * ls };
+        const above = { x: n.x - w / 2, y: n.y - r - 22 * ls, h: 18 * ls, align: 'center' as CanvasTextAlign, tx: n.x, ty: n.y - r - gap - 6 * ls };
+        const left = { x: n.x - r - gap - w, y: n.y - 9 * ls, h: 18 * ls, align: 'right' as CanvasTextAlign, tx: n.x - r - gap, ty: n.y };
+        const right = { x: n.x + r + gap, y: n.y - 9 * ls, h: 18 * ls, align: 'left' as CanvasTextAlign, tx: n.x + r + gap, ty: n.y };
+        // En la brújula, lo que está a los lados lleva el nombre hacia afuera; lo de arriba y abajo, debajo.
+        const outward = sideLabels && Math.abs(n.x) > 140 && Math.abs(n.y) < Math.abs(n.x) * 1.25;
+        const order = emphasized ? [below] : outward ? (n.x < 0 ? [left, below, above, right] : [right, below, above, left]) : [below, above, n.x < 0 ? left : right, n.x < 0 ? right : left];
+        const spot = order.find(o => labelBoard.claim(o.x, o.y, w, o.h, emphasized));
+        if (!spot) continue;
+        ctx.globalAlpha = job.alpha;
+        ctx.font = emphasized ? `600 ${13 * ls}px Poppins, system-ui, -apple-system, "Segoe UI", sans-serif` : `${12 * ls}px Poppins, system-ui, -apple-system, "Segoe UI", sans-serif`;
+        ctx.fillStyle = emphasized ? '#ffffff' : 'rgba(229, 231, 235, 0.88)';
+        ctx.textAlign = spot.align;
+        ctx.textBaseline = 'middle';
+        ctx.fillText(displayTitle, spot.tx, spot.ty);
+        // Tipo de nodo: solo en lo destacado, o al acercar.
+        if (spot === below && (emphasized || scale >= 0.95)) {
+          ctx.font = `500 ${9 * ls}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+          ctx.fillStyle = emphasized ? '#00a8f0' : 'rgba(148, 163, 184, 0.8)';
+          ctx.textAlign = 'center';
+          ctx.fillText(job.typeLabel.toUpperCase().split('').join('\u200A'), n.x, n.y + r + gap + 23 * ls);
+        }
+      }
+      ctx.globalAlpha = 1.0;
 
       mark('nodos');
       if (perf) perf.frames = (perf.frames || 0) + 1;
