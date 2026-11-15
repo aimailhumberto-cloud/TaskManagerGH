@@ -366,25 +366,30 @@ async function applyPlan(vault: string, ops: Op[], note: string, actor: string):
   return { ok: true, results, changeId: entry?.id, receipt: entry ? receiptOf(entry) : undefined };
 }
 
-/** Último motivo por el que Jev no respondió (para mostrarlo y no fallar en silencio). */
-let jevProblem = '';
-/** Motivo principal de la duda de Jev en el último juicio (una frase). */
-let jevReason = '';
+/** Lo que devuelve una pregunta a Jev. Cada llamada trae su propio motivo y su propio problema: no se comparten entre temas que corren en paralelo. */
+interface JevResult {
+  /** Puntaje normalizado 0–1; null si Jev no respondió. */
+  score: number | null;
+  /** Motivo principal de la duda (una frase); vacío si el plan quedó bien. */
+  reason: string;
+  /** Por qué Jev no respondió (para mostrarlo y no fallar en silencio); vacío si respondió. */
+  problem: string;
+}
 const JEV_REASONS: Record<string, [string, string]> = { bien: ['El plan refleja el pedido', 'The plan reflects the request'], falta: ['al plan le falta algo que el pedido dice', 'the plan is missing something the request says'], sobra: ['el plan hace algo que el pedido no pide', 'the plan does something the request does not ask'], persona: ['la persona o la ficha elegida puede no ser la correcta', 'the chosen person or note may not be the right one'], dato: ['hay una fecha, cifra o dato dudoso', 'there is a doubtful date, figure or detail'] };
 /** Pregunta de puntaje a Jev. Las «criteria» son los peldaños de la escala, de peor a mejor; el resultado sale normalizado 0–1. */
-async function jevScore(state: string, id: string, instructions: string, anchors: string[], withReason = false): Promise<number | null> {
+async function jevScore(state: string, id: string, instructions: string, anchors: string[], withReason = false): Promise<JevResult> {
   const jev = configuredProvider();
-  if (!jev) { jevProblem = tr('Jev no está conectado (falta TYPESAFE_API_KEY).', 'Jev is not connected (TYPESAFE_API_KEY is missing).'); return null; }
+  if (!jev) return { score: null, reason: '', problem: tr('Jev no está conectado (falta TYPESAFE_API_KEY).', 'Jev is not connected (TYPESAFE_API_KEY is missing).') };
   try {
-    jevReason = '';
     const r = await jev.decide(state, { [id]: { type: 'score', instructions, criteria: anchors }, ...(withReason ? { motivo: { type: 'choice' as const, instructions: 'Si el plan no refleja del todo el pedido, ¿cuál es la razón principal? Si lo refleja bien, elige «bien».', criteria: Object.fromEntries(Object.entries(JEV_REASONS).map(([k, v]) => [k, v[0]])) } } : {}) });
     const a = r.answers?.[id];
-    const m = withReason ? r.answers?.motivo : undefined; if (m && m.type === 'choice' && m.choice !== 'bien' && JEV_REASONS[m.choice]) jevReason = tr(JEV_REASONS[m.choice][0], JEV_REASONS[m.choice][1]);
-    if (!a || a.type !== 'score') { jevProblem = tr('Jev respondió sin el puntaje esperado.', 'Jev answered without the expected score.'); return null; }
-    jevProblem = ''; return Math.max(0, Math.min(1, a.score / (anchors.length - 1)));
-  } catch (e: any) { jevProblem = String(e?.message || tr('Jev no respondió.', 'Jev did not answer.')).slice(0, 200); return null; }
+    const m = withReason ? r.answers?.motivo : undefined;
+    const reason = m && m.type === 'choice' && m.choice !== 'bien' && JEV_REASONS[m.choice] ? tr(JEV_REASONS[m.choice][0], JEV_REASONS[m.choice][1]) : '';
+    if (!a || a.type !== 'score') return { score: null, reason, problem: tr('Jev respondió sin el puntaje esperado.', 'Jev answered without the expected score.') };
+    return { score: Math.max(0, Math.min(1, a.score / (anchors.length - 1))), reason, problem: '' };
+  } catch (e: any) { return { score: null, reason: '', problem: String(e?.message || tr('Jev no respondió.', 'Jev did not answer.')).slice(0, 200) }; }
 }
-async function judge(text: string, plan: string[]): Promise<number | null> {
+export async function judge(text: string, plan: string[]): Promise<JevResult> {
   // Jev no tiene calendario: se le dice qué día es hoy y qué día de la semana cae cada fecha del plan.
   const wd = (d: string) => ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][new Date(`${d}T12:00:00Z`).getUTCDay()];
   const { dateStr } = getPanamaDate(); const dates = [...new Set(plan.join(' ').match(/\d{4}-\d{2}-\d{2}/g) || [])].slice(0, 12);
@@ -396,9 +401,9 @@ async function judge(text: string, plan: string[]): Promise<number | null> {
 /** Después de guardar: ¿lo nuevo contradice lo que la ficha ya decía? 1 = coherente, 0 = contradice. */
 async function coherence(before: string, results: string[], text: string): Promise<number | null> {
   if (!before) return null;
-  return jevScore(`LO QUE LAS FICHAS DECÍAN ANTES:\n${before.slice(0, 3000)}\n\nLO NUEVO QUE SE GUARDÓ:\n${results.join('\n').slice(0, 2000)}\n\nPEDIDO ORIGINAL:\n${text.slice(0, 2000)}`, 'coherente',
+  return (await jevScore(`LO QUE LAS FICHAS DECÍAN ANTES:\n${before.slice(0, 3000)}\n\nLO NUEVO QUE SE GUARDÓ:\n${results.join('\n').slice(0, 2000)}\n\nPEDIDO ORIGINAL:\n${text.slice(0, 2000)}`, 'coherente',
     'Qué tan coherente es lo nuevo con lo que ya decía la ficha: sin contradecir fechas, cifras o acuerdos que la ficha ya tenía, o explicando el cambio el pedido.',
-    ['Contradice lo que la ficha decía, sin explicarlo', 'Es coherente o es una actualización normal']);
+    ['Contradice lo que la ficha decía, sin explicarlo', 'Es coherente o es una actualización normal'])).score;
 }
 /** Resumen de lo extraído de un correo o nota. */
 function summarize(ops: Op[], obs: Observations): string {
@@ -626,8 +631,8 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
   let why: string | null = whyProposal(ops, s, currentBrain()?.scope);
   if (!why && obs.fuertes.length) why = obs.fuertes[0];
   // Jev puntúa siempre que esté conectado: decide en automático y orienta a quien aprueba.
-  const confidence = await judge(full, plan); const jevWhy = jevReason;
-  obs.jev = { fiel: confidence, ...(confidence === null ? { error: jevProblem } : {}), ...(jevWhy ? { motivo: jevWhy } : {}) };
+  const jevR = await judge(full, plan); const confidence = jevR.score; const jevWhy = jevR.reason;
+  obs.jev = { fiel: confidence, ...(confidence === null ? { error: jevR.problem } : {}), ...(jevWhy ? { motivo: jevWhy } : {}) };
   const pct = confidence === null ? 0 : Math.round(confidence * 100); const because = jevWhy ? tr(` Motivo: ${jevWhy}.`, ` Reason: ${jevWhy}.`) : '';
   if (!why && confidence !== null && confidence < s.threshold) {
     // Riesgo bajo: la duda de Jev avisa pero no frena (cambio simple, reversible, sobre fichas que ya existen).

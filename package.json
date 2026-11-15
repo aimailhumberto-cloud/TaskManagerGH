@@ -45,6 +45,8 @@
     "test:intake": "tsx scripts/test-intake.ts",
     "test:e2e-entrada": "python3 scripts/e2e-entrada.py",
     "test:casenote": "tsx scripts/test-casenote.ts",
+    "test:jev": "tsx scripts/test-jev-paralelo.ts",
+    "test:bank-casos": "tsx scripts/test-bank-casos.ts",
     "test:motor": "SMJ_VAULT_PATH=vault tsx scripts/test-motor.ts",
     "test:e2e-motor": "python3 scripts/e2e-motor.py",
     "test:e2e-alta": "python3 scripts/e2e-alta.py"
