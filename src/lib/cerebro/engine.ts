@@ -20,6 +20,7 @@ import { loadSettings, cerebroDir, type CerebroSettings } from './settings';
 import { MENU, toolDefs, validateOp, createdIdOf, levelOf, kindOf, kindName, resolveRefs, touchesOf, describeOp, executeOp, linked, type Op } from './ops';
 import { saveExpediente, readExpediente, expedienteVersions, needsExpediente, detectTemplate, templateMd, NO_MORE, MAX_MD } from './expediente';
 import { listReview } from './review';
+import { writeCaseNote, recallBlock } from './casenote';
 import { inspectPlan, completeMeetings, pruneUnnamed, coverageGaps, dateIssues, fieldIssues, fieldHints, snapshotBefore, fileObservations, type Observations } from './review';
 import { loadBrainGraph } from '../smjBrainService';
 import { tr, tw, replyLang, type Lang } from '../reqLang';
@@ -81,6 +82,7 @@ function saveRequest(vaultPath: string, r: CerebroRequest) {
   const keep = [...all.filter(x => x.status === 'pendiente'), ...all.filter(x => x.status !== 'pendiente').slice(0, MAX_KEEP)].sort((a, b) => b.at.localeCompare(a.at));
   fs.mkdirSync(cerebroDir(vaultPath), { recursive: true });
   const tmp = reqFile(vaultPath) + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(keep)); fs.renameSync(tmp, reqFile(vaultPath));
+  writeCaseNote(vaultPath, r); // memoria propia: la nota viva del caso
 }
 function logUsage(vaultPath: string, e: Record<string, unknown>) { try { fs.mkdirSync(cerebroDir(vaultPath), { recursive: true }); fs.appendFileSync(usageFile(vaultPath), JSON.stringify({ at: new Date().toISOString(), ...e }) + '\n'); } catch {} }
 /** Precio por millón de tokens (entrada, salida) de los modelos conocidos, para estimar el gasto. */
@@ -152,7 +154,7 @@ function ambigNote(q: string): string {
       ? (en ? `“${x.word}” can be: ` : `«${x.word}» puede ser: `) + x.people.map(p => `${p.id} (${p.title})`).join(' / ')
       : (en ? `“${x.word}” is not anyone’s exact name; it only looks like: ` : `«${x.word}» no es el nombre exacto de nadie; solo se parece a: `) + x.people.map(p => `${p.id} (${p.title})`).join(' / ')).join('\n');
 }
-function contextBlock(text: string): string {
+function contextBlock(text: string, self: { id?: string; by?: string } = {}): string {
   const { dateStr, timeStr, now } = getPanamaDate(); const vault = getVaultPath();
   const fichas = candidateLines(text, text.length > 300 ? 60 : 18);
   const ids = new Set(fichas.map(l => l.split(' | ')[0]));
@@ -167,6 +169,7 @@ function contextBlock(text: string): string {
   return [en ? `TODAY: ${day} ${dateStr}, ${timeStr} (Panama time). Year ${now.getFullYear()}.` : `HOY: ${day} ${dateStr}, ${timeStr} (hora de Panamá). Año ${now.getFullYear()}.`,
     (en ? `NOTES THAT MAY MATCH (id | name | type):\n` : `FICHAS QUE PUEDEN SER (id | nombre | tipo):\n`) + (fichas.join('\n') || (en ? '(none match; use buscar)' : '(ninguna coincide; usa buscar)')),
     ambigNote(text),
+    recallBlock(vault, text, { selfId: self.id, by: self.by }),
     tasks.length ? (en ? `OPEN TASKS OF THOSE NOTES (id | title | due | note):\n` : `TAREAS ABIERTAS DE ESAS FICHAS (id | título | vence | ficha):\n`) + tasks.join('\n') : '',
     related.length ? (en ? `OPEN TASKS ABOUT THE SAME TOPIC (id | title | due | note):\n` : `TAREAS ABIERTAS SOBRE EL MISMO TEMA (id | título | vence | ficha):\n`) + related.join('\n') : '', events.length ? (en ? `UPCOMING AGENDA (title | date | type):\n` : `AGENDA PRÓXIMA (título | fecha | tipo):\n`) + events.join('\n') : ''].filter(Boolean).join('\n\n');
 }
@@ -418,7 +421,7 @@ export async function pedirVarios(input: { text: string; deep?: boolean; dryRun?
   const vault = getVaultPath(); const text = String(input.text || '').trim();
   const md = String(input.md || '').trim();
   // Sin expediente y hace falta: primero se pide (un solo caso); con expediente, se parte por temas leyendo también el MD.
-  const wait = !md && isAgent() && needsExpediente(text);
+  const wait = false; // el Cerebro arma su propio expediente: el agente ya no es devuelto por no mandar MD
   const topics = wait || input.replaces || CORRECTION.test(text) ? [text] : await splitTopics(vault, md ? `${text}\n\nEXPEDIENTE (datos de todos los temas):\n${md}` : text);
   if (topics.length < 2) return { multi: false, one: await pedir(input) };
   return { multi: true, ...(await runParts(vault, topics, { deep: input.deep, dryRun: input.dryRun, md, order: text })) };
@@ -457,14 +460,6 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
   base.expediente = exp();
   if (!leer && !dialog.length) {
     const asks = preAsk(vault, text, md); const ask = asks.length ? ` ${asks.map((x, i) => `${i + 1}) ${x}`).join(' ')}` : '';
-    // El agente que trae información de afuera o un pedido largo debe mandar el expediente: sin él, el Cerebro espera.
-    if (!md && isAgent() && !input.sub && needsExpediente(shown)) {
-      const plantilla = detectTemplate(shown);
-      let known: string[] = []; try { known = peopleMentioned(shown).map(p => `${p.title} (${p.id})`); } catch {}
-      const plantillaMd = templateMd(plantilla, { pedido: shown, quien: base.by, known });
-      const q = tr(`Recibido. Antes de seguir, mándame el expediente de este caso: fuente, qué verificaste, qué confirmó tu persona y qué no sabes. Te dejo la plantilla «${plantilla}» en «expediente.plantillaMd», ya con lo que entendí: complétala y envíala en «md» con responder. Si no tienes más datos, responde «no tengo más» y sigo con lo que hay.${ask ? ` Además contesta:${ask}` : ''}`, `Received. Before going on, send me the case file: source, what you verified, what your person confirmed and what you do not know. The “${plantilla}” template is in “expediente.plantillaMd”, already filled with what I understood: complete it and send it in “md” with responder. If you have no more data, answer “I do not have more” and I will go on with what there is.${ask ? ` Also: ${ask}` : ''}`);
-      return done({ status: 'pregunta', message: q, dialog: [{ q }], faltan: asks, expediente: { versiones: 0, pedido: true, plantilla, plantillaMd } });
-    }
     if (asks.length) { const q = askText(asks); return done({ status: 'pregunta', message: q, dialog: [{ q }], faltan: asks }); }
   }
   if (!llmConfigured()) return done({ message: tr('El Cerebro todavía no tiene modelo: falta OLLAMA_API_KEY en Render.', 'The Brain has no model yet: OLLAMA_API_KEY is missing in Render.') });
@@ -473,7 +468,7 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
   const heavy = full.length > 2500 || (full.match(/\b\d{1,2}:\d{2}\b/g) || []).length >= 4; // textos largos o itinerarios con muchas horas
   let model = input.deep || !!input.second || heavy || (isAgent() && !input.sub && full.length > 200) ? s.models.grande : s.models.rapido;
   const tools = [...toolDefs(), ...META];
-  const messages: ChatMessage[] = [{ role: 'system', content: systemFor(replyLang(), leer) }, { role: 'user', content: `${contextBlock(talk ? `${full}\n${dialog.map(d => d.a || '').join('\n')}` : full)}\n\n${leer ? tr('TEXTO PARA LEER Y EXTRAER, ENVIADO POR', 'TEXT TO READ AND EXTRACT, SENT BY') : tr('PEDIDO DE', 'REQUEST FROM')} ${base.by.toUpperCase()}:\n"""\n${full.slice(0, 60000)}\n"""${review}${talk ? `\n\n${tr('CONVERSACIÓN', 'CONVERSATION')}:\n${talk}` : ''}${replyLang() === 'en' ? '\n\nLANGUAGE: write every text you produce in English.' : ''}` }];
+  const messages: ChatMessage[] = [{ role: 'system', content: systemFor(replyLang(), leer) }, { role: 'user', content: `${contextBlock(talk ? `${full}\n${dialog.map(d => d.a || '').join('\n')}` : full, { id: caseId, by: base.by })}\n\n${leer ? tr('TEXTO PARA LEER Y EXTRAER, ENVIADO POR', 'TEXT TO READ AND EXTRACT, SENT BY') : tr('PEDIDO DE', 'REQUEST FROM')} ${base.by.toUpperCase()}:\n"""\n${full.slice(0, 60000)}\n"""${review}${talk ? `\n\n${tr('CONVERSACIÓN', 'CONVERSATION')}:\n${talk}` : ''}${replyLang() === 'en' ? '\n\nLANGUAGE: write every text you produce in English.' : ''}` }];
   let inTok = 0, outTok = 0, ms = 0, rounds = 0, repaired = false, gapTried = false, nudged = false, ops: Op[] = [], errors: string[] = [], supuso: string[] = [];
   const stats = () => ({ model, inputTokens: inTok, outputTokens: outTok, ms, rounds });
   // Una sola ronda de preguntas: la primera vez se pregunta; si ya hubo ronda, el Cerebro debe seguir con lo seguro, y si no puede, cierra sin cambios.

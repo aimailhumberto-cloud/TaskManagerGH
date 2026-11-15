@@ -12,6 +12,7 @@ import { listReview, closeReview } from '@/lib/cerebro/review';
 import { actorLabel } from '@/lib/actor';
 import { chatTurn, loadChat, resetChat, chatRequests, quickIntent } from '@/lib/cerebro/chat';
 import { consultIsRequest } from '@/lib/cerebro/intake';
+import { caseNoteRel } from '@/lib/cerebro/casenote';
 import { configuredProvider } from '@/lib/decisionEngine';
 import { withLang, tr, tw, replyLang, asLang, detectLang, type Lang } from '@/lib/reqLang';
 export const dynamic = 'force-dynamic';
@@ -59,7 +60,7 @@ function caseExtras(vault: string, r?: CerebroRequest, dry = false) {
   const expedienteMd = r && caso ? `${readExpediente(vault, r.id) || autoExpediente(r)}\n\n## ${tr('El Cerebro', 'The Brain')}\n${caso.texto}\n` : undefined;
   const news = caseNews(vault).filter(x => x.id !== r?.id); const open = openCases(vault).filter(x => x.id !== r?.id);
   const fu = followUp(vault, isAgent());
-  return { ...(isAgent() ? { guia: '/api/agent/cerebro?guia=1' } : {}), ...(caso ? { caso, next: caso.ahora, expedienteMd } : {}), ...(fu ? { seguimiento: fu } : {}), abiertos: open.map(caseLine), ...(news.length ? { novedades: news.map(x => caseOf(x, { canApprove: may }).texto) } : {}) };
+  return { ...(isAgent() ? { guia: '/api/agent/cerebro?guia=1' } : {}), ...(caso ? { caso, next: caso.ahora, expedienteMd, notaDelCaso: caseNoteRel(r!.id) } : {}), ...(fu ? { seguimiento: fu } : {}), abiertos: open.map(caseLine), ...(news.length ? { novedades: news.map(x => caseOf(x, { canApprove: may }).texto) } : {}) };
 }
 /** El mensaje que lee el agente empieza por el estado del caso; cerrado o abierto se dice siempre. */
 const sayCase = (r: CerebroRequest, dry = false) => dry ? r.message : `${caseOf(r, { canApprove: canDecide().ok }).texto}${r.status === 'pendiente' || r.status === 'aplicado' || r.status === 'pregunta' ? '' : r.message ? ` ${r.message}` : ''}`;

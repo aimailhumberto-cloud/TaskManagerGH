@@ -203,7 +203,7 @@ export function untrackedSince(vaultPath: string, since: string, entries: Journa
   const out: { path: string; mtime: string }[] = [];
   const t = Date.parse(since) || 0, v = path.resolve(vaultPath);
   const walk = (d: string) => { let list: fs.Dirent[] = []; try { list = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
-    for (const e of list) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (e.name.endsWith('.md')) { const st = fs.statSync(p); const rel = path.relative(v, p).split(path.sep).join('/'); if (st.mtimeMs > t && !known.has(rel)) out.push({ path: rel, mtime: st.mtime.toISOString() }); } } };
+    for (const e of list) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else if (e.name.endsWith('.md') && !e.name.startsWith('caso-')) { const st = fs.statSync(p); const rel = path.relative(v, p).split(path.sep).join('/'); if (st.mtimeMs > t && !known.has(rel)) out.push({ path: rel, mtime: st.mtime.toISOString() }); } } };
   walk(v);
   return out.sort((a, b) => b.mtime.localeCompare(a.mtime)).slice(0, 100);
 }

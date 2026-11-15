@@ -283,6 +283,8 @@ function getAllMarkdownFiles(dir: string): string[] {
     if (entry.isDirectory()) {
       files = files.concat(getAllMarkdownFiles(fullPath));
     } else if (entry.isFile() && entry.name.endsWith('.md')) {
+      // Las notas vivas de los casos del Cerebro (00-Working-Memory/caso-*.md) son su memoria propia: ni burbujas en el mapa ni tareas ni agenda.
+      if (entry.name.startsWith('caso-') && path.basename(dir) === '00-Working-Memory') continue;
       files.push(fullPath);
     }
   }
