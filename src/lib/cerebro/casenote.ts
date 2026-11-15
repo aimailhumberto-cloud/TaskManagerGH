@@ -30,6 +30,7 @@ export function writeCaseNote(vault: string, r: CerebroRequest): void {
     const list = (h: string, a: string[]) => (a.length ? [`## ${h}`, ...a.map(x => `- ${oneLine(x, 400)}`), ''] : []);
     const body = [
       `# ${fm.title}`, '', `**${tr('Estado', 'Status')}:** ${caso.texto}`, '',
+      ...(r.relacionado?.length ? [`**${tr('Podría continuar', 'May continue')}:** ${r.relacionado.map(id => `[[${CASE_PREFIX}${id}]]`).join(', ')}`, ''] : []),
       `## ${tr('Pedido', 'Request')}`, r.text.slice(0, 4000), '',
       ...list(tr('Guardado', 'Saved'), caso.guardado), ...list(tr('Esperando aprobación', 'Waiting for approval'), caso.esperando),
       ...list(tr('Por confirmar', 'To confirm'), caso.porConfirmar), ...list(tr('No guardado', 'Not saved'), caso.noGuardado),

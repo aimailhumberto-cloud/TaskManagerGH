@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withBrain } from '@/lib/brains';
 import { currentBrain } from '@/lib/brainContext';
-import { pedir, pedirVarios, responder, consultar, decidir, listRequests, usageSummary, canDecide, openCases, caseNews, followUp, cancelar, advanceStale, findRepeat, type CerebroRequest } from '@/lib/cerebro/engine';
+import { pedir, pedirVarios, responder, consultar, decidir, listRequests, usageSummary, canDecide, openCases, caseNews, followUp, cancelar, advanceStale, findRepeat, continuaCaso, type CerebroRequest } from '@/lib/cerebro/engine';
 import { caseOf, caseLine } from '@/lib/cerebro/cases';
 import { agentGuide } from '@/lib/cerebro/guide';
 import { readExpediente, templateList, templateMd, autoExpediente } from '@/lib/cerebro/expediente';
@@ -111,11 +111,23 @@ async function postInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: a
     b = { ...b, text: String(b.text || b.q || '') }; action = 'pedir';
     arreglos.push(tr('Tu «consultar» traía un pedido para guardar; lo traté como «pedir».', 'Your “consultar” carried a request to save; I treated it as “pedir”.'));
   }
+  let relacionado: string[] | undefined;
+  if (isAgent() && action === 'pedir' && !b.dryRun && !(b.reemplaza || b.replaces) && !(typeof (b.md ?? b.expediente) === 'string' && String(b.md ?? b.expediente).trim())) {
+    // Continuidad: un mensaje sin id puede ser la respuesta a lo que el Cerebro preguntó. Si lo es, se contesta ese caso; si es dudoso, se enlaza.
+    const c = continuaCaso(ctx.vaultPath, String(b.text || ''));
+    if (c.id) { b = { ...b, id: c.id }; action = 'responder'; arreglos.push(tr(`Tu mensaje no traía id; lo tomé como la respuesta al caso ${c.id} (${c.why}).`, `Your message had no id; I took it as the answer to case ${c.id} (${c.why}).`)); }
+    else if (c.candidates.length) { relacionado = c.candidates.slice(0, 3).map(x => x.id); arreglos.push(tr(`Podría continuar el caso ${relacionado.join(', ')} (${c.why}); abrí uno nuevo enlazado. Si era la respuesta, contéstalo con {action:'responder', id, text}.`, `It might continue case ${relacionado.join(', ')} (${c.why}); I opened a new linked one. If it was the answer, reply with {action:'responder', id, text}.`)); }
+  }
+  if (action === 'responder' && !listRequests(ctx.vaultPath).some(x => x.id === String(b.id || ''))) {
+    const c = continuaCaso(ctx.vaultPath, String(b.text || ''), { loose: true });
+    if (c.id) { b = { ...b, id: c.id }; arreglos.push(tr(`Tu respuesta no traía un id válido; la apliqué al caso ${c.id} (${c.why}).`, `Your answer had no valid id; I applied it to case ${c.id} (${c.why}).`)); }
+    else return NextResponse.json({ ok: false, error: tr('No sé a cuál caso responde esto. Manda el id del caso. Estos esperan respuesta: ', 'I do not know which case this answers. Send the case id. These are waiting for an answer: ') + (c.candidates.map(x => x.id).join(', ') || tr('ninguno', 'none')), abiertos: openCases(ctx.vaultPath).map(caseLine), entrada: { recibi, arreglos } }, { status: 409 });
+  }
   if (action === 'pedir' && !b.dryRun && !(b.reemplaza || b.replaces)) {
     const rep = findRepeat(ctx.vaultPath, String(b.text || '').trim());
     if (rep) return NextResponse.json({ ...rep, ok: true, repeated: true, ...caseExtras(ctx.vaultPath, rep), message: tr('Ya había recibido esto: es el caso que sigue abierto. No abrí otro. ', 'I had already received this: it is the case still open. I did not open another. ') + sayCase(rep), entrada: { recibi, arreglos } });
   }
-  const res = await postCore(ctx, b, action);
+  const res = await postCore(ctx, relacionado ? { ...b, _relacionado: relacionado } : b, action);
   if (!arreglos.length || !(res.headers.get('content-type') || '').includes('json')) return res;
   try { const j = await res.clone().json(); if (j && typeof j === 'object' && !Array.isArray(j)) return NextResponse.json({ ...j, entrada: { recibi, arreglos } }, { status: res.status }); } catch {}
   return res;
@@ -146,7 +158,7 @@ async function postCore(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: an
     if (text.length > 60000) return bad(tr('El pedido es demasiado largo (máximo 60 000 caracteres). Divídelo.', 'The request is too long (60,000 characters maximum). Split it.'), 413);
     const replaces = typeof (b.reemplaza || b.replaces) === 'string' ? String(b.reemplaza || b.replaces) : undefined;
     if (action === 'pedir') {
-      const v = await pedirVarios({ text, deep: b.deep === true, dryRun: b.dryRun === true, replaces, md: typeof (b.md ?? b.expediente) === 'string' ? String(b.md ?? b.expediente) : undefined });
+      const v = await pedirVarios({ relacionado: (b as any)._relacionado, text, deep: b.deep === true, dryRun: b.dryRun === true, replaces, md: typeof (b.md ?? b.expediente) === 'string' ? String(b.md ?? b.expediente) : undefined });
       if (v.multi) return NextResponse.json({ ok: true, multi: true, status: 'varios', id: v.parts[0].id, parts: v.parts.map(p => ({ ...p, ...caseExtras(ctx.vaultPath, p, true), message: sayCase(p, b.dryRun === true) })), message: v.message, ...(b.dryRun === true ? {} : caseExtras(ctx.vaultPath)), next: tr('Cada tema es un pedido aparte: mira «parts» y sigue con el id de cada uno (responder, aprobar).', 'Each topic is a separate request: see “parts” and continue with each id (responder, aprobar).') });
       return NextResponse.json({ ...v.one, ok: httpOf(v.one.status) < 400, ...caseExtras(ctx.vaultPath, v.one, b.dryRun === true), message: sayCase(v.one, b.dryRun === true) }, { status: httpOf(v.one.status) });
     }
