@@ -14,6 +14,8 @@ import { addDays, listEvents, mergedAgenda } from './agenda';
 import { listKpis } from './kpis';
 import { tr, replyLang } from './reqLang';
 import { originsOf, originText, sourceOf } from './cerebro/origin';
+import { displayTitle } from './titles';
+import { deriveOf, contactosDe, relationOrigin } from './cerebro/neighborhood';
 
 // ---------- Texto ----------
 export const norm = (s: unknown) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -23,8 +25,7 @@ const SYN: Record<string, string[]> = {
   trinidad: ['trinidad'], canada: ['canada'], panama: ['panama'], jamaica: ['jamaica'], distribuidor: ['distributor'], marca: ['brand'], mercado: ['market'], persona: ['person'], cliente: ['customer'],
 };
 export const words = (s: unknown) => norm(s).split(/[^a-z0-9]+/).filter(w => w.length >= 2 && !STOP.has(w));
-const PREFIX = /^(distributor|distribuidor|brand|marca|market|mercado|person|persona|dept|department|departamento|customer|cliente|working memory|routine|project|proyecto|core|role|channel|canal|organization|group|line|product line)\s*[:\-–·]\s*/i;
-export const displayTitle = (t: unknown) => String(t || '').replace(PREFIX, '').trim();
+export { displayTitle }; // vive en titles.ts para que el módulo de vecindario lo use sin depender de este archivo
 const TYPE_EN: Record<string, [string, string]> = { distributor: ['distributor', 'distributors'], brand: ['brand', 'brands'], market: ['market', 'markets'], customer: ['customer', 'customers'], person: ['person', 'people'], organization: ['organization', 'organizations'], department: ['department', 'departments'] };
 const TYPE_ES: Record<string, [string, string]> = { distributor: ['distribuidor', 'distribuidores'], brand: ['marca', 'marcas'], market: ['mercado', 'mercados'], customer: ['cliente', 'clientes'], person: ['persona', 'personas'], organization: ['organización', 'organizaciones'], project: ['proyecto', 'proyectos'], department: ['departamento', 'departamentos'], product_line: ['línea', 'líneas'], channel: ['canal', 'canales'], routine: ['rutina', 'rutinas'], core: ['casa matriz', 'casa matriz'], group: ['grupo', 'grupos'] };
 const TYPE_WORDS: Record<string, string> = { distribuidor: 'distributor', distribuidores: 'distributor', distributor: 'distributor', distributors: 'distributor', cliente: 'customer', clientes: 'customer', customer: 'customer', marca: 'brand', marcas: 'brand', proyecto: 'project', proyectos: 'project', canal: 'channel', canales: 'channel', mercado: 'market', mercados: 'market', contacto: 'person', contactos: 'person', persona: 'person', personas: 'person', gente: 'person', equipo: 'person' };
@@ -79,12 +80,10 @@ const cardOrigins = (fm: Record<string, any>): Record<string, string> | null => 
   for (const [label, key] of [[tr('cargo', 'role'), 'job_title'], [tr('correo', 'email'), 'email_primary'], [tr('teléfono', 'phone'), 'phone_mobile']] as const) { const s = sourceOf(fm, key); if (s) out[label] = originText(s, lang()); }
   return Object.keys(out).length ? out : null;
 };
-/** De dónde sale una conexión: el registro vive en la ficha desde la que se escribió (`from`) y apunta a `to`. */
-const relOrigin = (from: BrainNode, rel: string, to: BrainNode): string => {
-  const by = from.frontmatter?.relation_sources?.[rel]; if (!by || typeof by !== 'object') return '';
-  const want = norm(displayTitle(to.title));
-  for (const [k, e] of Object.entries(by)) { const name = norm(String(k).replace(/^\[\[|\]\]$/g, '').replace(/^[A-Za-z ]+ - /, '')); if (name && (name === want || name.includes(want) || want.includes(name))) return originText(e as any, lang()); }
-  return '';
+/** Lo que una persona hereda de su empresa (mercado, marcas…), en palabras. No está guardado en su ficha: se calcula al leer. */
+const derivadoDe = (id: string) => {
+  const d = deriveOf(id); if (!d) return null;
+  return { empresa: d.empresas.map(e => e.nombre), ...Object.fromEntries(Object.entries(d.grupos).map(([k, it]) => [k, it.map(i => i.nombre)])), nota: tr('derivado de su empresa; no está guardado en su ficha', 'derived from their company; not stored on their note') };
 };
 
 function parentOf(ix: Idx, n: BrainNode): string | null {
@@ -161,6 +160,9 @@ export function nodeContext(id: string) {
   return {
     node: { id: n.id, title: n.title, displayTitle: displayTitle(n.title), type: n.type, path: (detail as any).filePath, hash: (detail as any).hash, updated: updated(n), verification: verif(n), parent: parentOf(ix, n), frontmatter: cleanFrontmatter(n.frontmatter), body: n.body },
     origins: originsOf(n.frontmatter || {}, lang()),
+    // Entorno derivado (nada de esto se guarda en la ficha): lo que hereda de su empresa, y si es una empresa, las personas que cuelgan de ella con su papel.
+    derived: derivadoDe(n.id),
+    people: contactosDe(n.id),
     pointsTo: group(ix.out.get(n.id) || []),
     mentionedBy: group((ix.inn.get(n.id) || []).filter(e => !CATALOG.has(ix.byId.get(e.id)!.type))),
     mentionedByCatalog: (ix.inn.get(n.id) || []).filter(e => CATALOG.has(ix.byId.get(e.id)!.type)).length,
@@ -300,7 +302,7 @@ export function dossier(input: { q?: string; nodeIds?: string[]; size?: DossierS
 
   // Contactos: los de la ficha (direct_contacts) y las personas conectadas, primero las del núcleo.
   const contacts: any[] = []; const seen = new Set<string>();
-  const personCard = (p: BrainNode, extra: Record<string, unknown> = {}) => { const fm = p.frontmatter || {}; return { name: displayTitle(p.title), role: fm.job_title || null, of: fm.organization || null, email: fm.email_primary || null, phone: fm.phone_mobile || fm.phone_office_ext || null, whatsapp: fm.whatsapp || null, ...(cardOrigins(fm) ? { origen: cardOrigins(fm) } : {}), ...extra, ...src(p) }; };
+  const personCard = (p: BrainNode, extra: Record<string, unknown> = {}) => { const fm = p.frontmatter || {}; return { name: displayTitle(p.title), role: fm.job_title || null, of: fm.organization || null, email: fm.email_primary || null, phone: fm.phone_mobile || fm.phone_office_ext || null, whatsapp: fm.whatsapp || null, ...(cardOrigins(fm) ? { origen: cardOrigins(fm) } : {}), ...(derivadoDe(p.id) ? { derivado: derivadoDe(p.id) } : {}), ...extra, ...src(p) }; };
   for (const p of matched.filter(m => m.type === 'person')) { seen.add(p.id); contacts.push(personCard(p, { relation: 'es la persona buscada' })); }
   for (const n of primary.concat(matched)) {
     const dc = n.frontmatter?.direct_contacts;
@@ -309,7 +311,7 @@ export function dossier(input: { q?: string; nodeIds?: string[]; size?: DossierS
     }
     for (const e of neighbours(ix, n.id)) {
       const p = ix.byId.get(e.id)!; if (p.type !== 'person' || seen.has(p.id)) continue; seen.add(p.id);
-      const ro = e.dir === 'in' ? relOrigin(p, e.rel, n) : relOrigin(n, e.rel, p); // de dónde sale que esta persona está conectada así
+      const ro = e.dir === 'in' ? relationOrigin(p, e.rel, n) : relationOrigin(n, e.rel, p); // de dónde sale que esta persona está conectada así
       contacts.push(personCard(p, { of: p.frontmatter?.organization || displayTitle(n.title), relation: `${relLabel(e.rel)} · ${displayTitle(n.title)}`, ...(ro ? { relationOrigen: ro } : {}) }));
     }
   }

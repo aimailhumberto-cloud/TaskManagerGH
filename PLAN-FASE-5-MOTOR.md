@@ -8,11 +8,12 @@ Base: lectura completa de `src/lib/cerebro/*` (2.065 líneas), la ruta `/api/age
 - **5.0 Marcador: construida** (commit `cad0ae8`). Falta la línea base con modelos reales (no hay llaves aquí ni autorización de lectura de producción).
 - **5.1 Estructura única: construida, sin commitear.** `src/lib/cerebro/structure.ts` + `vault/00-System/estructura.yaml`. Pruebas: `npm run test:estructura` (50). Dos cambios respecto al plan:
   - El archivo es **`.yaml`, no `.md`**: así no se carga como ficha del mapa y el modelo no puede editarlo con `actualizar_campos`.
-  - La **inversa de cada relación se pospone a la 5.3**, donde se usa para derivar el vecindario; agregarla ahora sería un campo sin uso.
+  - La **inversa de cada relación se pospuso a la 5.3** (campo sin uso hasta entonces). Hecha en la 5.3: `inverse` en cada relación.
   - La bóveda de **producción no tiene el archivo todavía**: hasta que se copie, el motor usa los valores por defecto del código (idénticos; una prueba lo vigila). Copiarlo es un paso aparte que aprueba HB.
 
 - **5.0b Jev bien usado: construida** (commit `f2ee0c5`). `src/lib/cerebro/jev.ts` (movido desde `engine.ts`), `jevcal.ts`, `scripts/jev-calibracion.ts`. Pruebas: `npm run test:jev-uso` (55, con modelo y Jev simulados, incluido `pedir()` completo). Detalle abajo.
-- **5.2 Origen del dato: construida, sin commitear.** `src/lib/cerebro/origin.ts` + cableado en `ops.ts`, `review.ts`, `brainLens.ts`. Pruebas: `npm run test:origen` (65, incluido `pedir()` completo con el caso de Pierre). Detalle en la sección «Origen del dato».
+- **5.2 Origen del dato: construida** (commit `5939d1b`). `src/lib/cerebro/origin.ts` + cableado en `ops.ts`, `review.ts`, `brainLens.ts`. Pruebas: `npm run test:origen` (65, incluido `pedir()` completo con el caso de Pierre). Detalle en la sección «Origen del dato».
+- **5.3 Vecindario: construida, sin commitear.** `src/lib/cerebro/neighborhood.ts` (+ `src/lib/titles.ts`), reglas `derives` e `inverse` en la estructura, cableado en `engine.ts` y `brainLens.ts`. Pruebas: `npm run test:vecindario` (63, incluido `pedir()` completo). Detalle en la sección «Vecindario».
 
 ## Papel de Jev (auditoría y reglas)
 
@@ -56,6 +57,22 @@ Jev se usa en cuatro sitios: el motor (¿el plan refleja el pedido?, ¿lo nuevo 
 **Defecto de prueba (no de producto) hallado:** `upsertNode` copia cada ficha nueva a `<cwd>/vault` (la bóveda empaquetada del repo) cuando es el cerebro principal. Las pruebas que crean fichas deben correr con el directorio de trabajo en su carpeta temporal; `test:origen` lo hace y comprueba que no deja nada en el repo.
 
 **Lo que no hace:** no reescribe fichas existentes para agregarles origen (solo lo que se escriba desde ahora), no cambia la interfaz del mapa (la ficha expone el origen por la API; mostrarlo en pantalla es un paso aparte) y no se probó con un modelo real: que el modelo ponga bien `clase` y `fuente` lo mide el caso 12 del banco cuando se corra.
+
+## Vecindario (etapa 5.3)
+
+**Qué resuelve.** El modelo veía de cada ficha solo `id | nombre | tipo`: no sabía que MEDIMEX opera en Panamá, lleva tres marcas y tiene contactos, así que no podía conectar bien a una persona nueva ni evitar duplicados. Y para que Pierre «apareciera bajo MEDIMEX con Panamá y sus marcas» habría que copiarle esos enlaces a mano.
+
+- **Un enlace verdadero; lo demás se deriva al leer.** Pierre se conecta a MEDIMEX (dueño, según HB). Su mercado y sus marcas **salen de MEDIMEX** al leer y no se guardan en su ficha: si se copiaran, quedarían viejos cuando MEDIMEX cambie.
+- **Qué se hereda lo dice la estructura, no el código.** `derives` en `00-System/estructura.yaml`: persona → empresa (por `works_at`, `contact_of`, `owner_of`, `key_person_of`) hereda `mercados` y `marcas`. Cuentan también los nombres que la bóveda ya usa (`market_jurisdiction`, `assigned_brands`, `sells_brands`, y los alias `belongs_to_market`, `carries_brands`). **No** cuentan `references` (menciones automáticas del texto) ni `signature_company` (firmas de correo). Sin la sección se usan los valores por defecto; `derives: []` la apaga. Una regla mal escrita rechaza todo el archivo (como en la 5.1).
+- **`inverse` en cada relación:** cómo se llama el que escribe la relación visto desde el otro lado (`owner_of` → «dueño»), para listar en la empresa «Pierre — dueño, según HB».
+- **El modelo recibe una tarjeta por ficha reconocida** (hasta 8, tope de 3.600 caracteres): datos clave (los que la estructura declara para su tipo, con su clase de origen), conexiones a un paso, contactos con su papel y lo que hereda. Para una empresa el orden es mercado, marcas y después personas; para una persona, su empresa primero. Cada pareja escrita de ida y de vuelta se cuenta una vez. El bloque de reglas del modelo agrega «SE HEREDA, NO SE CONECTA».
+- **Lectura:** `nodeContext` expone `derived` (lo que hereda, diciendo que no está guardado) y `people` (si es una empresa, quién cuelga de ella y con qué papel); los contactos de una consulta traen `derivado`, y el Cerebro debe decirlo «a través de la empresa».
+- **Datos reales (bóveda del repo):** Aisha, Ángelo y Luisa, conectados a SanCas (Belize), heredan Belize y sus cuatro marcas sin que nadie las copiara. Solo 6 de 64 personas tienen enlace a una empresa; el resto no hereda nada hasta que se conecte.
+- **Costo:** unos 21 ms por pedido (recorre el grafo) y hasta ~900 tokens más en el contexto del modelo.
+
+**Defectos de mi propio trabajo que halló la prueba:** (1) el recorte de la tarjeta de MEDIMEX botaba su mercado y sus marcas porque las personas iban primero; (2) la misma pareja salía dos veces; (3) el estado de verificación, a veces una frase entera en esta bóveda, ensuciaba la tarjeta. La mutación del orden no la detectaba ninguna prueba hasta que agregué el caso de una empresa con 12 personas.
+
+**Lo que no hace:** no toca la pantalla del mapa ni cómo se decide el «padre» de una ficha (`parentOf`): eso es de `src/app/cerebro/*` y del hilo del mapa, y **Pierre aparece en el vecindario de MEDIMEX por su enlace de dueño pero no está verificado en pantalla**. La API ya entrega `derived` y `people` para que el mapa los pinte. Tampoco conecta nada por su cuenta ni reescribe fichas.
 
 ## 1. Cómo funciona hoy
 

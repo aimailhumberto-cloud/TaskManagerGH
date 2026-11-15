@@ -40,7 +40,17 @@ export interface RelationDef {
   to?: string[];
   /** Para qué sirve, en una frase (se le muestra al modelo). */
   desc?: string;
+  /** Cómo se llama el que ESCRIBE la relación, visto desde la ficha a la que apunta: owner_of → «dueño» (en la ficha de la empresa: «Pierre — dueño»). */
+  inverse?: string;
 }
+/** Un grupo de lo que se hereda: qué tipo de ficha y por cuáles relaciones (los nombres viejos que usa la bóveda también cuentan). */
+export interface DeriveGroup { type: string; rels: string[] }
+/**
+ * Lo que una ficha HEREDA de la empresa a la que está conectada, y se calcula al leer (no se guarda en la ficha):
+ * una persona conectada a MEDIMEX (por works_at, contact_of, owner_of o key_person_of) hereda sus mercados y sus marcas.
+ * Así nadie copia enlaces que se vuelven viejos cuando la empresa cambia.
+ */
+export interface DeriveRule { from: string[]; through: string[]; to: string[]; take: Record<string, DeriveGroup> }
 export interface Structure {
   version: number;
   types: Record<string, TypeDef>;
@@ -49,6 +59,8 @@ export interface Structure {
   aliases: Record<string, string>;
   /** Campos estándar que valen en cualquier tipo (estado y fechas de alta y baja). */
   commonFields: string[];
+  /** Lo que se hereda al leer (ver DeriveRule). */
+  derives: DeriveRule[];
 }
 export type StructureSource = 'archivo' | 'ultima_buena' | 'defecto';
 export interface Loaded { s: Structure; source: StructureSource; errors: string[]; hash: string }
@@ -78,21 +90,25 @@ export const DEFAULT_STRUCTURE: Structure = {
     routine: type('04-Operations-Routines', 'Routine', 'routine'),
   },
   relations: {
-    belongs_to: { desc: 'pertenece a (departamento, línea, grupo)' },
-    reports_to: { desc: 'reporta a (jerarquía de personas)' },
-    works_at: { desc: 'trabaja en (empresa o departamento)' },
-    operates_in_market: { desc: 'opera en un mercado' },
-    carries_brand: { desc: 'lleva o distribuye una marca' },
-    distributed_by: { desc: 'lo distribuye' },
-    supplies_client: { desc: 'abastece a un cliente' },
-    contact_of: { desc: 'es contacto de una empresa' },
-    coordinates_with: { desc: 'coordina con' },
-    related_to: { desc: 'relación general, cuando ninguna otra aplica' },
-    owner_of: { from: ['person'], to: COMPANY_TYPES, desc: 'es dueño o socio de una empresa' },
-    key_person_of: { from: ['person'], to: COMPANY_TYPES, desc: 'persona clave o decisora de una empresa (sin ser dueño)' },
+    belongs_to: { desc: 'pertenece a (departamento, línea, grupo)', inverse: 'miembro' },
+    reports_to: { desc: 'reporta a (jerarquía de personas)', inverse: 'subordinado' },
+    works_at: { desc: 'trabaja en (empresa o departamento)', inverse: 'trabaja aquí' },
+    operates_in_market: { desc: 'opera en un mercado', inverse: 'opera aquí' },
+    carries_brand: { desc: 'lleva o distribuye una marca', inverse: 'la lleva' },
+    distributed_by: { desc: 'lo distribuye', inverse: 'marca que distribuye' },
+    supplies_client: { desc: 'abastece a un cliente', inverse: 'proveedor' },
+    contact_of: { desc: 'es contacto de una empresa', inverse: 'contacto' },
+    coordinates_with: { desc: 'coordina con', inverse: 'coordina' },
+    related_to: { desc: 'relación general, cuando ninguna otra aplica', inverse: 'relacionado' },
+    owner_of: { from: ['person'], to: COMPANY_TYPES, desc: 'es dueño o socio de una empresa', inverse: 'dueño' },
+    key_person_of: { from: ['person'], to: COMPANY_TYPES, desc: 'persona clave o decisora de una empresa (sin ser dueño)', inverse: 'persona clave' },
   },
   aliases: { belongs_to_market: 'operates_in_market', carries_brands: 'carries_brand', collaborates_with: 'coordinates_with', professional_contact_of: 'contact_of' },
   commonFields: ['status', 'end_date', 'start_date', 'inactive_reason', 'is_active'],
+  // Una persona conectada a una empresa hereda su mercado y sus marcas (al leer). Se cuentan también los nombres que la bóveda ya usa
+  // (market_jurisdiction, assigned_brands, sells_brands: filiales y clientes). No se cuentan «references» (menciones en el texto) ni «signature_company» (firmas de correo).
+  derives: [{ from: ['person'], through: ['works_at', 'contact_of', 'owner_of', 'key_person_of'], to: COMPANY_TYPES,
+    take: { mercados: { type: 'market', rels: ['operates_in_market', 'market_jurisdiction'] }, marcas: { type: 'brand', rels: ['carries_brand', 'assigned_brands', 'sells_brands'] } } }],
 };
 
 // ---------- Validación ----------
@@ -147,6 +163,7 @@ export function validateStructure(raw: unknown): { ok: true; s: Structure } | { 
       const bad = a.filter(x => !known(x)); if (bad.length) errors.push(`Relación «${k}»: «${side}» nombra tipos que no existen (${bad.join(', ')}).`); else d[side] = [...new Set(a)];
     }
     if (o.desc !== undefined) { if (typeof o.desc !== 'string' || o.desc.length > 200) errors.push(`Relación «${k}»: «desc» debe ser un texto corto.`); else d.desc = o.desc; }
+    if (o.inverse !== undefined) { if (typeof o.inverse !== 'string' || !o.inverse.trim() || o.inverse.length > 60 || /[\r\n]/.test(o.inverse)) errors.push(`Relación «${k}»: «inverse» debe ser una frase corta de una línea (hasta 60 caracteres).`); else d.inverse = o.inverse.trim(); }
     relations[k] = d;
   }
   for (const k of Object.keys(D.relations)) if (!(k in rr)) errors.push(`Falta la relación «${k}»: el motor la usa y no se puede quitar.`);
@@ -162,9 +179,33 @@ export function validateStructure(raw: unknown): { ok: true; s: Structure } | { 
   }
   let commonFields = D.commonFields;
   if (raw.commonFields !== undefined) { const f = fieldsOk(raw.commonFields, 'commonFields'); commonFields = [...new Set([...D.commonFields, ...f])]; }
+  // Lo que se hereda de la empresa. Sin «derives» en el archivo: los valores por defecto (para que un archivo viejo no apague la función). «derives: []» la apaga.
+  let derives: DeriveRule[] = D.derives;
+  if (raw.derives !== undefined) {
+    derives = [];
+    if (raw.derives !== null && !Array.isArray(raw.derives)) errors.push('«derives» debe ser una lista de reglas (puede ir vacía).');
+    else if (Array.isArray(raw.derives)) {
+      if (raw.derives.length > 20) errors.push('Demasiadas reglas en «derives» (máximo 20).');
+      const typeList = (a: unknown, side: string, where: string): string[] | null => { const x = strs(a); if (!x || !x.length || x.length > 20) { errors.push(`${where}: «${side}» debe ser una lista de tipos.`); return null; } const bad = x.filter(y => !known(y)); if (bad.length) { errors.push(`${where}: «${side}» nombra tipos que no existen (${bad.join(', ')}).`); return null; } return [...new Set(x)]; };
+      const relList = (a: unknown, side: string, where: string): string[] | null => { const x = strs(a); if (!x || !x.length || x.length > 30 || x.some(n => !NAME.test(n))) { errors.push(`${where}: «${side}» debe ser una lista de nombres de relación (minúsculas, números y _).`); return null; } return [...new Set(x)]; };
+      raw.derives.forEach((r: unknown, i: number) => {
+        const where = `Regla de herencia #${i + 1}`;
+        if (!isObj(r)) { errors.push(`${where}: debe ser un objeto (from, through, to, take).`); return; }
+        const from = typeList(r.from, 'from', where), to = typeList(r.to, 'to', where), through = relList(r.through, 'through', where);
+        if (!isObj(r.take) || !Object.keys(r.take).length || Object.keys(r.take).length > 8) { errors.push(`${where}: «take» debe ser un objeto de 1 a 8 grupos.`); return; }
+        const take: Record<string, DeriveGroup> = {};
+        for (const [gk, gv] of Object.entries(r.take)) {
+          if (!NAME.test(gk)) { errors.push(`${where}: el nombre del grupo «${gk}» debe ir en minúsculas, números y _.`); continue; }
+          if (!isObj(gv) || typeof gv.type !== 'string' || !known(gv.type)) { errors.push(`${where}: el grupo «${gk}» necesita un «type» que exista.`); continue; }
+          const rl = relList(gv.rels, `take.${gk}.rels`, where); if (rl) take[gk] = { type: gv.type, rels: rl };
+        }
+        if (from && to && through && Object.keys(take).length) derives.push({ from, through, to, take });
+      });
+    }
+  }
   const version = typeof raw.version === 'number' && raw.version >= 1 ? Math.floor(raw.version) : 1;
   if (errors.length) return { ok: false, errors };
-  return { ok: true, s: { version, types, relations, aliases, commonFields } };
+  return { ok: true, s: { version, types, relations, aliases, commonFields, derives } };
 }
 
 // ---------- Carga ----------
@@ -235,7 +276,8 @@ export function structureBlock(): string {
     `${tr('Tipos que puedes crear y sus campos conocidos', 'Types you can create and their known fields')}: ${types}.`,
     `${tr('Relaciones', 'Relations')}:\n- ${rels}`,
     `${tr('Campos válidos en cualquier ficha', 'Fields valid in any note')}: ${s.commonFields.join(', ')}.`,
-    old ? `${tr('Nombres viejos de relación (se guardan con el vigente)', 'Old relation names (saved with the current one)')}: ${old}.` : ''].filter(Boolean).join('\n');
+    old ? `${tr('Nombres viejos de relación (se guardan con el vigente)', 'Old relation names (saved with the current one)')}: ${old}.` : '',
+    ...s.derives.map(r => tr(`SE HEREDA, NO SE CONECTA: ${r.from.join('/')} conectadas a ${r.to.join('/')} (por ${r.through.join(', ')}) heredan de esa empresa ${Object.keys(r.take).join(' y ')}. Se calculan al leer; no los conectes a mano en la ficha de la persona.`, `INHERITED, NOT CONNECTED: ${r.from.join('/')} connected to ${r.to.join('/')} (by ${r.through.join(', ')}) inherit from that company ${Object.keys(r.take).join(' and ')}. They are computed when reading; do not connect them by hand on the person's note.`))].filter(Boolean).join('\n');
 }
 /** ¿La estructura por defecto y un archivo ya leído son iguales? (la prueba de que el archivo del repo no se desfasa del código). */
 export const sameAsDefault = (s: Structure) => isDeepStrictEqual(s, DEFAULT_STRUCTURE);

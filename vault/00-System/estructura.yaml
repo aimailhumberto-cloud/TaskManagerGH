@@ -66,18 +66,18 @@ types:
 
 relations:
   # from / to: entre qué tipos se puede escribir (sin esto: entre cualquiera). desc: lo que se le dice al modelo.
-  belongs_to: { desc: "pertenece a (departamento, línea, grupo)" }
-  reports_to: { desc: "reporta a (jerarquía de personas)" }
-  works_at: { desc: "trabaja en (empresa o departamento)" }
-  operates_in_market: { desc: "opera en un mercado" }
-  carries_brand: { desc: "lleva o distribuye una marca" }
-  distributed_by: { desc: "lo distribuye" }
-  supplies_client: { desc: "abastece a un cliente" }
-  contact_of: { desc: "es contacto de una empresa" }
-  coordinates_with: { desc: "coordina con" }
-  related_to: { desc: "relación general, cuando ninguna otra aplica" }
-  owner_of: { from: [person], to: [organization, distributor, customer], desc: "es dueño o socio de una empresa" }
-  key_person_of: { from: [person], to: [organization, distributor, customer], desc: "persona clave o decisora de una empresa (sin ser dueño)" }
+  belongs_to: { desc: "pertenece a (departamento, línea, grupo)", inverse: "miembro" }
+  reports_to: { desc: "reporta a (jerarquía de personas)", inverse: "subordinado" }
+  works_at: { desc: "trabaja en (empresa o departamento)", inverse: "trabaja aquí" }
+  operates_in_market: { desc: "opera en un mercado", inverse: "opera aquí" }
+  carries_brand: { desc: "lleva o distribuye una marca", inverse: "la lleva" }
+  distributed_by: { desc: "lo distribuye", inverse: "marca que distribuye" }
+  supplies_client: { desc: "abastece a un cliente", inverse: "proveedor" }
+  contact_of: { desc: "es contacto de una empresa", inverse: "contacto" }
+  coordinates_with: { desc: "coordina con", inverse: "coordina" }
+  related_to: { desc: "relación general, cuando ninguna otra aplica", inverse: "relacionado" }
+  owner_of: { from: [person], to: [organization, distributor, customer], desc: "es dueño o socio de una empresa", inverse: "dueño" }
+  key_person_of: { from: [person], to: [organization, distributor, customer], desc: "persona clave o decisora de una empresa (sin ser dueño)", inverse: "persona clave" }
 
 # Nombres viejos de relación → el vigente. Lo que se escriba con el nombre viejo se guarda con el vigente.
 # Las fichas que ya usan el nombre viejo no se tocan.
@@ -89,3 +89,16 @@ aliases:
 
 # Campos que valen en cualquier tipo de ficha.
 commonFields: [status, end_date, start_date, inactive_reason, is_active]
+
+# Lo que una ficha HEREDA de la empresa a la que está conectada. Se calcula al leer: no se guarda en la ficha ni se conecta a mano
+# (así no queda un enlace viejo cuando la empresa cambia de marcas o de mercado).
+#   through: relaciones que unen a la persona con la empresa · take: qué se hereda (type = tipo de ficha; rels = por cuáles relaciones,
+#   incluidos los nombres viejos que la bóveda ya usa). No cuentan «references» (menciones en el texto) ni «signature_company» (firmas de correo).
+# Sin esta sección se usan los valores por defecto; «derives: []» la apaga.
+derives:
+  - from: [person]
+    through: [works_at, contact_of, owner_of, key_person_of]
+    to: [organization, distributor, customer]
+    take:
+      mercados: { type: market, rels: [operates_in_market, market_jurisdiction] }
+      marcas: { type: brand, rels: [carries_brand, assigned_brands, sells_brands] }
