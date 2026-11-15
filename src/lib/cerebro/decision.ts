@@ -33,7 +33,7 @@ export type WaitCategory =
 
 // ---------- Piezas (antes dentro de engine.ts) ----------
 /** Operaciones simples y reversibles: notas, tareas, agenda y datos de una ficha que ya existe. */
-const LOW_OPS = new Set(['registrar_novedad', 'crear_tarea', 'completar_tarea', 'reprogramar_tarea', 'agendar', 'cancelar_evento', 'actualizar_campos']);
+const LOW_OPS = new Set(['registrar_novedad', 'crear_tarea', 'completar_tarea', 'reprogramar_tarea', 'agendar', 'cancelar_evento', 'actualizar_campos', 'cambiar_nombre']);
 /**
  * Riesgo bajo: solo operaciones simples, sobre pocas fichas que ya existen, sin avisos fuertes y con el expediente completo.
  * En riesgo bajo, la duda de Jev no frena: se guarda, se avisa y se puede deshacer.

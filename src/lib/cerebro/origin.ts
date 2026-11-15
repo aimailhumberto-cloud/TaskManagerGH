@@ -38,6 +38,7 @@ export function checkOrigin(args: { clase?: unknown; fuente?: unknown }): string
     if (!(ORIGIN_CLASSES as readonly string[]).includes(c)) return `«clase» debe ser una de: ${ORIGIN_CLASSES.join(', ')}.`;
   }
   if (args.fuente !== undefined && args.fuente !== null && (typeof args.fuente !== 'string' || args.fuente.length > 300)) return '«fuente» debe ser un texto de hasta 300 caracteres.';
+  if (String(args.clase) === 'persona' && !String(args.fuente ?? '').trim()) return 'con «clase» persona, «fuente» es obligatoria: pon el nombre de quien lo dijo (el que pide), por ejemplo «HB».';
   return null;
 }
 const entry = (s: Stamp): SourceEntry => ({

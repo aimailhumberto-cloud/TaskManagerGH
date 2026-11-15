@@ -31,7 +31,7 @@ const PROTECTED = PROTECTED_FIELDS;
 /** Fichas con las que es un evento: la principal y las de «con», sin repetir. */
 export const linked = (a: any): string[] => [...new Set([a?.ficha, ...(Array.isArray(a?.con) ? a.con : typeof a?.con === 'string' && a.con ? a.con.split(/[,;]\s*/) : [])].map(x => String(x || '').trim()).filter(Boolean))];
 /** De dónde sale lo que se escribe. Va en las tres operaciones que escriben datos o conexiones; «verificado» no se puede poner por aquí. */
-const ORIGIN_PARAMS = { clase: `de dónde sale el dato; ponla siempre que la sepas: ${ORIGIN_HELP}`, fuente: 'quién lo dijo, o la dirección o el archivo de donde sale, en palabras (opcional)' };
+const ORIGIN_PARAMS = { clase: `de dónde sale el dato; ponla siempre que la sepas: ${ORIGIN_HELP}`, fuente: 'quién lo dijo, o la dirección o el archivo de donde sale, en palabras (obligatoria si la clase es persona: el nombre de quien lo dijo)' };
 export const MENU: Record<string, Def> = {
   registrar_novedad: { level: 'sola', desc: 'Anota en una ficha algo que pasó (correo, reunión, acuerdo, dato nuevo). Puede fijar el próximo paso, el último correo y el estado actual.', params: { ficha: 'id de la ficha', resumen: 'qué pasó, 1-2 frases', fecha: 'AAAA-MM-DD (opcional)', tipo: 'correo|reunion|llamada|acuerdo|nota', fuente: 'de dónde sale el dato', estado_actual: 'texto corto de lo que hoy es verdad (opcional)', proximo_paso_fecha: 'AAAA-MM-DD (opcional)', proximo_paso: 'texto (opcional)', correo_asunto: 'opcional', correo_fecha: 'opcional', correo_de: 'opcional' }, required: ['ficha', 'resumen'], touches: a => [a.ficha] },
   crear_tarea: { level: 'sola', desc: 'Crea una tarea en una ficha.', params: { ficha: 'id de la ficha', titulo: 'qué hay que hacer', vence: 'AAAA-MM-DD (opcional)', prioridad: 'High|Medium|Low' }, required: ['ficha', 'titulo'], touches: a => [a.ficha] },
@@ -41,6 +41,7 @@ export const MENU: Record<string, Def> = {
   cancelar_evento: { level: 'sola', desc: 'Quita un evento de la agenda.', params: { titulo: 'título exacto', fecha: 'AAAA-MM-DD' }, required: ['titulo', 'fecha'] },
   registrar_indicador: { level: 'sola', desc: 'Guarda el valor de un indicador (ventas, volumen…). Solo cifras que vengan en el pedido.', params: { nombre: 'nombre del indicador', valor: 'número', unidad: 'opcional', meta: 'número (opcional)', periodo: 'opcional', inicio: 'AAAA-MM-DD (opcional)', fin: 'AAAA-MM-DD (opcional)', arranque: 'valor de partida (opcional)', sentido: 'up|down (opcional; down si bajar es bueno)', nota: 'fuente de la cifra' }, required: ['nombre', 'valor'] },
   actualizar_campos: { level: 'sola', desc: 'Cambia datos de una ficha (teléfono, correo, cargo, ciudad…). No cambia identidad, permisos ni verificación.', params: { ficha: 'id de la ficha', campos: 'objeto {campo: valor}', ...ORIGIN_PARAMS }, required: ['ficha', 'campos'], touches: a => [a.ficha] },
+  cambiar_nombre: { level: 'sola', desc: 'Cambia cómo se llama una ficha en pantalla (el título visible) y su nombre preferido: un «Dr.», «Miss», «Ms.» o una grafía corregida. El nombre anterior queda como alias. No toca el nombre ni el apellido, ni el archivo ni el id. Se puede deshacer.', params: { ficha: 'id de la ficha', nombre: 'el nombre completo tal como debe verse, con su trato (ej. «Miss Ana Mohamed»)', ...ORIGIN_PARAMS }, required: ['ficha', 'nombre'], touches: a => [a.ficha] },
   conectar: { level: 'sola', desc: 'Conecta dos fichas. Las relaciones permitidas son las de la estructura vigente.', params: { desde: 'id de la ficha', hacia: 'id de la otra ficha', relacion: 'una de las permitidas', ...ORIGIN_PARAMS }, required: ['desde', 'hacia', 'relacion'], touches: a => [a.desde] },
   desconectar: { level: 'sola', desc: 'Quita una conexión entre dos fichas.', params: { desde: 'id', hacia: 'id', relacion: 'nombre de la relación' }, required: ['desde', 'hacia', 'relacion'], touches: a => [a.desde] },
   crear_ficha: { level: 'sola', desc: 'Crea una ficha nueva. Los tipos permitidos son los de la estructura vigente. Antes comprueba que no exista.', params: { tipo: 'tipo de ficha', nombre: 'nombre', campos: 'objeto con datos (opcional)', texto: 'descripción breve (opcional)', conectar_con: 'lista de {hacia, relacion} (opcional)', ...ORIGIN_PARAMS }, required: ['tipo', 'nombre'], creates: true },
@@ -57,6 +58,10 @@ const descOf = (name: string, d: Def): string => {
 };
 export const toolDefs = (): ToolDef[] => Object.entries(MENU).map(([name, d]) => ({ type: 'function', function: { name, description: descOf(name, d), parameters: { type: 'object', properties: Object.fromEntries(Object.entries(d.params).map(([k, v]) => [k, { type: k === 'campos' ? 'object' : k === 'conectar_con' || k === 'con' || k === 'campos_verificados' ? 'array' : k === 'valor' || k === 'meta' ? 'number' : 'string', description: v }])), required: d.required } } }));
 
+/** Un trato al principio de un nombre o apellido: eso va en el nombre visible, no en first_name / last_name. */
+const HONORIFIC = /^(dr|dra|doc|doctor|doctora|miss|ms|mrs|mr|mx|sr|sra|srta|sir|madam|prof|lic|ing|arq)\.?\s+\S/i;
+/** El nombre sin el prefijo del tipo: «Person: Dr. Aleem Mohammed» → «Dr. Aleem Mohammed». */
+const titleName = (t: unknown) => String(t || '').replace(/^[A-Za-z ]{2,24}:\s*/, '').trim();
 const nodeOk = (id: unknown) => { const r = resolveNodeFile(String(id || ''), true); return r.ok ? r.filePath : null; };
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
 const newId = (tipo: string, nombre: string) => `${structure().types[tipo]?.idPrefix}-${slug(nombre)}`;
@@ -87,8 +92,17 @@ export function validateOp(op: Op, created: Set<string> = new Set()): string | n
     if (!relationNames().includes(rel)) return tr(`conectar: la relación «${a.relacion}» no está permitida. Usa: ${relationNames().join(', ')}.`, `conectar: the relation “${a.relacion}” is not allowed. Use: ${relationNames().join(', ')}.`);
     const fit = relationFits(rel, typeOf(a.desde), typeOf(a.hacia)); if (fit) return `conectar: ${fit}.`;
   }
+  if (op.name === 'cambiar_nombre') {
+    const bad = checkOrigin(a); if (bad) return `cambiar_nombre: ${bad}`;
+    const nm = String(a.nombre || '').replace(/\s+/g, ' ').trim();
+    if (nm.length < 2 || nm.length > 80 || /[\r\n:\[\]]/.test(nm)) return tr('cambiar_nombre: «nombre» debe ser un nombre de 2 a 80 caracteres, sin saltos de línea, dos puntos ni corchetes.', 'cambiar_nombre: “nombre” must be a name of 2 to 80 characters, with no line breaks, colons or brackets.');
+    const n = (loadBrainGraph().allNodes || []).find(x => x.id === String(a.ficha));
+    if (n && ['core', 'working_memory', 'consolidation_session'].includes(n.type)) return tr(`cambiar_nombre: no se renombran las fichas de tipo ${n.type}.`, `cambiar_nombre: notes of type ${n.type} are not renamed.`);
+    if (n && titleName(n.title) === nm) return tr(`cambiar_nombre: la ficha ya se llama «${nm}».`, `cambiar_nombre: the note is already called “${nm}”.`);
+  }
   if (op.name === 'actualizar_campos') {
     if (!a.campos || typeof a.campos !== 'object' || Array.isArray(a.campos) || !Object.keys(a.campos).length) return tr('actualizar_campos: «campos» debe ser un objeto con al menos un dato.', 'actualizar_campos: “campos” must be an object with at least one value.');
+    const honor = ['first_name', 'last_name'].find(k => typeof a.campos[k] === 'string' && HONORIFIC.test(a.campos[k].trim())); if (honor) return tr(`actualizar_campos: «${a.campos[honor]}» lleva un trato (Dr., Miss, Ms…) y ${honor} es solo el nombre o el apellido. Para cambiar cómo se llama la ficha en pantalla usa cambiar_nombre.`, `actualizar_campos: “${a.campos[honor]}” carries a title (Dr., Miss, Ms…) and ${honor} is only the given or family name. To change how the note is called on screen use cambiar_nombre.`);
     const bad = Object.keys(a.campos).filter(k => PROTECTED.has(k) || !/^[a-z][a-z0-9_]{1,60}$/.test(k)); if (bad.length) return tr(`actualizar_campos: no se pueden cambiar ${bad.join(', ')}.`, `actualizar_campos: these cannot be changed: ${bad.join(', ')}.`);
   }
   if (op.name === 'crear_ficha') {
@@ -112,7 +126,7 @@ export function validateOp(op: Op, created: Set<string> = new Set()): string | n
 /** Id que crearía una operación crear_ficha (para que el resto del plan pueda referirse a ella). */
 export const createdIdOf = (op: Op) => (op.name === 'crear_ficha' && creatableType(op.args?.tipo) ? newId(op.args.tipo, String(op.args.nombre || '')) : null);
 /** A qué interruptor de autonomía pertenece cada operación. */
-const KIND: Record<string, 'agenda' | 'novedades' | 'contactos' | 'cifras'> = { crear_tarea: 'agenda', completar_tarea: 'agenda', reprogramar_tarea: 'agenda', agendar: 'agenda', cancelar_evento: 'agenda', registrar_novedad: 'novedades', actualizar_campos: 'novedades', conectar: 'novedades', desconectar: 'novedades', crear_ficha: 'contactos', registrar_indicador: 'cifras' };
+const KIND: Record<string, 'agenda' | 'novedades' | 'contactos' | 'cifras'> = { crear_tarea: 'agenda', completar_tarea: 'agenda', reprogramar_tarea: 'agenda', agendar: 'agenda', cancelar_evento: 'agenda', registrar_novedad: 'novedades', actualizar_campos: 'novedades', cambiar_nombre: 'novedades', conectar: 'novedades', desconectar: 'novedades', crear_ficha: 'contactos', registrar_indicador: 'cifras' };
 export const kindOf = (op: Op) => KIND[op.name] || null;
 export const kindName = (k: string): string => ({ agenda: tr('tareas y agenda', 'tasks and agenda'), novedades: tr('novedades y datos de fichas', 'updates and note data'), contactos: tr('fichas nuevas (contactos, empresas)', 'new notes (contacts, companies)'), cifras: tr('cifras e indicadores', 'figures and indicators') } as Record<string, string>)[k] || k;
 /**
@@ -151,6 +165,7 @@ export function describeOp(op: Op): string {
       return tr(`Agenda: «${eventTitle(a)}» el ${a.fecha}${a.hora ? ` a las ${a.hora}` : ''}${end}${linked(a).length ? ` · se anota en ${linked(a).join(', ')}` : ''}${det}`, `Agenda: “${eventTitle(a)}” on ${a.fecha}${a.hora ? ` at ${a.hora}` : ''}${end}${linked(a).length ? ` · noted in ${linked(a).join(', ')}` : ''}${det}`); }
     case 'cancelar_evento': return tr(`Quitar de la agenda «${a.titulo}» del ${a.fecha}`, `Remove from the agenda “${a.titulo}” of ${a.fecha}`);
     case 'registrar_indicador': return tr(`Indicador «${a.nombre}»: ${a.valor}${a.unidad ? ' ' + a.unidad : ''}`, `Indicator “${a.nombre}”: ${a.valor}${a.unidad ? ' ' + a.unidad : ''}`);
+    case 'cambiar_nombre': { const n = (loadBrainGraph().allNodes || []).find(x => x.id === String(a.ficha)); return tr(`Cambiar el nombre de ${a.ficha}: «${n ? titleName(n.title) : '?'}» → «${String(a.nombre).trim()}»`, `Rename ${a.ficha}: “${n ? titleName(n.title) : '?'}” → “${String(a.nombre).trim()}”`) + originSuffix(a); }
     case 'actualizar_campos': return tr(`Actualizar ${a.ficha}: `, `Update ${a.ficha}: `) + Object.entries(a.campos || {}).map(([k, v]) => `${k} = ${String(v).slice(0, 60)}`).join(', ') + originSuffix(a);
     case 'conectar': return tr(`Conectar ${a.desde} → ${a.hacia} (${a.relacion})`, `Connect ${a.desde} → ${a.hacia} (${a.relacion})`) + originSuffix(a);
     case 'desconectar': return tr(`Desconectar ${a.desde} → ${a.hacia} (${a.relacion})`, `Disconnect ${a.desde} → ${a.hacia} (${a.relacion})`);
@@ -218,6 +233,21 @@ export function executeOp(op: Op): string {
     }
     case 'cancelar_evento': { const ev = listEvents(vault).find(e => e.title.toLowerCase() === String(a.titulo).toLowerCase() && e.date === a.fecha); if (!ev || !deleteEvent(vault, ev.id)) throw new Error(tr('No se encontró el evento.', 'The event was not found.')); return tr(`«${ev.title}» quitado de la agenda`, `“${ev.title}” removed from the agenda`); }
     case 'registrar_indicador': { const k = setKpi(vault, { name: a.nombre, value: Number(a.valor), unit: a.unidad, target: a.meta, period: a.periodo, startDate: a.inicio, endDate: a.fin, baseline: a.arranque, direction: a.sentido, note: a.nota }, by); return tr(`Indicador «${k.name}» = ${k.value}${k.unit ? ' ' + k.unit : ''}`, `Indicator “${k.name}” = ${k.value}${k.unit ? ' ' + k.unit : ''}`); }
+    case 'cambiar_nombre': {
+      const f = nodeOk(a.ficha)!; const nm = String(a.nombre).replace(/\s+/g, ' ').trim(); const stamp = { clase: a.clase, fuente: a.fuente, por: by, at: new Date().toISOString() };
+      let before = '';
+      const u = updateNoteFile(f, fm => {
+        const t = String(fm.title || ''); const pref = /^([A-Za-z ]{2,24}):\s*/.exec(t); before = titleName(t);
+        const old = [before, typeof fm.preferred_name === 'string' ? fm.preferred_name.trim() : ''].filter(x => x && x !== nm);
+        const alias = Array.isArray(fm.aliases) ? fm.aliases.map(String) : typeof fm.aliases === 'string' && fm.aliases ? [fm.aliases] : [];
+        fm.aliases = [...new Set([...alias, ...old])];
+        fm.title = pref ? `${pref[1]}: ${nm}` : nm;
+        if (fm.type === 'person') { fm.preferred_name = nm; stampFields(fm, ['preferred_name'], stamp); }
+        fm.last_updated_by = by;
+      });
+      if (!u.ok) throw new Error(u.error); loadBrainGraph();
+      return tr(`${a.ficha}: ahora se llama «${nm}» (antes «${before}», queda como alias)`, `${a.ficha}: now called “${nm}” (was “${before}”, kept as an alias)`);
+    }
     case 'actualizar_campos': { const f = nodeOk(a.ficha)!; const stamp = { clase: a.clase, fuente: a.fuente, por: by, at: new Date().toISOString() }; const u = updateNoteFile(f, fm => { Object.assign(fm, a.campos); fm.last_updated_by = by; stampFields(fm, Object.keys(a.campos), stamp); }); if (!u.ok) throw new Error(u.error); return tr(`${a.ficha}: ${Object.keys(a.campos).join(', ')} actualizado`, `${a.ficha}: ${Object.keys(a.campos).join(', ')} updated`); }
     case 'conectar': case 'desconectar': {
       const f = nodeOk(a.desde)!, t = nodeOk(a.hacia)!; const target = link(t);
