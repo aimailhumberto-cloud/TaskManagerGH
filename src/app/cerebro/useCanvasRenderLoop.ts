@@ -453,7 +453,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         }
       }
       // Bandeja de memoria temporal: un marco suave alrededor de sus fichas, con su rótulo y un hilo al centro.
-      if (cerebroTray.ids.size && !hoodRef.current) {
+      if (cerebroTray.ids.size && (!hoodRef.current || hoodRef.current.tray)) {
         let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
         for (const n of nodes) { if (!cerebroTray.ids.has(n.id) || n.hiddenByFilter) continue; x0 = Math.min(x0, n.x); x1 = Math.max(x1, n.x); y0 = Math.min(y0, n.y); y1 = Math.max(y1, n.y); }
         if (Number.isFinite(x0)) {
@@ -636,7 +636,7 @@ export function useCanvasRenderLoop(props: RenderLoopProps) {
         // El tipo ya se lee debajo: se quita el prefijo "Brand: ", "Department: ", etc.
         const humanTitle = humanNodeName(n).replace(/^[A-Za-z][A-Za-z &]{2,22}(?::\s+|\s+-\s+)/, '');
         // En el vecindario los nombres de alrededor van más cortos para no encimarse con la burbuja vecina.
-        const inTray = cerebroTray.ids.has(n.id) && !hoodRef.current;
+        const inTray = cerebroTray.ids.has(n.id) && (!hoodRef.current || !!hoodRef.current.tray);
         const cap = inTray ? 12 : hoodRef.current && hoodRef.current.id !== n.id ? (hoodRef.current.parents ? 22 : 16) : 25;
         const displayTitle = humanTitle.length > cap ? humanTitle.slice(0, cap - 2) + '…' : humanTitle;
         const w = (displayTitle.length * 6.6 + 8) * ls, gap = 7 * ls;

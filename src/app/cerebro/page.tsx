@@ -153,7 +153,7 @@ export default function CerebroPage() {
   const fetchInFlightRef = useRef(false);
   const focusNodeIdsRef = useRef<string[]>([]);
   // Vecindario (solo celular): una ficha al centro y sus conexiones directas alrededor.
-  const hoodRef = useRef<{ id: string; ids: string[]; ring?: number; parents?: Record<string, string>; more?: Record<string, number> } | null>(null);
+  const hoodRef = useRef<{ id: string; ids: string[]; ring?: number; parents?: Record<string, string>; more?: Record<string, number>; tray?: boolean } | null>(null);
   const lastHoodPushRef = useRef(0);
   const trayTargets = useRef(new Map<string, { x: number; y: number }>()).current;
   // Regiones: el cerebro entra cerrado (la empresa y sus regiones) y cada región se abre en su lugar.
@@ -436,6 +436,21 @@ export default function CerebroPage() {
     }, 450);
   }, [graphData]);
 
+  // Entrada: el cerebro abre en el vecindario del centro (celular y PC). «Todo el cerebro» lleva a las regiones.
+  const autoHoodRef = useRef(false);
+  useEffect(() => {
+    if (!graphData || autoHoodRef.current) return;
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('node')) { autoHoodRef.current = true; return; }
+    const core = fullGraphRef.current.nodes.find((n: any) => n.type === 'core');
+    if (!core) return;
+    autoHoodRef.current = true;
+    setTimeout(() => {
+      if (hoodRef.current || stackedDeckRef.current.length) return;
+      if (viewModeRef.current !== 'brujula' && viewModeRef.current !== 'version-1-ajustada') return;
+      enterHood({ id: core.id } as NodeData, undefined, true);
+    }, 650);
+  }, [graphData]);
+
   useEffect(() => {
     viewModeRef.current = viewMode;
     if (!nodesRef.current) return;
@@ -490,8 +505,21 @@ export default function CerebroPage() {
       const all = fullGraphRef.current.nodes.length ? fullGraphRef.current.nodes : filteredRawNodes;
       recomputeNativeLayout(viewModeRef.current as 'brujula', hoodNow ? rawPool : filteredRawNodes, all);
       if (hoodNow) {
-        trayTargets.clear(); cerebroTray.ids = new Set();
+        trayTargets.clear(); cerebroTray.ids = new Set(); cerebroTray.more = 0; cerebroTray.label = t(REGION_INFO.cognitive.name).toUpperCase();
         if (hoodNow.id.startsWith(REGION_PREFIX)) filteredRawNodes.push(regionRaw(hoodNow.id.slice(REGION_PREFIX.length)));
+        // PC, vecindario del centro: la memoria temporal queda en una fila abajo, fuera del círculo.
+        if (hoodNow.tray && !isMobileNow()) {
+          const pl = nativePlacementsRef.current;
+          const stamp = (n: any) => Date.parse(n.frontmatter?.updated_at || n.frontmatter?.last_updated_at || '') || 0;
+          const mem = fullGraphRef.current.nodes.filter((n: any) => pl.get(n.id)?.layer === 'cognitive' && !hoodSet?.has(n.id)).sort((a: any, b: any) => stamp(b) - stamp(a));
+          const top = mem.slice(0, 8);
+          const cc = existingMap.get(hoodNow.id), cy = cc ? cc.y : 0, cx = cc ? cc.x : 0;
+          const y = cy + (hoodNow.ring && hoodNow.ring > 8 ? 400 : 345) + 160;
+          top.forEach((n: any, i: number) => { trayTargets.set(n.id, { x: cx + (i - (top.length - 1) / 2) * 112, y }); });
+          cerebroTray.ids = new Set(top.map((n: any) => n.id)); cerebroTray.more = mem.length - top.length;
+          const have = new Set(filteredRawNodes.map((n: any) => n.id));
+          for (const n of top) if (!have.has(n.id)) filteredRawNodes.push(n);
+        }
       } else {
         const open = openRegionsRef.current, pl = nativePlacementsRef.current;
         // Centro de cada región: el promedio de donde caen sus fichas visibles por defecto.
@@ -725,7 +753,7 @@ export default function CerebroPage() {
     // Dentro de un vecindario, cualquier encuadre (carga, girar el teléfono, botón Centrar) es el del vecindario.
     if (!targetNode && hoodRef.current) targetNode = nodesRef.current.find(n => n.id === hoodRef.current?.id);
 
-    const context = targetNode ? nodesRef.current.filter(n => focusNodeIdsRef.current.includes(n.id)) : nodesRef.current.filter(n => n.type !== 'packaging' && n.type !== 'flavor');
+    const context = targetNode ? nodesRef.current.filter(n => focusNodeIdsRef.current.includes(n.id) || (!!hoodRef.current?.tray && cerebroTray.ids.has(n.id))) : nodesRef.current.filter(n => n.type !== 'packaging' && n.type !== 'flavor');
     const mobile = window.innerWidth < 768;
     // En escritorio la ficha va al lado del lienzo (no encima), asi que solo en movil resta espacio.
     const panelOverlaysCanvas = stackedDeckRef.current.length > 0 && mobile;
@@ -1101,7 +1129,7 @@ export default function CerebroPage() {
   };
 
   // Vecindario: deja a la vista solo esta ficha y lo que toca directamente, en círculo.
-  const enterHood = (node: NodeData, limitIn?: number) => {
+  const enterHood = (node: NodeData, limitIn?: number, entry?: boolean) => {
     const desktop = typeof window !== 'undefined' && window.innerWidth >= 768;
     const limit = limitIn ?? (desktop ? 14 : 8);
     const full = fullGraphRef.current;
@@ -1134,7 +1162,7 @@ export default function CerebroPage() {
       }
     }
     cerebroWave.id = node.id; cerebroWave.t = performance.now();
-    hoodRef.current = desktop ? { id: node.id, ids: [node.id, ...shown, ...second], ring: shown.length, parents, more } : { id: node.id, ids: [node.id, ...shown] };
+    hoodRef.current = desktop ? { id: node.id, ids: [node.id, ...shown, ...second], ring: shown.length, parents, more, tray: raw.type === 'core' } : { id: node.id, ids: [node.id, ...shown] };
     selectedNodeIdRef.current = node.id;
     focusNodeIdsRef.current = [node.id, ...shown, ...second];
     stackedDeckRef.current = [];
@@ -1146,7 +1174,7 @@ export default function CerebroPage() {
     setHood({ id: node.id, title: humanNodeName(raw).replace(/^[A-Za-z][A-Za-z &]{2,22}(?::\s+|\s+-\s+)/, ''), type: raw.type, total: list.length, shown: shown.length });
     const live = nodesRef.current.find(n => n.id === node.id) || node;
     // En PC la ficha se abre al lado, junto al vecindario.
-    if (desktop) { stackedDeckRef.current = [live]; setStackedDeck([live]); hoveredNodeRef.current = null; setHoveredNode(null); }
+    if (desktop && !entry) { stackedDeckRef.current = [live]; setStackedDeck([live]); hoveredNodeRef.current = null; setHoveredNode(null); }
     requestAnimationFrame(() => requestAnimationFrame(() => handleCenterAndFit(live)));
     if (desktop) setTimeout(() => { updateCanvasDimensions(); if (hoodRef.current?.id === node.id) handleCenterAndFit(nodesRef.current.find(n => n.id === node.id) || live); }, 420);
   };
@@ -1546,6 +1574,21 @@ export default function CerebroPage() {
                   {hood.type !== 'region' && <button onClick={openHoodCard} className="h-11 flex-1 rounded-full bg-[#4cc9ff] text-sm font-semibold text-[#071230] active:scale-95">{t("Abrir ficha")}</button>}
                   {hood.shown < hood.total && hood.shown < 22 && (
                     <button onClick={() => { if (hood.type === 'region') { enterRegionHood(hood.id.slice(REGION_PREFIX.length), 22); return; } const n = nodesRef.current.find(x => x.id === hood.id); if (n) enterHood(n, 22); }} className="h-11 flex-1 rounded-full border border-sky-300/50 text-sm font-semibold text-slate-50 active:scale-95">{t("Ver más")}</button>
+                  )}
+                </div>
+              </div>
+              {/* PC: la etiqueta del vecindario con sus botones, abajo a la izquierda y fuera del círculo. */}
+              <div className="absolute bottom-3 left-3 z-30 hidden w-[290px] flex-col gap-1.5 rounded-2xl border border-sky-300/35 bg-[#0b1f4d]/92 px-4 py-3 shadow-2xl backdrop-blur md:flex">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="truncate text-[15px] font-semibold text-slate-50">{hood.title}</span>
+                  <span className="shrink-0 text-[10px] font-medium text-sky-200">{hood.type === 'region' ? t("Región") : t(TYPE_CONFIG[hood.type]?.label || '')}</span>
+                </div>
+                <span className="text-[11px] text-[#9db0d8]">
+                  {hood.total === 0 ? t("Sin conexiones todavía") : `${hood.shown < hood.total ? `${hood.shown} / ` : ''}${hood.total} ${t("conexiones directas")} · ${t("haz clic en una burbuja para saltar")}`}
+                </span>
+                <div className="mt-1 flex gap-2">
+                  {hood.shown < hood.total && hood.shown < 22 && (
+                    <button onClick={() => { const n = nodesRef.current.find(x => x.id === hood.id); if (n) enterHood(n, 22); }} className="h-8 flex-1 rounded-full border border-sky-300/50 text-xs font-semibold text-slate-50 transition active:scale-95 hover:bg-sky-300/10">{t("Ver más")} (+{Math.min(22, hood.total) - hood.shown})</button>
                   )}
                 </div>
               </div>

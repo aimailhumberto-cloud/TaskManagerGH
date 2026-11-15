@@ -389,6 +389,7 @@ const EN_PLAIN: Record<string, string> = {
   "Sin conexiones todavía": "No connections yet",
   "conexiones directas": "direct connections",
   "toca una burbuja para saltar": "tap a bubble to jump",
+  "haz clic en una burbuja para saltar": "click a bubble to jump",
   "Abrir ficha": "Open note",
   "Ver más": "Show more",
   "SMJ Cerebro": "Brain",
