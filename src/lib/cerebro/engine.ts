@@ -24,6 +24,7 @@ import { writeCaseNote, recallBlock } from './casenote';
 import { inspectPlan, completeMeetings, pruneUnnamed, coverageGaps, dateIssues, fieldIssues, fieldHints, snapshotBefore, fileObservations, type Observations } from './review';
 import { loadBrainGraph } from '../smjBrainService';
 import { tr, tw, replyLang, type Lang } from '../reqLang';
+import { structureBlock } from './structure';
 
 export type ReqStatus = 'aplicado' | 'pendiente' | 'sin_cambios' | 'cancelado' | 'reemplazado' | 'rechazado' | 'pregunta' | 'respuesta' | 'no_entendido' | 'fallo';
 export interface CerebroRequest {
@@ -243,7 +244,7 @@ Reglas:
 const langRule = (l: Lang) => (l === 'en'
   ? '\n17. LANGUAGE: the request is in ENGLISH. Write every text you produce (summary, topic, questions, observations, task titles) in ENGLISH, even though these instructions are in Spanish. Do not translate proper names, figures or what the person dictated: copy them as they are. The context labels are in English (HOY means TODAY).'
   : '\n17. IDIOMA: el pedido está en español. Escribe en español todo texto que produzcas (resumen, tema, preguntas, observaciones, títulos de tareas). No traduzcas nombres propios ni lo que la persona dictó.');
-const systemFor = (l: Lang, leer: boolean) => (l === 'en' ? SYSTEM.replace('«Eso es una consulta: usa Solo preguntar»', '“That is a question, not a change: use Just ask”') : SYSTEM) + langRule(l) + (leer ? LEER : '');
+const systemFor = (l: Lang, leer: boolean) => (l === 'en' ? SYSTEM.replace('«Eso es una consulta: usa Solo preguntar»', '“That is a question, not a change: use Just ask”') : SYSTEM) + langRule(l) + (leer ? LEER : '') + `\n\n${structureBlock()}`;
 const LEER = `
 MODO LEER: el pedido es un correo, minuta o nota. Extrae TODO lo útil y conviértelo en operaciones:
 - Manda TODO en una sola respuesta: fichas nuevas, novedad, agenda, tareas y cifras juntas.

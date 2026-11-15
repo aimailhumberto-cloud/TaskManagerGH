@@ -1,0 +1,91 @@
+# Estructura única del Cerebro: tipos de ficha, relaciones, campos y equivalencias.
+# El Cerebro la lee en cada pedido: si la cambias, el cambio vale desde el siguiente pedido, sin desplegar.
+#
+# Reglas (si el archivo no las cumple, el Cerebro usa la última versión buena y avisa del error):
+#  - Los tipos y relaciones de abajo que ya estaban NO se pueden borrar, ni cambiar su folder / prefix / idPrefix
+#    (las fichas que ya existen dependen de eso). Sí se les pueden sumar campos.
+#  - Se pueden agregar tipos nuevos, relaciones nuevas, campos y equivalencias.
+#  - Los nombres van en minúsculas, números y guion bajo. Los campos protegidos (id, title, type, owner,
+#    visibility, verification_status, relations…) nunca se pueden escribir.
+#  - Este archivo debe ser igual a los valores por defecto del código (src/lib/cerebro/structure.ts) mientras
+#    nadie lo cambie a propósito: una prueba lo vigila.
+#  - Todo cambio lo aprueba HB. Cada versión buena queda registrada fuera de la bóveda (estructura-versiones.jsonl).
+version: 1
+
+types:
+  # folder: carpeta de la bóveda donde nace la ficha · prefix: «Person: Ana» / «Person - Ana.md» · idPrefix: person-ana
+  # creatable: false = el Cerebro puede leerlo y conectarlo, pero no crearlo.  fields: campos que se reconocen aunque ninguna ficha los use todavía.
+  person:
+    folder: 01-Internal-Clients
+    prefix: Person
+    idPrefix: person
+    fields: [email_primary, email_secondary, phone_mobile, phone_office_ext, whatsapp, job_title, organization, mailing_address]
+  department:
+    folder: 01-Internal-Clients
+    prefix: Dept
+    idPrefix: dept
+  organization:
+    folder: 01-Internal-Clients
+    prefix: Organization
+    idPrefix: org
+    fields: [email_general, email_orders, email_accounting, phone_main, headquarters_address, company_name, short_name, legal_name]
+  distributor:
+    folder: 02-External-Clients
+    prefix: Distributor
+    idPrefix: dist
+    fields: [email_general, email_orders, email_accounting, phone_main, headquarters_address, company_name, short_name, legal_name]
+  market:
+    folder: 02-External-Clients
+    prefix: Market
+    idPrefix: market
+  customer:
+    folder: 02-External-Clients
+    prefix: Customer
+    idPrefix: cust
+    fields: [email_general, email_orders, email_accounting, phone_main, headquarters_address, company_name, short_name, legal_name]
+  channel:
+    folder: 02-External-Clients
+    prefix: Channel
+    idPrefix: channel
+  brand:
+    folder: 03-Portfolio-Supply
+    prefix: Brand
+    idPrefix: brand
+  product_line:
+    folder: 03-Portfolio-Supply
+    prefix: Line
+    idPrefix: line
+  project:
+    folder: 04-Operations-Routines
+    prefix: Project
+    idPrefix: project
+  routine:
+    folder: 04-Operations-Routines
+    prefix: Routine
+    idPrefix: routine
+
+relations:
+  # from / to: entre qué tipos se puede escribir (sin esto: entre cualquiera). desc: lo que se le dice al modelo.
+  belongs_to: { desc: "pertenece a (departamento, línea, grupo)" }
+  reports_to: { desc: "reporta a (jerarquía de personas)" }
+  works_at: { desc: "trabaja en (empresa o departamento)" }
+  operates_in_market: { desc: "opera en un mercado" }
+  carries_brand: { desc: "lleva o distribuye una marca" }
+  distributed_by: { desc: "lo distribuye" }
+  supplies_client: { desc: "abastece a un cliente" }
+  contact_of: { desc: "es contacto de una empresa" }
+  coordinates_with: { desc: "coordina con" }
+  related_to: { desc: "relación general, cuando ninguna otra aplica" }
+  owner_of: { from: [person], to: [organization, distributor, customer], desc: "es dueño o socio de una empresa" }
+  key_person_of: { from: [person], to: [organization, distributor, customer], desc: "persona clave o decisora de una empresa (sin ser dueño)" }
+
+# Nombres viejos de relación → el vigente. Lo que se escriba con el nombre viejo se guarda con el vigente.
+# Las fichas que ya usan el nombre viejo no se tocan.
+aliases:
+  belongs_to_market: operates_in_market
+  carries_brands: carries_brand
+  collaborates_with: coordinates_with
+  professional_contact_of: contact_of
+
+# Campos que valen en cualquier tipo de ficha.
+commonFields: [status, end_date, start_date, inactive_reason, is_active]

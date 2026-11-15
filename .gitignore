@@ -31,6 +31,8 @@ playwright-report/
 *.log.*
 /scratch/
 .local-data/
+# Datos de ejecución del Cerebro (ajustes, casos, versiones de la estructura): viven junto a la bóveda, no son código.
+/dots-sleep/
 .env.local
 .env
 .env.*

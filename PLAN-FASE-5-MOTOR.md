@@ -3,6 +3,14 @@
 Fecha: 2026-11-15. Autor: Claude Code, a pedido de HB. Estado: **propuesta, nada construido**.
 Base: lectura completa de `src/lib/cerebro/*` (2.065 líneas), la ruta `/api/agent/cerebro`, `brainLens`, el ciclo nocturno (`dotsSleep*`), las pruebas y el vault del repo en el commit `2cba707`. No se revisaron los datos de producción (caja negra, casos reales): lo que se dice de los casos de MEDIMEX y Pierre sale del código y de la conversación que pegó HB.
 
+## Avance
+
+- **5.0 Marcador: construida** (commit `cad0ae8`). Falta la línea base con modelos reales (no hay llaves aquí ni autorización de lectura de producción).
+- **5.1 Estructura única: construida, sin commitear.** `src/lib/cerebro/structure.ts` + `vault/00-System/estructura.yaml`. Pruebas: `npm run test:estructura` (50). Dos cambios respecto al plan:
+  - El archivo es **`.yaml`, no `.md`**: así no se carga como ficha del mapa y el modelo no puede editarlo con `actualizar_campos`.
+  - La **inversa de cada relación se pospone a la 5.3**, donde se usa para derivar el vecindario; agregarla ahora sería un campo sin uso.
+  - La bóveda de **producción no tiene el archivo todavía**: hasta que se copie, el motor usa los valores por defecto del código (idénticos; una prueba lo vigila). Copiarlo es un paso aparte que aprueba HB.
+
 ## 1. Cómo funciona hoy
 
 1. Llega el pedido. La app busca por palabras las fichas que podrían ser y arma un bloque de contexto.

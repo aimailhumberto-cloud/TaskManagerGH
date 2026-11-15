@@ -16,21 +16,16 @@ import { setVisibility } from '../sharing';
 import { actorLabel } from '../actor';
 import type { ToolDef } from './ollama';
 import { tr, tw } from '../reqLang';
+import { structure, creatableType, canonRelation, relationNames, relationFits, PROTECTED_FIELDS } from './structure';
 
 export interface Op { name: string; args: Record<string, any> }
 export type Level = 'sola' | 'aprobar';
 interface Def { level: Level; desc: string; params: Record<string, string>; required: string[]; touches?: (a: any) => string[]; creates?: boolean }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/, TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-/** Carpeta donde nace cada tipo de ficha. */
-const FOLDER: Record<string, [string, string]> = {
-  person: ['01-Internal-Clients', 'Person'], department: ['01-Internal-Clients', 'Dept'], organization: ['01-Internal-Clients', 'Organization'],
-  distributor: ['02-External-Clients', 'Distributor'], market: ['02-External-Clients', 'Market'], customer: ['02-External-Clients', 'Customer'], channel: ['02-External-Clients', 'Channel'],
-  brand: ['03-Portfolio-Supply', 'Brand'], product_line: ['03-Portfolio-Supply', 'Line'], project: ['04-Operations-Routines', 'Project'], routine: ['04-Operations-Routines', 'Routine'],
-};
-/** Vocabulario corto de relaciones (fase 5 migra las antiguas). */
-export const RELATIONS = ['belongs_to', 'reports_to', 'works_at', 'operates_in_market', 'carries_brand', 'distributed_by', 'supplies_client', 'contact_of', 'coordinates_with', 'related_to'];
-const PROTECTED = new Set(['id', 'title', 'type', 'brain_id', 'brain_owner', 'owner', 'visibility', 'shared_with', 'verification_status', 'verified_at', 'verified_by', 'memory_tier', 'relations', 'recent_actions', 'pending_tasks', 'updated_at', 'last_updated_at']);
+// Los tipos de ficha (y su carpeta), las relaciones y los campos reconocidos ya no viven aquí: salen de la estructura única
+// (`00-System/estructura.yaml`, con valores por defecto en structure.ts). Ver structure.ts.
+const PROTECTED = PROTECTED_FIELDS;
 
 /** Fichas con las que es un evento: la principal y las de «con», sin repetir. */
 export const linked = (a: any): string[] => [...new Set([a?.ficha, ...(Array.isArray(a?.con) ? a.con : typeof a?.con === 'string' && a.con ? a.con.split(/[,;]\s*/) : [])].map(x => String(x || '').trim()).filter(Boolean))];
@@ -43,19 +38,27 @@ export const MENU: Record<string, Def> = {
   cancelar_evento: { level: 'sola', desc: 'Quita un evento de la agenda.', params: { titulo: 'título exacto', fecha: 'AAAA-MM-DD' }, required: ['titulo', 'fecha'] },
   registrar_indicador: { level: 'sola', desc: 'Guarda el valor de un indicador (ventas, volumen…). Solo cifras que vengan en el pedido.', params: { nombre: 'nombre del indicador', valor: 'número', unidad: 'opcional', meta: 'número (opcional)', periodo: 'opcional', inicio: 'AAAA-MM-DD (opcional)', fin: 'AAAA-MM-DD (opcional)', arranque: 'valor de partida (opcional)', sentido: 'up|down (opcional; down si bajar es bueno)', nota: 'fuente de la cifra' }, required: ['nombre', 'valor'] },
   actualizar_campos: { level: 'sola', desc: 'Cambia datos de una ficha (teléfono, correo, cargo, ciudad…). No cambia identidad, permisos ni verificación.', params: { ficha: 'id de la ficha', campos: 'objeto {campo: valor}' }, required: ['ficha', 'campos'], touches: a => [a.ficha] },
-  conectar: { level: 'sola', desc: `Conecta dos fichas. Relaciones permitidas: ${RELATIONS.join(', ')}.`, params: { desde: 'id de la ficha', hacia: 'id de la otra ficha', relacion: 'una de las permitidas' }, required: ['desde', 'hacia', 'relacion'], touches: a => [a.desde] },
+  conectar: { level: 'sola', desc: 'Conecta dos fichas. Las relaciones permitidas son las de la estructura vigente.', params: { desde: 'id de la ficha', hacia: 'id de la otra ficha', relacion: 'una de las permitidas' }, required: ['desde', 'hacia', 'relacion'], touches: a => [a.desde] },
   desconectar: { level: 'sola', desc: 'Quita una conexión entre dos fichas.', params: { desde: 'id', hacia: 'id', relacion: 'nombre de la relación' }, required: ['desde', 'hacia', 'relacion'], touches: a => [a.desde] },
-  crear_ficha: { level: 'sola', desc: `Crea una ficha nueva. Tipos: ${Object.keys(FOLDER).join(', ')}. Antes comprueba que no exista.`, params: { tipo: 'tipo de ficha', nombre: 'nombre', campos: 'objeto con datos (opcional)', texto: 'descripción breve (opcional)', conectar_con: 'lista de {hacia, relacion} (opcional)' }, required: ['tipo', 'nombre'], creates: true },
+  crear_ficha: { level: 'sola', desc: 'Crea una ficha nueva. Los tipos permitidos son los de la estructura vigente. Antes comprueba que no exista.', params: { tipo: 'tipo de ficha', nombre: 'nombre', campos: 'objeto con datos (opcional)', texto: 'descripción breve (opcional)', conectar_con: 'lista de {hacia, relacion} (opcional)' }, required: ['tipo', 'nombre'], creates: true },
   borrar_ficha: { level: 'aprobar', desc: 'Pide borrar una ficha. Siempre espera la aprobación de una persona.', params: { ficha: 'id de la ficha', motivo: 'por qué' }, required: ['ficha', 'motivo'], touches: a => [a.ficha] },
   marcar_verificado: { level: 'aprobar', desc: 'Pide marcar una ficha como verificada. Siempre espera a una persona.', params: { ficha: 'id', fuente: 'quién o qué lo confirma' }, required: ['ficha', 'fuente'], touches: a => [a.ficha] },
   compartir: { level: 'aprobar', desc: 'Pide cambiar quién ve una ficha. Siempre espera a una persona.', params: { ficha: 'id', visibilidad: 'private|shared|public' }, required: ['ficha', 'visibilidad'], touches: a => [a.ficha] },
 };
 
-export const toolDefs = (): ToolDef[] => Object.entries(MENU).map(([name, d]) => ({ type: 'function', function: { name, description: d.desc, parameters: { type: 'object', properties: Object.fromEntries(Object.entries(d.params).map(([k, v]) => [k, { type: k === 'campos' ? 'object' : k === 'conectar_con' || k === 'con' ? 'array' : k === 'valor' || k === 'meta' ? 'number' : 'string', description: v }])), required: d.required } } }));
+/** La descripción de cada herramienta; las que dependen de la estructura (tipos y relaciones) se arman con la estructura vigente. */
+const descOf = (name: string, d: Def): string => {
+  if (name === 'conectar') return `Conecta dos fichas. Relaciones permitidas: ${relationNames().join(', ')}.`;
+  if (name === 'crear_ficha') return `Crea una ficha nueva. Tipos: ${Object.entries(structure().types).filter(([, t]) => t.creatable).map(([k]) => k).join(', ')}. Antes comprueba que no exista.`;
+  return d.desc;
+};
+export const toolDefs = (): ToolDef[] => Object.entries(MENU).map(([name, d]) => ({ type: 'function', function: { name, description: descOf(name, d), parameters: { type: 'object', properties: Object.fromEntries(Object.entries(d.params).map(([k, v]) => [k, { type: k === 'campos' ? 'object' : k === 'conectar_con' || k === 'con' ? 'array' : k === 'valor' || k === 'meta' ? 'number' : 'string', description: v }])), required: d.required } } }));
 
 const nodeOk = (id: unknown) => { const r = resolveNodeFile(String(id || ''), true); return r.ok ? r.filePath : null; };
 const slug = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
-const newId = (tipo: string, nombre: string) => `${({ person: 'person', distributor: 'dist', market: 'market', brand: 'brand', customer: 'cust', department: 'dept', organization: 'org', channel: 'channel', product_line: 'line', project: 'project', routine: 'routine' } as Record<string, string>)[tipo]}-${slug(nombre)}`;
+const newId = (tipo: string, nombre: string) => `${structure().types[tipo]?.idPrefix}-${slug(nombre)}`;
+/** El tipo de una ficha que ya existe (undefined si todavía no existe: p. ej. la crea el mismo plan). */
+const typeOf = (id: unknown): string | undefined => (loadBrainGraph().allNodes || []).find(n => n.id === String(id))?.type;
 
 /** Revisa una operación SIN escribir. Devuelve el error en palabras, o null si está bien. `created` = ids que el mismo plan crea antes. */
 export function validateOp(op: Op, created: Set<string> = new Set()): string | null {
@@ -68,19 +71,23 @@ export function validateOp(op: Op, created: Set<string> = new Set()): string | n
   for (const k of ['fecha', 'vence', 'proximo_paso_fecha', 'fecha_fin']) if (a[k] && !DAY.test(String(a[k]))) return tr(`${op.name}: «${k}» debe ser AAAA-MM-DD.`, `${op.name}: “${k}” must be YYYY-MM-DD.`);
   for (const k of ['hora', 'hora_fin']) if (a[k] && !TIME.test(String(a[k]))) return tr(`${op.name}: «${k}» debe ser HH:MM en 24 horas.`, `${op.name}: “${k}” must be HH:MM in 24-hour time.`);
   if (op.name === 'registrar_indicador' && !Number.isFinite(Number(a.valor))) return tr('registrar_indicador: «valor» debe ser un número.', 'registrar_indicador: “valor” must be a number.');
-  if (op.name === 'conectar' && !RELATIONS.includes(String(a.relacion))) return tr(`conectar: la relación «${a.relacion}» no está permitida. Usa: ${RELATIONS.join(', ')}.`, `conectar: the relation “${a.relacion}” is not allowed. Use: ${RELATIONS.join(', ')}.`);
+  if (op.name === 'conectar') {
+    const rel = canonRelation(a.relacion);
+    if (!relationNames().includes(rel)) return tr(`conectar: la relación «${a.relacion}» no está permitida. Usa: ${relationNames().join(', ')}.`, `conectar: the relation “${a.relacion}” is not allowed. Use: ${relationNames().join(', ')}.`);
+    const fit = relationFits(rel, typeOf(a.desde), typeOf(a.hacia)); if (fit) return `conectar: ${fit}.`;
+  }
   if (op.name === 'actualizar_campos') {
     if (!a.campos || typeof a.campos !== 'object' || Array.isArray(a.campos) || !Object.keys(a.campos).length) return tr('actualizar_campos: «campos» debe ser un objeto con al menos un dato.', 'actualizar_campos: “campos” must be an object with at least one value.');
     const bad = Object.keys(a.campos).filter(k => PROTECTED.has(k) || !/^[a-z][a-z0-9_]{1,60}$/.test(k)); if (bad.length) return tr(`actualizar_campos: no se pueden cambiar ${bad.join(', ')}.`, `actualizar_campos: these cannot be changed: ${bad.join(', ')}.`);
   }
   if (op.name === 'crear_ficha') {
-    if (!FOLDER[a.tipo]) return tr(`crear_ficha: tipo «${a.tipo}» no permitido.`, `crear_ficha: type “${a.tipo}” is not allowed.`);
+    if (!creatableType(a.tipo)) return tr(`crear_ficha: tipo «${a.tipo}» no permitido.`, `crear_ficha: type “${a.tipo}” is not allowed.`);
     const id = newId(a.tipo, String(a.nombre)); if (nodeOk(id) || created.has(id)) return tr(`crear_ficha: ya existe la ficha «${id}». Úsala en vez de crear otra.`, `crear_ficha: the note “${id}” already exists. Use it instead of creating another.`);
     const same = loadBrainGraph().allNodes?.find(n => n.type === a.tipo && slug(String(n.title).replace(/^[A-Za-z ]+:\s*/, '')) === slug(String(a.nombre)));
     if (same) return tr(`crear_ficha: ya existe «${same.title}» (${same.id}). Úsala en vez de crear otra.`, `crear_ficha: “${same.title}” (${same.id}) already exists. Use it instead of creating another.`);
     const mail = String(a.campos?.email_primary || '').trim().toLowerCase();
     if (mail) { const owner = loadBrainGraph().allNodes?.find(n => String(n.frontmatter?.email_primary || '').trim().toLowerCase() === mail); if (owner) return tr(`crear_ficha: el correo ${mail} ya es de «${owner.title}» (${owner.id}). Usa esa ficha (actualizar_campos si hay datos nuevos).`, `crear_ficha: the email ${mail} already belongs to “${owner.title}” (${owner.id}). Use that note (actualizar_campos if there is new data).`); }
-    for (const c of Array.isArray(a.conectar_con) ? a.conectar_con : []) { if (!exists(c?.hacia)) return tr(`crear_ficha: no existe la ficha «${c?.hacia}» para conectar.`, `crear_ficha: the note “${c?.hacia}” to connect to does not exist.`); if (!RELATIONS.includes(String(c?.relacion))) return tr(`crear_ficha: relación «${c?.relacion}» no permitida.`, `crear_ficha: relation “${c?.relacion}” is not allowed.`); }
+    for (const c of Array.isArray(a.conectar_con) ? a.conectar_con : []) { if (!exists(c?.hacia)) return tr(`crear_ficha: no existe la ficha «${c?.hacia}» para conectar.`, `crear_ficha: the note “${c?.hacia}” to connect to does not exist.`); const rel = canonRelation(c?.relacion); if (!relationNames().includes(rel)) return tr(`crear_ficha: relación «${c?.relacion}» no permitida. Usa: ${relationNames().join(', ')}.`, `crear_ficha: relation “${c?.relacion}” is not allowed. Use: ${relationNames().join(', ')}.`); const fit = relationFits(rel, String(a.tipo), typeOf(c?.hacia)); if (fit) return `crear_ficha: ${fit}.`; }
   }
   if (op.name === 'crear_tarea') {
     const key = (v: unknown) => nrm(v).replace(/[^a-z0-9 ]/g, '').slice(0, 60);
@@ -92,7 +99,7 @@ export function validateOp(op: Op, created: Set<string> = new Set()): string | n
   return null;
 }
 /** Id que crearía una operación crear_ficha (para que el resto del plan pueda referirse a ella). */
-export const createdIdOf = (op: Op) => (op.name === 'crear_ficha' && FOLDER[op.args?.tipo] ? newId(op.args.tipo, String(op.args.nombre || '')) : null);
+export const createdIdOf = (op: Op) => (op.name === 'crear_ficha' && creatableType(op.args?.tipo) ? newId(op.args.tipo, String(op.args.nombre || '')) : null);
 /** A qué interruptor de autonomía pertenece cada operación. */
 const KIND: Record<string, 'agenda' | 'novedades' | 'contactos' | 'cifras'> = { crear_tarea: 'agenda', completar_tarea: 'agenda', reprogramar_tarea: 'agenda', agendar: 'agenda', cancelar_evento: 'agenda', registrar_novedad: 'novedades', actualizar_campos: 'novedades', conectar: 'novedades', desconectar: 'novedades', crear_ficha: 'contactos', registrar_indicador: 'cifras' };
 export const kindOf = (op: Op) => KIND[op.name] || null;
@@ -199,16 +206,21 @@ export function executeOp(op: Op): string {
     case 'actualizar_campos': { const f = nodeOk(a.ficha)!; const u = updateNoteFile(f, fm => { Object.assign(fm, a.campos); fm.last_updated_by = by; }); if (!u.ok) throw new Error(u.error); return tr(`${a.ficha}: ${Object.keys(a.campos).join(', ')} actualizado`, `${a.ficha}: ${Object.keys(a.campos).join(', ')} updated`); }
     case 'conectar': case 'desconectar': {
       const f = nodeOk(a.desde)!, t = nodeOk(a.hacia)!; const target = link(t);
-      const u = updateNoteFile(f, fm => { const rel = (fm.relations && typeof fm.relations === 'object' ? fm.relations : (fm.relations = {})) as Record<string, any>; const cur: string[] = Array.isArray(rel[a.relacion]) ? rel[a.relacion] : rel[a.relacion] ? [rel[a.relacion]] : [];
-        const has = cur.some(x => String(x).toLowerCase() === target.toLowerCase());
-        if (op.name === 'conectar') { if (!has) rel[a.relacion] = [...cur, target]; } else { rel[a.relacion] = cur.filter(x => String(x).toLowerCase() !== target.toLowerCase()); if (!rel[a.relacion].length) delete rel[a.relacion]; } });
+      // Conectar escribe con el nombre vigente de la relación (un nombre viejo se traduce). Desconectar quita bajo el nombre dado y bajo el vigente.
+      const keys = op.name === 'conectar' ? [canonRelation(a.relacion)] : [...new Set([String(a.relacion), canonRelation(a.relacion)])];
+      const u = updateNoteFile(f, fm => { const rel = (fm.relations && typeof fm.relations === 'object' ? fm.relations : (fm.relations = {})) as Record<string, any>;
+        for (const key of keys) {
+          const cur: string[] = Array.isArray(rel[key]) ? rel[key] : rel[key] ? [rel[key]] : [];
+          const has = cur.some(x => String(x).toLowerCase() === target.toLowerCase());
+          if (op.name === 'conectar') { if (!has) rel[key] = [...cur, target]; } else if (cur.length) { rel[key] = cur.filter(x => String(x).toLowerCase() !== target.toLowerCase()); if (!rel[key].length) delete rel[key]; }
+        } });
       if (!u.ok) throw new Error(u.error); loadBrainGraph(); return `${a.desde} ${op.name === 'conectar' ? '→' : '✕'} ${a.hacia} (${a.relacion})`;
     }
     case 'crear_ficha': {
-      const [folder, prefix] = FOLDER[a.tipo]; const id = newId(a.tipo, String(a.nombre)); const safeName = String(a.nombre).replace(/[/\\?%*:|"<>]/g, '-').trim().slice(0, 80);
+      const def = creatableType(a.tipo)!; const folder = def.folder, prefix = def.prefix; const id = newId(a.tipo, String(a.nombre)); const safeName = String(a.nombre).replace(/[/\\?%*:|"<>]/g, '-').trim().slice(0, 80);
       const extra = Object.fromEntries(Object.entries(a.campos && typeof a.campos === 'object' ? a.campos : {}).filter(([k]) => !PROTECTED.has(k) && /^[a-z][a-z0-9_]{1,60}$/.test(k)));
       const relations: Record<string, string[]> = {};
-      for (const c of Array.isArray(a.conectar_con) ? a.conectar_con : []) { const t = nodeOk(c.hacia); if (t) (relations[c.relacion] ||= []).push(link(t)); }
+      for (const c of Array.isArray(a.conectar_con) ? a.conectar_con : []) { const t = nodeOk(c.hacia); if (t) (relations[canonRelation(c.relacion)] ||= []).push(link(t)); }
       const now = new Date().toISOString();
       const r = upsertNode({ relativePath: safeRelative(`${folder}/${prefix} - ${safeName}.md`), frontmatter: { id, title: `${prefix}: ${safeName}`, type: a.tipo, memory_tier: 'long_term', status: 'active', verification_status: 'unverified', created_at: now, created_by: by, ...extra, ...(Object.keys(relations).length ? { relations } : {}) }, body: `# ${safeName}\n\n${String(a.texto || '').trim()}\n` });
       must(r); loadBrainGraph(); return tr(`Ficha «${safeName}» creada (${id})`, `Note “${safeName}” created (${id})`);

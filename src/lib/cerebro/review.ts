@@ -13,6 +13,7 @@ import { displayTitle, norm, words, nameAmbiguities, peopleMentioned } from '../
 import { getPanamaDate } from '../smjBrainService';
 import { cerebroDir } from './settings';
 import { createdIdOf, linked, eventTitle, type Op } from './ops';
+import { knownFieldsOf } from './structure';
 import { tr } from '../reqLang';
 
 export interface Observations {
@@ -115,8 +116,6 @@ export function dateIssues(ops: Op[], text: string, today: string): string[] {
   }
   return [...new Set(out)];
 }
-/** Campos estándar que siempre se aceptan aunque la ficha todavía no los tenga (estado y fechas de alta y baja). */
-const CANON = new Set(['status', 'end_date', 'start_date', 'inactive_reason', 'is_active']);
 /** Los campos que ya tienen las fichas que el plan quiere cambiar (para que el modelo use esos nombres y no invente otros). */
 export function fieldHints(ops: Op[]): string {
   const byId = nodesById(); const INTERNAL = /^(id|title|type|tags|relations|source.*|.*sha256|icon_.*|completeness_score|memory_tier)$/;
@@ -129,7 +128,9 @@ export function fieldIssues(ops: Op[]): string[] {
     if (op.name !== 'actualizar_campos' || !op.args?.campos || typeof op.args.campos !== 'object') continue;
     const n: any = byId.get(String(op.args.ficha || '')); if (!n) continue;
     const known = new Set<string>(); for (const x of all as any[]) if (x.type === n.type) for (const k of Object.keys(x.frontmatter || {})) known.add(k);
-    const odd = Object.keys(op.args.campos).filter(k => !known.has(k) && !CANON.has(k)); if (!odd.length || known.size < 5) continue;
+    // Se aceptan los campos que ya usa alguna ficha de ese tipo y los que la estructura declara (estándar y por tipo), aunque ninguna ficha los use todavía.
+    const declared = knownFieldsOf(n.type);
+    const odd = Object.keys(op.args.campos).filter(k => !known.has(k) && !declared.has(k)); if (!odd.length || known.size < 5) continue;
     out.push(tr(`El plan escribe ${odd.map(k => `«${k}»`).join(', ')} en ${displayTitle(n.title)}, y ninguna ficha de ese tipo usa ese campo. ¿Es el nombre correcto?`, `The plan writes ${odd.map(k => `“${k}”`).join(', ')} in ${displayTitle(n.title)}, and no note of that type uses that field. Is it the right name?`));
   }
   return out;

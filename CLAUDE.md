@@ -36,6 +36,8 @@ Contexto para sesiones de Claude Code. Estado tomado el 2026-11-15 de los hilos 
 
 **Presentación** "Second Brain SMJ" (13 slides): lista; falta una captura del chat para la slide 5.
 
+**Fase 5 del motor (ver `PLAN-FASE-5-MOTOR.md`)**: esta sesión de Code la ejecuta. 5.0 (marcador) y 5.1 (estructura única en `00-System/estructura.yaml`, leída por `src/lib/cerebro/structure.ts`) construidas. Siguen 5.2 origen del dato, 5.3 vecindario, 5.4 decisión simple, 5.5 noche, 5.6 contrato del agente. Pruebas: `test:jev`, `test:bank-casos`, `test:estructura`. En Windows los scripts con `SMJ_VAULT_PATH=vault` fallan en `npm run`: correr `SMJ_VAULT_PATH=vault npx tsx scripts/<archivo>.ts` desde Git Bash.
+
 ## Reglas de trabajo
 
 - Varios hilos suben al mismo `main`. **`git pull` antes de empezar y antes de cada push.** No pisar áreas que otro hilo tenga abiertas (motor = `src/lib/cerebro/*` + ruta del agente; mapa = `src/app/cerebro/*`).
