@@ -3,6 +3,13 @@ import * as fs from 'fs';
 import * as path from 'path';
 export const AUTO_KINDS = ['agenda', 'novedades', 'contactos', 'cifras'] as const;
 export type AutoKind = (typeof AUTO_KINDS)[number];
+/**
+ * Categorías de aviso fuerte que se PUEDEN aflojar: en vez de mandar el pedido a aprobación, se guarda y queda un aviso en «Por revisar».
+ * No están aquí, y por eso nunca se aflojan: delicado (borrar, verificar, compartir), identidad (no se adivina cuál persona), dato verificado y fecha que no cuadra.
+ */
+export const POLICY_CATEGORIES = ['duplicado', 'pisa_texto', 'campo', 'cobertura', 'jev_duda'] as const;
+export type PolicyCategory = (typeof POLICY_CATEGORIES)[number];
+export type PolicyAction = 'esperar' | 'avisar';
 export interface CerebroSettings {
   /** Modelo por tarea: rápido para archivar y consultar; grande para pedidos largos. */
   models: { rapido: string; grande: string };
@@ -20,6 +27,8 @@ export interface CerebroSettings {
   jevRequired: boolean;
   /** Seguridad mínima (0–0.95) que debe tener Jev en su puntaje para dar por bueno un plan. 0 = no se exige (por defecto, hasta calibrar con datos reales). */
   jevMinConfidence: number;
+  /** Qué hace cada categoría aflojable (ver POLICY_CATEGORIES). Lo que no esté aquí vale «esperar», como siempre. Se afloja con datos: mira cuántas esperas de cada categoría aprobaste tal cual (scripts/esperas.ts). */
+  politica: Partial<Record<PolicyCategory, PolicyAction>>;
   /** Idioma de trabajo de este cerebro: el de los textos fijos que la app escribe dentro de las fichas. */
   workLang: 'es' | 'en';
   /** ¿Ya se eligió (o se tomó del idioma de quien lo usa por primera vez)? */
@@ -30,7 +39,7 @@ const file = (vaultPath: string) => path.join(dir(vaultPath), 'settings.json');
 export const cerebroDir = dir;
 export function defaults(): CerebroSettings {
   const m = process.env.OLLAMA_MODEL?.trim() || 'gemma4';
-  return { models: { rapido: m, grande: process.env.OLLAMA_MODEL_LARGE?.trim() || m }, auto: { agenda: true, novedades: true, contactos: false, cifras: false }, mode: 'mixto', bigTouch: 10, bigCreate: 5, agentCanApprove: false, threshold: 0.6, jevRequired: false, jevMinConfidence: 0, workLang: 'es', workLangSet: false };
+  return { models: { rapido: m, grande: process.env.OLLAMA_MODEL_LARGE?.trim() || m }, auto: { agenda: true, novedades: true, contactos: false, cifras: false }, mode: 'mixto', bigTouch: 10, bigCreate: 5, agentCanApprove: false, threshold: 0.6, jevRequired: false, jevMinConfidence: 0, politica: {}, workLang: 'es', workLangSet: false };
 }
 export function loadSettings(vaultPath: string): CerebroSettings {
   const d = defaults();
@@ -43,14 +52,14 @@ export function loadSettings(vaultPath: string): CerebroSettings {
     const auto = Object.fromEntries(AUTO_KINDS.map(k => [k, all !== null ? all : typeof s?.auto?.[k] === 'boolean' ? s.auto[k] : d.auto[k]])) as Record<AutoKind, boolean>;
     const on = AUTO_KINDS.filter(k => auto[k]).length;
     return { models: { rapido: str(s?.models?.rapido, d.models.rapido), grande: str(s?.models?.grande, d.models.grande) }, auto, mode: on === AUTO_KINDS.length ? 'auto' : on === 0 ? 'proponer' : 'mixto',
-      bigTouch: num(s?.bigTouch, d.bigTouch, 1, 500), bigCreate: num(s?.bigCreate, d.bigCreate, 1, 500), agentCanApprove: s?.agentCanApprove === true, threshold: s?.thresholdSet ? num(s?.threshold, d.threshold, 0.3, 1) : d.threshold, jevRequired: s?.jevRequired === true, jevMinConfidence: num(s?.jevMinConfidence, d.jevMinConfidence, 0, 0.95), workLang: s?.workLang === 'en' ? 'en' : 'es', workLangSet: s?.workLang === 'en' || s?.workLang === 'es' };
+      bigTouch: num(s?.bigTouch, d.bigTouch, 1, 500), bigCreate: num(s?.bigCreate, d.bigCreate, 1, 500), agentCanApprove: s?.agentCanApprove === true, threshold: s?.thresholdSet ? num(s?.threshold, d.threshold, 0.3, 1) : d.threshold, jevRequired: s?.jevRequired === true, jevMinConfidence: num(s?.jevMinConfidence, d.jevMinConfidence, 0, 0.95), politica: Object.fromEntries(POLICY_CATEGORIES.filter(k => s?.politica?.[k] === 'avisar' || s?.politica?.[k] === 'esperar').map(k => [k, s.politica[k]])) as CerebroSettings['politica'], workLang: s?.workLang === 'en' ? 'en' : 'es', workLangSet: s?.workLang === 'en' || s?.workLang === 'es' };
   } catch { return d; }
 }
 export function saveSettings(vaultPath: string, patch: Record<string, unknown>): CerebroSettings {
   const cur = loadSettings(vaultPath);
   // «mode» como atajo: auto = todo solo; proponer = todo espera.
   const fromMode = patch.mode === 'auto' ? Object.fromEntries(AUTO_KINDS.map(k => [k, true])) : patch.mode === 'proponer' ? Object.fromEntries(AUTO_KINDS.map(k => [k, false])) : {};
-  const merged = { ...cur, ...patch, models: { ...cur.models, ...((patch.models as object) || {}) }, auto: { ...cur.auto, ...fromMode, ...((patch.auto as object) || {}) } };
+  const merged = { ...cur, ...patch, models: { ...cur.models, ...((patch.models as object) || {}) }, auto: { ...cur.auto, ...fromMode, ...((patch.auto as object) || {}) }, politica: { ...cur.politica, ...((patch.politica as object) || {}) } };
   delete (merged as any).mode; delete (merged as any).workLangSet;
   if (patch.workLang !== 'en' && patch.workLang !== 'es') { if (cur.workLangSet) (merged as any).workLang = cur.workLang; else delete (merged as any).workLang; } // sin elegir: no se fija por accidente
   if (patch.threshold !== undefined) (merged as any).thresholdSet = true; else if ((cur as any).thresholdSet === undefined) { try { (merged as any).thresholdSet = JSON.parse(fs.readFileSync(file(vaultPath), 'utf8')).thresholdSet === true; } catch {} }

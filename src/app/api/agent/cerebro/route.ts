@@ -187,7 +187,7 @@ async function postCore(ctx: NonNullable<ReturnType<typeof currentBrain>>, b: an
     if (isAgent()) return bad(tr('Los ajustes del Cerebro los cambia una persona en la app.', 'Brain settings are changed by a person in the app.'), 403);
     if (action === 'ajustes') {
       const patch: Record<string, unknown> = {};
-      for (const k of ['models', 'mode', 'auto', 'bigTouch', 'bigCreate', 'agentCanApprove', 'threshold', 'jevRequired', 'jevMinConfidence', 'workLang']) if (b[k] !== undefined) patch[k] = b[k];
+      for (const k of ['models', 'mode', 'auto', 'bigTouch', 'bigCreate', 'agentCanApprove', 'threshold', 'jevRequired', 'jevMinConfidence', 'politica', 'workLang']) if (b[k] !== undefined) patch[k] = b[k];
       if (patch.workLang !== undefined && !asLang(patch.workLang)) return bad(tr("workLang debe ser 'es' o 'en'.", "workLang must be 'es' or 'en'."));
       return NextResponse.json({ ok: true, settings: saveSettings(ctx.vaultPath, patch) });
     }

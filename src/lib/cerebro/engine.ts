@@ -14,7 +14,8 @@ import { actorLabel } from '../actor';
 import { withChange, rollbackCurrent, receiptOf } from '../journal';
 import { dossier, searchBrain, resolveEntities, displayTitle, nameAmbiguities, peopleMentioned, unknownPeople, words, norm } from '../brainLens';
 import { listEvents } from '../agenda';
-import { judge, coherence, jevPolicy } from './jev';
+import { judge, coherence } from './jev';
+import { decide } from './decision';
 import { neighborhoodBlock } from './neighborhood';
 import { chat, llmConfigured, LlmError, type ChatMessage, type ToolDef } from './ollama';
 import { loadSettings, cerebroDir, type CerebroSettings } from './settings';
@@ -42,6 +43,12 @@ export interface CerebroRequest {
   /** A quién reconoció: «Tomás = Tomás Casas (persona, sin verificar)». */
   /** Guardar primero: lo seguro ya se guardó; lo demás espera. waitWhy[i] dice por qué espera ops[i]. */
   partial?: { saved: string[]; changeId?: string };
+  /** Por qué espera (la categoría de la decisión): delicado, grande, ajustes, agente, duplicado, identidad, dato_verificado, pisa_texto, fecha, campo, cobertura, jev_*. Se cuenta en scripts/esperas.ts. */
+  esperaCat?: string;
+  /** Si se guardó una parte y otra espera: la categoría de cada operación que espera, en orden. */
+  waitCats?: string[];
+  /** Lo que decidió la tabla (y, en un ensayo, lo que habría pasado de verdad). */
+  decision?: { accion: 'guardar' | 'guardar_parcial' | 'esperar'; categoria: string | null; guardaria: number; esperaria: number };
   /** Continuidad: casos abiertos de quien pide que este mensaje podría continuar (no se juntaron por duda). */
   relacionado?: string[];
   waitWhy?: string[];
@@ -295,18 +302,6 @@ export function validatePlan(ops: Op[]): string[] {
   ops.forEach((op, i) => { const e = validateOp(op, created); if (e) errors.push(`#${i + 1} ${e}`); const id = createdIdOf(op); if (id && !e) created.add(id); });
   return errors;
 }
-/** ¿Por qué este plan no se aplica solo? null = puede aplicarse. */
-/** Operaciones simples y reversibles: notas, tareas, agenda y datos de una ficha que ya existe. */
-const LOW_OPS = new Set(['registrar_novedad', 'crear_tarea', 'completar_tarea', 'reprogramar_tarea', 'agendar', 'cancelar_evento', 'actualizar_campos']);
-/**
- * Riesgo bajo: solo operaciones simples, sobre pocas fichas que ya existen, sin avisos fuertes y con el expediente completo.
- * En riesgo bajo, la duda de Jev no frena: se guarda, se avisa y se puede deshacer.
- */
-export function lowRisk(ops: Op[], obs: { fuertes: string[] }, incompleto = false): boolean {
-  if (!ops.length || incompleto || obs.fuertes.length) return false;
-  if (!ops.every(o => LOW_OPS.has(o.name))) return false;
-  return new Set(ops.flatMap(touchesOf)).size <= 3;
-}
 /** La frase exacta que la persona debe decir para borrar: «borrar Nombre de la ficha». */
 function deletePhrase(ops: Op[]): string | null {
   const dels = ops.filter(o => o.name === 'borrar_ficha'); if (!dels.length) return null;
@@ -314,49 +309,8 @@ function deletePhrase(ops: Op[]): string | null {
   const name = (id: string) => { const n = nodes.find((x: any) => x.id === id); return n ? displayTitle(n.title) : id; };
   return `${tr('borrar', 'delete')} ${dels.map(o => name(String(o.args?.ficha || ''))).join(tr(' y ', ' and '))}`;
 }
-export function whyProposal(ops: Op[], s: CerebroSettings, scope?: string): string | null {
-  const strict = ops.filter(o => levelOf(o) === 'aprobar');
-  if (strict.length) return strict.some(o => o.name === 'borrar_ficha')
-    ? tr(`Incluye borrar ficha: eso siempre lo aprueba una persona, con doble confirmación.`, `Includes delete note: a person always approves that, with double confirmation.`)
-    : tr(`Incluye ${strict.map(o => o.name.replace(/_/g, ' ')).join(', ')}: eso siempre lo aprueba una persona.`, `Includes ${strict.map(o => o.name.replace(/_/g, ' ')).join(', ')}: a person always approves that.`);
-  const touched = new Set(ops.flatMap(touchesOf)).size, creates = ops.filter(o => MENU[o.name]?.creates).length;
-  if (touched > s.bigTouch) return tr(`Es un pedido grande: toca ${touched} fichas (límite ${s.bigTouch}).`, `It is a big request: it touches ${touched} notes (limit ${s.bigTouch}).`);
-  if (creates > s.bigCreate) return tr(`Es un pedido grande: crea ${creates} fichas (límite ${s.bigCreate}).`, `It is a big request: it creates ${creates} notes (limit ${s.bigCreate}).`);
-  if (scope === 'proponer') return tr('La llave del agente solo puede proponer.', 'The agent key can only propose.');
-  const waits = [...new Set(ops.map(kindOf).filter((k): k is NonNullable<ReturnType<typeof kindOf>> => !!k && !s.auto[k]))];
-  if (waits.length) return tr(`Incluye ${waits.map(kindName).join(' y ')}: eso está en «proponer» en tus Ajustes.`, `Includes ${waits.map(kindName).join(' and ')}: that is set to “propose” in your Settings.`);
-  return null;
-}
-
-/** «Nueva y completa»: una persona o empresa con nombre y al menos dos datos (correo, teléfono, cargo, empresa) o una conexión. Se crea sola. */
-function isCompleteNew(op: Op): boolean {
-  if (op.name !== 'crear_ficha' || !['person', 'organization', 'distributor', 'customer'].includes(String(op.args?.tipo))) return false;
-  const c = op.args?.campos && typeof op.args.campos === 'object' ? op.args.campos : {};
-  const data = ['email_primary', 'phone_mobile', 'phone', 'job_title', 'organization', 'company'].filter(k => String(c[k] || '').trim()).length + (Array.isArray(op.args?.conectar_con) && op.args.conectar_con.length ? 1 : 0);
-  return String(op.args?.nombre || '').trim().length >= 3 && data >= 2;
-}
-/**
- * Guardar primero: reparte el plan en tres. CIERTO (simple, sin duda, permitido en Ajustes) se guarda ya;
- * DUDOSO (una advertencia fuerte lo toca) y DELICADO (borrar, verificar, compartir, o lo que Ajustes manda proponer) esperan.
- * Lo que depende de algo que espera, espera también. Devuelve por qué espera cada una.
- */
-export function splitCierto(ops: Op[], fuertes: string[], s: CerebroSettings): { now: Op[]; wait: Op[]; whyEach: string[] } {
-  const titleOf = (id: string) => { try { const n = ((loadBrainGraph() as any).allNodes || []).find((x: any) => x.id === id); return n ? displayTitle(n.title).toLowerCase() : id.toLowerCase(); } catch { return id.toLowerCase(); } };
-  const fs_ = fuertes.map(f => f.toLowerCase());
-  const reason: (string | null)[] = ops.map(op => {
-    if (levelOf(op) === 'aprobar') return tr('delicado: siempre lo aprueba una persona', 'sensitive: a person always approves it');
-    const k = kindOf(op);
-    if (touchesOf(op).some(id => fs_.some(f => f.includes(String(id).toLowerCase()) || f.includes(titleOf(String(id)))))) return tr('dudoso: queda por confirmar', 'doubtful: left to confirm');
-    if (k && !s.auto[k] && !isCompleteNew(op)) return tr(`está en «proponer» en tus Ajustes (${kindName(k)})`, `it is set to “propose” in your Settings (${kindName(k)})`);
-    return null;
-  });
-  const made = new Map<string, number>(); ops.forEach((o, i) => { const id = createdIdOf(o); if (id) made.set(id, i); });
-  for (let again = true; again;) {
-    again = false;
-    ops.forEach((op, i) => { if (reason[i]) return; const raw = JSON.stringify(op.args || {}); for (const [id, j] of made) if (j !== i && reason[j] && raw.includes(id)) { reason[i] = tr('depende de algo que espera', 'it depends on something that is waiting'); again = true; break; } });
-  }
-  return { now: ops.filter((_, i) => !reason[i]), wait: ops.filter((_, i) => reason[i]), whyEach: reason.filter((r): r is string => !!r) };
-}
+// La decisión (guardar, guardar una parte o esperar) vive en decision.ts. Se reexporta lo que usaban las pruebas.
+export { lowRisk, splitCierto, whyProposal } from './decision';
 
 /** Ejecuta un plan ya revisado. Todo o nada: si una operación falla, se deshace lo anterior. */
 async function applyPlan(vault: string, ops: Op[], note: string, actor: string): Promise<{ ok: true; results: string[]; changeId?: string; receipt?: unknown } | { ok: false; error: string }> {
@@ -594,47 +548,36 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
     let fixable: string[] = []; try { fixable = [...dateIssues(ops, text, getPanamaDate().dateStr), ...fieldIssues(ops)]; } catch {}
     if (fixable.length) { const hints = fieldHints(ops); return pedir({ ...input, second: `${fixable.join(' ')}${hints ? ` ${tr('Campos que ya tiene la ficha', 'Fields the note already has')}: ${hints}` : ''}`.slice(0, 1500), caseId }); }
   }
-  let why: string | null = whyProposal(ops, s, currentBrain()?.scope);
-  if (!why && obs.fuertes.length) why = obs.fuertes[0];
-  // Jev puntúa siempre que esté conectado: decide en automático y orienta a quien aprueba.
+  // Jev puntúa siempre que esté conectado: orienta la decisión y a quien aprueba.
   // Jev ve el pedido, las respuestas que dio quien pide (antes no las veía), a quién reconoció el plan y el expediente; el plan siempre cabe.
-  const jevR = await judge(text, plan, { answers: talk, recognized, expediente: md }); const confidence = jevR.score; const jevWhy = jevR.reason;
-  obs.jev = { fiel: confidence, ...(confidence === null ? { error: jevR.problem } : {}), ...(jevWhy ? { motivo: jevWhy } : {}), ...(jevR.seguridad !== null ? { seguridad: jevR.seguridad } : {}), ...(jevR.noul !== null ? { noul: jevR.noul } : {}) };
-  // Jev no respondió, o respondió con poca seguridad: antes seguía en silencio. Ahora queda un aviso y, si Ajustes lo exige, espera.
-  const jevRule = jevPolicy({ jev: jevR, s, lowRisk: lowRisk(ops, obs, !!base.expediente?.incompleto) });
-  if (jevRule.aviso) obs.avisos.push(jevRule.aviso);
-  if (!why && jevRule.why) why = jevRule.why;
-  const pct = confidence === null ? 0 : Math.round(confidence * 100); const because = jevWhy ? tr(` Motivo: ${jevWhy}.`, ` Reason: ${jevWhy}.`) : '';
-  if (!why && confidence !== null && confidence < s.threshold) {
-    // Riesgo bajo: la duda de Jev avisa pero no frena (cambio simple, reversible, sobre fichas que ya existen).
-    if (lowRisk(ops, obs, !!base.expediente?.incompleto) && !input.second && !leer) return pedir({ ...input, second: jevWhy || tr('la revisión no quedó segura', 'the review was not sure'), caseId });
-    if (lowRisk(ops, obs, !!base.expediente?.incompleto)) obs.avisos.push(tr(`Jev dudó de este plan (${pct} %).${because} Se guardó igual porque es un cambio simple y se puede deshacer: revísalo.`, `Jev doubted this plan (${pct}%).${because} It was saved anyway because it is a simple change that can be undone: check it.`));
-    else why = tr(`Jev no está seguro de que el plan refleje el pedido (confianza ${pct} %, mínimo ${Math.round(s.threshold * 100)} %).${because}`, `Jev is not sure the plan reflects the request (confidence ${pct}%, minimum ${Math.round(s.threshold * 100)}%).${because}`);
-  } else if (confidence !== null && confidence < 0.65) obs.avisos.push(tr(`Jev dio ${pct} % de confianza a este plan: échale un ojo.${because}`, `Jev gave this plan ${pct}% confidence: take a look.${because}`));
+  const jevR = await judge(text, plan, { answers: talk, recognized, expediente: md }); const confidence = jevR.score;
+  obs.jev = { fiel: confidence, ...(confidence === null ? { error: jevR.problem } : {}), ...(jevR.reason ? { motivo: jevR.reason } : {}), ...(jevR.seguridad !== null ? { seguridad: jevR.seguridad } : {}), ...(jevR.noul !== null ? { noul: jevR.noul } : {}) };
+  // La decisión es una tabla pura (decision.ts): la misma para el pedido real y para el ensayo.
+  const d = decide({ ops, obs, s, scope: currentBrain()?.scope, incompleto: !!base.expediente?.incompleto, leer, correccion: !!target, jev: jevR, segundaVuelta: !!input.second });
+  if (d.repetir !== null) return pedir({ ...input, second: d.repetir, caseId }); // Jev dudó de un cambio simple: una segunda vuelta con el modelo grande
+  obs.fuertes = d.fuertes; obs.fuertesCat = d.fuertesCat; obs.avisos.push(...d.avisos); // los avisos que Ajustes afloja pasan de «fuertes» a «avisos»
   const phrase = deletePhrase(ops);
   const gapsLeft = leer ? [] : coverageGaps(ops, text);
-  const common = { ...stats(), ops, plan, recognized, obs, confidence, ...(summary ? { summary } : {}), ...(phrase ? { confirm: { phrase } } : {}) };
-  if (input.dryRun) return done({ ...common, status: 'pendiente', why: why || tr('Ensayo: se aplicaría solo.', 'Dry run: it would apply on its own.') });
-  // Guardar primero: si lo único que frena es lo dudoso o lo delicado, lo cierto se guarda ya y lo demás espera.
-  const splitOk = !!why && !leer && !target && !!ops.length && s.mode !== 'proponer' && currentBrain()?.scope !== 'proponer' && !base.expediente?.incompleto
-    && new Set(ops.flatMap(touchesOf)).size <= s.bigTouch && ops.filter(o => MENU[o.name]?.creates).length <= s.bigCreate && (confidence === null || confidence >= s.threshold)
-    && !jevRule.why; // si la espera la causó Jev (obligatorio y caído, o poca seguridad), el plan espera completo: no se parte ni se guarda «lo seguro»
-  const split = splitOk ? splitCierto(ops, obs.fuertes, s) : null;
-  if (split && !split.wait.length && !obs.fuertes.length) why = null; // todo era cierto (p. ej. fichas nuevas completas): se guarda como siempre
-  if (why && split && split.now.length && split.wait.length) return oneAtATime(async () => {
-    const stale = validatePlan(split.now);
+  const decision = { accion: d.accion, categoria: d.categoria, guardaria: d.guardar.length, esperaria: d.esperar.length };
+  const common = { ...stats(), ops, plan, recognized, obs, confidence, decision, ...(d.accion !== 'guardar' && d.categoria ? { esperaCat: d.categoria } : {}), ...(d.categoriaCada.length ? { waitCats: d.categoriaCada } : {}), ...(summary ? { summary } : {}), ...(phrase ? { confirm: { phrase } } : {}) };
+  // Ensayo: dice lo que pasaría DE VERDAD. Antes cortaba antes de «guardar primero» y un pedido que sí se guardaba solo salía como «esperaría».
+  if (input.dryRun) return done({ ...common, status: 'pendiente', why: d.accion === 'guardar' ? tr('Ensayo: se aplicaría solo.', 'Dry run: it would apply on its own.')
+    : d.accion === 'guardar_parcial' ? tr(`Ensayo: se guardarían ${d.guardar.length} y esperarían ${d.esperar.length}: ${d.porque}`, `Dry run: ${d.guardar.length} would be saved and ${d.esperar.length} would wait: ${d.porque}`) : (d.porque || '') });
+  // Guardar primero: lo cierto se guarda ya y solo lo demás espera.
+  if (d.accion === 'guardar_parcial') return oneAtATime(async () => {
+    const stale = validatePlan(d.guardar);
     if (stale.length) return done({ ...common, status: 'pendiente', why: stale[0], report: reportOf('pendiente', plan, undefined, gapsLeft, skipped), message: tr('Quedó en «Por aprobar»: todavía NO se aplicó nada.', 'It is waiting in “To approve”: NOTHING has been applied yet.') });
-    const before = snapshotBefore(split.now);
-    const a = await applyPlan(vault, split.now, text, tw(`Cerebro (pedido de ${base.by}; la parte segura)`, `Cerebro (request from ${base.by}; the safe part)`));
+    const before = snapshotBefore(d.guardar);
+    const a = await applyPlan(vault, d.guardar, text, tw(`Cerebro (pedido de ${base.by}; la parte segura)`, `Cerebro (request from ${base.by}; the safe part)`));
     if (!a.ok) return done({ ...common, status: 'fallo', message: a.error });
     await afterApply(vault, base.id, obs, before, a.results, text);
-    const waitPlan = split.wait.map(describeOp); const wp = deletePhrase(split.wait);
+    const waitPlan = d.esperar.map(describeOp); const wp = deletePhrase(d.esperar);
     const rep = { hecho: a.results, esperando: waitPlan, noHice: reportOf('pendiente', plan, undefined, gapsLeft, skipped).noHice };
-    return done({ ...common, ops: split.wait, plan: waitPlan, recognized: recognizedOf(ops), confirm: wp ? { phrase: wp } : undefined, status: 'pendiente', why: [...new Set(split.whyEach)].join(' · '), waitWhy: split.whyEach,
-      partial: { saved: a.results, changeId: a.changeId }, links: linksOf(split.now), receipt: a.receipt, report: rep,
+    return done({ ...common, ops: d.esperar, plan: waitPlan, recognized: recognizedOf(ops), confirm: wp ? { phrase: wp } : undefined, status: 'pendiente', why: d.porque || '', waitWhy: d.porqueCada,
+      partial: { saved: a.results, changeId: a.changeId }, links: linksOf(d.guardar), receipt: a.receipt, report: rep,
       message: tr(`Guardé lo seguro (${a.results.length}); lo demás espera (${waitPlan.length}). `, `I saved the safe part (${a.results.length}); the rest waits (${waitPlan.length}). `) + reportText(rep) });
   });
-  if (why) return done({ ...common, status: 'pendiente', why, report: reportOf('pendiente', plan, undefined, gapsLeft, skipped), message: tr(`Quedó en «Por aprobar»: todavía NO se aplicó nada. ${target ? `Reemplaza a ${target.id}. ` : ''}`, `It is waiting in “To approve”: NOTHING has been applied yet. ${target ? `It replaces ${target.id}. ` : ''}`) + reportText(reportOf('pendiente', plan, undefined, gapsLeft, skipped)) });
+  if (d.accion === 'esperar') return done({ ...common, status: 'pendiente', why: d.porque || '', report: reportOf('pendiente', plan, undefined, gapsLeft, skipped), message: tr(`Quedó en «Por aprobar»: todavía NO se aplicó nada. ${target ? `Reemplaza a ${target.id}. ` : ''}`, `It is waiting in “To approve”: NOTHING has been applied yet. ${target ? `It replaces ${target.id}. ` : ''}`) + reportText(reportOf('pendiente', plan, undefined, gapsLeft, skipped)) });
   return oneAtATime(async () => {
   const stale = validatePlan(ops); // otro tema del mismo pedido pudo cambiar algo mientras tanto
   if (stale.length) return done({ ...common, status: 'pendiente', why: stale[0], report: reportOf('pendiente', plan, undefined, gapsLeft, skipped), message: tr('Quedó en «Por aprobar»: todavía NO se aplicó nada.', 'It is waiting in “To approve”: NOTHING has been applied yet.') });

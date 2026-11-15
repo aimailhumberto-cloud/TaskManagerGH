@@ -102,3 +102,8 @@ derives:
     take:
       mercados: { type: market, rels: [operates_in_market, market_jurisdiction] }
       marcas: { type: brand, rels: [carries_brand, assigned_brands, sells_brands] }
+
+# Campos de TEXTO LIBRE (notas, observaciones, resúmenes). Escribir encima de uno que ya tiene texto borra información: lo decide una persona.
+# Un dato corregible (dirección, cargo, asunto, condiciones de pago) NO es texto libre aunque sea largo: cambiarlo no pierde nada que no se pueda deshacer.
+# Se pueden sumar campos; los de abajo no se pueden quitar.
+textFields: [notes, personal_notes, description, executive_observations, observations, summary, audit_note, evidence_note, communication_style, import_requirements_summary, source]

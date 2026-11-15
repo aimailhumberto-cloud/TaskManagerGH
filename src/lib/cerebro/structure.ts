@@ -61,6 +61,11 @@ export interface Structure {
   commonFields: string[];
   /** Lo que se hereda al leer (ver DeriveRule). */
   derives: DeriveRule[];
+  /**
+   * Campos de TEXTO LIBRE (notas, observaciones, resúmenes): escribir encima de uno que ya tiene texto borra información, y eso lo decide una persona.
+   * Un dato corregible (una dirección, un cargo, un asunto) NO es texto libre aunque sea largo: cambiarlo no pierde nada que no se pueda deshacer.
+   */
+  textFields: string[];
 }
 export type StructureSource = 'archivo' | 'ultima_buena' | 'defecto';
 export interface Loaded { s: Structure; source: StructureSource; errors: string[]; hash: string }
@@ -105,6 +110,9 @@ export const DEFAULT_STRUCTURE: Structure = {
   },
   aliases: { belongs_to_market: 'operates_in_market', carries_brands: 'carries_brand', collaborates_with: 'coordinates_with', professional_contact_of: 'contact_of' },
   commonFields: ['status', 'end_date', 'start_date', 'inactive_reason', 'is_active'],
+  // Sacados de la bóveda real (campos con más de 25 caracteres): estos son narrativa; headquarters_address, job_title, payment_terms,
+  // last_email_subject, next_followup_action… son datos corregibles y no están aquí.
+  textFields: ['notes', 'personal_notes', 'description', 'executive_observations', 'observations', 'summary', 'audit_note', 'evidence_note', 'communication_style', 'import_requirements_summary', 'source'],
   // Una persona conectada a una empresa hereda su mercado y sus marcas (al leer). Se cuentan también los nombres que la bóveda ya usa
   // (market_jurisdiction, assigned_brands, sells_brands: filiales y clientes). No se cuentan «references» (menciones en el texto) ni «signature_company» (firmas de correo).
   derives: [{ from: ['person'], through: ['works_at', 'contact_of', 'owner_of', 'key_person_of'], to: COMPANY_TYPES,
@@ -179,6 +187,8 @@ export function validateStructure(raw: unknown): { ok: true; s: Structure } | { 
   }
   let commonFields = D.commonFields;
   if (raw.commonFields !== undefined) { const f = fieldsOk(raw.commonFields, 'commonFields'); commonFields = [...new Set([...D.commonFields, ...f])]; }
+  let textFields = D.textFields;
+  if (raw.textFields !== undefined) { const f = fieldsOk(raw.textFields, 'textFields'); textFields = [...new Set([...D.textFields, ...f])]; }
   // Lo que se hereda de la empresa. Sin «derives» en el archivo: los valores por defecto (para que un archivo viejo no apague la función). «derives: []» la apaga.
   let derives: DeriveRule[] = D.derives;
   if (raw.derives !== undefined) {
@@ -205,7 +215,7 @@ export function validateStructure(raw: unknown): { ok: true; s: Structure } | { 
   }
   const version = typeof raw.version === 'number' && raw.version >= 1 ? Math.floor(raw.version) : 1;
   if (errors.length) return { ok: false, errors };
-  return { ok: true, s: { version, types, relations, aliases, commonFields, derives } };
+  return { ok: true, s: { version, types, relations, aliases, commonFields, derives, textFields } };
 }
 
 // ---------- Carga ----------

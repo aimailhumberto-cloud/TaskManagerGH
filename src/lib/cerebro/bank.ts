@@ -13,7 +13,8 @@ type Out = CerebroRequest & { errors?: string[] };
 /** `etapa`: la etapa del plan que debe hacer pasar este caso. Mientras no llegue, su fallo es esperado y no cuenta como regresión. */
 interface BankCase { n: number; nombre: string; text: string; md?: string; etapa?: string; check: (r: Out, parts: Out[]) => string | null }
 /** En ensayo todo sale «pendiente»; lo que se aplicaría solo trae este motivo (lo escribe pedir()). Los demás esperarían a una persona. */
-const sola = (r: Out) => r.status === 'pendiente' && /^(Ensayo|Dry run)/.test(r.why || '');
+// Desde la 5.4 el ensayo trae la decisión real (la misma tabla que el pedido de verdad, con «guardar primero» incluido). El texto es solo para respaldo.
+const sola = (r: Out) => (r.decision ? r.decision.accion === 'guardar' : r.status === 'pendiente' && /^(Ensayo|Dry run)/.test(r.why || ''));
 const MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const say = (d: Date) => `${d.getUTCDate()} de ${MES[d.getUTCMonth()]}`;

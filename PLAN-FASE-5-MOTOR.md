@@ -13,7 +13,8 @@ Base: lectura completa de `src/lib/cerebro/*` (2.065 líneas), la ruta `/api/age
 
 - **5.0b Jev bien usado: construida** (commit `f2ee0c5`). `src/lib/cerebro/jev.ts` (movido desde `engine.ts`), `jevcal.ts`, `scripts/jev-calibracion.ts`. Pruebas: `npm run test:jev-uso` (55, con modelo y Jev simulados, incluido `pedir()` completo). Detalle abajo.
 - **5.2 Origen del dato: construida** (commit `5939d1b`). `src/lib/cerebro/origin.ts` + cableado en `ops.ts`, `review.ts`, `brainLens.ts`. Pruebas: `npm run test:origen` (65, incluido `pedir()` completo con el caso de Pierre). Detalle en la sección «Origen del dato».
-- **5.3 Vecindario: construida, sin commitear.** `src/lib/cerebro/neighborhood.ts` (+ `src/lib/titles.ts`), reglas `derives` e `inverse` en la estructura, cableado en `engine.ts` y `brainLens.ts`. Pruebas: `npm run test:vecindario` (63, incluido `pedir()` completo). Detalle en la sección «Vecindario».
+- **5.3 Vecindario: construida** (commit `56b65fb`). `src/lib/cerebro/neighborhood.ts` (+ `src/lib/titles.ts`), reglas `derives` e `inverse` en la estructura, cableado en `engine.ts` y `brainLens.ts`. Pruebas: `npm run test:vecindario` (63, incluido `pedir()` completo). Detalle en la sección «Vecindario».
+- **5.4 Decisión simple: construida, sin commitear.** `src/lib/cerebro/decision.ts` (tabla pura `decide()`), categorías en `review.ts`, `politica` y `textFields` en Ajustes y estructura, `scripts/esperas.ts`. Pruebas: `npm run test:decision` (84, incluido `pedir()` completo). Detalle en la sección «Decisión simple».
 
 ## Papel de Jev (auditoría y reglas)
 
@@ -73,6 +74,23 @@ Jev se usa en cuatro sitios: el motor (¿el plan refleja el pedido?, ¿lo nuevo 
 **Defectos de mi propio trabajo que halló la prueba:** (1) el recorte de la tarjeta de MEDIMEX botaba su mercado y sus marcas porque las personas iban primero; (2) la misma pareja salía dos veces; (3) el estado de verificación, a veces una frase entera en esta bóveda, ensuciaba la tarjeta. La mutación del orden no la detectaba ninguna prueba hasta que agregué el caso de una empresa con 12 personas.
 
 **Lo que no hace:** no toca la pantalla del mapa ni cómo se decide el «padre» de una ficha (`parentOf`): eso es de `src/app/cerebro/*` y del hilo del mapa, y **Pierre aparece en el vecindario de MEDIMEX por su enlace de dueño pero no está verificado en pantalla**. La API ya entrega `derived` y `people` para que el mapa los pinte. Tampoco conecta nada por su cuenta ni reescribe fichas.
+
+## Decisión simple (etapa 5.4)
+
+**Qué resuelve.** Decidir si un pedido se guarda, se guarda en parte o espera era una cadena de condiciones dentro de `pedir()`, con efectos laterales y cuatro caminos de salida. Dos consecuencias medidas: (1) cambiar la dirección de MEDIMEX esperaba aprobación porque la regla «reemplaza un texto largo» saltaba con cualquier campo de más de 25 caracteres con espacios (`headquarters_address`, `job_title`, `payment_terms`, `last_email_subject`…); (2) el ensayo cortaba antes de «guardar primero», así que un pedido que sí se guardaba solo (Pierre) salía como «esperaría» y el banco medía mal.
+
+- **Una tabla pura, `decide()`**, la misma para el pedido real y para el ensayo. De arriba abajo, la primera que aplica manda: **delicado** (borrar, verificar, compartir; nunca se afloja) → **grande / ajustes / agente** → **avisos fuertes** según su categoría → **Jev** (solo suma duda) → si algo espera pero otras partes son ciertas, **se guarda lo cierto y solo lo demás espera** → si nada espera, se guarda todo.
+- **Cada espera lleva una categoría**: `delicado`, `grande`, `ajustes`, `agente`, `duplicado`, `identidad`, `dato_verificado`, `pisa_texto`, `fecha`, `campo`, `cobertura`, `jev_duda`, `jev_seguridad`, `jev_obligatorio`, y `dudoso` / `depende` por operación. Queda en el caso (`esperaCat`, `waitCats`, `decision`).
+- **Texto libre vs dato corregible.** Qué es texto libre lo declara la estructura (`textFields`: notas, observaciones, resúmenes, `source`…), sacado de la bóveda real. Pisarlo con algo distinto espera; agregarle texto (el nuevo contiene el anterior) no. Una dirección, un cargo o unas condiciones de pago se guardan con un aviso de qué se reemplazó.
+- **Política por categoría en Ajustes (`politica`), apagada por defecto.** Solo se pueden aflojar cinco: `duplicado`, `pisa_texto`, `campo`, `cobertura`, `jev_duda` (`'avisar'`: se guarda y queda el aviso). **Nunca** se aflojan `delicado`, `identidad` (no se adivina cuál persona), `dato_verificado` ni `fecha` que no cuadra; el valor se descarta al leer aunque alguien lo escriba en el archivo de ajustes.
+- **El ensayo dice la verdad:** `decision.accion` = `guardar` / `guardar_parcial` / `esperar`, con cuántas operaciones se guardarían y cuántas esperarían. El banco mide con eso (con respaldo al texto de antes).
+- **Contar las esperas:** `npx tsx scripts/esperas.ts` (solo lectura) dice cuántas esperas hubo de cada categoría y cuántas se aprobaron tal cual. **Una categoría aflojable con ≥ 10 esperas resueltas y ≥ 90 % aprobadas tal cual sugiere ponerla en «avisar»; una regla dura con ese patrón no se sugiere aflojar: dice que hay que mejorar el motor.** Con muestra chica advierte y no sugiere nada.
+- **Lo que cambia respecto a hoy, a propósito, solo dos cosas:** la regla de texto libre y el ensayo. Todo lo demás conserva el comportamiento: las 14 suites anteriores pasan sin tocarlas, incluida la integración de Jev (duda en un cambio simple, Jev caído, obligatorio, poca seguridad).
+- `engine.ts` bajó de ~800 a 734 líneas; `lowRisk`, `splitCierto` y `whyProposal` se reexportan desde `engine.ts` por compatibilidad.
+
+**Hallazgos del proceso:** una de mis pruebas contaba mal (50 pedidos, no 49) y otra no podía borrar su carpeta temporal en Windows con el directorio de trabajo adentro; ambas eran de la prueba, no del producto. Las cuatro mutaciones (texto libre, guardar primero, lista de categorías duras, Jev que parte el plan) las detectan 5, 9, 3 y 3 comprobaciones.
+
+**Lo que no hace:** no cambia ningún umbral de Jev ni afloja nada por sí solo; «Pierre en un solo mensaje y cero aprobaciones» está probado con un modelo simulado, y que el modelo real emita el plan completo lo mide el caso 13 del banco cuando se corra; la columna «aprobadas tal cual» solo tendrá datos cuando haya casos reales de producción (pendiente tu autorización para leerlos).
 
 ## 1. Cómo funciona hoy
 

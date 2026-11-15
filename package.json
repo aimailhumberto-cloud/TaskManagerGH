@@ -52,6 +52,8 @@
     "test:estructura": "tsx scripts/test-estructura.ts",
     "test:origen": "tsx scripts/test-origen.ts",
     "test:vecindario": "tsx scripts/test-vecindario.ts",
+    "test:decision": "tsx scripts/test-decision.ts",
+    "esperas": "tsx scripts/esperas.ts",
     "test:motor": "SMJ_VAULT_PATH=vault tsx scripts/test-motor.ts",
     "test:e2e-motor": "python3 scripts/e2e-motor.py",
     "test:e2e-alta": "python3 scripts/e2e-alta.py"

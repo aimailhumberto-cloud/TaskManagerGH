@@ -13,7 +13,7 @@ import { displayTitle, norm, words, nameAmbiguities, peopleMentioned } from '../
 import { getPanamaDate } from '../smjBrainService';
 import { cerebroDir } from './settings';
 import { createdIdOf, linked, eventTitle, type Op } from './ops';
-import { knownFieldsOf } from './structure';
+import { knownFieldsOf, structure } from './structure';
 import { isFieldVerified, hasFieldVerification } from './origin';
 import { tr } from '../reqLang';
 
@@ -22,6 +22,8 @@ export interface Observations {
   supuso: string[];
   /** Avisos que mandan el pedido a aprobación (posible duplicado, cambia un dato verificado). */
   fuertes: string[];
+  /** La categoría de cada aviso fuerte, en el mismo orden: duplicado, identidad, dato_verificado, pisa_texto, fecha, campo, cobertura. */
+  fuertesCat?: string[];
   /** Avisos que no bloquean (choque de agenda, posible contradicción). */
   avisos: string[];
   /** Datos que faltan en las fichas tocadas. */
@@ -142,6 +144,8 @@ export function fieldIssues(ops: Op[]): string[] {
 }
 export function inspectPlan(ops: Op[], supuso: string[] = [], text = '', namesText = text): Observations {
   const o: Observations = { supuso: supuso.slice(0, 8), fuertes: [], avisos: [], falta: [] };
+  // Cada aviso fuerte lleva su categoría (en paralelo a «fuertes»): de ahí sale por qué espera un pedido y cuántas esperas hay de cada tipo.
+  const cats: string[] = []; const strong = (cat: string, text: string) => { o.fuertes.push(text); cats.push(cat); };
   const nodes = nodesById(); const vault = getVaultPath();
   const open = getUnifiedBrainTasks().tasks.filter(t => !t.isCompleted);
   const events = listEvents(vault);
@@ -149,12 +153,12 @@ export function inspectPlan(ops: Op[], supuso: string[] = [], text = '', namesTe
     const a = op.args || {};
     if (op.name === 'crear_tarea') {
       const twin = open.find(t => overlap(t.title, String(a.titulo)) >= 0.75 && words(a.titulo).length >= 3);
-      if (twin) { const where = twin.sourceNodeId && twin.sourceNodeId !== a.ficha ? twin.sourceNodeId : ''; o.fuertes.push(tr(`La tarea «${String(a.titulo).slice(0, 80)}» se parece a una que ya existe: «${twin.title.slice(0, 80)}»${where ? ` (en ${where})` : ''}. ¿Es la misma?`, `The task “${String(a.titulo).slice(0, 80)}” looks like one that already exists: “${twin.title.slice(0, 80)}”${where ? ` (in ${where})` : ''}. Is it the same one?`)); }
+      if (twin) { const where = twin.sourceNodeId && twin.sourceNodeId !== a.ficha ? twin.sourceNodeId : ''; strong('duplicado', tr(`La tarea «${String(a.titulo).slice(0, 80)}» se parece a una que ya existe: «${twin.title.slice(0, 80)}»${where ? ` (en ${where})` : ''}. ¿Es la misma?`, `The task “${String(a.titulo).slice(0, 80)}” looks like one that already exists: “${twin.title.slice(0, 80)}”${where ? ` (in ${where})` : ''}. Is it the same one?`)); }
     }
     if (op.name === 'crear_ficha') {
       const name = norm(a.nombre);
       const twin = [...nodes.values()].find(n => n.type === a.tipo && (overlap(displayTitle(n.title), String(a.nombre)) >= 0.99 || (words(a.nombre).length >= 2 && norm(displayTitle(n.title)).includes(name))));
-      if (twin) o.fuertes.push(tr(`«${a.nombre}» se parece a una ficha que ya existe: ${displayTitle(twin.title)} (${twin.id}). ¿Es la misma?`, `“${a.nombre}” looks like a note that already exists: ${displayTitle(twin.title)} (${twin.id}). Is it the same one?`));
+      if (twin) strong('duplicado', tr(`«${a.nombre}» se parece a una ficha que ya existe: ${displayTitle(twin.title)} (${twin.id}). ¿Es la misma?`, `“${a.nombre}” looks like a note that already exists: ${displayTitle(twin.title)} (${twin.id}). Is it the same one?`));
       const c = a.campos || {};
       if (a.tipo === 'person') {
         if (!c.email_primary && !c.phone_mobile) o.falta.push(tr(`${a.nombre}: sin correo ni teléfono.`, `${a.nombre}: no email or phone.`));
@@ -167,9 +171,12 @@ export function inspectPlan(ops: Op[], supuso: string[] = [], text = '', namesTe
       // Verificación por campo: si la ficha ya tiene datos verificados uno por uno, solo cambiar ESOS frena; si no, vale la regla de siempre (ficha verificada completa).
       const wholeVerified = fm.verification_status === 'verified' && !hasFieldVerification(fm);
       const hitVerified = wholeVerified ? changed : changed.filter(([k]) => isFieldVerified(fm, k));
-      if (hitVerified.length) o.fuertes.push(tr(`Cambia datos ${wholeVerified ? 'de una ficha VERIFICADA' : 'VERIFICADOS'} (${displayTitle(n!.title)}): `, `Changes ${wholeVerified ? 'data of a VERIFIED note' : 'VERIFIED data'} (${displayTitle(n!.title)}): `) + `${hitVerified.map(([k, v]) => `${k}: «${String(fm[k]).slice(0, 40)}» → «${String(v).slice(0, 40)}»`).join('; ')}.`);
-      // Pisar un texto largo que ya existía (notas, descripción) borra información: eso lo decide una persona.
-      else if (changed.some(([k, v]) => { const was = String(fm[k] ?? ''); return was.length > 25 && /\s/.test(was) && !norm(String(v ?? '')).includes(norm(was).slice(0, 40)); })) o.fuertes.push(tr(`${displayTitle(n!.title)}: el plan REEMPLAZA un texto que ya existía en ${changed.filter(([k]) => String(fm[k] ?? '').length > 25).map(([k]) => `${k} («${String(fm[k]).slice(0, 60)}…»)`).join(', ')}. Se perdería lo anterior.`, `${displayTitle(n!.title)}: the plan REPLACES text that already existed in ${changed.filter(([k]) => String(fm[k] ?? '').length > 25).map(([k]) => `${k} (“${String(fm[k]).slice(0, 60)}…”)`).join(', ')}. The previous content would be lost.`));
+      const textFields = new Set(structure().textFields);
+      const overwritten = changed.filter(([k, v]) => { const was = String(fm[k] ?? ''); return textFields.has(k) && was.length > 25 && /\s/.test(was) && !norm(String(v ?? '')).includes(norm(was).slice(0, 40)); });
+      if (hitVerified.length) strong('dato_verificado', tr(`Cambia datos ${wholeVerified ? 'de una ficha VERIFICADA' : 'VERIFICADOS'} (${displayTitle(n!.title)}): `, `Changes ${wholeVerified ? 'data of a VERIFIED note' : 'VERIFIED data'} (${displayTitle(n!.title)}): `) + `${hitVerified.map(([k, v]) => `${k}: «${String(fm[k]).slice(0, 40)}» → «${String(v).slice(0, 40)}»`).join('; ')}.`);
+      // Pisar un TEXTO LIBRE que ya existía (notas, observaciones, resúmenes) borra información: eso lo decide una persona.
+      // Un dato corregible aunque sea largo (una dirección, un cargo, un asunto) NO cuenta: antes cualquier campo de más de 25 caracteres con espacios frenaba el pedido.
+      else if (overwritten.length) strong('pisa_texto', tr(`${displayTitle(n!.title)}: el plan REEMPLAZA un texto que ya existía en ${overwritten.map(([k]) => `${k} («${String(fm[k]).slice(0, 60)}…»)`).join(', ')}. Se perdería lo anterior.`, `${displayTitle(n!.title)}: the plan REPLACES text that already existed in ${overwritten.map(([k]) => `${k} (“${String(fm[k]).slice(0, 60)}…”)`).join(', ')}. The previous content would be lost.`));
       else if (changed.length) o.avisos.push(tr(`${displayTitle(n!.title)}: se reemplaza ${changed.map(([k]) => `${k} (antes «${String(fm[k]).slice(0, 40)}»)`).join(', ')}.`, `${displayTitle(n!.title)}: replaces ${changed.map(([k]) => `${k} (was “${String(fm[k]).slice(0, 40)}”)`).join(', ')}.`));
     }
     if (op.name === 'agendar' && a.hora) {
@@ -178,18 +185,18 @@ export function inspectPlan(ops: Op[], supuso: string[] = [], text = '', namesTe
       if (clash) o.avisos.push(tr(`El ${a.fecha} a las ${a.hora} ya tienes «${clash.title}».`, `On ${a.fecha} at ${a.hora} you already have “${clash.title}”.`));
     }
   }
-  try { o.fuertes.push(...fieldIssues(ops)); } catch {}
+  try { for (const m of fieldIssues(ops)) strong('campo', m); } catch {}
   if (text) {
     const refs = refsOf(ops);
     try {
       for (const x of nameAmbiguities(namesText)) {
         const used = x.people.filter(p => refs.has(p.id)); if (!used.length) continue;
-        o.fuertes.push(x.kind === 'igual'
+        strong('identidad', x.kind === 'igual'
           ? tr(`«${x.word}» puede ser ${x.people.map(p => p.title).join(' o ')}: el plan usa a ${used.map(p => p.title).join(', ')}. ¿Es esa persona?`, `“${x.word}” can be ${x.people.map(p => p.title).join(' or ')}: the plan uses ${used.map(p => p.title).join(', ')}. Is that the right person?`)
           : tr(`«${x.word}» no es el nombre exacto de nadie y el plan usa a ${used.map(p => p.title).join(', ')}. ¿Es esa persona?`, `“${x.word}” is nobody’s exact name and the plan uses ${used.map(p => p.title).join(', ')}. Is that the right person?`));
       }
-      try { const { dateStr } = getPanamaDate(); o.fuertes.push(...dateIssues(ops, text, dateStr)); } catch {}
-      const gaps = coverageGaps(ops, text); if (gaps.length) o.fuertes.push(tr(`El plan no recoge todo lo que dice el pedido: ${gaps.join('; ')}.`, `The plan does not capture everything the request says: ${gaps.join('; ')}.`));
+      try { const { dateStr } = getPanamaDate(); for (const m of dateIssues(ops, text, dateStr)) strong('fecha', m); } catch {}
+      const gaps = coverageGaps(ops, text); if (gaps.length) strong('cobertura', tr(`El plan no recoge todo lo que dice el pedido: ${gaps.join('; ')}.`, `The plan does not capture everything the request says: ${gaps.join('; ')}.`));
       for (const p of peopleMentioned(text)) if (!refs.has(p.id)) o.avisos.push(tr(`El pedido nombra a ${p.title}, pero el plan no lo menciona.`, `The request names ${p.title}, but the plan does not mention them.`));
     } catch {}
   }
@@ -200,7 +207,10 @@ export function inspectPlan(ops: Op[], supuso: string[] = [], text = '', namesTe
     if (made.has(id)) continue; const n = nodes.get(id); if (!n || n.type !== 'person') continue; const fm = n.frontmatter || {};
     if (!fm.email_primary && !fm.phone_mobile && !fm.whatsapp) o.falta.push(tr(`${displayTitle(n.title)}: sin correo ni teléfono.`, `${displayTitle(n.title)}: no email or phone.`));
   }
-  o.fuertes = [...new Set(o.fuertes)].slice(0, 10); o.avisos = [...new Set(o.avisos)].slice(0, 10); o.falta = [...new Set(o.falta)].slice(0, 12);
+  // Sin repetidos (se queda la categoría del primero) y con tope; la categoría sigue alineada con su texto.
+  const seen = new Set<string>(); const fu: string[] = [], fc: string[] = [];
+  o.fuertes.forEach((txt, i) => { if (!seen.has(txt)) { seen.add(txt); fu.push(txt); fc.push(cats[i] || 'otro'); } });
+  o.fuertes = fu.slice(0, 10); o.fuertesCat = fc.slice(0, 10); o.avisos = [...new Set(o.avisos)].slice(0, 10); o.falta = [...new Set(o.falta)].slice(0, 12);
   return o;
 }
 
