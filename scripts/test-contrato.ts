@@ -1,6 +1,7 @@
 /** Etapa 5.6: contrato del agente y respuesta en dos niveles (caso.paraPersona). Uso: npx tsx scripts/test-contrato.ts */
 import { caseOf, limpio, paraPersona } from '../src/lib/cerebro/cases';
 import { agentGuide } from '../src/lib/cerebro/guide';
+import { AGENT_ALLOWED, agentMayWrite } from '../src/lib/agentGate';
 import { withLang } from '../src/lib/reqLang';
 
 let ok = 0, bad = 0; const t = (n: string, c: boolean, extra = '') => { c ? ok++ : (bad++, console.log('✗', n, extra)); };
@@ -56,5 +57,9 @@ t('H4 es: un tema por caso', /Un tema por caso/.test(es));
 t('H5 es: dos niveles con paraPersona', /caso\.paraPersona/.test(es) && /Sin números de caso/.test(es));
 t('H6 en: mismo contrato', /as they said them/.test(eng) && /your evidence/.test(eng) && /without asking HB for permission/.test(eng) && /One topic per case/.test(eng) && /caso\.paraPersona/.test(eng) && /No case numbers/.test(eng));
 t('H7 ya no manda repetir el acta tal cual a la persona', !/Repórtasela a HB tal cual/.test(es) && !/Report it to HB as is/.test(eng));
+
+// I. La puerta del agente deja pasar «manana» (la guía lo promete)
+t('I1 el agente puede leer el resumen de la mañana', (AGENT_ALLOWED['/api/agent/cerebro'] || []).includes('manana') && agentMayWrite('/api/agent/cerebro', 'manana'));
+t('I2 y sigue sin poder escribir directo', !agentMayWrite('/api/agent/cerebro', 'crear'));
 
 console.log(`${ok} bien, ${bad} mal`); process.exit(bad ? 1 : 0);

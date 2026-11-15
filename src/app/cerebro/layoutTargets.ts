@@ -53,8 +53,8 @@ export const LEADER_IDS = new Set([
 // Niveles del Cerebro: 0 nucleo, 1 primer anillo (vista por defecto), luego cada capa mas profunda.
 export const NODE_LEVEL: Record<string, number> = {
   core: 0,
-  market: 1, brand: 1, department: 1, working_memory: 1, project: 1, routine: 1,
-  organization: 2, distributor: 2, operator: 2, product_line: 2, site: 2, country: 2, group: 2, consolidation_session: 2,
+  market: 1, brand: 1, department: 1, working_memory: 1, consolidation_session: 1, project: 1, routine: 1,
+  organization: 2, distributor: 2, operator: 2, product_line: 2, site: 2, country: 2, group: 2,
   channel: 3, customer: 3, client_group: 3, client: 3, outlet: 3, flavor: 3, person: 3, role: 3,
   packaging: 4, catalog_listing: 4,
   product_variant: 5,
@@ -491,6 +491,8 @@ export function assignClusterTarget(node: any): { x: number; y: number; clusterK
   if (id.includes('wm-20261109-001') || id.includes('prioridad-lote')) return { x: 0, y: 200, clusterKey: 'workingMemory' };
   if (id.includes('session-20261109-002')) return { x: 80, y: 200, clusterKey: 'workingMemory' };
   if (node.type === 'working_memory') return { x: 0, y: 220, clusterKey: 'workingMemory' };
+  // Sesiones del día (Cerebro) y demás mantenimiento: a la bandeja de memoria, fuera del círculo.
+  if (node.type === 'consolidation_session' || id.includes('session')) return { x: 80, y: 200, clusterKey: 'workingMemory' };
 
   // Catalog items: Attach to manufacturing & brands nebula (Center: 360, 130)
   if (node.type === 'flavor' || node.type === 'packaging' || node.type === 'product_line' || node.type === 'product_variant') {
