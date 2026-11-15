@@ -11,6 +11,34 @@ Base: lectura completa de `src/lib/cerebro/*` (2.065 líneas), la ruta `/api/age
   - La **inversa de cada relación se pospone a la 5.3**, donde se usa para derivar el vecindario; agregarla ahora sería un campo sin uso.
   - La bóveda de **producción no tiene el archivo todavía**: hasta que se copie, el motor usa los valores por defecto del código (idénticos; una prueba lo vigila). Copiarlo es un paso aparte que aprueba HB.
 
+- **5.0b Jev bien usado: construida, sin commitear.** `src/lib/cerebro/jev.ts` (movido desde `engine.ts`), `jevcal.ts`, `scripts/jev-calibracion.ts`. Pruebas: `npm run test:jev-uso` (55, con modelo y Jev simulados, incluido `pedir()` completo). Detalle abajo.
+
+## Papel de Jev (auditoría y reglas)
+
+Jev se usa en cuatro sitios: el motor (¿el plan refleja el pedido?, ¿lo nuevo contradice la ficha?), la revisión nocturna (`noul` «apply» + urgencia, con auto-aplicado a ≥ 0.85 de dos tipos de propuesta), la clasificación de capturas y las preguntas libres del agente. El plan original lo tocaba poco; la auditoría encontró:
+
+| # | Hallazgo | Estado |
+|---|---|---|
+| J1 | **Jev no veía las respuestas de quien pide.** `judge()` recibía el pedido + expediente cortado a 4.000 caracteres; la ronda de preguntas (`talk`) no entraba. Tras «¿cuál Richard?» → «Richard Bailey», Jev evaluaba el plan contra «Richard envió…» y podía dudar de la persona recién elegida (aprobaciones de más). | Corregido |
+| J2 | **El plan se cortaba en silencio.** El proveedor recorta el estado a 12.000 caracteres por el final; el plan no tenía tope. En pedidos grandes Jev evaluaba un plan incompleto. | Corregido: el estado se arma con presupuesto; el plan siempre cabe y, si no caben todas las operaciones, lo dice |
+| J3 | **Jev solo veía ids.** No sabía quién era cada ficha ni cuáles eran nuevas. | Corregido: «id = nombre (tipo)» |
+| J4 | **La seguridad de Jev se descartaba.** Un 3 con 20 % de seguridad valía igual que un 3 con 95 %. | Se guarda (`obs.jev.seguridad`). Ajuste `jevMinConfidence` (0 = no se exige) para usarla cuando haya datos |
+| J5 | **Fallaba en silencio (fail-open).** Sin llave o caído, el plan seguía solo con las reglas de la app y nadie lo veía. | Aviso visible en planes no simples; ajuste `jevRequired` (por defecto apagado) hace que esperen. Los cambios simples y reversibles no se frenan |
+| J6 | **`afterApply` pisaba `obs.jev`** y perdía el motivo de la duda en los casos aplicados. | Corregido |
+| J7 | **El umbral 0.6 se puso a ojo** y nada medía si Jev acierta. | `jevcal.ts` cruza el puntaje de Jev con lo que pasó (aprobado igual, descartado, corregido, deshecho en el diario). Solo lectura |
+| J8 | **Dos umbrales y dos preguntas distintas:** el motor usa un puntaje de 4 escalones con corte en 0.6; la noche usa `noul` con corte en 0.85. | Pendiente: se compara con la prueba nativa en paralelo (`noul_fiel`, no decide nada) y con datos reales se elige |
+
+**Defecto de integración que halló la prueba y no el compilador:** el bloque «guardar primero» hacía `why = null` cuando todo lo demás era cierto y borraba la espera causada por Jev (obligatorio y caído, o poca seguridad). Corregido: si la espera la causó Jev, el plan espera completo.
+
+**Reglas para las etapas que siguen:**
+1. Jev solo **suma** duda: nunca convierte en «cierto» algo que las reglas de la app mandaron esperar, ni decide lo delicado (borrar, verificar, compartir).
+2. La tabla de la **5.4** usa a Jev como una entrada más (puntaje, seguridad, motivo), junto a las reglas duras; no como la regla.
+3. Ningún umbral de Jev cambia sin datos: primero `npx tsx scripts/jev-calibracion.ts` sobre casos reales (con muestra de 20 esperas resueltas como mínimo).
+4. La **5.5** (noche) unifica el estilo de pregunta y el umbral del auto-aplicado solo después de medir la prueba nativa; el auto-aplicado sigue limitado a los dos tipos actuales y deshacible.
+5. En la **fase 6**: banco con Jev simulado para probar sin red, y calibrar con pedidos reales.
+
+**Lo que no hace este cambio:** no cambia el umbral (sigue 0.6), no vuelve obligatorio a Jev, no usa la seguridad para decidir y no toca la revisión nocturna. Todo eso queda apagado o por defecto hasta tener datos.
+
 ## 1. Cómo funciona hoy
 
 1. Llega el pedido. La app busca por palabras las fichas que podrían ser y arma un bloque de contexto.

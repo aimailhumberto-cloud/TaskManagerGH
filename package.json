@@ -46,6 +46,8 @@
     "test:e2e-entrada": "python3 scripts/e2e-entrada.py",
     "test:casenote": "tsx scripts/test-casenote.ts",
     "test:jev": "tsx scripts/test-jev-paralelo.ts",
+    "test:jev-uso": "tsx scripts/test-jev-uso.ts",
+    "jev:calibracion": "tsx scripts/jev-calibracion.ts",
     "test:bank-casos": "tsx scripts/test-bank-casos.ts",
     "test:estructura": "tsx scripts/test-estructura.ts",
     "test:motor": "SMJ_VAULT_PATH=vault tsx scripts/test-motor.ts",

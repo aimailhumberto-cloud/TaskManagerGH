@@ -16,6 +16,10 @@ export interface CerebroSettings {
   agentCanApprove: boolean;
   /** Confianza mínima de Jev para aplicar solo. */
   threshold: number;
+  /** ¿Es obligatoria la revisión de Jev? Si está en true y Jev no responde, los planes que no son simples esperan aprobación (en vez de seguir solo con las reglas de la app). */
+  jevRequired: boolean;
+  /** Seguridad mínima (0–0.95) que debe tener Jev en su puntaje para dar por bueno un plan. 0 = no se exige (por defecto, hasta calibrar con datos reales). */
+  jevMinConfidence: number;
   /** Idioma de trabajo de este cerebro: el de los textos fijos que la app escribe dentro de las fichas. */
   workLang: 'es' | 'en';
   /** ¿Ya se eligió (o se tomó del idioma de quien lo usa por primera vez)? */
@@ -26,7 +30,7 @@ const file = (vaultPath: string) => path.join(dir(vaultPath), 'settings.json');
 export const cerebroDir = dir;
 export function defaults(): CerebroSettings {
   const m = process.env.OLLAMA_MODEL?.trim() || 'gemma4';
-  return { models: { rapido: m, grande: process.env.OLLAMA_MODEL_LARGE?.trim() || m }, auto: { agenda: true, novedades: true, contactos: false, cifras: false }, mode: 'mixto', bigTouch: 10, bigCreate: 5, agentCanApprove: false, threshold: 0.6, workLang: 'es', workLangSet: false };
+  return { models: { rapido: m, grande: process.env.OLLAMA_MODEL_LARGE?.trim() || m }, auto: { agenda: true, novedades: true, contactos: false, cifras: false }, mode: 'mixto', bigTouch: 10, bigCreate: 5, agentCanApprove: false, threshold: 0.6, jevRequired: false, jevMinConfidence: 0, workLang: 'es', workLangSet: false };
 }
 export function loadSettings(vaultPath: string): CerebroSettings {
   const d = defaults();
@@ -39,7 +43,7 @@ export function loadSettings(vaultPath: string): CerebroSettings {
     const auto = Object.fromEntries(AUTO_KINDS.map(k => [k, all !== null ? all : typeof s?.auto?.[k] === 'boolean' ? s.auto[k] : d.auto[k]])) as Record<AutoKind, boolean>;
     const on = AUTO_KINDS.filter(k => auto[k]).length;
     return { models: { rapido: str(s?.models?.rapido, d.models.rapido), grande: str(s?.models?.grande, d.models.grande) }, auto, mode: on === AUTO_KINDS.length ? 'auto' : on === 0 ? 'proponer' : 'mixto',
-      bigTouch: num(s?.bigTouch, d.bigTouch, 1, 500), bigCreate: num(s?.bigCreate, d.bigCreate, 1, 500), agentCanApprove: s?.agentCanApprove === true, threshold: s?.thresholdSet ? num(s?.threshold, d.threshold, 0.3, 1) : d.threshold, workLang: s?.workLang === 'en' ? 'en' : 'es', workLangSet: s?.workLang === 'en' || s?.workLang === 'es' };
+      bigTouch: num(s?.bigTouch, d.bigTouch, 1, 500), bigCreate: num(s?.bigCreate, d.bigCreate, 1, 500), agentCanApprove: s?.agentCanApprove === true, threshold: s?.thresholdSet ? num(s?.threshold, d.threshold, 0.3, 1) : d.threshold, jevRequired: s?.jevRequired === true, jevMinConfidence: num(s?.jevMinConfidence, d.jevMinConfidence, 0, 0.95), workLang: s?.workLang === 'en' ? 'en' : 'es', workLangSet: s?.workLang === 'en' || s?.workLang === 'es' };
   } catch { return d; }
 }
 export function saveSettings(vaultPath: string, patch: Record<string, unknown>): CerebroSettings {

@@ -14,7 +14,7 @@ import { actorLabel } from '../actor';
 import { withChange, rollbackCurrent, receiptOf } from '../journal';
 import { dossier, searchBrain, resolveEntities, displayTitle, nameAmbiguities, peopleMentioned, unknownPeople, words, norm } from '../brainLens';
 import { listEvents } from '../agenda';
-import { configuredProvider } from '../decisionEngine';
+import { judge, coherence, jevPolicy } from './jev';
 import { chat, llmConfigured, LlmError, type ChatMessage, type ToolDef } from './ollama';
 import { loadSettings, cerebroDir, type CerebroSettings } from './settings';
 import { MENU, toolDefs, validateOp, createdIdOf, levelOf, kindOf, kindName, resolveRefs, touchesOf, describeOp, executeOp, linked, type Op } from './ops';
@@ -367,45 +367,6 @@ async function applyPlan(vault: string, ops: Op[], note: string, actor: string):
   return { ok: true, results, changeId: entry?.id, receipt: entry ? receiptOf(entry) : undefined };
 }
 
-/** Lo que devuelve una pregunta a Jev. Cada llamada trae su propio motivo y su propio problema: no se comparten entre temas que corren en paralelo. */
-interface JevResult {
-  /** Puntaje normalizado 0–1; null si Jev no respondió. */
-  score: number | null;
-  /** Motivo principal de la duda (una frase); vacío si el plan quedó bien. */
-  reason: string;
-  /** Por qué Jev no respondió (para mostrarlo y no fallar en silencio); vacío si respondió. */
-  problem: string;
-}
-const JEV_REASONS: Record<string, [string, string]> = { bien: ['El plan refleja el pedido', 'The plan reflects the request'], falta: ['al plan le falta algo que el pedido dice', 'the plan is missing something the request says'], sobra: ['el plan hace algo que el pedido no pide', 'the plan does something the request does not ask'], persona: ['la persona o la ficha elegida puede no ser la correcta', 'the chosen person or note may not be the right one'], dato: ['hay una fecha, cifra o dato dudoso', 'there is a doubtful date, figure or detail'] };
-/** Pregunta de puntaje a Jev. Las «criteria» son los peldaños de la escala, de peor a mejor; el resultado sale normalizado 0–1. */
-async function jevScore(state: string, id: string, instructions: string, anchors: string[], withReason = false): Promise<JevResult> {
-  const jev = configuredProvider();
-  if (!jev) return { score: null, reason: '', problem: tr('Jev no está conectado (falta TYPESAFE_API_KEY).', 'Jev is not connected (TYPESAFE_API_KEY is missing).') };
-  try {
-    const r = await jev.decide(state, { [id]: { type: 'score', instructions, criteria: anchors }, ...(withReason ? { motivo: { type: 'choice' as const, instructions: 'Si el plan no refleja del todo el pedido, ¿cuál es la razón principal? Si lo refleja bien, elige «bien».', criteria: Object.fromEntries(Object.entries(JEV_REASONS).map(([k, v]) => [k, v[0]])) } } : {}) });
-    const a = r.answers?.[id];
-    const m = withReason ? r.answers?.motivo : undefined;
-    const reason = m && m.type === 'choice' && m.choice !== 'bien' && JEV_REASONS[m.choice] ? tr(JEV_REASONS[m.choice][0], JEV_REASONS[m.choice][1]) : '';
-    if (!a || a.type !== 'score') return { score: null, reason, problem: tr('Jev respondió sin el puntaje esperado.', 'Jev answered without the expected score.') };
-    return { score: Math.max(0, Math.min(1, a.score / (anchors.length - 1))), reason, problem: '' };
-  } catch (e: any) { return { score: null, reason: '', problem: String(e?.message || tr('Jev no respondió.', 'Jev did not answer.')).slice(0, 200) }; }
-}
-export async function judge(text: string, plan: string[]): Promise<JevResult> {
-  // Jev no tiene calendario: se le dice qué día es hoy y qué día de la semana cae cada fecha del plan.
-  const wd = (d: string) => ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][new Date(`${d}T12:00:00Z`).getUTCDay()];
-  const { dateStr } = getPanamaDate(); const dates = [...new Set(plan.join(' ').match(/\d{4}-\d{2}-\d{2}/g) || [])].slice(0, 12);
-  const cal = `CALENDARIO (dato cierto): hoy es ${wd(dateStr)} ${dateStr}.${dates.length ? ` ${dates.map(d => `${d} es ${wd(d)}`).join('; ')}.` : ''}`;
-  return jevScore(`PEDIDO:\n${text.slice(0, 4000)}\n\n${cal}\n\nPLAN PROPUESTO:\n${plan.map((p, i) => `${i + 1}. ${p}`).join('\n')}`, 'fiel',
-    'Qué tan fielmente el plan recoge los HECHOS del pedido: que cada operación responda a algo que el pedido dice, que no invente datos, fechas ni cifras, y que las fichas elegidas sean las de las personas o empresas que el pedido nombra (un id como «person-jenna-hector» es la ficha de Jenna Hector) y no otras de nombre parecido. NO cuentes como falta las instrucciones generales del pedido («revisa lo existente», «evita duplicados», «muestra los cambios», «no envíes mensajes»): esas las cumple la aplicación. Anotar el mismo hecho también en la ficha de la empresa de esa persona es correcto. Resumir con otras palabras sin cambiar el sentido es correcto.',
-    ['No corresponde al pedido, o usa otra persona o ficha', 'Corresponde en parte: falta algo o hay un dato dudoso', 'Corresponde, con algún detalle menor por revisar', 'Corresponde exactamente'], true);
-}
-/** Después de guardar: ¿lo nuevo contradice lo que la ficha ya decía? 1 = coherente, 0 = contradice. */
-async function coherence(before: string, results: string[], text: string): Promise<number | null> {
-  if (!before) return null;
-  return (await jevScore(`LO QUE LAS FICHAS DECÍAN ANTES:\n${before.slice(0, 3000)}\n\nLO NUEVO QUE SE GUARDÓ:\n${results.join('\n').slice(0, 2000)}\n\nPEDIDO ORIGINAL:\n${text.slice(0, 2000)}`, 'coherente',
-    'Qué tan coherente es lo nuevo con lo que ya decía la ficha: sin contradecir fechas, cifras o acuerdos que la ficha ya tenía, o explicando el cambio el pedido.',
-    ['Contradice lo que la ficha decía, sin explicarlo', 'Es coherente o es una actualización normal'])).score;
-}
 /** Resumen de lo extraído de un correo o nota. */
 function summarize(ops: Op[], obs: Observations): string {
   const n = (f: (o: Op) => boolean) => ops.filter(f).length; const part = (c: number, one: string, many: string) => (c ? `${c} ${c === 1 ? one : many}` : '');
@@ -632,8 +593,13 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
   let why: string | null = whyProposal(ops, s, currentBrain()?.scope);
   if (!why && obs.fuertes.length) why = obs.fuertes[0];
   // Jev puntúa siempre que esté conectado: decide en automático y orienta a quien aprueba.
-  const jevR = await judge(full, plan); const confidence = jevR.score; const jevWhy = jevR.reason;
-  obs.jev = { fiel: confidence, ...(confidence === null ? { error: jevR.problem } : {}), ...(jevWhy ? { motivo: jevWhy } : {}) };
+  // Jev ve el pedido, las respuestas que dio quien pide (antes no las veía), a quién reconoció el plan y el expediente; el plan siempre cabe.
+  const jevR = await judge(text, plan, { answers: talk, recognized, expediente: md }); const confidence = jevR.score; const jevWhy = jevR.reason;
+  obs.jev = { fiel: confidence, ...(confidence === null ? { error: jevR.problem } : {}), ...(jevWhy ? { motivo: jevWhy } : {}), ...(jevR.seguridad !== null ? { seguridad: jevR.seguridad } : {}), ...(jevR.noul !== null ? { noul: jevR.noul } : {}) };
+  // Jev no respondió, o respondió con poca seguridad: antes seguía en silencio. Ahora queda un aviso y, si Ajustes lo exige, espera.
+  const jevRule = jevPolicy({ jev: jevR, s, lowRisk: lowRisk(ops, obs, !!base.expediente?.incompleto) });
+  if (jevRule.aviso) obs.avisos.push(jevRule.aviso);
+  if (!why && jevRule.why) why = jevRule.why;
   const pct = confidence === null ? 0 : Math.round(confidence * 100); const because = jevWhy ? tr(` Motivo: ${jevWhy}.`, ` Reason: ${jevWhy}.`) : '';
   if (!why && confidence !== null && confidence < s.threshold) {
     // Riesgo bajo: la duda de Jev avisa pero no frena (cambio simple, reversible, sobre fichas que ya existen).
@@ -647,7 +613,8 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
   if (input.dryRun) return done({ ...common, status: 'pendiente', why: why || tr('Ensayo: se aplicaría solo.', 'Dry run: it would apply on its own.') });
   // Guardar primero: si lo único que frena es lo dudoso o lo delicado, lo cierto se guarda ya y lo demás espera.
   const splitOk = !!why && !leer && !target && !!ops.length && s.mode !== 'proponer' && currentBrain()?.scope !== 'proponer' && !base.expediente?.incompleto
-    && new Set(ops.flatMap(touchesOf)).size <= s.bigTouch && ops.filter(o => MENU[o.name]?.creates).length <= s.bigCreate && (confidence === null || confidence >= s.threshold);
+    && new Set(ops.flatMap(touchesOf)).size <= s.bigTouch && ops.filter(o => MENU[o.name]?.creates).length <= s.bigCreate && (confidence === null || confidence >= s.threshold)
+    && !jevRule.why; // si la espera la causó Jev (obligatorio y caído, o poca seguridad), el plan espera completo: no se parte ni se guarda «lo seguro»
   const split = splitOk ? splitCierto(ops, obs.fuertes, s) : null;
   if (split && !split.wait.length && !obs.fuertes.length) why = null; // todo era cierto (p. ej. fichas nuevas completas): se guarda como siempre
   if (why && split && split.now.length && split.wait.length) return oneAtATime(async () => {
@@ -676,7 +643,8 @@ export async function pedir(input: { text: string; deep?: boolean; dryRun?: bool
 }
 /** Después de guardar: Jev compara con lo que había y lo pendiente pasa a «Por revisar». */
 async function afterApply(vault: string, requestId: string, obs: Observations, before: string, results: string[], text: string) {
-  const c = await coherence(before, results, text); obs.jev = { fiel: obs.jev?.fiel ?? null, coherente: c, ...(obs.jev?.error ? { error: obs.jev.error } : {}) };
+  // Se conserva todo lo que Jev dijo antes de guardar (motivo, seguridad, prueba nativa): antes se perdía el motivo al sobrescribir.
+  const c = await coherence(before, results, text); obs.jev = { ...obs.jev, fiel: obs.jev?.fiel ?? null, coherente: c };
   if (c !== null && c < 0.5) obs.avisos.push(tr('Jev ve una posible contradicción entre lo nuevo y lo que la ficha ya decía. Revísalo.', 'Jev sees a possible contradiction between the new data and what the note already said. Please check it.'));
   // Un duplicado posible que una persona ya aprobó no vuelve a la bandeja; lo demás sí.
   fileObservations(vault, requestId, { ...obs, fuertes: [] });

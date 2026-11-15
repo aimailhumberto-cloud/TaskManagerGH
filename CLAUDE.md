@@ -36,7 +36,7 @@ Contexto para sesiones de Claude Code. Estado tomado el 2026-11-15 de los hilos 
 
 **Presentación** "Second Brain SMJ" (13 slides): lista; falta una captura del chat para la slide 5.
 
-**Fase 5 del motor (ver `PLAN-FASE-5-MOTOR.md`)**: esta sesión de Code la ejecuta. 5.0 (marcador) y 5.1 (estructura única en `00-System/estructura.yaml`, leída por `src/lib/cerebro/structure.ts`) construidas. Siguen 5.2 origen del dato, 5.3 vecindario, 5.4 decisión simple, 5.5 noche, 5.6 contrato del agente. Pruebas: `test:jev`, `test:bank-casos`, `test:estructura`. En Windows los scripts con `SMJ_VAULT_PATH=vault` fallan en `npm run`: correr `SMJ_VAULT_PATH=vault npx tsx scripts/<archivo>.ts` desde Git Bash.
+**Fase 5 del motor (ver `PLAN-FASE-5-MOTOR.md`)**: esta sesión de Code la ejecuta. 5.0 (marcador) y 5.1 (estructura única en `00-System/estructura.yaml`, leída por `src/lib/cerebro/structure.ts`) construidas. Siguen 5.2 origen del dato, 5.3 vecindario, 5.4 decisión simple, 5.5 noche, 5.6 contrato del agente. 5.0b (Jev bien usado: `src/lib/cerebro/jev.ts`, `jevcal.ts`) construida. Jev solo suma duda y nunca decide lo delicado. Para ver si Jev acierta: `SMJ_VAULT_PATH=<bóveda> npx tsx scripts/jev-calibracion.ts`. Pruebas: `test:jev`, `test:jev-uso`, `test:bank-casos`, `test:estructura`. En Windows los scripts con `SMJ_VAULT_PATH=vault` fallan en `npm run`: correr `SMJ_VAULT_PATH=vault npx tsx scripts/<archivo>.ts` desde Git Bash.
 
 ## Reglas de trabajo
 

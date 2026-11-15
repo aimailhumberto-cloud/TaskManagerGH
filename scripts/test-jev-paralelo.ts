@@ -13,7 +13,7 @@ const t = (n: string, c: boolean, extra = '') => { c ? ok++ : (bad++, console.lo
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 async function main() {
-  const { judge } = await import('../src/lib/cerebro/engine');
+  const { judge } = await import('../src/lib/cerebro/jev');
   const real = globalThis.fetch;
   const answer = (motivo: string, score: number) => new Response(JSON.stringify({ model: 'jev-prueba', answers: { fiel: { type: 'score', score, confidence: 0.9 }, motivo: { type: 'choice', choice: motivo, confidence: 0.9 } }, usage: {} }), { status: 200 });
   globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {

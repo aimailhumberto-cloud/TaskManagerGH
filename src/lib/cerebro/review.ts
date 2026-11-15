@@ -25,7 +25,11 @@ export interface Observations {
   avisos: string[];
   /** Datos que faltan en las fichas tocadas. */
   falta: string[];
-  jev?: { fiel: number | null; coherente?: number | null; error?: string; motivo?: string };
+  jev?: { fiel: number | null; coherente?: number | null; error?: string; motivo?: string;
+    /** Qué tan seguro estuvo Jev de su puntaje (0–1). */
+    seguridad?: number;
+    /** Prueba en paralelo con la pregunta nativa de Jev (probabilidad); no decide nada, sirve para calibrar. */
+    noul?: number };
 }
 export interface ReviewItem { id: string; at: string; requestId?: string; kind: 'falta' | 'aviso'; text: string; nodeId?: string; closedAt?: string; closedBy?: string }
 
