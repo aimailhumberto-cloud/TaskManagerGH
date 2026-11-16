@@ -7,6 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getSleepDir } from './dotsSleep';
+import { nightDays, nightWork } from './cerebro/panel';
 import { loadApplied } from './sleepApply';
 
 export interface DaySnap { nodes: number; links: number; byType: Record<string, number>; working: number }
@@ -52,7 +53,7 @@ export interface GrowthRange {
   newNodes: number; newLinks: number | null; captures: number; consolidated: number; cleanups: number; agentWrites: number;
   byType: { name: string; value: number }[]; linksSince: string | null; nodesEstimated: boolean;
 }
-export interface Growth { ranges: Record<'7' | '30' | '90', GrowthRange>; sleep: { date: string; slept: boolean; tidied: number }[]; active: boolean; quietDays: number; firstSnapshot: string | null }
+export interface Growth { ranges: Record<'7' | '30' | '90', GrowthRange>; sleep: { date: string; slept: boolean; tidied: number; night?: boolean }[]; active: boolean; quietDays: number; firstSnapshot: string | null }
 
 export function computeGrowth(vaultPath: string, nodes: GrowthNode[], links: number, today: string): Growth {
   const store = load(vaultPath); store.days[today] = snapshotOf(nodes, links);
@@ -90,7 +91,9 @@ export function computeGrowth(vaultPath: string, nodes: GrowthNode[], links: num
       linksSince: linkDays[0] && linkDays[0] > from ? linkDays[0] : null, nodesEstimated: !firstSnapshot || firstSnapshot > from,
     };
   };
-  const sleep = Array.from({ length: 14 }, (_, i) => { const date = addDays(today, -(13 - i)); return { date, slept: !!reports[date], tidied: applied.filter(d => d === date).length + promoted.filter(d => d === date).length }; });
+  // Una noche cuenta si corrió el informe de DOTS o la noche del Cerebro (night.ts); lo que ordenó el Cerebro se suma a la altura.
+  const nights = nightDays(vaultPath);
+  const sleep = Array.from({ length: 14 }, (_, i) => { const date = addDays(today, -(13 - i)); const n = nights[date]; return { date, slept: !!reports[date] || !!n, tidied: applied.filter(d => d === date).length + promoted.filter(d => d === date).length + (n ? nightWork(n) : 0), ...(n ? { night: true } : {}) }; });
   const lastActive = [...born.map(b => b.day), ...applied, ...promoted, ...Object.keys(activity)].filter((d): d is string => !!d && d <= today).sort().pop() || null;
   const quietDays = lastActive ? Math.max(0, Math.round((Date.parse(today) - Date.parse(lastActive)) / 86400000)) : 999;
   return { ranges: { '7': range(7), '30': range(30), '90': range(90) }, sleep, active: quietDays <= 7, quietDays, firstSnapshot };

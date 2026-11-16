@@ -135,7 +135,7 @@ async function main() {
 
   // ================= F. La corrida completa (motor real, modelo simulado) =================
   const before = Object.fromEntries(walk(vault).filter(f => /\.md$/.test(f)).map(f => [f, sha(f)]));
-  const real = globalThis.fetch; const cfg = { llmPlan: [] as any[] };
+  const real = globalThis.fetch; const realNow = Date.now; const cfg = { llmPlan: [] as any[] };
   globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
     const u = String(url);
     if (u.includes('ollama.com')) return json({ message: { content: '', tool_calls: cfg.llmPlan.map(c => ({ function: c })) }, model: 'modelo-simulado', prompt_eval_count: 5, eval_count: 5 });
@@ -144,6 +144,8 @@ async function main() {
   }) as typeof fetch;
   try {
     // Un caso con pregunta de hace 30 horas (formato nuevo: trae «faltan») y otro de hace 2 horas, y uno viejo sin «faltan».
+    // La regla de 24 h mira el reloj de verdad (Date.now): se fija en NOW para que la prueba no dependa del día en que corre.
+    Date.now = () => NOW.getTime();
     const hoursAgo = (h: number) => new Date(NOW.getTime() - h * 3600_000).toISOString();
     const dir = path.join(getSleepDir(vault), 'cerebro'); fs.mkdirSync(dir, { recursive: true });
     const old = mk({ id: 'venc1', status: 'pregunta', at: hoursAgo(30), text: 'Anota que Tomás Casas quiere reunión', faltan: ['¿Qué día?'], dialog: [{ q: '¿Qué día?' }] });
@@ -196,7 +198,7 @@ async function main() {
     fs.rmSync(path.join(nd, `${sum4.corridaDia}.json`));
     await N.runNight(vault, deps(), NOW);
     t('F13 se guardan los últimos 30 resúmenes', fs.readdirSync(nd).filter(x => /\.json$/.test(x)).length <= 30, String(fs.readdirSync(nd).length));
-  } finally { globalThis.fetch = real; }
+  } finally { globalThis.fetch = real; Date.now = realNow; }
 
   // ================= G. Entrada del agente, apagado =================
   const { normalizeBody } = await import('../src/lib/cerebro/intake');

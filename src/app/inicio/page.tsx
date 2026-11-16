@@ -28,7 +28,8 @@ type D = {
   shared: { withMe: { title: string; owner: string; type: string }[]; companyExists: boolean };
   charts: { types: NV[]; countries: NV[]; verification: { verified: number; pending: number; other: number }; quality: number | null; scored: number; week: { date: string; count: number }[]; brands: { name: string; slug: string; count: number }[]; tasks: { overdue: number; today: number; later: number; undated: number } };
   distributors: { name: string; country: string; status: string; compliance: number | null; target: number | null; actual: number | null }[];
-  growth: { ranges: Record<string, { days: number; series: { date: string; nodes: number; links: number | null }[]; newNodes: number; newLinks: number | null; captures: number; consolidated: number; cleanups: number; agentWrites: number; byType: NV[]; linksSince: string | null; nodesEstimated: boolean }>; sleep: { date: string; slept: boolean; tidied: number }[]; active: boolean; quietDays: number };
+  growth: { ranges: Record<string, { days: number; series: { date: string; nodes: number; links: number | null }[]; newNodes: number; newLinks: number | null; captures: number; consolidated: number; cleanups: number; agentWrites: number; byType: NV[]; linksSince: string | null; nodesEstimated: boolean }>; sleep: { date: string; slept: boolean; tidied: number; night?: boolean }[]; active: boolean; quietDays: number };
+  cerebro?: { night: { dia: string; corridaEl: string; entraron: number; guardados: number; solos: number; aprobados: number; avanzados: number; preguntas: number; porAprobar: number; masViejoDias: number | null; sueltas: number; duplicados: number; fueraDeEstructura: number; texto: string } | null; moved: Record<string, NV[]>; attention: { porAprobar: number; preguntas: number; masViejoDias: number | null; masViejo?: string } };
   kpis: Kpi[]; places: { home: Place | null; hq: Place | null };
   people: { accounts: { name: string; role: string; isActive: boolean; lastLoginAt: string | null }[]; brains: number } | null;
 };
@@ -116,6 +117,7 @@ export default function InicioPage() {
   const [wx, setWx] = useState<Record<string, { temp: number; code: number; time: string }>>({});
   const [placeForm, setPlaceForm] = useState<{ open: boolean; which: 'home' | 'hq'; q: string; results: Place[] }>({ open: false, which: 'home', q: '', results: [] });
   const [range, setRange] = useState<'7' | '30' | '90'>('30');
+  const [nightOpen, setNightOpen] = useState(false);
   const [kpiForm, setKpiForm] = useState<KpiForm>(KPI_EMPTY);
 
   const load = useCallback(async () => {
@@ -291,6 +293,17 @@ export default function InicioPage() {
           <Card icon="donut" title={T('De qué está hecho mi cerebro')}>
             <div className="flex flex-wrap items-center gap-6"><Donut rows={donutRows} total={d.health.nodes} />
               <div className="min-w-[150px] flex-1 space-y-2">{donutRows.map((r, i) => (<div key={r.name} className="flex items-center justify-between gap-3 text-[13px] text-slate-700"><span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: PALETTE[i % PALETTE.length] }} />{r.name}</span><span className="font-semibold" style={{ color: NAVY }}>{fmt(r.value)}</span></div>))}</div></div>
+            {(() => { const at = d.cerebro?.attention || { porAprobar: 0, preguntas: 0, masViejoDias: null as number | null, masViejo: undefined as string | undefined }; const nc = d.cerebro?.night || null; const row = (l: string, v: number, warn = false) => (<div key={l} className="flex items-center justify-between gap-3 text-[13px] text-slate-700"><span>{l}</span><span className="font-semibold" style={{ color: warn && v > 0 ? '#b45309' : NAVY }}>{fmt(v)}</span></div>); return (
+            <div className="mt-5 border-t pt-4" style={{ borderColor: LINE }}>
+              <h3 className="mb-2 text-[13px] font-bold">{T('Qué necesita tu atención')}</h3>
+              {at.porAprobar + at.preguntas === 0 ? <p className="text-sm text-slate-500">{T('Nada espera por ti ahora.')}</p> : (<div className="space-y-1.5">
+                {row(T('Propuestas por aprobar'), at.porAprobar, true)}{row(T('Preguntas sin respuesta'), at.preguntas, true)}
+                {at.masViejoDias !== null && <p className="text-xs text-slate-500">{at.masViejoDias === 0 ? T('Lo más viejo es de hoy') : `${T('Lo más viejo espera hace')} ${at.masViejoDias} ${at.masViejoDias === 1 ? T('día') : T('días')}`}{at.masViejo ? `: «${at.masViejo}»` : ''}</p>}
+                <Link href="/pedir" className="inline-block text-xs font-semibold" style={{ color: BLUE }}>{T('Atenderlo en Pedir')}</Link></div>)}
+              <h3 className="mb-2 mt-4 text-[13px] font-bold">{T('Salud del cerebro')}</h3>
+              <div className="space-y-1.5">{row(T('Fichas sin ninguna conexión'), nc ? nc.sueltas : d.health.isolated, true)}{row(T('Posibles duplicados'), nc ? nc.duplicados : 0, true)}{row(T('Fichas sin verificar'), d.charts.verification.pending)}{row(T('Enlaces rotos'), d.health.brokenLinks, true)}</div>
+              <p className="mt-2 text-xs text-slate-400">{nc ? `${T('Revisado en la noche del')} ${fmtDay(nc.dia, { day: 'numeric', month: 'short' })}.` : T('El Cerebro lo revisa cada noche.')}</p>
+            </div>); })()}
           </Card>
           {(() => { const gr = d.growth.ranges[range]; const delta = (n: number | null) => (n === null ? '—' : `${n > 0 ? '+' : ''}${fmt(n)}`); const maxT = Math.max(1, ...d.growth.sleep.map(x => x.tidied)); const slept = d.growth.sleep.filter(x => x.slept).length; return (
           <div className="lg:col-span-2"><Card icon="chart" title={T('Cómo crece mi cerebro')} action={<span className="flex flex-wrap items-center gap-1.5">
@@ -304,10 +317,14 @@ export default function InicioPage() {
                 <div key={l as string} className="rounded-[14px] px-3 py-2.5" style={{ background: SOFT }}><p className="text-[11px] font-medium text-slate-500">{l}</p><p className="text-xl font-bold" style={{ color: up ? '#0f766e' : NAVY }}>{val}</p></div>))}
             </div>
             <div className="mt-5 grid gap-6 sm:grid-cols-2">
-              <div><h3 className="mb-2.5 text-[13px] font-bold">{T('En qué está creciendo')}</h3>{gr.byType.filter(t => t.value > 0).length === 0 ? <p className="text-sm text-slate-500">{T('Sin fichas nuevas en este periodo.')}</p> : <Bars color={BLUE} rows={gr.byType.filter(t => t.value > 0).map(t => ({ name: T(TYPE_ES[t.name] || t.name), value: t.value }))} />}</div>
+              <div><h3 className="mb-2.5 text-[13px] font-bold">{T('Dónde hubo movimiento')}</h3>{(d.cerebro?.moved?.[range] || []).length === 0 ? <p className="text-sm text-slate-500">{T('Sin cambios registrados en este periodo.')}</p> : <Bars color={BLUE} rows={d.cerebro!.moved[range]} />}
+                <p className="mt-2 text-xs text-slate-500">{T('Fichas que más cambiaron (veces que se guardó algo en ellas).')}{gr.byType.filter(t => t.value > 0).length ? ` ${T('Fichas nuevas')}: ${gr.byType.filter(t => t.value > 0).map(t => `${T(TYPE_ES[t.name] || t.name)} ${t.value}`).join(', ')}.` : ''}</p></div>
               <div><h3 className="mb-2.5 text-[13px] font-bold">{T('Sueño y limpieza, últimas 14 noches')}</h3>
-                <div className="flex h-9 items-end gap-1.5">{d.growth.sleep.map(x => (<span key={x.date} title={`${fmtDay(x.date, { day: 'numeric', month: 'short' })}: ${x.slept ? `${T('durmió, ordenó')} ${x.tidied}` : T('sin ciclo nocturno')}`} className="w-full max-w-[18px] rounded-[5px]" style={{ height: x.slept ? `${Math.max(30, (x.tidied / maxT) * 100)}%` : '18%', background: x.slept ? '#2a9d8f' : '#cbd5e1' }} />))}</div>
-                <p className="mt-2 text-xs text-slate-500">{T('Durmió')} {slept} {T('de 14 noches. La altura mide cuánto ordenó esa noche: notas consolidadas, capturas conectadas y cambios aplicados.')}</p></div>
+                <div className="flex h-9 items-end gap-1.5">{d.growth.sleep.map(x => (<span key={x.date} title={`${fmtDay(x.date, { day: 'numeric', month: 'short' })}: ${x.slept ? `${T('durmió, ordenó')} ${x.tidied}${x.night ? ` · ${T('corrió la noche del Cerebro')}` : ''}` : T('sin ciclo nocturno')}`} className="w-full max-w-[18px] rounded-[5px]" style={{ height: x.slept ? `${Math.max(30, (x.tidied / maxT) * 100)}%` : '18%', background: x.slept ? '#2a9d8f' : '#cbd5e1' }} />))}</div>
+                <p className="mt-2 text-xs text-slate-500">{T('Durmió')} {slept} {T('de 14 noches. La altura mide cuánto ordenó esa noche: notas consolidadas, capturas conectadas y cambios aplicados.')}</p>
+                {(() => { const nc = d.cerebro?.night || null; if (!nc) return <p className="mt-2 text-xs text-slate-500">{T('El Cerebro todavía no ha corrido de noche.')}</p>; return (<>
+                  <p className="mt-2 text-xs text-slate-700"><b>{T('Noche del')} {fmtDay(nc.dia, { day: 'numeric', month: 'short' })}:</b> {T('entraron')} {fmt(nc.entraron)}, {T('se guardaron')} {fmt(nc.guardados)}{nc.avanzados ? `, ${T('avanzaron solos')} ${fmt(nc.avanzados)}` : ''}. {nc.preguntas + nc.porAprobar > 0 ? `${T('Esperan')}: ${fmt(nc.preguntas)} ${T('preguntas y')} ${fmt(nc.porAprobar)} ${T('aprobaciones')}. ` : ''}{nc.sueltas ? `${fmt(nc.sueltas)} ${T('fichas sin conexión')}. ` : ''}<button type="button" onClick={() => setNightOpen(v => !v)} className="font-semibold" style={{ color: BLUE }}>{nightOpen ? T('Ocultar detalle') : T('Ver detalle')}</button></p>
+                  {nightOpen && <p className="mt-2 whitespace-pre-line rounded-[12px] p-3 text-xs text-slate-700" style={{ background: SOFT }}>{nc.texto}</p>}</>); })()}</div>
             </div>
           </Card></div>); })()}
         </section>

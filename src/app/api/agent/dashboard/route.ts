@@ -4,7 +4,10 @@ import { currentBrain } from '@/lib/brainContext';
 import { getUnifiedBrainTasks, loadBrainGraph, getPanamaDate } from '@/lib/smjBrainService';
 import { applyDecisions, loadDecisions, loadLatestReport } from '@/lib/dotsSleep';
 import { loadAutonomy, recentActivity, blockedAttempts } from '@/lib/autonomy';
-import { followUp } from '@/lib/cerebro/engine';
+import { followUp, listRequests } from '@/lib/cerebro/engine';
+import { latestNight } from '@/lib/cerebro/night';
+import { nightCard, movedNotes, attention } from '@/lib/cerebro/panel';
+import { readJournal } from '@/lib/journal';
 import { recentAppliedAll } from '@/lib/sleepApply';
 import { querySharedNodes } from '@/lib/sharing';
 import { getAccount, listAccounts, TOP_ROLES, canManageUsers } from '@/lib/localAccounts';
@@ -82,6 +85,8 @@ async function _GET(req: NextRequest) {
   const brands = nodes.filter(n => n.type === 'brand').map(b => { const name = b.title.replace(/^Brand:\s*/i, '').trim(); const key = name.toLowerCase(); return { name, slug: key.replace(/[^a-z0-9]/g, ''), count: nodes.filter(n => n.id !== b.id && (n.title.toLowerCase().includes(key) || n.links.some(l => l.toLowerCase().includes(key)))).length }; });
   recordGrowth(ctx.vaultPath, nodes, g.links.length, dateStr); // foto diaria de cifras
   const growth = computeGrowth(ctx.vaultPath, nodes, g.links.length, dateStr);
+  // El Cerebro en el tablero: qué pasó anoche, dónde hubo movimiento y qué espera a una persona. Solo lectura.
+  const cerebro = (() => { try { const j = readJournal(ctx.vaultPath, { limit: 5000 }); const mv = (days: number) => movedNotes(j, nodes as any, ctx.vaultPath, addDays(dateStr, -(days - 1))); return { night: nightCard(latestNight(ctx.vaultPath)), moved: { '7': mv(7), '30': mv(30), '90': mv(90) }, attention: attention(listRequests(ctx.vaultPath)) }; } catch { return { night: null, moved: { '7': [], '30': [], '90': [] }, attention: { porAprobar: 0, preguntas: 0, masViejoDias: null } }; } })();
   const viewingOther = ctx.brainId !== own;
   const viewingName = ctx.brainId === COMPANY_BRAIN_ID ? 'la compañía' : ctx.brainId === PRIMARY_BRAIN_ID ? 'HB' : getAccount(ctx.brainId)?.name || ctx.brainId;
   return NextResponse.json({
@@ -107,6 +112,7 @@ async function _GET(req: NextRequest) {
       tasks: { overdue: open.filter(x => x.isOverdue).length, today: open.filter(x => x.isToday && !x.isOverdue).length, later: open.filter(x => !x.isOverdue && !x.isToday && x.dueDate).length, undated: open.filter(x => !x.dueDate).length } },
     distributors: t.distributors.slice(0, 8).map(x => ({ name: x.name, country: x.country, status: x.status, compliance: typeof x.complianceRate === 'number' ? x.complianceRate : null, target: x.targetCasesYear ?? null, actual: x.actualCasesYTD ?? null })),
     growth,
+    cerebro,
     kpis: listKpis(ctx.vaultPath),
     places: loadPrefs(ctx.vaultPath),
     people: TOP_ROLES.includes(role) ? { accounts: listAccounts().map(a => ({ name: a.name, role: a.role, isActive: a.isActive, lastLoginAt: a.lastLoginAt || null })), brains: listBrains().length } : null,
