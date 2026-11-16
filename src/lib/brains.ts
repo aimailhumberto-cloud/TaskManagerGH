@@ -190,6 +190,25 @@ async function withBrainInner(handler: Handler, req: NextRequest, rest: any[]): 
     r.ctx.role = r.role;
     // Regla de los agentes: leer todo, escribir solo pidiéndoselo al Cerebro (pedir y consultar).
     if (byAgent && !legacyWriteMode() && !agentMayWrite(req.nextUrl.pathname, action)) {
+      // Puertas viejas que traducen: si lo que mandaron se puede decir en palabras, pasa por el Cerebro como un pedido (con su revisión, su diario y su deshacer).
+      try {
+        const { canTranslate, translateLegacy, legacyNote } = await import('./cerebro/legacy');
+        const tl = canTranslate(req.nextUrl.pathname, action) ? translateLegacy(req.nextUrl.pathname, body) : null;
+        if (tl) {
+          const h = new Headers(req.headers); h.set('content-type', 'application/json'); h.delete('content-length');
+          const nreq = new NextRequest(new URL('/api/agent/cerebro', req.url), { method: 'POST', headers: h, body: JSON.stringify({ action: tl.action, text: tl.text, md: tl.md, _traducido: tl.desde }) });
+          const { POST: cerebroPost } = await import('../app/api/agent/cerebro/route');
+          const out = await cerebroPost(nreq);
+          let j: any = null; try { j = await out.clone().json(); } catch {}
+          const { logActivity } = await import('./autonomy');
+          logActivity(r.ctx.vaultPath, { actor: r.ctx.actor || 'agente', via: r.ctx.via, path: req.nextUrl.pathname, action, status: out.status });
+          if (j && typeof j === 'object' && !Array.isArray(j)) {
+            const headers = new Headers(out.headers); headers.delete('content-length');
+            return new NextResponse(JSON.stringify({ ...j, traducido: { desde: tl.desde, nota: withLang(langFromRequest(req), 'es', () => legacyNote(tl.desde)) } }), { status: out.status, headers });
+          }
+          return out;
+        }
+      } catch { /* si la traducción falla, sigue el bloqueo de siempre */ }
       const { logActivity } = await import('./autonomy');
       logActivity(r.ctx.vaultPath, { actor: r.ctx.actor || 'agente', via: r.ctx.via, path: req.nextUrl.pathname, action, status: 403, blocked: true });
       trace(null, { blocked: true });

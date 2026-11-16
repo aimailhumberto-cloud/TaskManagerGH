@@ -72,10 +72,18 @@ async function _GET(req: NextRequest) {
   const sp = new URL(req.url).searchParams;
   if (!sp.get('q')) { const alt = sp.get('question') || sp.get('pregunta') || sp.get('query') || sp.get('text'); if (alt) sp.set('q', alt); }
   const { reply, work } = langsFor(ctx.vaultPath, { forced: sp.get('lang'), ui: sp.get('uiLang'), text: sp.get('q') || undefined });
-  return withLang(reply, work, () => getInner(ctx, sp));
+  const h = (k: string) => req.headers.get(k) || ''; const origin = process.env.PUBLIC_BASE_URL || `${h('x-forwarded-proto') || new URL(req.url).protocol.replace(':', '')}://${h('x-forwarded-host') || h('host') || new URL(req.url).host}`;
+  return withLang(reply, work, () => getInner(ctx, sp, origin));
 }
-async function getInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, sp: URLSearchParams) {
+async function getInner(ctx: NonNullable<ReturnType<typeof currentBrain>>, sp: URLSearchParams, origin = '') {
   if (sp.get('caja') && !isAgent()) { const { listCalls } = await import('@/lib/cerebro/blackbox'); return NextResponse.json({ ok: true, llamadas: listCalls(ctx.vaultPath, Number(sp.get('n')) || 50) }); }
+  // El conector de dos verbos (connector.ts): con «consultar» también se ven los pendientes y lo de anoche, sin gastar el modelo.
+  if (sp.get('openapi')) { const { openApiSpec, GPT_INSTRUCTIONS } = await import('@/lib/cerebro/connector'); return NextResponse.json({ ok: true, instrucciones: GPT_INSTRUCTIONS, esquema: openApiSpec(origin) }); }
+  if (sp.get('q')) {
+    const qn = String(sp.get('q')).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[¿?¡!.]/g, '').replace(/\s+/g, ' ').trim();
+    if (/^(mis |los |que |cuales son mis |que hay |hay )?(pendientes|casos|casos abiertos|tareas del cerebro|que esta pendiente|que queda pendiente|que falta)$/.test(qn)) return NextResponse.json({ ok: true, ...caseExtras(ctx.vaultPath) });
+    if (/^(anoche|que paso anoche|resumen de (la )?(manana|noche|anoche)|resumen de la mañana|como amanecio|que hizo el cerebro anoche)$/.test(qn)) { const n = latestNight(ctx.vaultPath); return NextResponse.json(n ? { ok: true, dia: n.dia, corridaEl: n.corridaEl, message: n.texto, sesion: n.sesion, digest: n.digest, auditoria: n.auditoria } : { ok: true, message: tr('Todavía no corrió ninguna noche.', 'No night has run yet.') }); }
+  }
   if (sp.get('q')) { const r = await consultar(String(sp.get('q')), sizeOf(sp.get('size'))); return NextResponse.json(r, { status: r.status }); }
   if (sp.get('models')) {
     if (!llmConfigured()) return bad(tr('Falta OLLAMA_API_KEY en Render.', 'OLLAMA_API_KEY is missing in Render.'), 503);

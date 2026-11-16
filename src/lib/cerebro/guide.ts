@@ -70,7 +70,13 @@ Una sola puerta: POST /api/agent/cerebro. Acciones que puedes usar: ${acciones}.
 - Usar solo el nombre de pila. Dar por sabido algo que no está guardado. Añadir cautelas a la orden («evita duplicados»): el Cerebro ya lo hace.
 
 ## Consultar (no abre caso)
-GET /api/agent/cerebro?q=<pregunta>. Para ensayar un pedido sin guardar nada: añade dryRun:true.
+GET /api/agent/cerebro?q=<pregunta>. Para ensayar un pedido sin guardar nada: añade dryRun:true. Con q=pendientes ves lo abierto y con q=anoche el resumen de la noche (sin gastar el modelo).
+
+## Si solo puedes usar dos acciones (ChatGPT y similares)
+Basta con pedir y consultar. El esquema para un GPT con Acciones está en GET /api/agent/cerebro?openapi=1 (con las instrucciones listas para pegar).
+
+## Las llamadas con la forma antigua
+Las rutas viejas (brain record, tasks create, agenda set, kpis set, hub ingest_email…) ya no escriben directo: el Cerebro las traduce a un pedido y lo trata como cualquier otro (la respuesta trae «traducido»). Funciona, pero pide con {action:'pedir', text} y con las palabras de ${p}. Lo que no se puede decir en palabras (escribir archivos, mover el mapa) sigue bloqueado.
 `, `# How to work with the Brain
 
 ## The rule
@@ -131,6 +137,12 @@ One door: POST /api/agent/cerebro. Actions you can use: ${acciones}.
 - Use first names only. Assume something is known when it is not saved. Add cautions to the order (“avoid duplicates”): the Brain already does that.
 
 ## Looking things up (opens no case)
-GET /api/agent/cerebro?q=<question>. To rehearse a request without saving anything: add dryRun:true.
+GET /api/agent/cerebro?q=<question>. To rehearse a request without saving anything: add dryRun:true. With q=pendientes you see what is open and with q=anoche the night summary (no model used).
+
+## If you can only use two actions (ChatGPT and similar)
+Ask and look up are enough. The schema for a GPT with Actions is at GET /api/agent/cerebro?openapi=1 (with ready-to-paste instructions).
+
+## Calls in the old shape
+The old routes (brain record, tasks create, agenda set, kpis set, hub ingest_email…) no longer write directly: the Brain translates them into a request and treats it like any other (the answer carries “traducido”). It works, but ask with {action:'pedir', text} and with ${p}'s words. What cannot be said in words (writing files, moving the map) stays blocked.
 `);
 }
