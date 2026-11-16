@@ -110,6 +110,18 @@ async function main() {
     t('E2 «consultar» con «anoche» devuelve el resumen de la noche (o dice que no ha corrido)', e2.status === 200 && e2.j?.ok === true && /noche|Ayer/i.test(e2.j?.message || ''), JSON.stringify(e2.j).slice(0, 200));
     const e3 = await call(cerebro, 'GET', '/api/agent/cerebro?openapi=1');
     t('E3 el esquema se sirve en ?openapi=1, con la dirección de quien lo pide y las instrucciones del GPT', e3.status === 200 && e3.j?.esquema?.servers?.[0]?.url === 'http://localhost' && /pedir y consultar/.test(e3.j?.instrucciones || ''), JSON.stringify(e3.j).slice(0, 200));
+    // ================= F. El ruido de un correo no llega al modelo, pero el original se conserva =================
+    const seenPrompts: string[] = [];
+    const prevFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: unknown, init?: RequestInit) => { if (String(url).includes('ollama.com')) seenPrompts.push(String(init?.body || '')); return (prevFetch as any)(url, init); }) as typeof fetch;
+    plan.current = [{ name: 'registrar_novedad', arguments: { ficha: 'person-jenna-hector', resumen: 'Confirmó la visita a Canadá para enero', fuente: 'correo' } }];
+    const mdSucio = '# Expediente\n## Cabecera\n- Fuente y fecha: correo reenviado de Jenna Hector, hoy\n## Correo\nHola, confirmo que la visita será en enero.\n\nEnviado desde mi iPhone\nAVISO LEGAL: este mensaje es confidencial y está dirigido solo a su destinatario.\n';
+    const f1 = await call(cerebro, 'POST', '/api/agent/cerebro', { action: 'pedir', text: 'Anota en la ficha de Jenna Hector lo que dice este correo reenviado.', md: mdSucio });
+    globalThis.fetch = prevFetch;
+    const prompt = seenPrompts.join('\n');
+    t('F1 el modelo vio el correo sin la firma de aparato ni el aviso legal', /confirmo que la visita será en enero/.test(prompt) && !/iPhone/.test(prompt) && !/AVISO LEGAL/.test(prompt), prompt.slice(0, 200));
+    t('F2 el pedido se atendió normal', f1.j?.status === 'aplicado' || f1.j?.status === 'pendiente', `${f1.status} ${f1.j?.status}`);
+    t('F3 el expediente guardado conserva el original completo (para ver qué mandaron)', /iPhone/.test(String(f1.j?.expedienteMd || '')) && /AVISO LEGAL/.test(String(f1.j?.expedienteMd || '')), String(f1.j?.expedienteMd || '').slice(0, 200));
   } finally { globalThis.fetch = real; }
 
   try { process.chdir(os.tmpdir()); fs.rmSync(root, { recursive: true, force: true }); } catch {}

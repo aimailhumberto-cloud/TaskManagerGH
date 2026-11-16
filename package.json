@@ -56,6 +56,7 @@
     "test:noche": "tsx scripts/test-noche.ts",
     "test:nombre": "tsx scripts/test-nombre.ts",
     "test:blindaje": "tsx scripts/test-blindaje.ts",
+    "test:ruido": "tsx scripts/test-ruido.ts",
     "test:panel": "tsx scripts/test-panel.ts",
     "test:contrato": "tsx scripts/test-contrato.ts",
     "esperas": "tsx scripts/esperas.ts",

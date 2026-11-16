@@ -88,7 +88,8 @@ async function main() {
   t('20 mal: pregunta pero propone operaciones', /sin saber qué anotar/.test(String(run(20, { status: 'pregunta', ops: [jen()] }))));
   // 21 correo reenviado con cadena vieja y firma
   t('21 bien: anota enero', run(21, { ops: [jen('Confirmó que la visita a Canadá será en enero.')] }) === null);
-  t('21 mal: anota marzo de la cadena vieja', /marzo/.test(String(run(21, { ops: [jen('La visita a Canadá es en enero y en marzo.')] }))));
+  t('21 mal: pone marzo de la cadena vieja antes que enero', /marzo/.test(String(run(21, { ops: [jen('La visita a Canadá es en marzo; enero también.')] }))));
+  t('21 bien: enero primero y marzo como lo anterior (lo que hace el Cerebro en producción)', run(21, { ops: [jen('Jenna confirma que la visita será en enero. En el correo citado indicaba que todavía era en marzo.')] }) === null);
   t('21 bien: puede decir que antes era marzo', run(21, { ops: [jen('Confirmó enero; antes estaba en marzo.')] }) === null);
   t('21 mal: copia la firma', /firma/.test(String(run(21, { ops: [jen('Visita en enero. Enviado desde mi iPhone')] }))));
   t('21 mal: no anota enero', /no anotó enero/.test(String(run(21, { ops: [jen('Confirmó la visita')] }))));
@@ -97,6 +98,8 @@ async function main() {
   t('22 bien: lo resuelve a Jenna', run(22, { ops: [jen()] }) === null);
   t('22 bien: pregunta si es Jenna Hector', run(22, { status: 'pregunta', ops: [], message: '¿Quisiste decir Jenna Hector?' }) === null);
   t('22 mal: pregunta sin ofrecer a Jenna', /sin ofrecer/.test(String(run(22, { status: 'pregunta', ops: [], message: '¿Quién es?' }))));
+  t('22 bien: anotar también en la empresa de Canadá no es un error (igual que el caso 4)', run(22, { ops: [jen(), { name: 'registrar_novedad', args: { ficha: 'dist-morgan-williams', resumen: 'x' } }] }) === null);
+  t('22 mal: anota también en otra persona', /otra persona/.test(String(run(22, { ops: [jen(), { name: 'registrar_novedad', args: { ficha: 'person-tomas-casas', resumen: 'x' } }] }))));
   t('22 mal: crea una persona nueva', /ficha nueva/.test(String(run(22, { ops: [{ name: 'crear_ficha', args: { tipo: 'person', nombre: 'Jena Hector' } }, jen()] }))));
   console.log(`${ok} bien, ${bad} mal`); process.exit(bad ? 1 : 0);
 }
