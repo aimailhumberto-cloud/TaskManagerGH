@@ -1,3 +1,4 @@
+import { rescueToolCalls } from './rescate';
 /**
  * Conexión con Ollama en la nube (modelo de lenguaje del Cerebro). La llave vive en Render (OLLAMA_API_KEY).
  * OLLAMA_HOST permite apuntar a otro servidor compatible (pruebas). La nube de Ollama no garantiza formato de
@@ -40,7 +41,10 @@ export async function chat(model: string, messages: ChatMessage[], tools?: ToolD
     if (typeof args === 'string') { try { args = JSON.parse(args); } catch { args = {}; } }
     return { name: String(c?.function?.name || ''), args: args && typeof args === 'object' ? args : {} };
   }).filter((c: { name: string }) => c.name);
-  return { content: String(d?.message?.content || ''), toolCalls, model: String(d?.model || model), inputTokens: Number(d?.prompt_eval_count) || 0, outputTokens: Number(d?.eval_count) || 0, ms: Date.now() - t0 };
+  // Si el modelo entregó la operación como texto (un JSON) en vez de como llamada, se rescata (rescate.ts); la app la valida igual.
+  const content = String(d?.message?.content || '');
+  const rescued = !toolCalls.length && tools?.length && content.trim() ? rescueToolCalls(content, tools.map(t => t.function.name)) : [];
+  return { content: rescued.length ? '' : content, toolCalls: rescued.length ? rescued : toolCalls, model: String(d?.model || model), inputTokens: Number(d?.prompt_eval_count) || 0, outputTokens: Number(d?.eval_count) || 0, ms: Date.now() - t0 };
 }
 export async function listModels(): Promise<string[]> {
   const d = await call('/api/tags', { method: 'GET' }, 10_000);

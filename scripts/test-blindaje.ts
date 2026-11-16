@@ -122,6 +122,21 @@ async function main() {
     t('F1 el modelo vio el correo sin la firma de aparato ni el aviso legal', /confirmo que la visita será en enero/.test(prompt) && !/iPhone/.test(prompt) && !/AVISO LEGAL/.test(prompt), prompt.slice(0, 200));
     t('F2 el pedido se atendió normal', f1.j?.status === 'aplicado' || f1.j?.status === 'pendiente', `${f1.status} ${f1.j?.status}`);
     t('F3 el expediente guardado conserva el original completo (para ver qué mandaron)', /iPhone/.test(String(f1.j?.expedienteMd || '')) && /AVISO LEGAL/.test(String(f1.j?.expedienteMd || '')), String(f1.j?.expedienteMd || '').slice(0, 200));
+
+    // ================= G. El modelo entrega la operación como texto (JSON) en vez de como llamada: se rescata, no es una «pregunta» =================
+    const asText = { on: true };
+    const prevFetch2 = globalThis.fetch;
+    globalThis.fetch = (async (url: unknown, init?: RequestInit) => {
+      if (String(url).includes('ollama.com') && asText.on) {
+        const args = { ficha: 'person-jenna-hector', tipo: 'correo', resumen: 'Jenna Hector confirmó la visita a Canadá para enero.', fuente: 'correo reenviado' };
+        return json({ message: { content: JSON.stringify(args), tool_calls: [] }, model: 'modelo-simulado', prompt_eval_count: 5, eval_count: 5 });
+      }
+      return (prevFetch2 as any)(url, init);
+    }) as typeof fetch;
+    const g1 = await call(cerebro, 'POST', '/api/agent/cerebro', { action: 'pedir', text: 'Anota que Jenna Hector confirmó la visita a Canadá para enero.' });
+    globalThis.fetch = prevFetch2;
+    t('G1 un JSON dado como texto se rescata: el pedido sale con su plan, no como pregunta', g1.j?.status !== 'pregunta' && (g1.j?.status === 'aplicado' || g1.j?.status === 'pendiente'), `${g1.j?.status} ${(g1.j?.message || '').slice(0, 160)}`);
+    t('G2 y el plan es la anotación en Jenna (no un JSON crudo en la pantalla de la persona)', (g1.j?.plan || []).some((x: string) => /person-jenna-hector/.test(x)) && !/\{"ficha"/.test(g1.j?.message || ''), JSON.stringify(g1.j?.plan));
   } finally { globalThis.fetch = real; }
 
   try { process.chdir(os.tmpdir()); fs.rmSync(root, { recursive: true, force: true }); } catch {}
