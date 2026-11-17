@@ -8,6 +8,7 @@ import { followUp, listRequests } from '@/lib/cerebro/engine';
 import { latestNight } from '@/lib/cerebro/night';
 import { nightCard, movedNotes, attention } from '@/lib/cerebro/panel';
 import { readJournal } from '@/lib/journal';
+import { listKeys } from '@/lib/agentKeys';
 import { recentAppliedAll } from '@/lib/sleepApply';
 import { querySharedNodes } from '@/lib/sharing';
 import { getAccount, listAccounts, TOP_ROLES, canManageUsers } from '@/lib/localAccounts';
@@ -113,6 +114,8 @@ async function _GET(req: NextRequest) {
     distributors: t.distributors.slice(0, 8).map(x => ({ name: x.name, country: x.country, status: x.status, compliance: typeof x.complianceRate === 'number' ? x.complianceRate : null, target: x.targetCasesYear ?? null, actual: x.actualCasesYTD ?? null })),
     growth,
     cerebro,
+    // ¿Esta persona ya conectó un agente? (solo cuentas propias; el dueño histórico usa la llave de servicio)
+    agente: me ? { llaves: (() => { try { return listKeys(me.id).filter(k => !k.revokedAt).length; } catch { return 0; } })() } : null,
     kpis: listKpis(ctx.vaultPath),
     places: loadPrefs(ctx.vaultPath),
     people: TOP_ROLES.includes(role) ? { accounts: listAccounts().map(a => ({ name: a.name, role: a.role, isActive: a.isActive, lastLoginAt: a.lastLoginAt || null })), brains: listBrains().length } : null,

@@ -73,8 +73,8 @@ export default function BrainWelcome({ onClose, newborn = false }: { onClose: ()
   }, []);
 
   const steps: { title: string; text: string; href?: string; link?: string }[] = [
+    { title: L('Conecta tu agente', 'Connect your agent'), text: L('Son 3 pasos y 2 minutos: creas tu llave, la pegas en tu agente y pruebas. Tu agente pide y consulta; no escribe directo.', 'It takes 3 steps and 2 minutes: create your key, paste it in your agent and test it. Your agent asks and looks things up; it does not write directly.'), href: '/mi-agente', link: L('Conectar mi agente', 'Connect my agent') },
     { title: L('Preséntate', 'Introduce yourself'), text: L('Dile quién eres, tu cargo y con quién trabajas. Así crea tu primera ficha.', 'Tell it who you are, your role and who you work with. That creates your first card.'), href: '/pedir', link: L('Ir a Pedir', 'Go to Ask') },
-    { title: L('Conecta tu agente', 'Connect your agent'), text: L('Crea su llave. Tu agente pide y consulta; no escribe directo.', 'Create its key. Your agent asks and looks things up; it does not write directly.'), href: '/mi-agente', link: L('Ir a Mi agente', 'Go to My agent') },
     { title: L('Pídele en tus palabras', 'Ask in your own words'), text: L('Cada pedido es un caso: se abre y se cierra con un resumen de lo que guardó. Si le falta algo, te pregunta una sola vez. Puedes decir «no lo tengo».', 'Each request is a case: it opens, and it closes with a summary of what was saved. If something is missing, it asks you once. You can say "I don\'t have it".') },
     { title: L('Usa nombres completos', 'Use full names'), text: L('Y dile de dónde viene la información: un correo, una reunión. Así no adivina.', 'And say where the information comes from: an email, a meeting. That way it does not guess.') },
     { title: L('Míralo crecer', 'Watch it grow'), text: L('Mira tus fichas y cómo se conectan.', 'See your cards and how they connect.'), href: '/cerebro', link: L('Ir a Cerebro', 'Go to Brain') },
@@ -107,7 +107,7 @@ export default function BrainWelcome({ onClose, newborn = false }: { onClose: ()
             ))}
           </ol>
           <div className="bw-actions">
-            <Link href="/pedir" className="bw-go" onClick={onClose}>{L('Empezar', 'Get started')}</Link>
+            <Link href="/mi-agente" className="bw-go" onClick={onClose}>{L('Conectar mi agente', 'Connect my agent')}</Link>
             <button type="button" className="bw-later" onClick={onClose}>{L('Ahora no', 'Not now')}</button>
           </div>
         </div>

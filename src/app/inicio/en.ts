@@ -256,4 +256,11 @@ export const EN: Record<string, string> = {
   "aprobaciones": "approvals",
   "fichas sin conexión": "records with no connection",
   "Ocultar detalle": "Hide detail",
+  "Conecta tu agente · 3 pasos, 2 minutos": "Connect your agent · 3 steps, 2 minutes",
+  "Crea tu llave.": "Create your key.",
+  "Pégala en tu agente (ChatGPT, Claude u otro).": "Paste it in your agent (ChatGPT, Claude or another).",
+  "Prueba la conexión.": "Test the connection.",
+  "Tu agente pide y consulta; el Cerebro es quien escribe. La llave abre solo tu cerebro.": "Your agent asks and looks things up; the Brain is the one that writes. The key opens only your brain.",
+  "Conectar mi agente": "Connect my agent",
+  "Ahora no": "Not now"
 };

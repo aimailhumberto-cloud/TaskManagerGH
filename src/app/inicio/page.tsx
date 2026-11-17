@@ -29,6 +29,7 @@ type D = {
   charts: { types: NV[]; countries: NV[]; verification: { verified: number; pending: number; other: number }; quality: number | null; scored: number; week: { date: string; count: number }[]; brands: { name: string; slug: string; count: number }[]; tasks: { overdue: number; today: number; later: number; undated: number } };
   distributors: { name: string; country: string; status: string; compliance: number | null; target: number | null; actual: number | null }[];
   growth: { ranges: Record<string, { days: number; series: { date: string; nodes: number; links: number | null }[]; newNodes: number; newLinks: number | null; captures: number; consolidated: number; cleanups: number; agentWrites: number; byType: NV[]; linksSince: string | null; nodesEstimated: boolean }>; sleep: { date: string; slept: boolean; tidied: number; night?: boolean }[]; active: boolean; quietDays: number };
+  agente?: { llaves: number } | null;
   cerebro?: { night: { dia: string; corridaEl: string; entraron: number; guardados: number; solos: number; aprobados: number; avanzados: number; preguntas: number; porAprobar: number; masViejoDias: number | null; sueltas: number; duplicados: number; fueraDeEstructura: number; texto: string } | null; moved: Record<string, NV[]>; attention: { porAprobar: number; preguntas: number; masViejoDias: number | null; masViejo?: string } };
   kpis: Kpi[]; places: { home: Place | null; hq: Place | null };
   people: { accounts: { name: string; role: string; isActive: boolean; lastLoginAt: string | null }[]; brains: number } | null;
@@ -118,6 +119,8 @@ export default function InicioPage() {
   const [placeForm, setPlaceForm] = useState<{ open: boolean; which: 'home' | 'hq'; q: string; results: Place[] }>({ open: false, which: 'home', q: '', results: [] });
   const [range, setRange] = useState<'7' | '30' | '90'>('30');
   const [nightOpen, setNightOpen] = useState(false);
+  const [agentHidden, setAgentHidden] = useState(true);
+  useEffect(() => { try { setAgentHidden(localStorage.getItem('inicio.agente.oculto') === '1'); } catch { setAgentHidden(false); } }, []);
   const [kpiForm, setKpiForm] = useState<KpiForm>(KPI_EMPTY);
 
   const load = useCallback(async () => {
@@ -240,6 +243,22 @@ export default function InicioPage() {
             <div className="mt-2 flex flex-wrap gap-2">{placeForm.results.map((p, i) => (<button key={i} disabled={busy} onClick={async () => { if (await post('/api/agent/dashboard', { action: 'places', [placeForm.which]: p }, T('Ciudad guardada.'))) setPlaceForm(f => ({ ...f, results: [], q: '' })); }} className="rounded-full border border-slate-200 px-3 py-1.5 text-sm hover:bg-slate-50">{p.name}</button>))}</div>
             <p className="mt-2 text-xs text-slate-500">{T('Casa')}: {home?.name || T('sin elegir')} · {T('Sede')}: {hq?.name || T('sin elegir')}</p>
           </Card>
+        )}
+
+        {d.agente && d.agente.llaves === 0 && !d.brain.viewingOther && !agentHidden && (
+          <section className="rounded-[20px] p-5" style={{ border: `1px solid ${BLUE}`, background: '#eef3ff' }} aria-labelledby="conecta-agente">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-[240px] flex-1">
+                <h2 id="conecta-agente" className="text-base font-bold">{T('Conecta tu agente · 3 pasos, 2 minutos')}</h2>
+                <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-700"><li>{T('Crea tu llave.')}</li><li>{T('Pégala en tu agente (ChatGPT, Claude u otro).')}</li><li>{T('Prueba la conexión.')}</li></ol>
+                <p className="mt-2 text-xs text-slate-500">{T('Tu agente pide y consulta; el Cerebro es quien escribe. La llave abre solo tu cerebro.')}</p>
+              </div>
+              <div className="flex flex-col items-stretch gap-2">
+                <Link href="/mi-agente" className="rounded-full px-5 py-2.5 text-center text-sm font-semibold text-white" style={{ background: BLUE }}>{T('Conectar mi agente')}</Link>
+                <button type="button" className="text-xs text-slate-500 underline" onClick={() => { try { localStorage.setItem('inicio.agente.oculto', '1'); } catch {} setAgentHidden(true); }}>{T('Ahora no')}</button>
+              </div>
+            </div>
+          </section>
         )}
 
         {d.brain.isEmpty && !d.brain.viewingOther && (
