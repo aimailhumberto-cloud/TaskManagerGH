@@ -6,6 +6,7 @@
  * Se fija por pedido con withLang(); fuera de eso todo sigue en español, como antes.
  */
 import { AsyncLocalStorage } from 'async_hooks';
+import { pickLang } from './langPick';
 
 export type Lang = 'es' | 'en';
 interface Ctx { reply: Lang; work: Lang }
@@ -39,7 +40,10 @@ export function detectLang(text: string, hint: Lang = 'es'): Lang {
 export function langFromRequest(req: { headers: Headers; url?: string; cookies?: { get(n: string): { value: string } | undefined } }): Lang {
   const h = asLang(req.headers.get('x-lang')); if (h) return h;
   try { const q = asLang(new URL(req.url || '', 'http://x').searchParams.get('lang')); if (q) return q; } catch {}
-  const c = asLang(req.cookies?.get('cerebro_lang')?.value ?? /(?:^|;\s*)cerebro_lang=(en|es)/.exec(req.headers.get('cookie') || '')?.[1]); return c ?? 'es';
+  const c = asLang(req.cookies?.get('cerebro_lang')?.value ?? /(?:^|;\s*)cerebro_lang=(en|es)/.exec(req.headers.get('cookie') || '')?.[1]); if (c) return c;
+  // Una persona en su navegador manda Accept-Language: sus mensajes salen en su idioma (o en inglés si no es español ni inglés).
+  // Un agente o un script no lo manda: español, como siempre.
+  const accept = req.headers.get('accept-language'); return accept ? pickLang({ accept }) : 'es';
 }
 /** Para rutas que no pasan por withBrain: sus mensajes salen en el idioma de la petición. */
 export function withReqLang<H extends (req: any, ...rest: any[]) => any>(handler: H): H {

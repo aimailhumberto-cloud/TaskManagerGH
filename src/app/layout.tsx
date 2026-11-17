@@ -1,6 +1,7 @@
 import './globals.css';
 import React from 'react';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
+import { pickLang } from '@/lib/langPick';
 import { decryptSession } from '@/lib/session';
 import { UiLangProvider } from '@/lib/uiLang';
 import FooterProfile from '@/components/FooterProfile';
@@ -9,7 +10,7 @@ import dbService from '@/services/dbService';
 import {verifiedProfile} from '@/lib/publicWorkspace';
 
 /** Idioma de la pantalla según la cookie: la página sale ya en ese idioma, sin salto. */
-const uiLangOf = async (): Promise<'es' | 'en'> => ((await cookies()).get('cerebro_lang')?.value === 'en' ? 'en' : 'es');
+const uiLangOf = async (): Promise<'es' | 'en'> => pickLang({ cookie: (await cookies()).get('cerebro_lang')?.value, accept: (await headers()).get('accept-language') });
 export async function generateMetadata() {
   const en = (await uiLangOf()) === 'en';
   return { title: en ? 'Second Brain · S.M. Jaleel' : 'Segundo Cerebro · S.M. Jaleel', description: en ? 'Tasks, business and commitments in one place' : 'Tareas, negocios y compromisos en un solo lugar' };
@@ -21,7 +22,8 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const cookieStore = await cookies();
-  const uiLang: 'es' | 'en' = cookieStore.get('cerebro_lang')?.value === 'en' ? 'en' : 'es';
+  // Lo que eligió la persona; si no, el idioma de su navegador (español o inglés); si no, inglés.
+  const uiLang: 'es' | 'en' = pickLang({ cookie: cookieStore.get('cerebro_lang')?.value, accept: (await headers()).get('accept-language') });
   const sessionCookie = cookieStore.get('hermes_session');
   let sessionData = null;
   let ownBrain = false; // sesión de una cuenta propia

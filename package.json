@@ -57,6 +57,7 @@
     "test:nombre": "tsx scripts/test-nombre.ts",
     "test:blindaje": "tsx scripts/test-blindaje.ts",
     "test:ruido": "tsx scripts/test-ruido.ts",
+    "test:idioma": "tsx scripts/test-idioma.ts",
     "test:conexion": "tsx scripts/test-conexion.ts",
     "test:rescate": "tsx scripts/test-rescate.ts",
     "test:panel": "tsx scripts/test-panel.ts",

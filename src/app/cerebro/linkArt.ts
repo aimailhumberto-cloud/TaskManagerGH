@@ -25,7 +25,7 @@ const REL_NAME: Record<string, [string, string]> = {
 let langAt = 0, lang: 0 | 1 = 0;
 function relName(rel: string): string {
   const now = Date.now();
-  if (now - langAt > 2000) { langAt = now; try { lang = localStorage.getItem('cerebro_lang') === 'en' ? 1 : 0; } catch { lang = 0; } }
+  if (now - langAt > 2000) { langAt = now; try { lang = (localStorage.getItem('cerebro_lang') || document.documentElement.lang) === 'en' ? 1 : 0; } catch { lang = 0; } }
   return (REL_NAME[rel] || [rel.replace(/_/g, ' '), rel.replace(/_/g, ' ')])[lang];
 }
 

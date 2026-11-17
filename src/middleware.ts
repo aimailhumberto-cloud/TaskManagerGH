@@ -1,10 +1,18 @@
 import { publicHbPath } from '@/lib/publicHbRoutes';
+import { pickLang, fromAcceptLanguage } from '@/lib/langPick';
 import { externalRouteBlocked } from '@/lib/runtimePolicy';
 import { NextResponse, NextRequest } from 'next/server';
 import { validEdgeSession, edgeSessionPayload } from '@/lib/sessionPayload';
 import { gateDecision, loginRequiredFrom, serviceKeyMatches, ownBrainDecision, agentKeyPresented, retiredPage } from '@/lib/loginGate';
 // El middleware corre en el borde (sin async_hooks): lee el idioma de la petición directamente.
-const wantsEn = (r: NextRequest) => (r.headers.get('x-lang') || r.nextUrl.searchParams.get('lang') || r.cookies.get('cerebro_lang')?.value) === 'en';
+const wantsEn = (r: NextRequest) => {
+  const explicit = r.headers.get('x-lang') || r.nextUrl.searchParams.get('lang');
+  if (explicit === 'en' || explicit === 'es') return explicit === 'en';
+  // Una persona en su navegador: lo que eligió; si no, el idioma del navegador; si no, inglés. Un agente o un script (sin Accept-Language) sigue en español.
+  const accept = r.headers.get('accept-language');
+  const cookie = r.cookies.get('cerebro_lang')?.value;
+  return accept || cookie ? pickLang({ cookie, accept }) === 'en' : false;
+};
 export async function middleware(request: NextRequest) {
   const en = wantsEn(request);
   const path = request.nextUrl.pathname;
