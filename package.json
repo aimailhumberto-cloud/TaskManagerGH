@@ -59,6 +59,7 @@
     "test:ruido": "tsx scripts/test-ruido.ts",
     "test:idioma": "tsx scripts/test-idioma.ts",
     "test:conexion": "tsx scripts/test-conexion.ts",
+    "test:store-check": "tsx scripts/test-store-check.ts",
     "test:rescate": "tsx scripts/test-rescate.ts",
     "test:panel": "tsx scripts/test-panel.ts",
     "test:contrato": "tsx scripts/test-contrato.ts",

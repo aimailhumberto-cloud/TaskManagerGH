@@ -45,8 +45,8 @@ export function serviceKeyMatches(headers: { get(name: string): string | null },
  * El resto de la app todavía pertenece al espacio de trabajo del cerebro principal. Denegar por defecto.
  */
 const OWN_BRAIN_ALLOWED = [
-  /^\/(inicio|cerebro|pedir|tasks|mi-agenda|mis-tareas|mi-agente|compania|usuarios|cambiar-clave|login|setup)(\/|$)/,
-  /^\/api\/auth(\/|$)/, /^\/api\/admin(\/|$)/, /^\/api\/people(\/|$)/, /^\/api\/keys(\/|$)/, /^\/api\/brain-view(\/|$)/,
+  /^\/(inicio|cerebro|pedir|tasks|mi-agenda|mis-tareas|mi-agente|store-check|compania|usuarios|cambiar-clave|login|setup)(\/|$)/,
+  /^\/api\/auth(\/|$)/, /^\/api\/store-checks(\/|$)/, /^\/api\/admin(\/|$)/, /^\/api\/people(\/|$)/, /^\/api\/keys(\/|$)/, /^\/api\/brain-view(\/|$)/,
   /^\/api\/agent\/(brain|tasks|dots-sleep|vault-sync|shared|dashboard|kpis|agenda|assets|changes|brief|map|search|dossier|cerebro)(\/|$)/,
 ];
 export function ownBrainDecision(path: string, brain: unknown): 'allow' | 'redirect' | 'deny' {

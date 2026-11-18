@@ -48,16 +48,17 @@ export default function WorkspaceNavigation({
 
   const H = 'M3 10l9-7 9 7v10H3z', B = 'M12 2a9 9 0 019 9c0 3.87-2.69 7.1-6.4 8.48l-.6.22V22h-4v-2.3l-.6-.22A9.002 9.002 0 013 11a9 9 0 019-9z';
   const A = 'M5 5h14v16H5zM8 3v4m8-4v4M5 10h14', T = 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4';
+  const SC = 'M3 9l1.5-5h15L21 9M3 9h18M3 9v11h18V9M9 20v-6h6v6';
   const U = 'M16 11a4 4 0 10-8 0 4 4 0 008 0zM4 21a8 8 0 0116 0';
   // Cuentas propias (todas, incluida la del dueño): Inicio, Cerebro, Agenda, Tareas y, para gerencia, Usuarios.
-  const modern: string[][] = [['/inicio', L('Inicio', 'Home'), H], ['/cerebro', L('Cerebro', 'Brain'), B], ['/pedir', L('Pedir', 'Ask'), 'M4 5h16v11H9l-5 4z'], ['/mi-agenda', L('Agenda', 'Agenda'), A], ['/tasks', L('Tareas', 'Tasks'), T], ['/mi-agente', L('Mi agente', 'My agent'), 'M9 2v5m6-5v5M6 7h12v5a6 6 0 01-12 0V7zm6 11v4'], ...(canManage ? [['/usuarios', L('Usuarios', 'Users'), U]] : [])];
+  const modern: string[][] = [['/inicio', L('Inicio', 'Home'), H], ['/cerebro', L('Cerebro', 'Brain'), B], ['/pedir', L('Pedir', 'Ask'), 'M4 5h16v11H9l-5 4z'], ['/mi-agenda', L('Agenda', 'Agenda'), A], ['/tasks', L('Tareas', 'Tasks'), T], ['/store-check', 'Store check', SC], ['/mi-agente', L('Mi agente', 'My agent'), 'M9 2v5m6-5v5M6 7h12v5a6 6 0 01-12 0V7zm6 11v4'], ...(canManage ? [['/usuarios', L('Usuarios', 'Users'), U]] : [])];
   // Sin sesión propia (modo anterior): el menú histórico.
   const legacy: string[][] = [
     ['/', L('Inicio', 'Home'), H], ['/tasks', L('Tareas', 'Tasks'), T], ['/cerebro', L('Cerebro SMJ', 'SMJ Brain'), B],
     ['/empresas', L('Empresas', 'Companies'), 'M4 21V3h16v18M8 7h1m6 0h1M8 11h1m6 0h1M10 21v-6h4v6'], ['/agenda', L('Agenda', 'Agenda'), A],
     ['/supervision', L('Supervisión', 'Oversight'), 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
-    ['/buscar', L('Buscar', 'Search'), 'M21 21l-6-6M17 10a7 7 0 11-14 0 7 7 0 0114 0'], ['/whatsapp', 'WhatsApp', 'M4 4h16v13H9l-5 4z'],
-  ].filter(([href]) => !publicOnly || href !== '/whatsapp');
+    ['/buscar', L('Buscar', 'Search'), 'M21 21l-6-6M17 10a7 7 0 11-14 0 7 7 0 0114 0'], ['/whatsapp', 'WhatsApp', 'M4 4h16v13H9l-5 4z'], ['/store-check', 'Store check', SC],
+  ].filter(([href]) => !publicOnly || (href !== '/whatsapp' && href !== '/store-check'));
   const navItems = local ? modern : legacy;
 
   // Contador de cada entrada: en azul claro lo que pide atención hoy; discreto el total de notas.
